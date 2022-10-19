@@ -1,0 +1,81 @@
+{
+  "name": "@uniswap/api-template",
+  "version": "0.1.0",
+  "bin": {
+    "app": "./dist/bin/app.js"
+  },
+  "license": "GPL",
+  "repository": "https://github.com/Uniswap/api-template",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist cdk.out",
+    "watch": "tsc -w",
+    "test": "ts-mocha -p tsconfig.cdk.json test/unit",
+    "integ-test": "env-cmd ts-mocha -p tsconfig.cdk.json -r dotenv/config test/integ/**/*.test.ts",
+    "cdk": "cdk",
+    "fix": "run-s fix:*",
+    "fix:prettier": "prettier \"lib/**/*.ts\" --write",
+    "fix:lint": "eslint lib --ext .ts --fix"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.77",
+    "@types/bunyan": "^1.8.6",
+    "@types/chai": "^4.2.22",
+    "@types/chai-as-promised": "^7.1.4",
+    "@types/expect": "^24.3.0",
+    "@types/mocha": "^8.2.3",
+    "@types/node": "^14.0.27",
+    "@types/uuid": "^8.3.0",
+    "@typescript-eslint/eslint-plugin": "^4.0.1",
+    "@typescript-eslint/parser": "^4.0.1",
+    "axios-retry": "^3.2.4",
+    "chai": "^4.3.4",
+    "chai-as-promised": "^7.1.1",
+    "chai-subset": "^1.6.0",
+    "esbuild": "^0.12.8",
+    "eslint": "^7.29.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-import": "^2.22.0",
+    "ethers": "^5.6.6",
+    "mocha": "^8.4.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^2.1.1",
+    "prettier-plugin-organize-imports": "^2.1.0",
+    "sinon": "^12.0.1",
+    "ts-node": "^8.10.2",
+    "typechain": "^5.0.0",
+    "typescript": "^4.2.3"
+  },
+  "dependencies": {
+    "@hapi/joi": "^17.1.1",
+    "@types/chai-subset": "^1.3.3",
+    "@types/hapi__joi": "^17.1.8",
+    "@types/qs": "^6.9.7",
+    "@types/sinon": "^10.0.6",
+    "@uniswap/default-token-list": "^3.2.0",
+    "@uniswap/token-lists": "^1.0.0-beta.24",
+    "aws-cdk-lib": "^2.24.1",
+    "aws-sdk": "^2.927.0",
+    "axios": "^0.21.1",
+    "bunyan": "^1.8.15",
+    "constructs": "^10.0.0",
+    "dotenv": "^16.0.1",
+    "env-cmd": "^10.1.0",
+    "esm": "^3.2.25",
+    "got": "^11.8.2",
+    "joi": "^17.6.0",
+    "qs": "^6.10.1",
+    "source-map-support": "^0.5.19",
+    "ts-mocha": "^8.0.0",
+    "uuid": "^3.4.0"
+  },
+  "prettier": {
+    "printWidth": 120,
+    "semi": false,
+    "singleQuote": true
+  },
+  "mocha": {
+    "env": "dotenv_config_path=./.env"
+  }
+}
