@@ -1,12 +1,9 @@
-/*
-import { GetTokensHandler } from './get-tokens/handler'
-import { GetTokensInjector } from './get-tokens/injector'
+import { GetOrdersHandler } from './get-orders/handler'
+import { GetOrdersInjector } from './get-orders/injector'
 
-const tokenListInjectorPromise = new GetTokensInjector('TokenListInjector').build()
-
-const tokenListHandler = new GetTokensHandler('quote', tokenListInjectorPromise)
+const getOrdersInjectorPromise = new GetOrdersInjector('getOrdersInjector').build()
+const getOrdersHandler = new GetOrdersHandler('get-orders', getOrdersInjectorPromise)
 
 module.exports = {
-  tokenListHandler: tokenListHandler.handler,
+  getOrdersHandler: getOrdersHandler.handler,
 }
-*/
