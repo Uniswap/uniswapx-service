@@ -72,7 +72,7 @@ export class DynamoStack extends cdk.NestedStack {
         name: 'creator',
         type: aws_dynamo.AttributeType.STRING,
       },
-      // in us-east-2, $1.25 per mission WRU, $0.25 per million RRU
+      // in us-east-2, $1.25 per million WRU, $0.25 per million RRU
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
     })
   }
