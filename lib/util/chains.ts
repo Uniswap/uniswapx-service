@@ -30,28 +30,28 @@ export enum ChainName {
 export const ID_TO_NETWORK_NAME = (id: number): ChainName => {
   switch (id) {
     case 1:
-      return ChainName.MAINNET;
+      return ChainName.MAINNET
     case 3:
-      return ChainName.ROPSTEN;
+      return ChainName.ROPSTEN
     case 4:
-      return ChainName.RINKEBY;
+      return ChainName.RINKEBY
     case 5:
-      return ChainName.GÖRLI;
+      return ChainName.GÖRLI
     case 42:
-      return ChainName.KOVAN;
+      return ChainName.KOVAN
     case 10:
-      return ChainName.OPTIMISM;
+      return ChainName.OPTIMISM
     case 69:
-      return ChainName.OPTIMISTIC_KOVAN;
+      return ChainName.OPTIMISTIC_KOVAN
     case 42161:
-      return ChainName.ARBITRUM_ONE;
+      return ChainName.ARBITRUM_ONE
     case 421611:
-      return ChainName.ARBITRUM_RINKEBY;
+      return ChainName.ARBITRUM_RINKEBY
     case 137:
-      return ChainName.POLYGON;
+      return ChainName.POLYGON
     case 80001:
-      return ChainName.POLYGON_MUMBAI;
+      return ChainName.POLYGON_MUMBAI
     default:
-      throw new Error(`Unknown chain id: ${id}`);
+      throw new Error(`Unknown chain id: ${id}`)
   }
-};
+}

@@ -64,7 +64,7 @@
   },
   "prettier": {
     "printWidth": 120,
-    "semi": true,
+    "semi": false,
     "singleQuote": true
   },
   "mocha": {

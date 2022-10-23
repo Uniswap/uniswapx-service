@@ -1,16 +1,16 @@
-import * as cdk from 'aws-cdk-lib';
-import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb';
-import { Construct } from 'constructs';
-import { SERVICE_NAME } from '../constants';
+import * as cdk from 'aws-cdk-lib'
+import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
+import { Construct } from 'constructs'
+import { SERVICE_NAME } from '../constants'
 
 export interface DynamoStackProps extends cdk.NestedStackProps {}
 
 export class DynamoStack extends cdk.NestedStack {
-  public readonly ordersTable: aws_dynamo.Table;
-  public readonly nonceTable: aws_dynamo.Table;
+  public readonly ordersTable: aws_dynamo.Table
+  public readonly nonceTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
-    super(scope, id, props);
+    super(scope, id, props)
 
     /* orders table */
     this.ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}OrdersTable`, {
@@ -21,7 +21,7 @@ export class DynamoStack extends cdk.NestedStack {
       },
       // in us-east-2, $1.25 per million WRU, $0.25 per million RRU
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
-    });
+    })
 
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'creatorIndex',
@@ -35,7 +35,7 @@ export class DynamoStack extends cdk.NestedStack {
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
       nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature'],
-    });
+    })
 
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'sellTokenIndex',
@@ -49,7 +49,7 @@ export class DynamoStack extends cdk.NestedStack {
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
       nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature'],
-    });
+    })
 
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'orderStatusIndex',
@@ -63,7 +63,7 @@ export class DynamoStack extends cdk.NestedStack {
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
       nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature'],
-    });
+    })
 
     /* nonce table */
     this.ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
@@ -74,6 +74,6 @@ export class DynamoStack extends cdk.NestedStack {
       },
       // in us-east-2, $1.25 per million WRU, $0.25 per million RRU
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
-    });
+    })
   }
 }
