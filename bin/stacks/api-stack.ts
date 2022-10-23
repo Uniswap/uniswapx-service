@@ -1,35 +1,35 @@
-import * as cdk from 'aws-cdk-lib'
-import { CfnOutput, Duration } from 'aws-cdk-lib'
-import * as aws_apigateway from 'aws-cdk-lib/aws-apigateway'
-import { MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway'
-import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
-import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions'
-import * as aws_logs from 'aws-cdk-lib/aws-logs'
-import * as aws_sns from 'aws-cdk-lib/aws-sns'
-import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
-import { Construct } from 'constructs'
-import { STAGE } from '../../lib/util/stage'
-import { SERVICE_NAME } from '../constants'
+import * as cdk from 'aws-cdk-lib';
+import { CfnOutput, Duration } from 'aws-cdk-lib';
+import * as aws_apigateway from 'aws-cdk-lib/aws-apigateway';
+import { MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway';
+import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as aws_logs from 'aws-cdk-lib/aws-logs';
+import * as aws_sns from 'aws-cdk-lib/aws-sns';
+import * as aws_waf from 'aws-cdk-lib/aws-wafv2';
+import { Construct } from 'constructs';
+import { STAGE } from '../../lib/util/stage';
+import { SERVICE_NAME } from '../constants';
 
 export class APIStack extends cdk.Stack {
-  public readonly url: CfnOutput
+  public readonly url: CfnOutput;
 
   constructor(
     parent: Construct,
     name: string,
     props: cdk.StackProps & {
-      infuraProjectId: string
-      provisionedConcurrency: number
-      throttlingOverride?: string
-      chatbotSNSArn?: string
-      stage: string
+      infuraProjectId: string;
+      provisionedConcurrency: number;
+      throttlingOverride?: string;
+      chatbotSNSArn?: string;
+      stage: string;
     }
   ) {
-    super(parent, name, props)
+    super(parent, name, props);
 
-    const { throttlingOverride, chatbotSNSArn, stage } = props
+    const { throttlingOverride, chatbotSNSArn, stage } = props;
 
-    const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
+    const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`);
 
     const api = new aws_apigateway.RestApi(this, `${SERVICE_NAME}`, {
       restApiName: `${SERVICE_NAME}`,
@@ -53,7 +53,7 @@ export class APIStack extends cdk.Stack {
         allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
         allowMethods: aws_apigateway.Cors.ALL_METHODS,
       },
-    })
+    });
 
     const ipThrottlingACL = new aws_waf.CfnWebACL(this, `${SERVICE_NAME}IPThrottlingACL`, {
       defaultAction: { allow: {} },
@@ -103,15 +103,15 @@ export class APIStack extends cdk.Stack {
           },
         },
       ],
-    })
+    });
 
-    const region = cdk.Stack.of(this).region
-    const apiArn = `arn:aws:apigateway:${region}::/restapis/${api.restApiId}/stages/${api.deploymentStage.stageName}`
+    const region = cdk.Stack.of(this).region;
+    const apiArn = `arn:aws:apigateway:${region}::/restapis/${api.restApiId}/stages/${api.deploymentStage.stageName}`;
 
     new aws_waf.CfnWebACLAssociation(this, `${SERVICE_NAME}IPThrottlingAssociation`, {
       resourceArn: apiArn,
       webAclArn: ipThrottlingACL.getAtt('Arn').toString(),
-    })
+    });
 
     const apiAlarm5xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-5XXAlarm`, {
       metric: api.metricServerError({
@@ -122,7 +122,7 @@ export class APIStack extends cdk.Stack {
       threshold: 0.05,
       // Beta has much less traffic so is more susceptible to transient errors.
       evaluationPeriods: stage == STAGE.BETA ? 5 : 3,
-    })
+    });
 
     const apiAlarm4xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-4XXAlarm`, {
       metric: api.metricClientError({
@@ -131,7 +131,7 @@ export class APIStack extends cdk.Stack {
       }),
       threshold: 0.8,
       evaluationPeriods: 3,
-    })
+    });
 
     const apiAlarmLatency = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-Latency`, {
       metric: api.metricLatency({
@@ -140,17 +140,17 @@ export class APIStack extends cdk.Stack {
       }),
       threshold: 7500,
       evaluationPeriods: 3,
-    })
+    });
 
     if (chatbotSNSArn) {
-      const chatBotTopic = aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
-      apiAlarm5xx.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarm4xx.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarmLatency.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      const chatBotTopic = aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn);
+      apiAlarm5xx.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic));
+      apiAlarm4xx.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic));
+      apiAlarmLatency.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic));
     }
 
     this.url = new CfnOutput(this, 'Url', {
       value: api.url,
-    })
+    });
   }
 }
