@@ -3,9 +3,9 @@ export enum ORDER_STATUS {
   NONCE_USED = 'nonceUsed',
   EXPIRED = 'expired',
   ERROR = 'error',
-  // these states won't be used until we poll blockchain events
   CANCELLED = 'cancelled',
   FILLED = 'filled',
+  UNVERIFIED = 'unverified',
 }
 
 export type Order = {
@@ -14,7 +14,7 @@ export type Order = {
   signature: string
   orderHash: string
   orderStatus: ORDER_STATUS
-  creator: string
+  offerer: string
   sourceChainId: number
   destinationChainId: number
 }

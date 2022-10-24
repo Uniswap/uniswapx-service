@@ -1,12 +1,20 @@
 import Joi from '@hapi/joi'
-import { Order } from '../../types/order'
+import { Order, ORDER_STATUS } from '../../types/order'
 
 export const GetOrdersQueryParamsJoi = Joi.object({
   limit: Joi.number(),
-  orderStatus: Joi.string().valid('open', 'filled', 'cancelled', 'expired', 'nonceUsed', 'error'),
+  orderStatus: Joi.string().valid(
+    ORDER_STATUS.OPEN,
+    ORDER_STATUS.FILLED,
+    ORDER_STATUS.CANCELLED,
+    ORDER_STATUS.EXPIRED,
+    ORDER_STATUS.NONCE_USED,
+    ORDER_STATUS.ERROR,
+    ORDER_STATUS.UNVERIFIED
+  ),
   orderHash: Joi.string(),
   orderType: Joi.string().valid('dutch-limit'),
-  creator: Joi.string().length(42),
+  offerer: Joi.string().length(42),
   sellToken: Joi.string().length(42),
   chainId: Joi.number().greater(0),
   buyToken: Joi.string().length(42),
@@ -17,7 +25,7 @@ export type GetOrdersQueryParams = {
   limit?: number
   orderStatus?: string
   orderHash?: string
-  creator?: string
+  offerer?: string
   sellToken?: string
   chainId?: number
   buyToken?: string
@@ -34,7 +42,7 @@ export const OrderResponseEntryJoi = Joi.object({
   signature: Joi.string(),
   orderStatus: Joi.string(),
   orderHash: Joi.string(),
-  creator: Joi.string(),
+  offerer: Joi.string(),
 })
 
 export const GetOrdersResponseJoi = Joi.object({

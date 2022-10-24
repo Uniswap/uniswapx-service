@@ -7,7 +7,7 @@ export interface RequestInjected extends BaseRInj {
   limit: number
   orderStatus?: string
   orderHash?: string
-  creator?: string
+  offerer?: string
   sellToken?: string
   buyToken?: string
   chainId?: number
@@ -41,7 +41,7 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
     const limit = requestQueryParams?.limit ?? 0
     const orderStatus = requestQueryParams?.orderStatus
     const orderHash = requestQueryParams?.orderHash
-    const creator = requestQueryParams?.creator
+    const offerer = requestQueryParams?.offerer
     const sellToken = requestQueryParams?.sellToken
     const chainId = requestQueryParams?.chainId
     const buyToken = requestQueryParams?.buyToken
@@ -51,7 +51,7 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
       limit: limit,
       orderStatus: orderStatus,
       orderHash: orderHash,
-      creator: creator,
+      offerer: offerer,
       sellToken: sellToken,
       buyToken: buyToken,
       chainId: chainId,

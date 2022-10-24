@@ -108,3 +108,5 @@ cdk.out
 
 # VS Code settings
 .vscode
+
+.DS_Store

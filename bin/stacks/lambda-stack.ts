@@ -10,6 +10,7 @@ import * as aws_sns from 'aws-cdk-lib/aws-sns'
 import { Construct } from 'constructs'
 import * as path from 'path'
 import { SERVICE_NAME } from '../constants'
+import { DynamoStack } from './dynamo-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
@@ -30,12 +31,12 @@ export class LambdaStack extends cdk.NestedStack {
       assumedBy: new aws_iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-        aws_iam.ManagedPolicy.fromAwsManagedPolicyName('SecretsManagerReadWrite'),
-        aws_iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonRDSDataFullAccess'),
+        aws_iam.ManagedPolicy.fromAwsManagedPolicyName('AWSStepFunctionsFullAccess'),
+        aws_iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonDynamoDBFullAccess'),
       ],
     })
 
-    // new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
+    new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
 
     this.getOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetOrders${lambdaName}`, {
       role: lambdaRole,
@@ -52,8 +53,6 @@ export class LambdaStack extends cdk.NestedStack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
-
-    // ordersTable.grantReadData(this.getOrdersLambda)
 
     const getOrdersLambdaAlarmErrorRate = new aws_cloudwatch.Alarm(this, `GetOrdersLambdaErrorRate`, {
       metric: new aws_cloudwatch.MathExpression({
@@ -97,7 +96,7 @@ export class LambdaStack extends cdk.NestedStack {
     })
 
     if (enableProvisionedConcurrency) {
-      const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG-${lambdaName}`, {
+      const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
         maxCapacity: provisionedConcurrency * 5,
         minCapacity: provisionedConcurrency,
@@ -107,7 +106,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       getOrdersTarget.node.addDependency(this.getOrdersLambdaAlias)
 
-      getOrdersTarget.scaleToTrackMetric(`GetOrders-ProvConcTracking-${lambdaName}`, {
+      getOrdersTarget.scaleToTrackMetric(`GetOrders-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })

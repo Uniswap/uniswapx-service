@@ -24,9 +24,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: 'creatorIndex',
+      indexName: 'offererIndex',
       partitionKey: {
-        name: 'creator',
+        name: 'offerer',
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -34,7 +34,7 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature'],
+      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'sellToken', 'orderStatus'],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -48,7 +48,7 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature'],
+      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'offerer', 'orderStatus'],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -62,14 +62,14 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature'],
+      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'offerer', 'sellToken'],
     })
 
     /* nonce table */
-    this.ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
+    this.nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
       tableName: 'Nonces',
       partitionKey: {
-        name: 'creator',
+        name: 'offerer',
         type: aws_dynamo.AttributeType.STRING,
       },
       // in us-east-2, $1.25 per million WRU, $0.25 per million RRU
