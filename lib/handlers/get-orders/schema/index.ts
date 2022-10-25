@@ -16,9 +16,6 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   orderType: Joi.string().valid('dutch-limit'),
   offerer: Joi.string().length(42),
   sellToken: Joi.string().length(42),
-  chainId: Joi.number().greater(0),
-  buyToken: Joi.string().length(42),
-  deadline: Joi.string(),
 })
 
 export type GetOrdersQueryParams = {
@@ -27,9 +24,6 @@ export type GetOrdersQueryParams = {
   orderHash?: string
   offerer?: string
   sellToken?: string
-  chainId?: number
-  buyToken?: string
-  deadline?: string
 }
 
 export type GetOrdersResponse = {
@@ -48,3 +42,11 @@ export const OrderResponseEntryJoi = Joi.object({
 export const GetOrdersResponseJoi = Joi.object({
   orders: Joi.array().items(OrderResponseEntryJoi),
 })
+
+export enum GET_QUERY_PARAMS {
+  LIMIT = 'limit',
+  SELL_TOKEN = 'sellToken',
+  OFFERER = 'offerer',
+  ORDER_STATUS = 'orderStatus',
+  ORDER_HASH = 'orderHash',
+}

@@ -30,7 +30,7 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
-        name: 'deadline',
+        name: 'createdAt',
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
@@ -44,7 +44,7 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
-        name: 'deadline',
+        name: 'createdAt',
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
@@ -58,11 +58,45 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
-        name: 'deadline',
+        name: 'createdAt',
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
       nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'offerer', 'sellToken'],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: 'offerer-orderStatus-index',
+      partitionKey: {
+        name: 'offererOrderStatus',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'sellToken',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'createdAt'],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: 'offerer-sellToken-index',
+      partitionKey: {
+        name: 'offererSellToken',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'orderStatus', 'createdAt'],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: 'sellToken-orderStatus-index',
+      partitionKey: {
+        name: 'sellTokenOrderStatus',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'offerer', 'createdAt'],
     })
 
     /* nonce table */

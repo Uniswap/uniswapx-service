@@ -5,13 +5,12 @@ import { GetOrdersQueryParams } from './schema'
 
 export interface RequestInjected extends BaseRInj {
   limit: number
-  orderStatus?: string
-  orderHash?: string
-  offerer?: string
-  sellToken?: string
-  buyToken?: string
-  chainId?: number
-  deadline?: string
+  queryFilters: {
+    orderStatus?: string
+    orderHash?: string
+    offerer?: string
+    sellToken?: string
+  }
 }
 
 export interface ContainerInjected {}
@@ -43,19 +42,15 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
     const orderHash = requestQueryParams?.orderHash
     const offerer = requestQueryParams?.offerer
     const sellToken = requestQueryParams?.sellToken
-    const chainId = requestQueryParams?.chainId
-    const buyToken = requestQueryParams?.buyToken
-    const deadline = requestQueryParams?.deadline
 
     return {
       limit: limit,
-      orderStatus: orderStatus,
-      orderHash: orderHash,
-      offerer: offerer,
-      sellToken: sellToken,
-      buyToken: buyToken,
-      chainId: chainId,
-      deadline: deadline,
+      queryFilters: {
+        ...(orderStatus && { orderStatus: orderStatus }),
+        ...(orderHash && { orderHash: orderHash }),
+        ...(offerer && { offerer: offerer }),
+        ...(sellToken && { sellToken: sellToken }),
+      },
       requestId,
       log,
     }

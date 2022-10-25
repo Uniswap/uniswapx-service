@@ -128,9 +128,6 @@ export class APIStack extends cdk.Stack {
         'integration.request.querystring.orderHash': 'method.request.querystring.orderHash',
         'integration.request.querystring.offerer': 'method.request.querystring.offerer',
         'integration.request.querystring.sellToken': 'method.request.querystring.sellToken',
-        'integration.request.querystring.buyToken': 'method.request.querystring.buyToken',
-        'integration.request.querystring.deadline': 'method.request.querystring.deadline',
-        'integration.request.querystring.chainId': 'method.request.querystring.chainId',
       },
       cacheKeyParameters: [
         'method.request.querystring.limit',
@@ -138,9 +135,6 @@ export class APIStack extends cdk.Stack {
         'method.request.querystring.orderHash',
         'method.request.querystring.offerer',
         'method.request.querystring.sellToken',
-        'method.request.querystring.buyToken',
-        'method.request.querystring.deadline',
-        'method.request.querystring.chainId',
       ],
     })
 
@@ -159,9 +153,6 @@ export class APIStack extends cdk.Stack {
         'method.request.querystring.orderHash': false,
         'method.request.querystring.offerer': false,
         'method.request.querystring.sellToken': false,
-        'method.request.querystring.buyToken': false,
-        'method.request.querystring.deadline': false,
-        'method.request.querystring.chainId': false,
       },
     })
 

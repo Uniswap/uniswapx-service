@@ -16,5 +16,4 @@ export type Order = {
   orderStatus: ORDER_STATUS
   offerer: string
   sourceChainId: number
-  destinationChainId: number
 }
