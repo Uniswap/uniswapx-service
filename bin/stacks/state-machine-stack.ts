@@ -10,6 +10,7 @@ import path from 'path';
 import { ORDER_STATUS } from '../../lib/handlers/types/order';
 import { STAGE } from '../../lib/util/stage';
 import updateDbOrderStatusJson from './custom-state-json/insert-dynamodb.json'
+import { Table } from 'aws-cdk-lib/aws-dynamodb';
 
 export class StateMachineStack extends cdk.Stack {
   public stateMachineARN: string;
@@ -59,11 +60,19 @@ export class StateMachineStack extends cdk.Stack {
 
     const succeedStep = new sfn.Succeed(this, `${SERVICE_NAME}-OrderInTerminalState`)
 
-    // custom step which represents a task to update the order status in DynamoDB
-    const updateOrderStatusStep = new sfn.CustomState(this, `${SERVICE_NAME}-UpdateOrderStatusStep`, {
-      stateJson: updateDbOrderStatusJson,
-    });
-
+    // task to update the order status in DynamoDB
+    const updateOrderStatusStep = new tasks.DynamoUpdateItem(this, `${SERVICE_NAME}-UpdateOrderStatusStep`, {
+      key: {
+        orderHash: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt('$.orderHash'))
+      },
+      table: Table.fromTableName(this, `${SERVICE_NAME}-StepFunction-DynamoDb-Orders`, 'Orders'),
+      expressionAttributeValues: {
+        ":orderStatus": tasks.DynamoAttributeValue.fromString("$.prevCheckOrderOutput.Payload.orderStatus")
+      },
+      updateExpression: "SET orderStatus = :orderStatus",
+      resultPath: "$.updateOrderStatusOutput"
+    })
+    
     const checkTerminalStatusStep = new sfn.Choice(this, `${SERVICE_NAME}-OrderStatusTerminal?`)
       .when(sfn.Condition.stringEquals('$.prevCheckOrderOutput.Payload.orderStatus', ORDER_STATUS.OPEN), waitStep)
       .when(sfn.Condition.stringEquals('$.prevCheckOrderOutput.Payload.orderStatus', ORDER_STATUS.FILLED), succeedStep)
