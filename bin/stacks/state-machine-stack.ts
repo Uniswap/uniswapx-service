@@ -9,6 +9,7 @@ import { SERVICE_NAME } from '../constants';
 import path from 'path';
 import { ORDER_STATUS } from '../../lib/handlers/types/order';
 import { STAGE } from '../../lib/util/stage';
+import updateDbOrderStatusJson from './custom-state-json/insert-dynamodb.json'
 
 export class StateMachineStack extends cdk.Stack {
   public stateMachineARN: string;
@@ -53,28 +54,6 @@ export class StateMachineStack extends cdk.Stack {
       resultPath: '$.prevCheckOrderOutput',
     })
 
-    // States language JSON to put an item into DynamoDB
-    // snippet generated from https://docs.aws.amazon.com/step-functions/latest/dg/tutorial-code-snippet.html#tutorial-code-snippet-1
-    const orderStatusStateJson = {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::dynamodb:updateItem",
-      "ResultPath": "$.updateOrderStatusOutput",
-      "Parameters": {
-        "TableName": "Orders",
-        "Key": {
-          "orderHash": {
-            "S.$": "$.orderHash"
-          }
-        },
-        "UpdateExpression": "SET orderStatus = :orderStatus",
-        "ExpressionAttributeValues": {
-          ":orderStatus": {
-            "S.$": "$.prevCheckOrderOutput.Payload.orderStatus"
-          }
-        },
-      },
-    };
-
     const waitStep = new sfn.Wait(this, `${SERVICE_NAME}-WaitStep`, {time: sfn.WaitTime.duration(Duration.seconds(10))})
       .next(checkOrderStatusStep)
 
@@ -82,7 +61,7 @@ export class StateMachineStack extends cdk.Stack {
 
     // custom step which represents a task to update the order status in DynamoDB
     const updateOrderStatusStep = new sfn.CustomState(this, `${SERVICE_NAME}-UpdateOrderStatusStep`, {
-      stateJson: orderStatusStateJson,
+      stateJson: updateDbOrderStatusJson,
     });
 
     const checkTerminalStatusStep = new sfn.Choice(this, `${SERVICE_NAME}-OrderStatusTerminal?`)

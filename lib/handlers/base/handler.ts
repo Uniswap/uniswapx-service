@@ -55,9 +55,9 @@ export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryPar
     containerInjected: CInj,
     requestBody: ReqBody,
     requestQueryParams: ReqQueryParams,
-    event: APIGatewayProxyEvent,
     context: Context,
-    log: Logger
+    log: Logger,
+    event?: APIGatewayProxyEvent,
   ): Promise<RInj>
 
   public abstract buildContainerInjected(): Promise<CInj>
@@ -83,8 +83,8 @@ const INTERNAL_ERROR = (id?: string) => {
 
 export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams, Res> {
   constructor(
-    private handlerName: string,
-    private injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
+    private readonly handlerName: string,
+    private readonly injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
   ) {}
 
   get handler(): APIGatewayProxyHandler {
@@ -143,9 +143,9 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
           containerInjected,
           requestBody,
           requestQueryParams,
-          event,
           context,
-          log
+          log,
+          event
         )
       } catch (err) {
         log.error({ err, event }, 'Unexpected error building request injected.')
@@ -349,7 +349,7 @@ export abstract class StateMachineLambdaHandler<CInj, RInj extends BaseRInj, Req
     private injectorPromise: Promise<Injector<CInj, RInj, null, ReqQueryParams>>
   ) {}
 
-  get handler(): (event: any, context: Context) => Promise<Res> {
+  get handler(): (event: ReqQueryParams, context: Context) => Promise<Res> {
     return async (event, context): Promise<Res> => {
       const handler = this.buildHandler()
 
@@ -360,9 +360,8 @@ export abstract class StateMachineLambdaHandler<CInj, RInj extends BaseRInj, Req
     }
   }
 
-  private buildHandler(): (event: any, context: Context) => Promise<Res> {
-    // TODO: Change event type
-    return async (event: any, context: Context): Promise<Res> => {
+  private buildHandler(): (event: ReqQueryParams, context: Context) => Promise<Res> {
+    return async (event: ReqQueryParams, context: Context): Promise<Res> => {
       let log: Logger = bunyan.createLogger({
         name: this.handlerName,
         serializers: bunyan.stdSerializers,
@@ -380,7 +379,6 @@ export abstract class StateMachineLambdaHandler<CInj, RInj extends BaseRInj, Req
       })
 
       log.info({ event, context }, 'Request started.')
-      const requestQueryParams: ReqQueryParams = event
       const injector = await this.injectorPromise
       const containerInjected = await injector.getContainerInjected()
       let requestInjected: RInj
@@ -388,8 +386,7 @@ export abstract class StateMachineLambdaHandler<CInj, RInj extends BaseRInj, Req
         requestInjected = await injector.getRequestInjected(
           containerInjected,
           null,
-          requestQueryParams,
-          event,
+          event, // requestQueryParams
           context,
           log
         )
@@ -404,9 +401,9 @@ export abstract class StateMachineLambdaHandler<CInj, RInj extends BaseRInj, Req
 
       try {
         handleRequestResult = await this.handleRequest({
-          requestQueryParams,
           containerInjected,
           requestInjected,
+          requestQueryParams: event
         })
       } catch (err) {
         log.error({ err }, 'Unexpected error in handler')

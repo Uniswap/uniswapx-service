@@ -2,7 +2,6 @@ import Joi from 'joi'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { PostOrderRequestBodyJoi, PostOrderRequestBody, PostOrderResponseJoi, PostOrderResponse } from './schema/index'
-import { JsonRpcProvider } from '@ethersproject/providers'
 import { ORDER_STATUS } from '../types/order'
 import { parseOrder } from 'gouda-sdk'
 import { StepFunctions, DynamoDB } from 'aws-sdk'
@@ -21,21 +20,17 @@ export class PostOrderHandler extends APIGLambdaHandler<
   ): Promise<Response<any> | ErrorResponse> {
     const {
       requestBody,
-      requestInjected: { log, deadline, offerer, sellToken },
+      requestInjected: { log, deadline, offerer, sellToken, provider },
     } = params
 
     try {
       const { encodedOrder, signature, chainId } = requestBody!
-
-      const RPC = process.env[`RPC_${chainId}`]!
-      log.info(process.env)
       const hash = parseOrder(encodedOrder).hash()
-
-      const provider = new JsonRpcProvider(RPC)
-      const startBlockNumber = await provider.getBlockNumber()
-
       const dynamoClient = new DynamoDB.DocumentClient()
-      // Add Order to db
+
+      // Get block height right before inserting into dynamo
+      const startBlockNumber = await provider.getBlockNumber()
+      // Insert Order into db
       try {
         const put = await dynamoClient
           .put({

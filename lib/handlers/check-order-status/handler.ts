@@ -8,11 +8,11 @@ import { Payload, StateOutput } from './schema'
 
 export type CheckOrderStatusQueryParams = {
   orderHash: string
-  prevCheckOrderOutput: StateOutput
   startBlockNumber: number
   encodedOrder: string
   signature: string
   chainId: ChainId
+  prevCheckOrderOutput?: StateOutput
 }
 export class checkOrderStatusLambdaHandler extends StateMachineLambdaHandler<
   ContainerInjected,

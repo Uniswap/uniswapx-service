@@ -13,24 +13,6 @@ export interface CheckOrderStatusRequestInjected extends BaseRInj {
 
 export type ContainerDependencies = {
   provider: ethers.providers.JsonRpcProvider
-  /*
-  ####################################################
-  # providers we could potentially use in the future #
-  ####################################################
-  v3SubgraphProvider: IV3SubgraphProvider
-  v2SubgraphProvider: IV2SubgraphProvider
-  tokenListProvider: ITokenListProvider
-  gasPriceProvider: IGasPriceProvider
-  tokenProviderFromTokenList: ITokenProvider
-  blockedTokenListProvider: ITokenListProvider
-  v3PoolProvider: IV3PoolProvider
-  v2PoolProvider: IV2PoolProvider
-  tokenProvider: ITokenProvider
-  multicallProvider: UniswapMulticallProvider
-  onChainQuoteProvider?: OnChainQuoteProvider
-  v2QuoteProvider: V2QuoteProvider
-  simulator: ISimulator
-  */
 }
 
 export interface ContainerInjected {
@@ -89,9 +71,8 @@ export class CheckOrderStatusInjector extends Injector<
     containerInjected: ContainerInjected,
     _requestBody: null,
     requestQueryParams: CheckOrderStatusQueryParams,
-    _event: any,
     context: Context,
-    log: Logger
+    log: Logger,
   ): Promise<CheckOrderStatusRequestInjected> {
     const requestId = context.awsRequestId
     log = log.child({
