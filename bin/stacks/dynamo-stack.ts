@@ -66,7 +66,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     /* nonce table */
-    this.ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
+    this.nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
       tableName: 'Nonces',
       partitionKey: {
         name: 'creator',
