@@ -43,7 +43,7 @@ export class UnsupportedChainError extends Error {
 }
 
 export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams> {
-  private containerInjected: CInj
+  private containerInjected: CInj | undefined
   public constructor(protected injectorName: string) {}
 
   public async build() {
@@ -83,8 +83,8 @@ const INTERNAL_ERROR = (id?: string) => {
 
 export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams, Res> {
   constructor(
-    private handlerName: string,
-    private injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
+    private readonly handlerName: string,
+    private readonly injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
   ) {}
 
   get handler(): APIGatewayProxyHandler {

@@ -17,7 +17,6 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   chatbotSNSArn?: string
 }
 export class LambdaStack extends cdk.NestedStack {
-  public readonly lambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
 
