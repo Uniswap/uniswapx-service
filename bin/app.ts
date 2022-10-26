@@ -1,16 +1,17 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
-import * as chatbot from 'aws-cdk-lib/aws-chatbot'
-import { BuildEnvironmentVariableType } from 'aws-cdk-lib/aws-codebuild'
-import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
+import { BuildEnvironmentVariableType, BuildSpec } from 'aws-cdk-lib/aws-codebuild'
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
 import 'source-map-support/register'
+import { SUPPORTED_CHAINS } from '../lib/config/supported-chains'
+import { ChainId } from '../lib/util/chains'
 import { STAGE } from '../lib/util/stage'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
+import { StateMachineStack } from './stacks/state-machine-stack';
 dotenv.config()
 
 export class APIStage extends Stage {
@@ -20,20 +21,20 @@ export class APIStage extends Stage {
     scope: Construct,
     id: string,
     props: StageProps & {
-      infuraProjectId: string
       provisionedConcurrency: number
       chatbotSNSArn?: string
-      stage: string
+      stage: string,
+      envVars: { [key: string]: string }
     }
   ) {
     super(scope, id, props)
-    const { infuraProjectId, provisionedConcurrency, chatbotSNSArn, stage } = props
+    const { provisionedConcurrency, chatbotSNSArn, stage } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
-      infuraProjectId,
       provisionedConcurrency,
       chatbotSNSArn,
       stage,
+      envVars: { ...props.envVars, STATE_MACHINE_ARN: stateMachineStack.stateMachineARN }
     })
     this.url = url
   }
@@ -41,15 +42,16 @@ export class APIStage extends Stage {
 
 export class APIPipeline extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props)
+    super(scope, id, props);
 
-    const code = CodePipelineSource.gitHub('Uniswap/api-template', 'main', {
+    const code = CodePipelineSource.gitHub('Uniswap/gouda-service', 'main', {
       authentication: SecretValue.secretsManager('github-token-2'),
-    })
+    });
 
     const synthStep = new CodeBuildStep('Synth', {
       input: code,
       buildEnvironment: {
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -62,57 +64,50 @@ export class APIPipeline extends Stack {
         'yarn build',
         'npx cdk synth',
       ],
-    })
+    });
 
     const pipeline = new CodePipeline(this, `${SERVICE_NAME}Pipeline`, {
       // The pipeline name
       pipelineName: `${SERVICE_NAME}`,
       crossAccountKeys: true,
       synth: synthStep,
-    })
+    });
 
     // Secrets are stored in secrets manager in the pipeline account. Accounts we deploy to
     // have been granted permissions to access secrets via resource policies.
+    const goudaRpc = sm.Secret.fromSecretAttributes(this, 'goudaRpc', {
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-2-cXyqGh',
+    });
 
-    const infuraProjectId = sm.Secret.fromSecretAttributes(this, 'InfuraProjectId', {
-      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:infuraProjectId-UlSwK2',
-    })
+    const jsonRpcUrls: { [chain: string]: string } = {};
+    SUPPORTED_CHAINS.forEach((chainId: ChainId) => {
+      jsonRpcUrls[`RPC_${chainId}`] = goudaRpc.secretValueFromJson(chainId.toString()).toString();
+    });
 
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
-      env: { account: '000000000000', region: 'us-east-2' },
+      env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 20,
       stage: STAGE.BETA,
-      infuraProjectId: infuraProjectId.secretValue.toString(),
-    })
+      envVars: jsonRpcUrls,
+    });
 
-    const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
+    const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage);
 
-    this.addIntegTests(code, betaUsEast2Stage, betaUsEast2AppStage)
+    this.addIntegTests(code, betaUsEast2Stage, betaUsEast2AppStage);
 
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
-      env: { account: '000000000000', region: 'us-east-2' },
-      infuraProjectId: infuraProjectId.secretValue.toString(),
+      env: { account: '316116520258', region: 'us-east-2' },
       provisionedConcurrency: 100,
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
-    })
+      envVars: jsonRpcUrls,
+    });
 
-    const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
-
-    this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage)
-
-    const slackChannel = chatbot.SlackChannelConfiguration.fromSlackChannelConfigurationArn(
-      this,
-      'SlackChannel',
-      'arn:aws:chatbot::644039819003:chat-configuration/slack-channel/eng-ops-slack-chatbot'
-    )
-
-    pipeline.buildPipeline()
-    pipeline.pipeline.notifyOn('NotifySlack', slackChannel, {
-      events: [PipelineNotificationEvents.PIPELINE_EXECUTION_FAILED],
-    })
+    const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage);
+    this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage);
+    pipeline.buildPipeline();
   }
 
   private addIntegTests(
@@ -127,37 +122,61 @@ export class APIPipeline extends Stack {
         UNISWAP_API: apiStage.url,
       },
       buildEnvironment: {
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          GH_TOKEN: {
+            value: 'github-token-2',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
         },
       },
       commands: [
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && yarn install --frozen-lockfile',
+        'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
         'yarn install',
         'yarn build',
         'yarn integ-test',
       ],
-    })
+      partialBuildSpec: BuildSpec.fromObject({
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: '16',
+            },
+          },
+        },
+      }),
+    });
 
-    applicationStage.addPost(testAction)
+    applicationStage.addPost(testAction);
   }
 }
 
+
+// Local Dev Stack
 const app = new cdk.App()
 
-// Local dev stack
+const jsonRpcUrls = {} as {[key:string]:string}
+
+SUPPORTED_CHAINS.forEach(chainId => {
+  const name = `RPC_${chainId}`
+  jsonRpcUrls[name] = process.env[name]!
+})
+
+const stateMachineStack = new StateMachineStack(app, `${SERVICE_NAME}StateMachineStack`, { envVars: jsonRpcUrls, stage: STAGE.LOCAL })
+
 new APIStack(app, `${SERVICE_NAME}Stack`, {
-  infuraProjectId: process.env.PROJECT_ID!,
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
   stage: STAGE.LOCAL,
-})
+  envVars: {
+    ...jsonRpcUrls,
+    STATE_MACHINE_ARN: stateMachineStack.stateMachineARN
+  },
+});
 
-new APIPipeline(app, `${SERVICE_NAME}PipelineStack`, {
-  env: { account: '644039819003', region: 'us-east-2' },
-})

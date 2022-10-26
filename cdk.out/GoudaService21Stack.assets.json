@@ -1,0 +1,58 @@
+{
+  "version": "21.0.0",
+  "files": {
+    "074e12f45c79bac3023989afa8c3621208d2ec2cd483b8e2f82de06c60282a96": {
+      "source": {
+        "path": "/Users/raghavapamula/temp/gouda-service",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "current_account-current_region": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}",
+          "objectKey": "074e12f45c79bac3023989afa8c3621208d2ec2cd483b8e2f82de06c60282a96.zip",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-${AWS::Region}"
+        }
+      }
+    },
+    "b6f7cd6475eba3bca80ccd816097f704dce89d51eba164057bc5917034fed353": {
+      "source": {
+        "path": "GoudaService21StackGoudaService21LambdaStackGoudaService21DynamoStack5773E0EB.nested.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-current_region": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}",
+          "objectKey": "b6f7cd6475eba3bca80ccd816097f704dce89d51eba164057bc5917034fed353.json",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-${AWS::Region}"
+        }
+      }
+    },
+    "ef25566962c000ec9fd9f90d9dea48affa968aba89bae34ba1f58a5c27b44287": {
+      "source": {
+        "path": "GoudaService21StackGoudaService21LambdaStack6892E72B.nested.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-current_region": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}",
+          "objectKey": "ef25566962c000ec9fd9f90d9dea48affa968aba89bae34ba1f58a5c27b44287.json",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-${AWS::Region}"
+        }
+      }
+    },
+    "dc52e16b2fdaf2c45b4d3c772632781db0aa9f769ac6d6f0dc55d30bef304c0d": {
+      "source": {
+        "path": "GoudaService21Stack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "current_account-current_region": {
+          "bucketName": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}",
+          "objectKey": "dc52e16b2fdaf2c45b4d3c772632781db0aa9f769ac6d6f0dc55d30bef304c0d.json",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-file-publishing-role-${AWS::AccountId}-${AWS::Region}"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

@@ -1,0 +1,648 @@
+{
+ "Resources": {
+  "GoudaService21LambdaStackNestedStackGoudaService21LambdaStackNestedStackResourceEDE2AE3E": {
+   "Type": "AWS::CloudFormation::Stack",
+   "Properties": {
+    "TemplateURL": {
+     "Fn::Join": [
+      "",
+      [
+       "https://s3.",
+       {
+        "Ref": "AWS::Region"
+       },
+       ".",
+       {
+        "Ref": "AWS::URLSuffix"
+       },
+       "/",
+       {
+        "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+       },
+       "/ef25566962c000ec9fd9f90d9dea48affa968aba89bae34ba1f58a5c27b44287.json"
+      ]
+     ]
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack.NestedStack/GoudaService21LambdaStack.NestedStackResource",
+    "aws:asset:path": "GoudaService21StackGoudaService21LambdaStack6892E72B.nested.template.json",
+    "aws:asset:property": "TemplateURL"
+   }
+  },
+  "GoudaService21APIGAccessLogs0E1217FC": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "RetentionInDays": 731
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21APIGAccessLogs/Resource"
+   }
+  },
+  "GoudaService215D851B7E": {
+   "Type": "AWS::ApiGateway::RestApi",
+   "Properties": {
+    "Name": "GoudaService21"
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Resource"
+   }
+  },
+  "GoudaService21CloudWatchRole5B0F3687": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "apigateway.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+       ]
+      ]
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21/CloudWatchRole/Resource"
+   }
+  },
+  "GoudaService21AccountD0962424": {
+   "Type": "AWS::ApiGateway::Account",
+   "Properties": {
+    "CloudWatchRoleArn": {
+     "Fn::GetAtt": [
+      "GoudaService21CloudWatchRole5B0F3687",
+      "Arn"
+     ]
+    }
+   },
+   "DependsOn": [
+    "GoudaService215D851B7E"
+   ],
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Account"
+   }
+  },
+  "GoudaService21Deployment42C720F92e86be377639f0ea952694d2fd421643": {
+   "Type": "AWS::ApiGateway::Deployment",
+   "Properties": {
+    "RestApiId": {
+     "Ref": "GoudaService215D851B7E"
+    },
+    "Description": "Automatically created by the RestApi construct"
+   },
+   "DependsOn": [
+    "GoudaService21OPTIONSF5D0726A"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Deployment/Resource"
+   }
+  },
+  "GoudaService21DeploymentStageprod70FB03AD": {
+   "Type": "AWS::ApiGateway::Stage",
+   "Properties": {
+    "RestApiId": {
+     "Ref": "GoudaService215D851B7E"
+    },
+    "AccessLogSetting": {
+     "DestinationArn": {
+      "Fn::GetAtt": [
+       "GoudaService21APIGAccessLogs0E1217FC",
+       "Arn"
+      ]
+     },
+     "Format": "{\"requestId\":\"$context.requestId\",\"requestTime\":\"$context.requestTime\",\"httpMethod\":\"$context.httpMethod\",\"resourcePath\":\"$context.resourcePath\",\"status\":\"$context.status\",\"protocol\":\"$context.protocol\",\"responseLength\":\"$context.responseLength\"}"
+    },
+    "DeploymentId": {
+     "Ref": "GoudaService21Deployment42C720F92e86be377639f0ea952694d2fd421643"
+    },
+    "MethodSettings": [
+     {
+      "DataTraceEnabled": false,
+      "HttpMethod": "*",
+      "LoggingLevel": "ERROR",
+      "ResourcePath": "/*"
+     }
+    ],
+    "StageName": "prod",
+    "TracingEnabled": true
+   },
+   "DependsOn": [
+    "GoudaService21AccountD0962424"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21/DeploymentStage.prod/Resource"
+   }
+  },
+  "GoudaService21OPTIONSF5D0726A": {
+   "Type": "AWS::ApiGateway::Method",
+   "Properties": {
+    "HttpMethod": "OPTIONS",
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "GoudaService215D851B7E",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "GoudaService215D851B7E"
+    },
+    "AuthorizationType": "NONE",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'",
+        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+       },
+       "StatusCode": "204"
+      }
+     ],
+     "RequestTemplates": {
+      "application/json": "{ statusCode: 200 }"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Origin": true,
+       "method.response.header.Access-Control-Allow-Methods": true
+      },
+      "StatusCode": "204"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/OPTIONS/Resource"
+   }
+  },
+  "GoudaService21IPThrottlingACL": {
+   "Type": "AWS::WAFv2::WebACL",
+   "Properties": {
+    "DefaultAction": {
+     "Allow": {}
+    },
+    "Scope": "REGIONAL",
+    "VisibilityConfig": {
+     "CloudWatchMetricsEnabled": true,
+     "MetricName": "GoudaService21IPBasedThrottling",
+     "SampledRequestsEnabled": true
+    },
+    "CustomResponseBodies": {
+     "GoudaService21ThrottledResponseBody": {
+      "Content": "{\"errorCode\": \"TOO_MANY_REQUESTS\"}",
+      "ContentType": "APPLICATION_JSON"
+     }
+    },
+    "Name": "GoudaService21IPThrottling",
+    "Rules": [
+     {
+      "Action": {
+       "Block": {
+        "CustomResponse": {
+         "CustomResponseBodyKey": "GoudaService21ThrottledResponseBody",
+         "ResponseCode": 429
+        }
+       }
+      },
+      "Name": "ip",
+      "Priority": 0,
+      "Statement": {
+       "RateBasedStatement": {
+        "AggregateKeyType": "FORWARDED_IP",
+        "ForwardedIPConfig": {
+         "FallbackBehavior": "MATCH",
+         "HeaderName": "X-Forwarded-For"
+        },
+        "Limit": 120
+       }
+      },
+      "VisibilityConfig": {
+       "CloudWatchMetricsEnabled": true,
+       "MetricName": "GoudaService21IPBasedThrottlingRule",
+       "SampledRequestsEnabled": true
+      }
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21IPThrottlingACL"
+   }
+  },
+  "GoudaService21IPThrottlingAssociation": {
+   "Type": "AWS::WAFv2::WebACLAssociation",
+   "Properties": {
+    "ResourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:apigateway:",
+       {
+        "Ref": "AWS::Region"
+       },
+       "::/restapis/",
+       {
+        "Ref": "GoudaService215D851B7E"
+       },
+       "/stages/",
+       {
+        "Ref": "GoudaService21DeploymentStageprod70FB03AD"
+       }
+      ]
+     ]
+    },
+    "WebACLArn": {
+     "Fn::GetAtt": [
+      "GoudaService21IPThrottlingACL",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21IPThrottlingAssociation"
+   }
+  },
+  "GoudaService215XXAlarm95E3EAA4": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "EvaluationPeriods": 3,
+    "Dimensions": [
+     {
+      "Name": "ApiName",
+      "Value": "GoudaService21"
+     }
+    ],
+    "MetricName": "5XXError",
+    "Namespace": "AWS/ApiGateway",
+    "Period": 300,
+    "Statistic": "Average",
+    "Threshold": 0.05
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21-5XXAlarm/Resource"
+   }
+  },
+  "GoudaService214XXAlarm84D02731": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "EvaluationPeriods": 3,
+    "Dimensions": [
+     {
+      "Name": "ApiName",
+      "Value": "GoudaService21"
+     }
+    ],
+    "MetricName": "4XXError",
+    "Namespace": "AWS/ApiGateway",
+    "Period": 300,
+    "Statistic": "Average",
+    "Threshold": 0.8
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21-4XXAlarm/Resource"
+   }
+  },
+  "GoudaService21Latency75A67705": {
+   "Type": "AWS::CloudWatch::Alarm",
+   "Properties": {
+    "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+    "EvaluationPeriods": 3,
+    "Dimensions": [
+     {
+      "Name": "ApiName",
+      "Value": "GoudaService21"
+     }
+    ],
+    "ExtendedStatistic": "p90",
+    "MetricName": "Latency",
+    "Namespace": "AWS/ApiGateway",
+    "Period": 300,
+    "Threshold": 7500
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21-Latency/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02QT2/DIAzFP8vuhK3V/pyzTNql06TusOPkgpu6JRgFaFQhvvsg6aae/DMP+z1Yy8cX+XAHk2+UPjWGdjJ9BVAn0e3tAkX7SYZ7L9OG+/eRo6viH2cBjnoIOMFFpi360DqqF26wVYqjDeINneHLgAXL6U1XnHq8WhYooxxHha/gUXxgOLCu4kJZEAzFic08UWsWE+zPa5lK/427ttuIf2q9Z0UQiG0WynDUEwR1kKk1MA5zugo5V/yMwcVwTT9HqNyx1bQssKxRHv39efUsV0/l546eqBnL42hAuV3qL1HnS8VVAQAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/CDKMetadata/Default"
+   },
+   "Condition": "CDKMetadataAvailable"
+  }
+ },
+ "Outputs": {
+  "GoudaService21EndpointED1F96E9": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "GoudaService215D851B7E"
+      },
+      ".execute-api.",
+      {
+       "Ref": "AWS::Region"
+      },
+      ".",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "GoudaService21DeploymentStageprod70FB03AD"
+      },
+      "/"
+     ]
+    ]
+   }
+  },
+  "Url": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "GoudaService215D851B7E"
+      },
+      ".execute-api.",
+      {
+       "Ref": "AWS::Region"
+      },
+      ".",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "GoudaService21DeploymentStageprod70FB03AD"
+      },
+      "/"
+     ]
+    ]
+   }
+  }
+ },
+ "Conditions": {
+  "CDKMetadataAvailable": {
+   "Fn::Or": [
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "af-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ca-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "cn-north-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "cn-northwest-1"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-north-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-3"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "me-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "sa-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-east-2"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-west-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-west-2"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

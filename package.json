@@ -18,6 +18,7 @@
     "fix:lint": "eslint lib --ext .ts --fix"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.194.0",
     "@types/aws-lambda": "^8.10.108",
     "@types/bunyan": "^1.8.8",
     "@types/expect": "^24.3.0",
@@ -26,6 +27,8 @@
     "@types/uuid": "^8.3.4",
     "@typescript-eslint/eslint-plugin": "^5.40.1",
     "@typescript-eslint/parser": "^5.40.1",
+    "aws-cdk-lib": "^2.47.0",
+    "aws-sdk": "^2.1238.0",
     "esbuild": "^0.15.12",
     "eslint": "^8.26.0",
     "eslint-config-prettier": "^8.5.0",
@@ -41,22 +44,15 @@
     "typescript": "^4.8.4"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.194.0",
-    "@hapi/joi": "^17.1.1",
     "@types/chai-subset": "^1.3.3",
-    "@types/hapi__joi": "^17.1.8",
     "@types/qs": "^6.9.7",
     "@types/sinon": "^10.0.13",
-    "@uniswap/default-token-list": "^5.2.0",
-    "@uniswap/token-lists": "^1.0.0-beta.30",
-    "aws-cdk-lib": "^2.47.0",
-    "aws-sdk": "^2.1238.0",
     "bunyan": "^1.8.15",
     "constructs": "^10.1.137",
     "dotenv": "^16.0.3",
     "env-cmd": "^10.1.0",
     "esm": "^3.2.25",
-    "jest": "^29.2.1",
+    "gouda-sdk": "https://github.com/Uniswap/gouda-sdk",
     "joi": "^17.6.4",
     "source-map-support": "^0.5.21",
     "ts-mocha": "^10.0.0",
@@ -69,5 +65,6 @@
   },
   "mocha": {
     "env": "dotenv_config_path=./.env"
-  }
+  },
+  "packageManager": "yarn@3.2.4"
 }

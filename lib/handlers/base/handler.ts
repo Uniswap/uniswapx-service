@@ -1,4 +1,4 @@
-import Joi from '@hapi/joi'
+import Joi from 'joi'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
@@ -15,9 +15,9 @@ export type BaseRInj = {
 }
 
 export type HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
-  context: Context
-  event: APIGatewayProxyEvent
-  requestBody: ReqBody
+  context?: Context
+  event?: APIGatewayProxyEvent
+  requestBody?: ReqBody
   requestQueryParams: ReqQueryParams
   containerInjected: CInj
   requestInjected: RInj
@@ -83,8 +83,8 @@ const INTERNAL_ERROR = (id?: string) => {
 
 export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams, Res> {
   constructor(
-    private readonly handlerName: string,
-    private readonly injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
+    private handlerName: string,
+    private injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
   ) {}
 
   get handler(): APIGatewayProxyHandler {
@@ -252,7 +252,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       }
     }
 
-    let queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
+    const queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
     const queryParamsSchema = this.requestQueryParamsSchema()
 
     let queryParams: ReqQueryParams | undefined
@@ -330,7 +330,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
 
     if (res.error) {
       log.error(
-        { error: res.error?.details, errors: res.errors?.details, body },
+        { error: res.error?.details, errors: res.error?.details, body },
         'Unexpected error. Response failed validation.'
       )
       return {
@@ -341,4 +341,82 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
 
     return { state: 'valid', response: res.value as Res }
   }
+}
+
+export abstract class StateMachineLambdaHandler<CInj, RInj extends BaseRInj, ReqQueryParams, Res> {
+  constructor(
+    private handlerName: string,
+    private injectorPromise: Promise<Injector<CInj, RInj, null, ReqQueryParams>>
+  ) {}
+
+  get handler(): (event: any, context: Context) => Promise<Res> {
+    return async (event, context): Promise<Res> => {
+      const handler = this.buildHandler()
+
+      const response = await handler(event, context)
+      return {
+        ...response,
+      }
+    }
+  }
+
+  private buildHandler(): (event: any, context: Context) => Promise<Res> {
+    // TODO: Change event type
+    return async (event: any, context: Context): Promise<Res> => {
+      let log: Logger = bunyan.createLogger({
+        name: this.handlerName,
+        serializers: bunyan.stdSerializers,
+        streams: [
+          {
+            level: bunyan.INFO,
+            stream: process.stdout,
+          },
+          {
+            level: bunyan.ERROR,
+            stream: process.stderr,
+          },
+        ],
+        requestId: context.awsRequestId,
+      })
+
+      log.info({ event, context }, 'Request started.')
+      const requestQueryParams: ReqQueryParams = event
+      const injector = await this.injectorPromise
+      const containerInjected = await injector.getContainerInjected()
+      let requestInjected: RInj
+      try {
+        requestInjected = await injector.getRequestInjected(
+          containerInjected,
+          null,
+          requestQueryParams,
+          event,
+          context,
+          log
+        )
+      } catch (err) {
+        log.error({ err, event }, 'Unexpected error building request injected.')
+        throw err
+      }
+
+      ({ log } = requestInjected)
+
+      let handleRequestResult: Res
+
+      try {
+        handleRequestResult = await this.handleRequest({
+          requestQueryParams,
+          containerInjected,
+          requestInjected,
+        })
+      } catch (err) {
+        log.error({ err }, 'Unexpected error in handler')
+        throw err
+      }
+
+      log.info({ handleRequestResult }, `Request ended.`)
+      return handleRequestResult
+    }
+  }
+
+  public abstract handleRequest(params: HandleRequestParams<CInj, RInj, null, ReqQueryParams>): Promise<Res>
 }

@@ -1,0 +1,355 @@
+{
+ "Resources": {
+  "GoudaService21LambdaLambdaRole09BC4FA9": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AWSStepFunctionsFullAccess"
+       ]
+      ]
+     },
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/AmazonDynamoDBFullAccess"
+       ]
+      ]
+     },
+     "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21Lambda-LambdaRole/Resource"
+   }
+  },
+  "GoudaService21DynamoStackNestedStackGoudaService21DynamoStackNestedStackResource0771F9E6": {
+   "Type": "AWS::CloudFormation::Stack",
+   "Properties": {
+    "TemplateURL": {
+     "Fn::Join": [
+      "",
+      [
+       "https://s3.",
+       {
+        "Ref": "AWS::Region"
+       },
+       ".",
+       {
+        "Ref": "AWS::URLSuffix"
+       },
+       "/",
+       {
+        "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+       },
+       "/b6f7cd6475eba3bca80ccd816097f704dce89d51eba164057bc5917034fed353.json"
+      ]
+     ]
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack.NestedStack/GoudaService21DynamoStack.NestedStackResource",
+    "aws:asset:path": "GoudaService21StackGoudaService21LambdaStackGoudaService21DynamoStack5773E0EB.nested.template.json",
+    "aws:asset:property": "TemplateURL"
+   }
+  },
+  "PostOrderGoudaService21Lambda4A0AA5E1": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": {
+      "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+     },
+     "S3Key": "074e12f45c79bac3023989afa8c3621208d2ec2cd483b8e2f82de06c60282a96.zip"
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "GoudaService21LambdaLambdaRole09BC4FA9",
+      "Arn"
+     ]
+    },
+    "Environment": {
+     "Variables": {
+      "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
+      "NODE_OPTIONS": "--enable-source-maps",
+      "STATE_MACHINE_ARN": {
+       "Fn::ImportValue": "GoudaService21StateMachineStack:ExportsOutputRefGoudaService21StagelocalStatusTrackingStateMachineFD2B8F6988F95783"
+      },
+      "VERSION": "2"
+     }
+    },
+    "Handler": "index.postOsrderHandler",
+    "MemorySize": 512,
+    "Runtime": "nodejs14.x"
+   },
+   "DependsOn": [
+    "GoudaService21LambdaLambdaRole09BC4FA9"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/Resource",
+    "aws:asset:path": "/Users/raghavapamula/temp/gouda-service",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "PostOrderGoudaService21LambdaCurrentVersion94E1AD76b31f18b7d5e8db2104df4313af278f65": {
+   "Type": "AWS::Lambda::Version",
+   "Properties": {
+    "FunctionName": {
+     "Ref": "PostOrderGoudaService21Lambda4A0AA5E1"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/CurrentVersion/Resource"
+   }
+  },
+  "PostOrderLiveAlias2009E9C1": {
+   "Type": "AWS::Lambda::Alias",
+   "Properties": {
+    "FunctionName": {
+     "Ref": "PostOrderGoudaService21Lambda4A0AA5E1"
+    },
+    "FunctionVersion": {
+     "Fn::GetAtt": [
+      "PostOrderGoudaService21LambdaCurrentVersion94E1AD76b31f18b7d5e8db2104df4313af278f65",
+      "Version"
+     ]
+    },
+    "Name": "live"
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderLiveAlias/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/z2Puw6DMAxFv6V7cEufMyB1ZKBSVxQSF5lHIuHQDoh/bwKl0zmx4qvrI5xvcNjJD0dKt1FHFUw5skP9cFK1okC246BQ+B/lRLKHqbAdiuxlAmfRyb7SsjRWY8OQL7iPRjmyRvCplMzoGJIA/4Z0VC26VDL+VmHyWf+NJw4c6GebJh1JDoNF5jnoWm4J9VqTqZdGW1nvmTWaQuQsQjdoeP+OrxBf/LUNE0XDaBz1CMXKL0U5xhsJAQAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/CDKMetadata/Default"
+   },
+   "Condition": "CDKMetadataAvailable"
+  }
+ },
+ "Conditions": {
+  "CDKMetadataAvailable": {
+   "Fn::Or": [
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "af-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-northeast-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ap-southeast-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "ca-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "cn-north-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "cn-northwest-1"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-central-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-north-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-2"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "eu-west-3"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "me-south-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "sa-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-east-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-east-2"
+       ]
+      }
+     ]
+    },
+    {
+     "Fn::Or": [
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-west-1"
+       ]
+      },
+      {
+       "Fn::Equals": [
+        {
+         "Ref": "AWS::Region"
+        },
+        "us-west-2"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

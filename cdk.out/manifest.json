@@ -1,0 +1,350 @@
+{
+  "version": "21.0.0",
+  "artifacts": {
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    },
+    "GoudaService21StateMachineStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "GoudaService21StateMachineStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "GoudaService21StateMachineStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/unknown-region",
+      "properties": {
+        "templateFile": "GoudaService21StateMachineStack.template.json",
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/897eeea9c9375fdfa62d5a9104a50113a4ac36629f3b574d61f3a91cc3fe8211.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "GoudaService21StateMachineStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "GoudaService21StateMachineStack.assets"
+      ],
+      "metadata": {
+        "/GoudaService21StateMachineStack/StateMachine-Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StateMachineRole9A8967EA"
+          }
+        ],
+        "/GoudaService21StateMachineStack/StateMachine-Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StateMachineRoleDefaultPolicy941919C9"
+          }
+        ],
+        "/GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21StagelocalCheckOrderStatusLambdaServiceRole819C74BE"
+          }
+        ],
+        "/GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21StagelocalCheckOrderStatusLambda0D1BFF5A"
+          }
+        ],
+        "/GoudaService21StateMachineStack/GoudaService21StateMachineStack/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21StateMachineStackE3D54FF3"
+          }
+        ],
+        "/GoudaService21StateMachineStack/GoudaService21-Stage-local-StatusTracking-StateMachine/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21StagelocalStatusTrackingStateMachineFD2B8F69"
+          }
+        ],
+        "/GoudaService21StateMachineStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/GoudaService21StateMachineStack/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/GoudaService21StateMachineStack/Service-principalMap": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceprincipalMap"
+          }
+        ],
+        "/GoudaService21StateMachineStack/Exports/Output{\"Ref\":\"GoudaService21StagelocalStatusTrackingStateMachineFD2B8F69\"}": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ExportsOutputRefGoudaService21StagelocalStatusTrackingStateMachineFD2B8F6988F95783"
+          }
+        ],
+        "/GoudaService21StateMachineStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/GoudaService21StateMachineStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "GoudaService21StateMachineStack"
+    },
+    "GoudaService21Stack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "GoudaService21Stack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "GoudaService21Stack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/unknown-region",
+      "properties": {
+        "templateFile": "GoudaService21Stack.template.json",
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/dc52e16b2fdaf2c45b4d3c772632781db0aa9f769ac6d6f0dc55d30bef304c0d.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "GoudaService21Stack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "GoudaService21StateMachineStack",
+        "GoudaService21Stack.assets"
+      ],
+      "metadata": {
+        "/GoudaService21Stack/GoudaService21LambdaStack/GoudaService21Lambda-LambdaRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21LambdaLambdaRole09BC4FA9"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21OrdersTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "GoudaService21OrdersTable919C09B9"
+            }
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21OrdersTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21OrdersTable919C09B9"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21NoncesTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "GoudaService21NoncesTableED29F047"
+            }
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21NoncesTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21NoncesTableED29F047"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack.NestedStack/GoudaService21DynamoStack.NestedStackResource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21DynamoStackNestedStackGoudaService21DynamoStackNestedStackResource0771F9E6"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostOrderGoudaService21Lambda4A0AA5E1"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/CurrentVersion/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostOrderGoudaService21LambdaCurrentVersion94E1AD76b31f18b7d5e8db2104df4313af278f65"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/PostOrderLiveAlias/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PostOrderLiveAlias2009E9C1"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21LambdaStack.NestedStack/GoudaService21LambdaStack.NestedStackResource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21LambdaStackNestedStackGoudaService21LambdaStackNestedStackResourceEDE2AE3E"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21APIGAccessLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21APIGAccessLogs0E1217FC"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService215D851B7E"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21CloudWatchRole5B0F3687"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21AccountD0962424"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21Deployment42C720F92e86be377639f0ea952694d2fd421643"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21DeploymentStageprod70FB03AD"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21EndpointED1F96E9"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21OPTIONSF5D0726A"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21IPThrottlingACL": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21IPThrottlingACL"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21IPThrottlingAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21IPThrottlingAssociation"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21-5XXAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService215XXAlarm95E3EAA4"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21-4XXAlarm/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService214XXAlarm84D02731"
+          }
+        ],
+        "/GoudaService21Stack/GoudaService21-Latency/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GoudaService21Latency75A67705"
+          }
+        ],
+        "/GoudaService21Stack/Url": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "Url"
+          }
+        ],
+        "/GoudaService21Stack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/GoudaService21Stack/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/GoudaService21Stack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/GoudaService21Stack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "GoudaService21Stack"
+    }
+  }
+}
