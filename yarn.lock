@@ -2668,6 +2668,13 @@ dtrace-provider@~0.8:
   dependencies:
     nan "^2.14.0"
 
+dynamodb-toolbox@^0.4.3:
+  version "0.4.3"
+  resolved "https://registry.yarnpkg.com/dynamodb-toolbox/-/dynamodb-toolbox-0.4.3.tgz#a8273138fc6b0efe469396dc07931a5969f47c51"
+  integrity sha512-z5WuDj+g5ZBKiDrNRbxg5hEpTDwR/9MsnE2A3+t0FuRyPbEegmUmauHWcnK/JxwTE2JcUMQvDzMgCAJW5BAj/g==
+  dependencies:
+    ts-toolbelt "^6.15.5"
+
 electron-to-chromium@^1.4.251:
   version "1.4.284"
   resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.284.tgz#61046d1e4cab3a25238f6bf7413795270f125592"
@@ -5176,6 +5183,11 @@ ts-node@^10.9.1:
     make-error "^1.1.1"
     v8-compile-cache-lib "^3.0.1"
     yn "3.1.1"
+
+ts-toolbelt@^6.15.5:
+  version "6.15.5"
+  resolved "https://registry.yarnpkg.com/ts-toolbelt/-/ts-toolbelt-6.15.5.tgz#cb3b43ed725cb63644782c64fbcad7d8f28c0a83"
+  integrity sha512-FZIXf1ksVyLcfr7M317jbB67XFJhOO1YqdTcuGaq9q5jLUoTikukZ+98TPjKiP2jC5CgmYdWWYs0s2nLSU0/1A==
 
 tsconfig-paths@^3.14.1, tsconfig-paths@^3.5.0:
   version "3.14.1"
