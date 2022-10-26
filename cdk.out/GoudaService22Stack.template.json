@@ -1,6 +1,6 @@
 {
  "Resources": {
-  "GoudaService21LambdaStackNestedStackGoudaService21LambdaStackNestedStackResourceEDE2AE3E": {
+  "GoudaService22LambdaStackNestedStackGoudaService22LambdaStackNestedStackResource7FD4052A": {
    "Type": "AWS::CloudFormation::Stack",
    "Properties": {
     "TemplateURL": {
@@ -19,7 +19,7 @@
        {
         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
        },
-       "/47c7a850d6d4e4edc1ec98075c7fae81aa969f35cde1fd3db50d199bd8eb6222.json"
+       "/128bd3efb3a806151899838332a314095c8f2edd74b00a451976b8b39f56c1d5.json"
       ]
      ]
     }
@@ -27,12 +27,12 @@
    "UpdateReplacePolicy": "Delete",
    "DeletionPolicy": "Delete",
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack.NestedStack/GoudaService21LambdaStack.NestedStackResource",
-    "aws:asset:path": "GoudaService21StackGoudaService21LambdaStack6892E72B.nested.template.json",
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22LambdaStack.NestedStack/GoudaService22LambdaStack.NestedStackResource",
+    "aws:asset:path": "GoudaService22StackGoudaService22LambdaStack87EC0FD6.nested.template.json",
     "aws:asset:property": "TemplateURL"
    }
   },
-  "GoudaService21APIGAccessLogs0E1217FC": {
+  "GoudaService22APIGAccessLogsE3FE613C": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
     "RetentionInDays": 731
@@ -40,19 +40,19 @@
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21APIGAccessLogs/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22APIGAccessLogs/Resource"
    }
   },
-  "GoudaService215D851B7E": {
+  "GoudaService22963A69F2": {
    "Type": "AWS::ApiGateway::RestApi",
    "Properties": {
-    "Name": "GoudaService21"
+    "Name": "GoudaService22"
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Resource"
    }
   },
-  "GoudaService21CloudWatchRole5B0F3687": {
+  "GoudaService22CloudWatchRole21D75DE5": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -85,65 +85,65 @@
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/CloudWatchRole/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/CloudWatchRole/Resource"
    }
   },
-  "GoudaService21AccountD0962424": {
+  "GoudaService22Account776D2602": {
    "Type": "AWS::ApiGateway::Account",
    "Properties": {
     "CloudWatchRoleArn": {
      "Fn::GetAtt": [
-      "GoudaService21CloudWatchRole5B0F3687",
+      "GoudaService22CloudWatchRole21D75DE5",
       "Arn"
      ]
     }
    },
    "DependsOn": [
-    "GoudaService215D851B7E"
+    "GoudaService22963A69F2"
    ],
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Account"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Account"
    }
   },
-  "GoudaService21Deployment42C720F9ef97dfc28f14f95fe16418d2aa4edf06": {
+  "GoudaService22Deployment8DBBEB7F94041f7825f415ed43f84a0033d3505d": {
    "Type": "AWS::ApiGateway::Deployment",
    "Properties": {
     "RestApiId": {
-     "Ref": "GoudaService215D851B7E"
+     "Ref": "GoudaService22963A69F2"
     },
     "Description": "Automatically created by the RestApi construct"
    },
    "DependsOn": [
-    "GoudaService21dutchauctionOPTIONSBD7626CF",
-    "GoudaService21dutchauctionorderOPTIONS6D84E2E9",
-    "GoudaService21dutchauctionorderPOST17B01C01",
-    "GoudaService21dutchauctionorder6248D0A4",
-    "GoudaService21dutchauctionFBAF4F3B",
-    "GoudaService21OPTIONSF5D0726A"
+    "GoudaService22dutchauctionOPTIONSD53A98E3",
+    "GoudaService22dutchauctionorderOPTIONS7D3ABEF7",
+    "GoudaService22dutchauctionorderPOST07EEE7C2",
+    "GoudaService22dutchauctionorderA4ED2A85",
+    "GoudaService22dutchauction934E4135",
+    "GoudaService22OPTIONS65C849C0"
    ],
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Deployment/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Deployment/Resource"
    }
   },
-  "GoudaService21DeploymentStageprod70FB03AD": {
+  "GoudaService22DeploymentStageprodD1E8C9B8": {
    "Type": "AWS::ApiGateway::Stage",
    "Properties": {
     "RestApiId": {
-     "Ref": "GoudaService215D851B7E"
+     "Ref": "GoudaService22963A69F2"
     },
     "AccessLogSetting": {
      "DestinationArn": {
       "Fn::GetAtt": [
-       "GoudaService21APIGAccessLogs0E1217FC",
+       "GoudaService22APIGAccessLogsE3FE613C",
        "Arn"
       ]
      },
      "Format": "{\"requestId\":\"$context.requestId\",\"requestTime\":\"$context.requestTime\",\"httpMethod\":\"$context.httpMethod\",\"resourcePath\":\"$context.resourcePath\",\"status\":\"$context.status\",\"protocol\":\"$context.protocol\",\"responseLength\":\"$context.responseLength\"}"
     },
     "DeploymentId": {
-     "Ref": "GoudaService21Deployment42C720F9ef97dfc28f14f95fe16418d2aa4edf06"
+     "Ref": "GoudaService22Deployment8DBBEB7F94041f7825f415ed43f84a0033d3505d"
     },
     "MethodSettings": [
      {
@@ -157,24 +157,24 @@
     "TracingEnabled": true
    },
    "DependsOn": [
-    "GoudaService21AccountD0962424"
+    "GoudaService22Account776D2602"
    ],
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/DeploymentStage.prod/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/DeploymentStage.prod/Resource"
    }
   },
-  "GoudaService21OPTIONSF5D0726A": {
+  "GoudaService22OPTIONS65C849C0": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
     "HttpMethod": "OPTIONS",
     "ResourceId": {
      "Fn::GetAtt": [
-      "GoudaService215D851B7E",
+      "GoudaService22963A69F2",
       "RootResourceId"
      ]
     },
     "RestApiId": {
-     "Ref": "GoudaService215D851B7E"
+     "Ref": "GoudaService22963A69F2"
     },
     "AuthorizationType": "NONE",
     "Integration": {
@@ -205,36 +205,36 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/OPTIONS/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Default/OPTIONS/Resource"
    }
   },
-  "GoudaService21dutchauctionFBAF4F3B": {
+  "GoudaService22dutchauction934E4135": {
    "Type": "AWS::ApiGateway::Resource",
    "Properties": {
     "ParentId": {
      "Fn::GetAtt": [
-      "GoudaService215D851B7E",
+      "GoudaService22963A69F2",
       "RootResourceId"
      ]
     },
     "PathPart": "dutch-auction",
     "RestApiId": {
-     "Ref": "GoudaService215D851B7E"
+     "Ref": "GoudaService22963A69F2"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/dutch-auction/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/Resource"
    }
   },
-  "GoudaService21dutchauctionOPTIONSBD7626CF": {
+  "GoudaService22dutchauctionOPTIONSD53A98E3": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
     "HttpMethod": "OPTIONS",
     "ResourceId": {
-     "Ref": "GoudaService21dutchauctionFBAF4F3B"
+     "Ref": "GoudaService22dutchauction934E4135"
     },
     "RestApiId": {
-     "Ref": "GoudaService215D851B7E"
+     "Ref": "GoudaService22963A69F2"
     },
     "AuthorizationType": "NONE",
     "Integration": {
@@ -265,33 +265,33 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/dutch-auction/OPTIONS/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/OPTIONS/Resource"
    }
   },
-  "GoudaService21dutchauctionorder6248D0A4": {
+  "GoudaService22dutchauctionorderA4ED2A85": {
    "Type": "AWS::ApiGateway::Resource",
    "Properties": {
     "ParentId": {
-     "Ref": "GoudaService21dutchauctionFBAF4F3B"
+     "Ref": "GoudaService22dutchauction934E4135"
     },
     "PathPart": "order",
     "RestApiId": {
-     "Ref": "GoudaService215D851B7E"
+     "Ref": "GoudaService22963A69F2"
     }
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/dutch-auction/order/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/Resource"
    }
   },
-  "GoudaService21dutchauctionorderOPTIONS6D84E2E9": {
+  "GoudaService22dutchauctionorderOPTIONS7D3ABEF7": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
     "HttpMethod": "OPTIONS",
     "ResourceId": {
-     "Ref": "GoudaService21dutchauctionorder6248D0A4"
+     "Ref": "GoudaService22dutchauctionorderA4ED2A85"
     },
     "RestApiId": {
-     "Ref": "GoudaService215D851B7E"
+     "Ref": "GoudaService22963A69F2"
     },
     "AuthorizationType": "NONE",
     "Integration": {
@@ -322,17 +322,17 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/dutch-auction/order/OPTIONS/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/OPTIONS/Resource"
    }
   },
-  "GoudaService21dutchauctionorderPOSTApiPermissionGoudaService21StackGoudaService21A47A0B63POSTdutchauctionorder4CB1EB9B": {
+  "GoudaService22dutchauctionorderPOSTApiPermissionGoudaService22StackGoudaService22C3EC6EF1POSTdutchauctionorder973A03F5": {
    "Type": "AWS::Lambda::Permission",
    "Properties": {
     "Action": "lambda:InvokeFunction",
     "FunctionName": {
      "Fn::GetAtt": [
-      "GoudaService21LambdaStackNestedStackGoudaService21LambdaStackNestedStackResourceEDE2AE3E",
-      "Outputs.GoudaService21StackGoudaService21LambdaStackPostOrderLiveAlias9C72A516Ref"
+      "GoudaService22LambdaStackNestedStackGoudaService22LambdaStackNestedStackResource7FD4052A",
+      "Outputs.GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref"
      ]
     },
     "Principal": "apigateway.amazonaws.com",
@@ -354,11 +354,11 @@
        },
        ":",
        {
-        "Ref": "GoudaService215D851B7E"
+        "Ref": "GoudaService22963A69F2"
        },
        "/",
        {
-        "Ref": "GoudaService21DeploymentStageprod70FB03AD"
+        "Ref": "GoudaService22DeploymentStageprodD1E8C9B8"
        },
        "/POST/dutch-auction/order"
       ]
@@ -366,17 +366,17 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/dutch-auction/order/POST/ApiPermission.GoudaService21StackGoudaService21A47A0B63.POST..dutch-auction.order"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/POST/ApiPermission.GoudaService22StackGoudaService22C3EC6EF1.POST..dutch-auction.order"
    }
   },
-  "GoudaService21dutchauctionorderPOSTApiPermissionTestGoudaService21StackGoudaService21A47A0B63POSTdutchauctionorder45147CF0": {
+  "GoudaService22dutchauctionorderPOSTApiPermissionTestGoudaService22StackGoudaService22C3EC6EF1POSTdutchauctionorder0E948275": {
    "Type": "AWS::Lambda::Permission",
    "Properties": {
     "Action": "lambda:InvokeFunction",
     "FunctionName": {
      "Fn::GetAtt": [
-      "GoudaService21LambdaStackNestedStackGoudaService21LambdaStackNestedStackResourceEDE2AE3E",
-      "Outputs.GoudaService21StackGoudaService21LambdaStackPostOrderLiveAlias9C72A516Ref"
+      "GoudaService22LambdaStackNestedStackGoudaService22LambdaStackNestedStackResource7FD4052A",
+      "Outputs.GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref"
      ]
     },
     "Principal": "apigateway.amazonaws.com",
@@ -398,7 +398,7 @@
        },
        ":",
        {
-        "Ref": "GoudaService215D851B7E"
+        "Ref": "GoudaService22963A69F2"
        },
        "/test-invoke-stage/POST/dutch-auction/order"
       ]
@@ -406,18 +406,18 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/dutch-auction/order/POST/ApiPermission.Test.GoudaService21StackGoudaService21A47A0B63.POST..dutch-auction.order"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/POST/ApiPermission.Test.GoudaService22StackGoudaService22C3EC6EF1.POST..dutch-auction.order"
    }
   },
-  "GoudaService21dutchauctionorderPOST17B01C01": {
+  "GoudaService22dutchauctionorderPOST07EEE7C2": {
    "Type": "AWS::ApiGateway::Method",
    "Properties": {
     "HttpMethod": "POST",
     "ResourceId": {
-     "Ref": "GoudaService21dutchauctionorder6248D0A4"
+     "Ref": "GoudaService22dutchauctionorderA4ED2A85"
     },
     "RestApiId": {
-     "Ref": "GoudaService215D851B7E"
+     "Ref": "GoudaService22963A69F2"
     },
     "AuthorizationType": "NONE",
     "Integration": {
@@ -438,8 +438,8 @@
         ":lambda:path/2015-03-31/functions/",
         {
          "Fn::GetAtt": [
-          "GoudaService21LambdaStackNestedStackGoudaService21LambdaStackNestedStackResourceEDE2AE3E",
-          "Outputs.GoudaService21StackGoudaService21LambdaStackPostOrderLiveAlias9C72A516Ref"
+          "GoudaService22LambdaStackNestedStackGoudaService22LambdaStackNestedStackResource7FD4052A",
+          "Outputs.GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref"
          ]
         },
         "/invocations"
@@ -449,10 +449,10 @@
     }
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21/Default/dutch-auction/order/POST/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/POST/Resource"
    }
   },
-  "GoudaService21IPThrottlingACL": {
+  "GoudaService22IPThrottlingACL": {
    "Type": "AWS::WAFv2::WebACL",
    "Properties": {
     "DefaultAction": {
@@ -461,22 +461,22 @@
     "Scope": "REGIONAL",
     "VisibilityConfig": {
      "CloudWatchMetricsEnabled": true,
-     "MetricName": "GoudaService21IPBasedThrottling",
+     "MetricName": "GoudaService22IPBasedThrottling",
      "SampledRequestsEnabled": true
     },
     "CustomResponseBodies": {
-     "GoudaService21ThrottledResponseBody": {
+     "GoudaService22ThrottledResponseBody": {
       "Content": "{\"errorCode\": \"TOO_MANY_REQUESTS\"}",
       "ContentType": "APPLICATION_JSON"
      }
     },
-    "Name": "GoudaService21IPThrottling",
+    "Name": "GoudaService22IPThrottling",
     "Rules": [
      {
       "Action": {
        "Block": {
         "CustomResponse": {
-         "CustomResponseBodyKey": "GoudaService21ThrottledResponseBody",
+         "CustomResponseBodyKey": "GoudaService22ThrottledResponseBody",
          "ResponseCode": 429
         }
        }
@@ -495,17 +495,17 @@
       },
       "VisibilityConfig": {
        "CloudWatchMetricsEnabled": true,
-       "MetricName": "GoudaService21IPBasedThrottlingRule",
+       "MetricName": "GoudaService22IPBasedThrottlingRule",
        "SampledRequestsEnabled": true
       }
      }
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21IPThrottlingACL"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22IPThrottlingACL"
    }
   },
-  "GoudaService21IPThrottlingAssociation": {
+  "GoudaService22IPThrottlingAssociation": {
    "Type": "AWS::WAFv2::WebACLAssociation",
    "Properties": {
     "ResourceArn": {
@@ -518,27 +518,27 @@
        },
        "::/restapis/",
        {
-        "Ref": "GoudaService215D851B7E"
+        "Ref": "GoudaService22963A69F2"
        },
        "/stages/",
        {
-        "Ref": "GoudaService21DeploymentStageprod70FB03AD"
+        "Ref": "GoudaService22DeploymentStageprodD1E8C9B8"
        }
       ]
      ]
     },
     "WebACLArn": {
      "Fn::GetAtt": [
-      "GoudaService21IPThrottlingACL",
+      "GoudaService22IPThrottlingACL",
       "Arn"
      ]
     }
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21IPThrottlingAssociation"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22IPThrottlingAssociation"
    }
   },
-  "GoudaService215XXAlarm95E3EAA4": {
+  "GoudaService225XXAlarm0FC115C4": {
    "Type": "AWS::CloudWatch::Alarm",
    "Properties": {
     "ComparisonOperator": "GreaterThanOrEqualToThreshold",
@@ -546,7 +546,7 @@
     "Dimensions": [
      {
       "Name": "ApiName",
-      "Value": "GoudaService21"
+      "Value": "GoudaService22"
      }
     ],
     "MetricName": "5XXError",
@@ -556,10 +556,10 @@
     "Threshold": 0.05
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21-5XXAlarm/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22-5XXAlarm/Resource"
    }
   },
-  "GoudaService214XXAlarm84D02731": {
+  "GoudaService224XXAlarm73977A6E": {
    "Type": "AWS::CloudWatch::Alarm",
    "Properties": {
     "ComparisonOperator": "GreaterThanOrEqualToThreshold",
@@ -567,7 +567,7 @@
     "Dimensions": [
      {
       "Name": "ApiName",
-      "Value": "GoudaService21"
+      "Value": "GoudaService22"
      }
     ],
     "MetricName": "4XXError",
@@ -577,10 +577,10 @@
     "Threshold": 0.8
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21-4XXAlarm/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22-4XXAlarm/Resource"
    }
   },
-  "GoudaService21Latency75A67705": {
+  "GoudaService22Latency939F5354": {
    "Type": "AWS::CloudWatch::Alarm",
    "Properties": {
     "ComparisonOperator": "GreaterThanOrEqualToThreshold",
@@ -588,7 +588,7 @@
     "Dimensions": [
      {
       "Name": "ApiName",
-      "Value": "GoudaService21"
+      "Value": "GoudaService22"
      }
     ],
     "ExtendedStatistic": "p90",
@@ -598,7 +598,7 @@
     "Threshold": 7500
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21-Latency/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22-Latency/Resource"
    }
   },
   "CDKMetadata": {
@@ -607,20 +607,20 @@
     "Analytics": "v2:deflate64:H4sIAAAAAAAA/02QQW/DIAyFf8vuhHVRpZ2zTNql1abusOPkgJvSQhwF0qhC/PeZJp1y8uf3DA9cyu2r3DzB5AulL4U1jYzfAdRF1MduBvZ+o6XWy7ij9mOgsc/mg5OA3rQQcIKbjAf0oepNHlhhpRSNXRDv2Fu6OWRkddVxUotLJAMfpXFQ+AYexR7DiXQ2F3q4S8idkzDgOJ7sLHNNwoJrNEjuv3BwxntDnZjgeC1lZPEHm6reiX+qvCdlIPBUEsrSqCcI6iRjZWFw939kSCnj5xj6MayfkLmmTpv5go40yrN/vr5sZbnhHZ+9McXAazAO5WGufwfxGed/AQAA"
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/CDKMetadata/Default"
+    "aws:cdk:path": "GoudaService22Stack/CDKMetadata/Default"
    },
    "Condition": "CDKMetadataAvailable"
   }
  },
  "Outputs": {
-  "GoudaService21EndpointED1F96E9": {
+  "GoudaService22Endpoint061CFC5D": {
    "Value": {
     "Fn::Join": [
      "",
      [
       "https://",
       {
-       "Ref": "GoudaService215D851B7E"
+       "Ref": "GoudaService22963A69F2"
       },
       ".execute-api.",
       {
@@ -632,7 +632,7 @@
       },
       "/",
       {
-       "Ref": "GoudaService21DeploymentStageprod70FB03AD"
+       "Ref": "GoudaService22DeploymentStageprodD1E8C9B8"
       },
       "/"
      ]
@@ -646,7 +646,7 @@
      [
       "https://",
       {
-       "Ref": "GoudaService215D851B7E"
+       "Ref": "GoudaService22963A69F2"
       },
       ".execute-api.",
       {
@@ -658,7 +658,7 @@
       },
       "/",
       {
-       "Ref": "GoudaService21DeploymentStageprod70FB03AD"
+       "Ref": "GoudaService22DeploymentStageprodD1E8C9B8"
       },
       "/"
      ]

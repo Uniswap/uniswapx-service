@@ -1,6 +1,6 @@
 {
  "Resources": {
-  "GoudaService21OrdersTable919C09B9": {
+  "GoudaService22OrdersTableFE9B316B": {
    "Type": "AWS::DynamoDB::Table",
    "Properties": {
     "KeySchema": [
@@ -102,10 +102,10 @@
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21OrdersTable/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/GoudaService22OrdersTable/Resource"
    }
   },
-  "GoudaService21NoncesTableED29F047": {
+  "GoudaService22NoncesTable204985BE": {
    "Type": "AWS::DynamoDB::Table",
    "Properties": {
     "KeySchema": [
@@ -126,7 +126,7 @@
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21NoncesTable/Resource"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/GoudaService22NoncesTable/Resource"
    }
   },
   "CDKMetadata": {
@@ -135,7 +135,7 @@
     "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzHXM1BMLC/WTU7J1s3JTNKr9kstLklNCS5JTM7WAUrEp1TmJebmpwBlQhKTclJ1nNPywIxanaDU4vzSomSwEDLbOT8vJbMkMz+vVicvPyVVL6tYv8zQRM/IAGhVVnFmpm5RaV5JZm6qXhCEBgAnxd7ChgAAAA=="
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/CDKMetadata/Default"
+    "aws:cdk:path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/CDKMetadata/Default"
    },
    "Condition": "CDKMetadataAvailable"
   }

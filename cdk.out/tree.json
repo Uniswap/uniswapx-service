@@ -12,13 +12,13 @@
           "version": "10.1.140"
         }
       },
-      "GoudaService21StateMachineStack": {
-        "id": "GoudaService21StateMachineStack",
-        "path": "GoudaService21StateMachineStack",
+      "GoudaService22StateMachineStack": {
+        "id": "GoudaService22StateMachineStack",
+        "path": "GoudaService22StateMachineStack",
         "children": {
           "StateMachineDynamoDbFullAccess": {
             "id": "StateMachineDynamoDbFullAccess",
-            "path": "GoudaService21StateMachineStack/StateMachineDynamoDbFullAccess",
+            "path": "GoudaService22StateMachineStack/StateMachineDynamoDbFullAccess",
             "constructInfo": {
               "fqn": "aws-cdk-lib.Resource",
               "version": "2.47.0"
@@ -26,11 +26,11 @@
           },
           "StateMachine-Role": {
             "id": "StateMachine-Role",
-            "path": "GoudaService21StateMachineStack/StateMachine-Role",
+            "path": "GoudaService22StateMachineStack/StateMachine-Role",
             "children": {
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21StateMachineStack/StateMachine-Role/Resource",
+                "path": "GoudaService22StateMachineStack/StateMachine-Role/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::IAM::Role",
                   "aws:cdk:cloudformation:props": {
@@ -66,11 +66,11 @@
               },
               "DefaultPolicy": {
                 "id": "DefaultPolicy",
-                "path": "GoudaService21StateMachineStack/StateMachine-Role/DefaultPolicy",
+                "path": "GoudaService22StateMachineStack/StateMachine-Role/DefaultPolicy",
                 "children": {
                   "Resource": {
                     "id": "Resource",
-                    "path": "GoudaService21StateMachineStack/StateMachine-Role/DefaultPolicy/Resource",
+                    "path": "GoudaService22StateMachineStack/StateMachine-Role/DefaultPolicy/Resource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
                       "aws:cdk:cloudformation:props": {
@@ -96,7 +96,7 @@
                               "Resource": [
                                 {
                                   "Fn::GetAtt": [
-                                    "GoudaService21StagelocalCheckOrderStatusLambda0D1BFF5A",
+                                    "GoudaService22StagelocalCheckOrderStatusLambdaFD6EDB5A",
                                     "Arn"
                                   ]
                                 },
@@ -106,7 +106,7 @@
                                     [
                                       {
                                         "Fn::GetAtt": [
-                                          "GoudaService21StagelocalCheckOrderStatusLambda0D1BFF5A",
+                                          "GoudaService22StagelocalCheckOrderStatusLambdaFD6EDB5A",
                                           "Arn"
                                         ]
                                       },
@@ -144,17 +144,17 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21-Stage-local-CheckOrderStatusLambda": {
-            "id": "GoudaService21-Stage-local-CheckOrderStatusLambda",
-            "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda",
+          "GoudaService22-Stage-local-CheckOrderStatusLambda": {
+            "id": "GoudaService22-Stage-local-CheckOrderStatusLambda",
+            "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda",
             "children": {
               "ServiceRole": {
                 "id": "ServiceRole",
-                "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/ServiceRole",
+                "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda/ServiceRole",
                 "children": {
                   "Resource": {
                     "id": "Resource",
-                    "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/ServiceRole/Resource",
+                    "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda/ServiceRole/Resource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::IAM::Role",
                       "aws:cdk:cloudformation:props": {
@@ -199,11 +199,11 @@
               },
               "Code": {
                 "id": "Code",
-                "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/Code",
+                "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda/Code",
                 "children": {
                   "Stage": {
                     "id": "Stage",
-                    "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/Code/Stage",
+                    "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda/Code/Stage",
                     "constructInfo": {
                       "fqn": "aws-cdk-lib.AssetStaging",
                       "version": "2.47.0"
@@ -211,7 +211,7 @@
                   },
                   "AssetBucket": {
                     "id": "AssetBucket",
-                    "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/Code/AssetBucket",
+                    "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda/Code/AssetBucket",
                     "constructInfo": {
                       "fqn": "aws-cdk-lib.aws_s3.BucketBase",
                       "version": "2.47.0"
@@ -225,7 +225,7 @@
               },
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/Resource",
+                "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
                   "aws:cdk:cloudformation:props": {
@@ -233,16 +233,17 @@
                       "s3Bucket": {
                         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
                       },
-                      "s3Key": "a2abaa63a836483b67a4617c37d0864e5e8c2a9f5cb841706d955c44e80d66e9.zip"
+                      "s3Key": "456ed46d8b07b996a0a61edec417c5da01b9b5bd64297d2251eb429356d4179e.zip"
                     },
                     "role": {
                       "Fn::GetAtt": [
-                        "GoudaService21StagelocalCheckOrderStatusLambdaServiceRole819C74BE",
+                        "GoudaService22StagelocalCheckOrderStatusLambdaServiceRole85B0BA27",
                         "Arn"
                       ]
                     },
                     "environment": {
                       "variables": {
+                        "RPC_1": "https://mainnet.infura.io/v3/c75a0117c6cd4c84a4a8bf62ac9979e7",
                         "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
                       }
                     },
@@ -263,65 +264,65 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21-Check-Order-Status": {
-            "id": "GoudaService21-Check-Order-Status",
-            "path": "GoudaService21StateMachineStack/GoudaService21-Check-Order-Status",
+          "GoudaService22-Check-Order-Status": {
+            "id": "GoudaService22-Check-Order-Status",
+            "path": "GoudaService22StateMachineStack/GoudaService22-Check-Order-Status",
             "constructInfo": {
               "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.LambdaInvoke",
               "version": "2.47.0"
             }
           },
-          "GoudaService21-WaitStep": {
-            "id": "GoudaService21-WaitStep",
-            "path": "GoudaService21StateMachineStack/GoudaService21-WaitStep",
+          "GoudaService22-WaitStep": {
+            "id": "GoudaService22-WaitStep",
+            "path": "GoudaService22StateMachineStack/GoudaService22-WaitStep",
             "constructInfo": {
               "fqn": "aws-cdk-lib.aws_stepfunctions.Wait",
               "version": "2.47.0"
             }
           },
-          "GoudaService21-OrderInTerminalState": {
-            "id": "GoudaService21-OrderInTerminalState",
-            "path": "GoudaService21StateMachineStack/GoudaService21-OrderInTerminalState",
+          "GoudaService22-OrderInTerminalState": {
+            "id": "GoudaService22-OrderInTerminalState",
+            "path": "GoudaService22StateMachineStack/GoudaService22-OrderInTerminalState",
             "constructInfo": {
               "fqn": "aws-cdk-lib.aws_stepfunctions.Succeed",
               "version": "2.47.0"
             }
           },
-          "GoudaService21-UpdateOrderStatusStep": {
-            "id": "GoudaService21-UpdateOrderStatusStep",
-            "path": "GoudaService21StateMachineStack/GoudaService21-UpdateOrderStatusStep",
+          "GoudaService22-UpdateOrderStatusStep": {
+            "id": "GoudaService22-UpdateOrderStatusStep",
+            "path": "GoudaService22StateMachineStack/GoudaService22-UpdateOrderStatusStep",
             "constructInfo": {
               "fqn": "aws-cdk-lib.aws_stepfunctions.CustomState",
               "version": "2.47.0"
             }
           },
-          "GoudaService21-OrderStatusTerminal?": {
-            "id": "GoudaService21-OrderStatusTerminal?",
-            "path": "GoudaService21StateMachineStack/GoudaService21-OrderStatusTerminal?",
+          "GoudaService22-OrderStatusTerminal?": {
+            "id": "GoudaService22-OrderStatusTerminal?",
+            "path": "GoudaService22StateMachineStack/GoudaService22-OrderStatusTerminal?",
             "constructInfo": {
               "fqn": "aws-cdk-lib.aws_stepfunctions.Choice",
               "version": "2.47.0"
             }
           },
-          "GoudaService21-OrderStatusChanged?": {
-            "id": "GoudaService21-OrderStatusChanged?",
-            "path": "GoudaService21StateMachineStack/GoudaService21-OrderStatusChanged?",
+          "GoudaService22-OrderStatusChanged?": {
+            "id": "GoudaService22-OrderStatusChanged?",
+            "path": "GoudaService22StateMachineStack/GoudaService22-OrderStatusChanged?",
             "constructInfo": {
               "fqn": "aws-cdk-lib.aws_stepfunctions.Choice",
               "version": "2.47.0"
             }
           },
-          "GoudaService21StateMachineStack": {
-            "id": "GoudaService21StateMachineStack",
-            "path": "GoudaService21StateMachineStack/GoudaService21StateMachineStack",
+          "GoudaService22StateMachineStack": {
+            "id": "GoudaService22StateMachineStack",
+            "path": "GoudaService22StateMachineStack/GoudaService22StateMachineStack",
             "children": {
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21StateMachineStack/GoudaService21StateMachineStack/Resource",
+                "path": "GoudaService22StateMachineStack/GoudaService22StateMachineStack/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
                   "aws:cdk:cloudformation:props": {
-                    "logGroupName": "/aws/vendedlogs/states/GoudaService21StateMachineStack",
+                    "logGroupName": "/aws/vendedlogs/states/GoudaService22StateMachineStack",
                     "retentionInDays": 731
                   }
                 },
@@ -336,13 +337,13 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21-Stage-local-StatusTracking-StateMachine": {
-            "id": "GoudaService21-Stage-local-StatusTracking-StateMachine",
-            "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-StatusTracking-StateMachine",
+          "GoudaService22-Stage-local-StatusTracking-StateMachine": {
+            "id": "GoudaService22-Stage-local-StatusTracking-StateMachine",
+            "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-StatusTracking-StateMachine",
             "children": {
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-StatusTracking-StateMachine/Resource",
+                "path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-StatusTracking-StateMachine/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::StepFunctions::StateMachine",
                   "aws:cdk:cloudformation:props": {
@@ -356,18 +357,18 @@
                       "Fn::Join": [
                         "",
                         [
-                          "{\"StartAt\":\"GoudaService21-Check-Order-Status\",\"States\":{\"GoudaService21-Check-Order-Status\":{\"Next\":\"GoudaService21-OrderStatusChanged?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.prevCheckOrderOutput\",\"Resource\":\"arn:",
+                          "{\"StartAt\":\"GoudaService22-Check-Order-Status\",\"States\":{\"GoudaService22-Check-Order-Status\":{\"Next\":\"GoudaService22-OrderStatusChanged?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.prevCheckOrderOutput\",\"Resource\":\"arn:",
                           {
                             "Ref": "AWS::Partition"
                           },
                           ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
                           {
                             "Fn::GetAtt": [
-                              "GoudaService21StagelocalCheckOrderStatusLambda0D1BFF5A",
+                              "GoudaService22StagelocalCheckOrderStatusLambdaFD6EDB5A",
                               "Arn"
                             ]
                           },
-                          "\",\"Payload.$\":\"$\"}},\"GoudaService21-WaitStep\":{\"Type\":\"Wait\",\"Seconds\":10,\"Next\":\"GoudaService21-Check-Order-Status\"},\"GoudaService21-OrderStatusTerminal?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"open\",\"Next\":\"GoudaService21-WaitStep\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"filled\",\"Next\":\"GoudaService21-OrderInTerminalState\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"cancelled\",\"Next\":\"GoudaService21-OrderInTerminalState\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"expired\",\"Next\":\"GoudaService21-OrderInTerminalState\"}]},\"GoudaService21-UpdateOrderStatusStep\":{\"Next\":\"GoudaService21-OrderStatusTerminal?\",\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::dynamodb:updateItem\",\"ResultPath\":\"$.updateOrderStatusOutput\",\"Parameters\":{\"TableName\":\"Orders\",\"Key\":{\"orderHash\":{\"S.$\":\"$.orderHash\"}},\"UpdateExpression\":\"SET orderStatus = :orderStatus\",\"ExpressionAttributeValues\":{\":orderStatus\":{\"S.$\":\"$.prevCheckOrderOutput.Payload.orderStatus\"}}}},\"GoudaService21-OrderStatusChanged?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatusChanged\",\"BooleanEquals\":true,\"Next\":\"GoudaService21-UpdateOrderStatusStep\"}],\"Default\":\"GoudaService21-WaitStep\"},\"GoudaService21-OrderInTerminalState\":{\"Type\":\"Succeed\"}}}"
+                          "\",\"Payload.$\":\"$\"}},\"GoudaService22-WaitStep\":{\"Type\":\"Wait\",\"Seconds\":10,\"Next\":\"GoudaService22-Check-Order-Status\"},\"GoudaService22-OrderStatusTerminal?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"open\",\"Next\":\"GoudaService22-WaitStep\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"filled\",\"Next\":\"GoudaService22-OrderInTerminalState\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"cancelled\",\"Next\":\"GoudaService22-OrderInTerminalState\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"expired\",\"Next\":\"GoudaService22-OrderInTerminalState\"}]},\"GoudaService22-UpdateOrderStatusStep\":{\"Next\":\"GoudaService22-OrderStatusTerminal?\",\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::dynamodb:updateItem\",\"ResultPath\":\"$.updateOrderStatusOutput\",\"Parameters\":{\"TableName\":\"Orders\",\"Key\":{\"orderHash\":{\"S.$\":\"$.orderHash\"}},\"UpdateExpression\":\"SET orderStatus = :orderStatus\",\"ExpressionAttributeValues\":{\":orderStatus\":{\"S.$\":\"$.prevCheckOrderOutput.Payload.orderStatus\"}}}},\"GoudaService22-OrderStatusChanged?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatusChanged\",\"BooleanEquals\":true,\"Next\":\"GoudaService22-UpdateOrderStatusStep\"}],\"Default\":\"GoudaService22-WaitStep\"},\"GoudaService22-OrderInTerminalState\":{\"Type\":\"Succeed\"}}}"
                         ]
                       ]
                     },
@@ -377,7 +378,7 @@
                           "cloudWatchLogsLogGroup": {
                             "logGroupArn": {
                               "Fn::GetAtt": [
-                                "GoudaService21StateMachineStackE3D54FF3",
+                                "GoudaService22StateMachineStackA1441139",
                                 "Arn"
                               ]
                             }
@@ -401,11 +402,11 @@
           },
           "CDKMetadata": {
             "id": "CDKMetadata",
-            "path": "GoudaService21StateMachineStack/CDKMetadata",
+            "path": "GoudaService22StateMachineStack/CDKMetadata",
             "children": {
               "Default": {
                 "id": "Default",
-                "path": "GoudaService21StateMachineStack/CDKMetadata/Default",
+                "path": "GoudaService22StateMachineStack/CDKMetadata/Default",
                 "constructInfo": {
                   "fqn": "aws-cdk-lib.CfnResource",
                   "version": "2.47.0"
@@ -413,7 +414,7 @@
               },
               "Condition": {
                 "id": "Condition",
-                "path": "GoudaService21StateMachineStack/CDKMetadata/Condition",
+                "path": "GoudaService22StateMachineStack/CDKMetadata/Condition",
                 "constructInfo": {
                   "fqn": "aws-cdk-lib.CfnCondition",
                   "version": "2.47.0"
@@ -427,7 +428,7 @@
           },
           "Service-principalMap": {
             "id": "Service-principalMap",
-            "path": "GoudaService21StateMachineStack/Service-principalMap",
+            "path": "GoudaService22StateMachineStack/Service-principalMap",
             "constructInfo": {
               "fqn": "aws-cdk-lib.CfnMapping",
               "version": "2.47.0"
@@ -435,11 +436,11 @@
           },
           "Exports": {
             "id": "Exports",
-            "path": "GoudaService21StateMachineStack/Exports",
+            "path": "GoudaService22StateMachineStack/Exports",
             "children": {
-              "Output{\"Ref\":\"GoudaService21StagelocalStatusTrackingStateMachineFD2B8F69\"}": {
-                "id": "Output{\"Ref\":\"GoudaService21StagelocalStatusTrackingStateMachineFD2B8F69\"}",
-                "path": "GoudaService21StateMachineStack/Exports/Output{\"Ref\":\"GoudaService21StagelocalStatusTrackingStateMachineFD2B8F69\"}",
+              "Output{\"Ref\":\"GoudaService22StagelocalStatusTrackingStateMachine98153A89\"}": {
+                "id": "Output{\"Ref\":\"GoudaService22StagelocalStatusTrackingStateMachine98153A89\"}",
+                "path": "GoudaService22StateMachineStack/Exports/Output{\"Ref\":\"GoudaService22StagelocalStatusTrackingStateMachine98153A89\"}",
                 "constructInfo": {
                   "fqn": "aws-cdk-lib.CfnOutput",
                   "version": "2.47.0"
@@ -457,29 +458,21 @@
           "version": "2.47.0"
         }
       },
-      "GoudaService21Stack": {
-        "id": "GoudaService21Stack",
-        "path": "GoudaService21Stack",
+      "GoudaService22Stack": {
+        "id": "GoudaService22Stack",
+        "path": "GoudaService22Stack",
         "children": {
-          "GoudaService21LambdaStack": {
-            "id": "GoudaService21LambdaStack",
-            "path": "GoudaService21Stack/GoudaService21LambdaStack",
+          "GoudaService22LambdaStack": {
+            "id": "GoudaService22LambdaStack",
+            "path": "GoudaService22Stack/GoudaService22LambdaStack",
             "children": {
-              "execution": {
-                "id": "execution",
-                "path": "GoudaService21Stack/GoudaService21LambdaStack/execution",
-                "constructInfo": {
-                  "fqn": "aws-cdk-lib.Resource",
-                  "version": "2.47.0"
-                }
-              },
-              "GoudaService21Lambda-LambdaRole": {
-                "id": "GoudaService21Lambda-LambdaRole",
-                "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21Lambda-LambdaRole",
+              "GoudaService22Lambda-LambdaRole": {
+                "id": "GoudaService22Lambda-LambdaRole",
+                "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22Lambda-LambdaRole",
                 "children": {
                   "Resource": {
                     "id": "Resource",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21Lambda-LambdaRole/Resource",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22Lambda-LambdaRole/Resource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::IAM::Role",
                       "aws:cdk:cloudformation:props": {
@@ -520,7 +513,18 @@
                               ]
                             ]
                           },
-                          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
                         ]
                       }
                     },
@@ -535,17 +539,17 @@
                   "version": "2.47.0"
                 }
               },
-              "GoudaService21DynamoStack": {
-                "id": "GoudaService21DynamoStack",
-                "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack",
+              "GoudaService22DynamoStack": {
+                "id": "GoudaService22DynamoStack",
+                "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack",
                 "children": {
-                  "GoudaService21OrdersTable": {
-                    "id": "GoudaService21OrdersTable",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21OrdersTable",
+                  "GoudaService22OrdersTable": {
+                    "id": "GoudaService22OrdersTable",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/GoudaService22OrdersTable",
                     "children": {
                       "Resource": {
                         "id": "Resource",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21OrdersTable/Resource",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/GoudaService22OrdersTable/Resource",
                         "attributes": {
                           "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
                           "aws:cdk:cloudformation:props": {
@@ -653,7 +657,7 @@
                       },
                       "ScalingRole": {
                         "id": "ScalingRole",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21OrdersTable/ScalingRole",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/GoudaService22OrdersTable/ScalingRole",
                         "constructInfo": {
                           "fqn": "aws-cdk-lib.Resource",
                           "version": "2.47.0"
@@ -665,13 +669,13 @@
                       "version": "2.47.0"
                     }
                   },
-                  "GoudaService21NoncesTable": {
-                    "id": "GoudaService21NoncesTable",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21NoncesTable",
+                  "GoudaService22NoncesTable": {
+                    "id": "GoudaService22NoncesTable",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/GoudaService22NoncesTable",
                     "children": {
                       "Resource": {
                         "id": "Resource",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21NoncesTable/Resource",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/GoudaService22NoncesTable/Resource",
                         "attributes": {
                           "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
                           "aws:cdk:cloudformation:props": {
@@ -698,7 +702,7 @@
                       },
                       "ScalingRole": {
                         "id": "ScalingRole",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/GoudaService21NoncesTable/ScalingRole",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/GoudaService22NoncesTable/ScalingRole",
                         "constructInfo": {
                           "fqn": "aws-cdk-lib.Resource",
                           "version": "2.47.0"
@@ -712,11 +716,11 @@
                   },
                   "CDKMetadata": {
                     "id": "CDKMetadata",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/CDKMetadata",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/CDKMetadata",
                     "children": {
                       "Default": {
                         "id": "Default",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/CDKMetadata/Default",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/CDKMetadata/Default",
                         "constructInfo": {
                           "fqn": "aws-cdk-lib.CfnResource",
                           "version": "2.47.0"
@@ -724,7 +728,7 @@
                       },
                       "Condition": {
                         "id": "Condition",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack/CDKMetadata/Condition",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack/CDKMetadata/Condition",
                         "constructInfo": {
                           "fqn": "aws-cdk-lib.CfnCondition",
                           "version": "2.47.0"
@@ -742,13 +746,13 @@
                   "version": "2.47.0"
                 }
               },
-              "GoudaService21DynamoStack.NestedStack": {
-                "id": "GoudaService21DynamoStack.NestedStack",
-                "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack.NestedStack",
+              "GoudaService22DynamoStack.NestedStack": {
+                "id": "GoudaService22DynamoStack.NestedStack",
+                "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack.NestedStack",
                 "children": {
-                  "GoudaService21DynamoStack.NestedStackResource": {
-                    "id": "GoudaService21DynamoStack.NestedStackResource",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/GoudaService21DynamoStack.NestedStack/GoudaService21DynamoStack.NestedStackResource",
+                  "GoudaService22DynamoStack.NestedStackResource": {
+                    "id": "GoudaService22DynamoStack.NestedStackResource",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22DynamoStack.NestedStack/GoudaService22DynamoStack.NestedStackResource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::CloudFormation::Stack",
                       "aws:cdk:cloudformation:props": {
@@ -768,7 +772,7 @@
                               {
                                 "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
                               },
-                              "/b6f7cd6475eba3bca80ccd816097f704dce89d51eba164057bc5917034fed353.json"
+                              "/403b4bc74510a00ed5bdec04571444c98fe11dc892a5513c051b78c91a70ccbf.json"
                             ]
                           ]
                         }
@@ -785,17 +789,17 @@
                   "version": "10.1.140"
                 }
               },
-              "PostOrderGoudaService21Lambda": {
-                "id": "PostOrderGoudaService21Lambda",
-                "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda",
+              "PostOrderGoudaService22Lambda": {
+                "id": "PostOrderGoudaService22Lambda",
+                "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderGoudaService22Lambda",
                 "children": {
                   "Code": {
                     "id": "Code",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/Code",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderGoudaService22Lambda/Code",
                     "children": {
                       "Stage": {
                         "id": "Stage",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/Code/Stage",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderGoudaService22Lambda/Code/Stage",
                         "constructInfo": {
                           "fqn": "aws-cdk-lib.AssetStaging",
                           "version": "2.47.0"
@@ -803,7 +807,7 @@
                       },
                       "AssetBucket": {
                         "id": "AssetBucket",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/Code/AssetBucket",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderGoudaService22Lambda/Code/AssetBucket",
                         "constructInfo": {
                           "fqn": "aws-cdk-lib.aws_s3.BucketBase",
                           "version": "2.47.0"
@@ -817,7 +821,7 @@
                   },
                   "Resource": {
                     "id": "Resource",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/Resource",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderGoudaService22Lambda/Resource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
                       "aws:cdk:cloudformation:props": {
@@ -825,11 +829,11 @@
                           "s3Bucket": {
                             "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
                           },
-                          "s3Key": "074e12f45c79bac3023989afa8c3621208d2ec2cd483b8e2f82de06c60282a96.zip"
+                          "s3Key": "456ed46d8b07b996a0a61edec417c5da01b9b5bd64297d2251eb429356d4179e.zip"
                         },
                         "role": {
                           "Fn::GetAtt": [
-                            "GoudaService21LambdaLambdaRole09BC4FA9",
+                            "GoudaService22LambdaLambdaRole75F5CC1B",
                             "Arn"
                           ]
                         },
@@ -837,15 +841,16 @@
                           "variables": {
                             "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1",
                             "NODE_OPTIONS": "--enable-source-maps",
+                            "RPC_1": "https://mainnet.infura.io/v3/c75a0117c6cd4c84a4a8bf62ac9979e7",
                             "STATE_MACHINE_ARN": {
-                              "Fn::ImportValue": "GoudaService21StateMachineStack:ExportsOutputRefGoudaService21StagelocalStatusTrackingStateMachineFD2B8F6988F95783"
+                              "Fn::ImportValue": "GoudaService22StateMachineStack:ExportsOutputRefGoudaService22StagelocalStatusTrackingStateMachine98153A89FC9D6E8A"
                             },
                             "VERSION": "2"
                           }
                         },
-                        "handler": "index.postOsrderHandler",
+                        "handler": "index.postOrderHandler",
                         "memorySize": 512,
-                        "runtime": "nodejs14.x"
+                        "runtime": "nodejs16.x"
                       }
                     },
                     "constructInfo": {
@@ -855,16 +860,16 @@
                   },
                   "CurrentVersion": {
                     "id": "CurrentVersion",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/CurrentVersion",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderGoudaService22Lambda/CurrentVersion",
                     "children": {
                       "Resource": {
                         "id": "Resource",
-                        "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderGoudaService21Lambda/CurrentVersion/Resource",
+                        "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderGoudaService22Lambda/CurrentVersion/Resource",
                         "attributes": {
                           "aws:cdk:cloudformation:type": "AWS::Lambda::Version",
                           "aws:cdk:cloudformation:props": {
                             "functionName": {
-                              "Ref": "PostOrderGoudaService21Lambda4A0AA5E1"
+                              "Ref": "PostOrderGoudaService22LambdaDD885327"
                             }
                           }
                         },
@@ -887,20 +892,20 @@
               },
               "PostOrderLiveAlias": {
                 "id": "PostOrderLiveAlias",
-                "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderLiveAlias",
+                "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderLiveAlias",
                 "children": {
                   "Resource": {
                     "id": "Resource",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderLiveAlias/Resource",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderLiveAlias/Resource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::Lambda::Alias",
                       "aws:cdk:cloudformation:props": {
                         "functionName": {
-                          "Ref": "PostOrderGoudaService21Lambda4A0AA5E1"
+                          "Ref": "PostOrderGoudaService22LambdaDD885327"
                         },
                         "functionVersion": {
                           "Fn::GetAtt": [
-                            "PostOrderGoudaService21LambdaCurrentVersion94E1AD76b31f18b7d5e8db2104df4313af278f65",
+                            "PostOrderGoudaService22LambdaCurrentVersion9ECA7C8B549852dff2891a8eb175540f93e4bdf6",
                             "Version"
                           ]
                         },
@@ -914,7 +919,7 @@
                   },
                   "ScalingRole": {
                     "id": "ScalingRole",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/PostOrderLiveAlias/ScalingRole",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/PostOrderLiveAlias/ScalingRole",
                     "constructInfo": {
                       "fqn": "aws-cdk-lib.Resource",
                       "version": "2.47.0"
@@ -928,11 +933,11 @@
               },
               "CDKMetadata": {
                 "id": "CDKMetadata",
-                "path": "GoudaService21Stack/GoudaService21LambdaStack/CDKMetadata",
+                "path": "GoudaService22Stack/GoudaService22LambdaStack/CDKMetadata",
                 "children": {
                   "Default": {
                     "id": "Default",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/CDKMetadata/Default",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/CDKMetadata/Default",
                     "constructInfo": {
                       "fqn": "aws-cdk-lib.CfnResource",
                       "version": "2.47.0"
@@ -940,7 +945,7 @@
                   },
                   "Condition": {
                     "id": "Condition",
-                    "path": "GoudaService21Stack/GoudaService21LambdaStack/CDKMetadata/Condition",
+                    "path": "GoudaService22Stack/GoudaService22LambdaStack/CDKMetadata/Condition",
                     "constructInfo": {
                       "fqn": "aws-cdk-lib.CfnCondition",
                       "version": "2.47.0"
@@ -951,6 +956,14 @@
                   "fqn": "constructs.Construct",
                   "version": "10.1.140"
                 }
+              },
+              "GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref": {
+                "id": "GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref",
+                "path": "GoudaService22Stack/GoudaService22LambdaStack/GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.47.0"
+                }
               }
             },
             "constructInfo": {
@@ -958,13 +971,13 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21LambdaStack.NestedStack": {
-            "id": "GoudaService21LambdaStack.NestedStack",
-            "path": "GoudaService21Stack/GoudaService21LambdaStack.NestedStack",
+          "GoudaService22LambdaStack.NestedStack": {
+            "id": "GoudaService22LambdaStack.NestedStack",
+            "path": "GoudaService22Stack/GoudaService22LambdaStack.NestedStack",
             "children": {
-              "GoudaService21LambdaStack.NestedStackResource": {
-                "id": "GoudaService21LambdaStack.NestedStackResource",
-                "path": "GoudaService21Stack/GoudaService21LambdaStack.NestedStack/GoudaService21LambdaStack.NestedStackResource",
+              "GoudaService22LambdaStack.NestedStackResource": {
+                "id": "GoudaService22LambdaStack.NestedStackResource",
+                "path": "GoudaService22Stack/GoudaService22LambdaStack.NestedStack/GoudaService22LambdaStack.NestedStackResource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::CloudFormation::Stack",
                   "aws:cdk:cloudformation:props": {
@@ -984,7 +997,7 @@
                           {
                             "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
                           },
-                          "/ef25566962c000ec9fd9f90d9dea48affa968aba89bae34ba1f58a5c27b44287.json"
+                          "/128bd3efb3a806151899838332a314095c8f2edd74b00a451976b8b39f56c1d5.json"
                         ]
                       ]
                     }
@@ -1001,13 +1014,13 @@
               "version": "10.1.140"
             }
           },
-          "GoudaService21APIGAccessLogs": {
-            "id": "GoudaService21APIGAccessLogs",
-            "path": "GoudaService21Stack/GoudaService21APIGAccessLogs",
+          "GoudaService22APIGAccessLogs": {
+            "id": "GoudaService22APIGAccessLogs",
+            "path": "GoudaService22Stack/GoudaService22APIGAccessLogs",
             "children": {
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21Stack/GoudaService21APIGAccessLogs/Resource",
+                "path": "GoudaService22Stack/GoudaService22APIGAccessLogs/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
                   "aws:cdk:cloudformation:props": {
@@ -1025,17 +1038,17 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21": {
-            "id": "GoudaService21",
-            "path": "GoudaService21Stack/GoudaService21",
+          "GoudaService22": {
+            "id": "GoudaService22",
+            "path": "GoudaService22Stack/GoudaService22",
             "children": {
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21Stack/GoudaService21/Resource",
+                "path": "GoudaService22Stack/GoudaService22/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::ApiGateway::RestApi",
                   "aws:cdk:cloudformation:props": {
-                    "name": "GoudaService21"
+                    "name": "GoudaService22"
                   }
                 },
                 "constructInfo": {
@@ -1045,11 +1058,11 @@
               },
               "CloudWatchRole": {
                 "id": "CloudWatchRole",
-                "path": "GoudaService21Stack/GoudaService21/CloudWatchRole",
+                "path": "GoudaService22Stack/GoudaService22/CloudWatchRole",
                 "children": {
                   "Resource": {
                     "id": "Resource",
-                    "path": "GoudaService21Stack/GoudaService21/CloudWatchRole/Resource",
+                    "path": "GoudaService22Stack/GoudaService22/CloudWatchRole/Resource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::IAM::Role",
                       "aws:cdk:cloudformation:props": {
@@ -1094,13 +1107,13 @@
               },
               "Account": {
                 "id": "Account",
-                "path": "GoudaService21Stack/GoudaService21/Account",
+                "path": "GoudaService22Stack/GoudaService22/Account",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::ApiGateway::Account",
                   "aws:cdk:cloudformation:props": {
                     "cloudWatchRoleArn": {
                       "Fn::GetAtt": [
-                        "GoudaService21CloudWatchRole5B0F3687",
+                        "GoudaService22CloudWatchRole21D75DE5",
                         "Arn"
                       ]
                     }
@@ -1113,16 +1126,16 @@
               },
               "Deployment": {
                 "id": "Deployment",
-                "path": "GoudaService21Stack/GoudaService21/Deployment",
+                "path": "GoudaService22Stack/GoudaService22/Deployment",
                 "children": {
                   "Resource": {
                     "id": "Resource",
-                    "path": "GoudaService21Stack/GoudaService21/Deployment/Resource",
+                    "path": "GoudaService22Stack/GoudaService22/Deployment/Resource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::ApiGateway::Deployment",
                       "aws:cdk:cloudformation:props": {
                         "restApiId": {
-                          "Ref": "GoudaService215D851B7E"
+                          "Ref": "GoudaService22963A69F2"
                         },
                         "description": "Automatically created by the RestApi construct"
                       }
@@ -1140,28 +1153,28 @@
               },
               "DeploymentStage.prod": {
                 "id": "DeploymentStage.prod",
-                "path": "GoudaService21Stack/GoudaService21/DeploymentStage.prod",
+                "path": "GoudaService22Stack/GoudaService22/DeploymentStage.prod",
                 "children": {
                   "Resource": {
                     "id": "Resource",
-                    "path": "GoudaService21Stack/GoudaService21/DeploymentStage.prod/Resource",
+                    "path": "GoudaService22Stack/GoudaService22/DeploymentStage.prod/Resource",
                     "attributes": {
                       "aws:cdk:cloudformation:type": "AWS::ApiGateway::Stage",
                       "aws:cdk:cloudformation:props": {
                         "restApiId": {
-                          "Ref": "GoudaService215D851B7E"
+                          "Ref": "GoudaService22963A69F2"
                         },
                         "accessLogSetting": {
                           "destinationArn": {
                             "Fn::GetAtt": [
-                              "GoudaService21APIGAccessLogs0E1217FC",
+                              "GoudaService22APIGAccessLogsE3FE613C",
                               "Arn"
                             ]
                           },
                           "format": "{\"requestId\":\"$context.requestId\",\"requestTime\":\"$context.requestTime\",\"httpMethod\":\"$context.httpMethod\",\"resourcePath\":\"$context.resourcePath\",\"status\":\"$context.status\",\"protocol\":\"$context.protocol\",\"responseLength\":\"$context.responseLength\"}"
                         },
                         "deploymentId": {
-                          "Ref": "GoudaService21Deployment42C720F92e86be377639f0ea952694d2fd421643"
+                          "Ref": "GoudaService22Deployment8DBBEB7F94041f7825f415ed43f84a0033d3505d"
                         },
                         "methodSettings": [
                           {
@@ -1188,7 +1201,7 @@
               },
               "Endpoint": {
                 "id": "Endpoint",
-                "path": "GoudaService21Stack/GoudaService21/Endpoint",
+                "path": "GoudaService22Stack/GoudaService22/Endpoint",
                 "constructInfo": {
                   "fqn": "aws-cdk-lib.CfnOutput",
                   "version": "2.47.0"
@@ -1196,27 +1209,27 @@
               },
               "Default": {
                 "id": "Default",
-                "path": "GoudaService21Stack/GoudaService21/Default",
+                "path": "GoudaService22Stack/GoudaService22/Default",
                 "children": {
                   "OPTIONS": {
                     "id": "OPTIONS",
-                    "path": "GoudaService21Stack/GoudaService21/Default/OPTIONS",
+                    "path": "GoudaService22Stack/GoudaService22/Default/OPTIONS",
                     "children": {
                       "Resource": {
                         "id": "Resource",
-                        "path": "GoudaService21Stack/GoudaService21/Default/OPTIONS/Resource",
+                        "path": "GoudaService22Stack/GoudaService22/Default/OPTIONS/Resource",
                         "attributes": {
                           "aws:cdk:cloudformation:type": "AWS::ApiGateway::Method",
                           "aws:cdk:cloudformation:props": {
                             "httpMethod": "OPTIONS",
                             "resourceId": {
                               "Fn::GetAtt": [
-                                "GoudaService215D851B7E",
+                                "GoudaService22963A69F2",
                                 "RootResourceId"
                               ]
                             },
                             "restApiId": {
-                              "Ref": "GoudaService215D851B7E"
+                              "Ref": "GoudaService22963A69F2"
                             },
                             "authorizationType": "NONE",
                             "integration": {
@@ -1257,6 +1270,335 @@
                       "fqn": "aws-cdk-lib.aws_apigateway.Method",
                       "version": "2.47.0"
                     }
+                  },
+                  "dutch-auction": {
+                    "id": "dutch-auction",
+                    "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::ApiGateway::Resource",
+                          "aws:cdk:cloudformation:props": {
+                            "parentId": {
+                              "Fn::GetAtt": [
+                                "GoudaService22963A69F2",
+                                "RootResourceId"
+                              ]
+                            },
+                            "pathPart": "dutch-auction",
+                            "restApiId": {
+                              "Ref": "GoudaService22963A69F2"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_apigateway.CfnResource",
+                          "version": "2.47.0"
+                        }
+                      },
+                      "OPTIONS": {
+                        "id": "OPTIONS",
+                        "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/OPTIONS",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/OPTIONS/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::ApiGateway::Method",
+                              "aws:cdk:cloudformation:props": {
+                                "httpMethod": "OPTIONS",
+                                "resourceId": {
+                                  "Ref": "GoudaService22dutchauction934E4135"
+                                },
+                                "restApiId": {
+                                  "Ref": "GoudaService22963A69F2"
+                                },
+                                "authorizationType": "NONE",
+                                "integration": {
+                                  "type": "MOCK",
+                                  "requestTemplates": {
+                                    "application/json": "{ statusCode: 200 }"
+                                  },
+                                  "integrationResponses": [
+                                    {
+                                      "statusCode": "204",
+                                      "responseParameters": {
+                                        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+                                        "method.response.header.Access-Control-Allow-Origin": "'*'",
+                                        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+                                      }
+                                    }
+                                  ]
+                                },
+                                "methodResponses": [
+                                  {
+                                    "statusCode": "204",
+                                    "responseParameters": {
+                                      "method.response.header.Access-Control-Allow-Headers": true,
+                                      "method.response.header.Access-Control-Allow-Origin": true,
+                                      "method.response.header.Access-Control-Allow-Methods": true
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_apigateway.CfnMethod",
+                              "version": "2.47.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_apigateway.Method",
+                          "version": "2.47.0"
+                        }
+                      },
+                      "order": {
+                        "id": "order",
+                        "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::ApiGateway::Resource",
+                              "aws:cdk:cloudformation:props": {
+                                "parentId": {
+                                  "Ref": "GoudaService22dutchauction934E4135"
+                                },
+                                "pathPart": "order",
+                                "restApiId": {
+                                  "Ref": "GoudaService22963A69F2"
+                                }
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_apigateway.CfnResource",
+                              "version": "2.47.0"
+                            }
+                          },
+                          "OPTIONS": {
+                            "id": "OPTIONS",
+                            "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/OPTIONS",
+                            "children": {
+                              "Resource": {
+                                "id": "Resource",
+                                "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/OPTIONS/Resource",
+                                "attributes": {
+                                  "aws:cdk:cloudformation:type": "AWS::ApiGateway::Method",
+                                  "aws:cdk:cloudformation:props": {
+                                    "httpMethod": "OPTIONS",
+                                    "resourceId": {
+                                      "Ref": "GoudaService22dutchauctionorderA4ED2A85"
+                                    },
+                                    "restApiId": {
+                                      "Ref": "GoudaService22963A69F2"
+                                    },
+                                    "authorizationType": "NONE",
+                                    "integration": {
+                                      "type": "MOCK",
+                                      "requestTemplates": {
+                                        "application/json": "{ statusCode: 200 }"
+                                      },
+                                      "integrationResponses": [
+                                        {
+                                          "statusCode": "204",
+                                          "responseParameters": {
+                                            "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+                                            "method.response.header.Access-Control-Allow-Origin": "'*'",
+                                            "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "methodResponses": [
+                                      {
+                                        "statusCode": "204",
+                                        "responseParameters": {
+                                          "method.response.header.Access-Control-Allow-Headers": true,
+                                          "method.response.header.Access-Control-Allow-Origin": true,
+                                          "method.response.header.Access-Control-Allow-Methods": true
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "constructInfo": {
+                                  "fqn": "aws-cdk-lib.aws_apigateway.CfnMethod",
+                                  "version": "2.47.0"
+                                }
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_apigateway.Method",
+                              "version": "2.47.0"
+                            }
+                          },
+                          "POST": {
+                            "id": "POST",
+                            "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/POST",
+                            "children": {
+                              "ApiPermission.GoudaService22StackGoudaService22C3EC6EF1.POST..dutch-auction.order": {
+                                "id": "ApiPermission.GoudaService22StackGoudaService22C3EC6EF1.POST..dutch-auction.order",
+                                "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/POST/ApiPermission.GoudaService22StackGoudaService22C3EC6EF1.POST..dutch-auction.order",
+                                "attributes": {
+                                  "aws:cdk:cloudformation:type": "AWS::Lambda::Permission",
+                                  "aws:cdk:cloudformation:props": {
+                                    "action": "lambda:InvokeFunction",
+                                    "functionName": {
+                                      "Fn::GetAtt": [
+                                        "GoudaService22LambdaStackNestedStackGoudaService22LambdaStackNestedStackResource7FD4052A",
+                                        "Outputs.GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref"
+                                      ]
+                                    },
+                                    "principal": "apigateway.amazonaws.com",
+                                    "sourceArn": {
+                                      "Fn::Join": [
+                                        "",
+                                        [
+                                          "arn:",
+                                          {
+                                            "Ref": "AWS::Partition"
+                                          },
+                                          ":execute-api:",
+                                          {
+                                            "Ref": "AWS::Region"
+                                          },
+                                          ":",
+                                          {
+                                            "Ref": "AWS::AccountId"
+                                          },
+                                          ":",
+                                          {
+                                            "Ref": "GoudaService22963A69F2"
+                                          },
+                                          "/",
+                                          {
+                                            "Ref": "GoudaService22DeploymentStageprodD1E8C9B8"
+                                          },
+                                          "/POST/dutch-auction/order"
+                                        ]
+                                      ]
+                                    }
+                                  }
+                                },
+                                "constructInfo": {
+                                  "fqn": "aws-cdk-lib.aws_lambda.CfnPermission",
+                                  "version": "2.47.0"
+                                }
+                              },
+                              "ApiPermission.Test.GoudaService22StackGoudaService22C3EC6EF1.POST..dutch-auction.order": {
+                                "id": "ApiPermission.Test.GoudaService22StackGoudaService22C3EC6EF1.POST..dutch-auction.order",
+                                "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/POST/ApiPermission.Test.GoudaService22StackGoudaService22C3EC6EF1.POST..dutch-auction.order",
+                                "attributes": {
+                                  "aws:cdk:cloudformation:type": "AWS::Lambda::Permission",
+                                  "aws:cdk:cloudformation:props": {
+                                    "action": "lambda:InvokeFunction",
+                                    "functionName": {
+                                      "Fn::GetAtt": [
+                                        "GoudaService22LambdaStackNestedStackGoudaService22LambdaStackNestedStackResource7FD4052A",
+                                        "Outputs.GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref"
+                                      ]
+                                    },
+                                    "principal": "apigateway.amazonaws.com",
+                                    "sourceArn": {
+                                      "Fn::Join": [
+                                        "",
+                                        [
+                                          "arn:",
+                                          {
+                                            "Ref": "AWS::Partition"
+                                          },
+                                          ":execute-api:",
+                                          {
+                                            "Ref": "AWS::Region"
+                                          },
+                                          ":",
+                                          {
+                                            "Ref": "AWS::AccountId"
+                                          },
+                                          ":",
+                                          {
+                                            "Ref": "GoudaService22963A69F2"
+                                          },
+                                          "/test-invoke-stage/POST/dutch-auction/order"
+                                        ]
+                                      ]
+                                    }
+                                  }
+                                },
+                                "constructInfo": {
+                                  "fqn": "aws-cdk-lib.aws_lambda.CfnPermission",
+                                  "version": "2.47.0"
+                                }
+                              },
+                              "Resource": {
+                                "id": "Resource",
+                                "path": "GoudaService22Stack/GoudaService22/Default/dutch-auction/order/POST/Resource",
+                                "attributes": {
+                                  "aws:cdk:cloudformation:type": "AWS::ApiGateway::Method",
+                                  "aws:cdk:cloudformation:props": {
+                                    "httpMethod": "POST",
+                                    "resourceId": {
+                                      "Ref": "GoudaService22dutchauctionorderA4ED2A85"
+                                    },
+                                    "restApiId": {
+                                      "Ref": "GoudaService22963A69F2"
+                                    },
+                                    "authorizationType": "NONE",
+                                    "integration": {
+                                      "type": "AWS_PROXY",
+                                      "uri": {
+                                        "Fn::Join": [
+                                          "",
+                                          [
+                                            "arn:",
+                                            {
+                                              "Ref": "AWS::Partition"
+                                            },
+                                            ":apigateway:",
+                                            {
+                                              "Ref": "AWS::Region"
+                                            },
+                                            ":lambda:path/2015-03-31/functions/",
+                                            {
+                                              "Fn::GetAtt": [
+                                                "GoudaService22LambdaStackNestedStackGoudaService22LambdaStackNestedStackResource7FD4052A",
+                                                "Outputs.GoudaService22StackGoudaService22LambdaStackPostOrderLiveAliasBFA2AD97Ref"
+                                              ]
+                                            },
+                                            "/invocations"
+                                          ]
+                                        ]
+                                      },
+                                      "integrationHttpMethod": "POST"
+                                    }
+                                  }
+                                },
+                                "constructInfo": {
+                                  "fqn": "aws-cdk-lib.aws_apigateway.CfnMethod",
+                                  "version": "2.47.0"
+                                }
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_apigateway.Method",
+                              "version": "2.47.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_apigateway.Resource",
+                          "version": "2.47.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_apigateway.Resource",
+                      "version": "2.47.0"
+                    }
                   }
                 },
                 "constructInfo": {
@@ -1270,9 +1612,9 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21IPThrottlingACL": {
-            "id": "GoudaService21IPThrottlingACL",
-            "path": "GoudaService21Stack/GoudaService21IPThrottlingACL",
+          "GoudaService22IPThrottlingACL": {
+            "id": "GoudaService22IPThrottlingACL",
+            "path": "GoudaService22Stack/GoudaService22IPThrottlingACL",
             "attributes": {
               "aws:cdk:cloudformation:type": "AWS::WAFv2::WebACL",
               "aws:cdk:cloudformation:props": {
@@ -1283,15 +1625,15 @@
                 "visibilityConfig": {
                   "sampledRequestsEnabled": true,
                   "cloudWatchMetricsEnabled": true,
-                  "metricName": "GoudaService21IPBasedThrottling"
+                  "metricName": "GoudaService22IPBasedThrottling"
                 },
                 "customResponseBodies": {
-                  "GoudaService21ThrottledResponseBody": {
+                  "GoudaService22ThrottledResponseBody": {
                     "contentType": "APPLICATION_JSON",
                     "content": "{\"errorCode\": \"TOO_MANY_REQUESTS\"}"
                   }
                 },
-                "name": "GoudaService21IPThrottling",
+                "name": "GoudaService22IPThrottling",
                 "rules": [
                   {
                     "name": "ip",
@@ -1310,14 +1652,14 @@
                       "block": {
                         "customResponse": {
                           "responseCode": 429,
-                          "customResponseBodyKey": "GoudaService21ThrottledResponseBody"
+                          "customResponseBodyKey": "GoudaService22ThrottledResponseBody"
                         }
                       }
                     },
                     "visibilityConfig": {
                       "sampledRequestsEnabled": true,
                       "cloudWatchMetricsEnabled": true,
-                      "metricName": "GoudaService21IPBasedThrottlingRule"
+                      "metricName": "GoudaService22IPBasedThrottlingRule"
                     }
                   }
                 ]
@@ -1328,9 +1670,9 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21IPThrottlingAssociation": {
-            "id": "GoudaService21IPThrottlingAssociation",
-            "path": "GoudaService21Stack/GoudaService21IPThrottlingAssociation",
+          "GoudaService22IPThrottlingAssociation": {
+            "id": "GoudaService22IPThrottlingAssociation",
+            "path": "GoudaService22Stack/GoudaService22IPThrottlingAssociation",
             "attributes": {
               "aws:cdk:cloudformation:type": "AWS::WAFv2::WebACLAssociation",
               "aws:cdk:cloudformation:props": {
@@ -1344,18 +1686,18 @@
                       },
                       "::/restapis/",
                       {
-                        "Ref": "GoudaService215D851B7E"
+                        "Ref": "GoudaService22963A69F2"
                       },
                       "/stages/",
                       {
-                        "Ref": "GoudaService21DeploymentStageprod70FB03AD"
+                        "Ref": "GoudaService22DeploymentStageprodD1E8C9B8"
                       }
                     ]
                   ]
                 },
                 "webAclArn": {
                   "Fn::GetAtt": [
-                    "GoudaService21IPThrottlingACL",
+                    "GoudaService22IPThrottlingACL",
                     "Arn"
                   ]
                 }
@@ -1366,13 +1708,13 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21-5XXAlarm": {
-            "id": "GoudaService21-5XXAlarm",
-            "path": "GoudaService21Stack/GoudaService21-5XXAlarm",
+          "GoudaService22-5XXAlarm": {
+            "id": "GoudaService22-5XXAlarm",
+            "path": "GoudaService22Stack/GoudaService22-5XXAlarm",
             "children": {
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21Stack/GoudaService21-5XXAlarm/Resource",
+                "path": "GoudaService22Stack/GoudaService22-5XXAlarm/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
                   "aws:cdk:cloudformation:props": {
@@ -1381,7 +1723,7 @@
                     "dimensions": [
                       {
                         "name": "ApiName",
-                        "value": "GoudaService21"
+                        "value": "GoudaService22"
                       }
                     ],
                     "metricName": "5XXError",
@@ -1402,13 +1744,13 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21-4XXAlarm": {
-            "id": "GoudaService21-4XXAlarm",
-            "path": "GoudaService21Stack/GoudaService21-4XXAlarm",
+          "GoudaService22-4XXAlarm": {
+            "id": "GoudaService22-4XXAlarm",
+            "path": "GoudaService22Stack/GoudaService22-4XXAlarm",
             "children": {
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21Stack/GoudaService21-4XXAlarm/Resource",
+                "path": "GoudaService22Stack/GoudaService22-4XXAlarm/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
                   "aws:cdk:cloudformation:props": {
@@ -1417,7 +1759,7 @@
                     "dimensions": [
                       {
                         "name": "ApiName",
-                        "value": "GoudaService21"
+                        "value": "GoudaService22"
                       }
                     ],
                     "metricName": "4XXError",
@@ -1438,13 +1780,13 @@
               "version": "2.47.0"
             }
           },
-          "GoudaService21-Latency": {
-            "id": "GoudaService21-Latency",
-            "path": "GoudaService21Stack/GoudaService21-Latency",
+          "GoudaService22-Latency": {
+            "id": "GoudaService22-Latency",
+            "path": "GoudaService22Stack/GoudaService22-Latency",
             "children": {
               "Resource": {
                 "id": "Resource",
-                "path": "GoudaService21Stack/GoudaService21-Latency/Resource",
+                "path": "GoudaService22Stack/GoudaService22-Latency/Resource",
                 "attributes": {
                   "aws:cdk:cloudformation:type": "AWS::CloudWatch::Alarm",
                   "aws:cdk:cloudformation:props": {
@@ -1453,7 +1795,7 @@
                     "dimensions": [
                       {
                         "name": "ApiName",
-                        "value": "GoudaService21"
+                        "value": "GoudaService22"
                       }
                     ],
                     "extendedStatistic": "p90",
@@ -1476,7 +1818,7 @@
           },
           "Url": {
             "id": "Url",
-            "path": "GoudaService21Stack/Url",
+            "path": "GoudaService22Stack/Url",
             "constructInfo": {
               "fqn": "aws-cdk-lib.CfnOutput",
               "version": "2.47.0"
@@ -1484,11 +1826,11 @@
           },
           "CDKMetadata": {
             "id": "CDKMetadata",
-            "path": "GoudaService21Stack/CDKMetadata",
+            "path": "GoudaService22Stack/CDKMetadata",
             "children": {
               "Default": {
                 "id": "Default",
-                "path": "GoudaService21Stack/CDKMetadata/Default",
+                "path": "GoudaService22Stack/CDKMetadata/Default",
                 "constructInfo": {
                   "fqn": "aws-cdk-lib.CfnResource",
                   "version": "2.47.0"
@@ -1496,7 +1838,7 @@
               },
               "Condition": {
                 "id": "Condition",
-                "path": "GoudaService21Stack/CDKMetadata/Condition",
+                "path": "GoudaService22Stack/CDKMetadata/Condition",
                 "constructInfo": {
                   "fqn": "aws-cdk-lib.CfnCondition",
                   "version": "2.47.0"

@@ -120,7 +120,7 @@ export class APIStack extends cdk.Stack {
       webAclArn: ipThrottlingACL.getAtt('Arn').toString(),
     })
 
-    /*const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias);
+    const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias);
     
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -131,7 +131,7 @@ export class APIStack extends cdk.Stack {
 
     const order = dutchAuction.addResource('order');
     order.addMethod('POST', postOrderLambdaIntegration);
-    */
+    
     const apiAlarm5xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-5XXAlarm`, {
       metric: api.metricServerError({
         period: Duration.minutes(5),

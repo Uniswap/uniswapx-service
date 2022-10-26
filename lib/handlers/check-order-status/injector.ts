@@ -56,7 +56,7 @@ export class CheckOrderStatusInjector extends Injector<
     } = {}
     for(let i=0; i<SUPPORTED_CHAINS.length; i++) {
       const chainId = SUPPORTED_CHAINS[i]
-      const url = process.env[`RPC_URL_${chainId.toString()}`]!
+      const url = process.env[`RPC_${chainId.toString()}`]!
       if (!url) {
         log.error(`Fatal: No RPC endpoint set`)
       }

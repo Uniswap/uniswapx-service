@@ -28,17 +28,18 @@ export class LambdaStack extends cdk.NestedStack {
       managedPolicies: [
         aws_iam.ManagedPolicy.fromAwsManagedPolicyName('AWSStepFunctionsFullAccess'),
         aws_iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonDynamoDBFullAccess'),
-        aws_iam.ManagedPolicy.fromManagedPolicyArn(this, 'execution', 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
+        aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
       ],
     });
 
     // setup DynamoDb
     new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {});
 
+    console.log(props.envVars)
     // POST Order Lambda
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_14_X,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'postOrderHandler',
       memorySize: 512,

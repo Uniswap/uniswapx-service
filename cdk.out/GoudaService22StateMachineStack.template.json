@@ -28,7 +28,7 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21StateMachineStack/StateMachine-Role/Resource"
+    "aws:cdk:path": "GoudaService22StateMachineStack/StateMachine-Role/Resource"
    }
   },
   "StateMachineRoleDefaultPolicy941919C9": {
@@ -56,7 +56,7 @@
        "Resource": [
         {
          "Fn::GetAtt": [
-          "GoudaService21StagelocalCheckOrderStatusLambda0D1BFF5A",
+          "GoudaService22StagelocalCheckOrderStatusLambdaFD6EDB5A",
           "Arn"
          ]
         },
@@ -66,7 +66,7 @@
           [
            {
             "Fn::GetAtt": [
-             "GoudaService21StagelocalCheckOrderStatusLambda0D1BFF5A",
+             "GoudaService22StagelocalCheckOrderStatusLambdaFD6EDB5A",
              "Arn"
             ]
            },
@@ -87,10 +87,10 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21StateMachineStack/StateMachine-Role/DefaultPolicy/Resource"
+    "aws:cdk:path": "GoudaService22StateMachineStack/StateMachine-Role/DefaultPolicy/Resource"
    }
   },
-  "GoudaService21StagelocalCheckOrderStatusLambdaServiceRole819C74BE": {
+  "GoudaService22StagelocalCheckOrderStatusLambdaServiceRole85B0BA27": {
    "Type": "AWS::IAM::Role",
    "Properties": {
     "AssumeRolePolicyDocument": {
@@ -121,26 +121,27 @@
     ]
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/ServiceRole/Resource"
+    "aws:cdk:path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda/ServiceRole/Resource"
    }
   },
-  "GoudaService21StagelocalCheckOrderStatusLambda0D1BFF5A": {
+  "GoudaService22StagelocalCheckOrderStatusLambdaFD6EDB5A": {
    "Type": "AWS::Lambda::Function",
    "Properties": {
     "Code": {
      "S3Bucket": {
       "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
      },
-     "S3Key": "c883feba7999b6406163a00b167c41d699a9da12475c115c6dd573e5400833cb.zip"
+     "S3Key": "456ed46d8b07b996a0a61edec417c5da01b9b5bd64297d2251eb429356d4179e.zip"
     },
     "Role": {
      "Fn::GetAtt": [
-      "GoudaService21StagelocalCheckOrderStatusLambdaServiceRole819C74BE",
+      "GoudaService22StagelocalCheckOrderStatusLambdaServiceRole85B0BA27",
       "Arn"
      ]
     },
     "Environment": {
      "Variables": {
+      "RPC_1": "https://mainnet.infura.io/v3/c75a0117c6cd4c84a4a8bf62ac9979e7",
       "AWS_NODEJS_CONNECTION_REUSE_ENABLED": "1"
      }
     },
@@ -150,28 +151,28 @@
     "Timeout": 900
    },
    "DependsOn": [
-    "GoudaService21StagelocalCheckOrderStatusLambdaServiceRole819C74BE"
+    "GoudaService22StagelocalCheckOrderStatusLambdaServiceRole85B0BA27"
    ],
    "Metadata": {
-    "aws:cdk:path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-CheckOrderStatusLambda/Resource",
-    "aws:asset:path": "asset.c883feba7999b6406163a00b167c41d699a9da12475c115c6dd573e5400833cb",
+    "aws:cdk:path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-CheckOrderStatusLambda/Resource",
+    "aws:asset:path": "asset.456ed46d8b07b996a0a61edec417c5da01b9b5bd64297d2251eb429356d4179e",
     "aws:asset:is-bundled": true,
     "aws:asset:property": "Code"
    }
   },
-  "GoudaService21StateMachineStackE3D54FF3": {
+  "GoudaService22StateMachineStackA1441139": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/vendedlogs/states/GoudaService21StateMachineStack",
+    "LogGroupName": "/aws/vendedlogs/states/GoudaService22StateMachineStack",
     "RetentionInDays": 731
    },
    "UpdateReplacePolicy": "Retain",
    "DeletionPolicy": "Retain",
    "Metadata": {
-    "aws:cdk:path": "GoudaService21StateMachineStack/GoudaService21StateMachineStack/Resource"
+    "aws:cdk:path": "GoudaService22StateMachineStack/GoudaService22StateMachineStack/Resource"
    }
   },
-  "GoudaService21StagelocalStatusTrackingStateMachineFD2B8F69": {
+  "GoudaService22StagelocalStatusTrackingStateMachine98153A89": {
    "Type": "AWS::StepFunctions::StateMachine",
    "Properties": {
     "RoleArn": {
@@ -184,18 +185,18 @@
      "Fn::Join": [
       "",
       [
-       "{\"StartAt\":\"GoudaService21-Check-Order-Status\",\"States\":{\"GoudaService21-Check-Order-Status\":{\"Next\":\"GoudaService21-OrderStatusChanged?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.prevCheckOrderOutput\",\"Resource\":\"arn:",
+       "{\"StartAt\":\"GoudaService22-Check-Order-Status\",\"States\":{\"GoudaService22-Check-Order-Status\":{\"Next\":\"GoudaService22-OrderStatusChanged?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":\"$.prevCheckOrderOutput\",\"Resource\":\"arn:",
        {
         "Ref": "AWS::Partition"
        },
        ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
        {
         "Fn::GetAtt": [
-         "GoudaService21StagelocalCheckOrderStatusLambda0D1BFF5A",
+         "GoudaService22StagelocalCheckOrderStatusLambdaFD6EDB5A",
          "Arn"
         ]
        },
-       "\",\"Payload.$\":\"$\"}},\"GoudaService21-WaitStep\":{\"Type\":\"Wait\",\"Seconds\":10,\"Next\":\"GoudaService21-Check-Order-Status\"},\"GoudaService21-OrderStatusTerminal?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"open\",\"Next\":\"GoudaService21-WaitStep\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"filled\",\"Next\":\"GoudaService21-OrderInTerminalState\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"cancelled\",\"Next\":\"GoudaService21-OrderInTerminalState\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"expired\",\"Next\":\"GoudaService21-OrderInTerminalState\"}]},\"GoudaService21-UpdateOrderStatusStep\":{\"Next\":\"GoudaService21-OrderStatusTerminal?\",\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::dynamodb:updateItem\",\"ResultPath\":\"$.updateOrderStatusOutput\",\"Parameters\":{\"TableName\":\"Orders\",\"Key\":{\"orderHash\":{\"S.$\":\"$.orderHash\"}},\"UpdateExpression\":\"SET orderStatus = :orderStatus\",\"ExpressionAttributeValues\":{\":orderStatus\":{\"S.$\":\"$.prevCheckOrderOutput.Payload.orderStatus\"}}}},\"GoudaService21-OrderStatusChanged?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatusChanged\",\"BooleanEquals\":true,\"Next\":\"GoudaService21-UpdateOrderStatusStep\"}],\"Default\":\"GoudaService21-WaitStep\"},\"GoudaService21-OrderInTerminalState\":{\"Type\":\"Succeed\"}}}"
+       "\",\"Payload.$\":\"$\"}},\"GoudaService22-WaitStep\":{\"Type\":\"Wait\",\"Seconds\":10,\"Next\":\"GoudaService22-Check-Order-Status\"},\"GoudaService22-OrderStatusTerminal?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"open\",\"Next\":\"GoudaService22-WaitStep\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"filled\",\"Next\":\"GoudaService22-OrderInTerminalState\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"cancelled\",\"Next\":\"GoudaService22-OrderInTerminalState\"},{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatus\",\"StringEquals\":\"expired\",\"Next\":\"GoudaService22-OrderInTerminalState\"}]},\"GoudaService22-UpdateOrderStatusStep\":{\"Next\":\"GoudaService22-OrderStatusTerminal?\",\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::dynamodb:updateItem\",\"ResultPath\":\"$.updateOrderStatusOutput\",\"Parameters\":{\"TableName\":\"Orders\",\"Key\":{\"orderHash\":{\"S.$\":\"$.orderHash\"}},\"UpdateExpression\":\"SET orderStatus = :orderStatus\",\"ExpressionAttributeValues\":{\":orderStatus\":{\"S.$\":\"$.prevCheckOrderOutput.Payload.orderStatus\"}}}},\"GoudaService22-OrderStatusChanged?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.prevCheckOrderOutput.Payload.orderStatusChanged\",\"BooleanEquals\":true,\"Next\":\"GoudaService22-UpdateOrderStatusStep\"}],\"Default\":\"GoudaService22-WaitStep\"},\"GoudaService22-OrderInTerminalState\":{\"Type\":\"Succeed\"}}}"
       ]
      ]
     },
@@ -205,7 +206,7 @@
        "CloudWatchLogsLogGroup": {
         "LogGroupArn": {
          "Fn::GetAtt": [
-          "GoudaService21StateMachineStackE3D54FF3",
+          "GoudaService22StateMachineStackA1441139",
           "Arn"
          ]
         }
@@ -220,7 +221,7 @@
     "StateMachineRole9A8967EA"
    ],
    "Metadata": {
-    "aws:cdk:path": "GoudaService21StateMachineStack/GoudaService21-Stage-local-StatusTracking-StateMachine/Resource"
+    "aws:cdk:path": "GoudaService22StateMachineStack/GoudaService22-Stage-local-StatusTracking-StateMachine/Resource"
    }
   },
   "CDKMetadata": {
@@ -229,7 +230,7 @@
     "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VQy07DQAz8Fu5bU0olzjQSCKlFKD1wjLYbN3Ue6yjeLUJR/h1n2wo4zYw8tma8gvUTLO/slyxc2SxaOsC4D9Y1JkfhODg0OitGsh2MObdosqNP+MEtue9ZXthkWtsdSlt4LrEWeE/wEr0LxN7IY2FFMAg8z6AaNtE1GDZW8LoKeux3IWB/vAopgpVGYJtsb/7MDf43wPhpKZh9dA6xNFmUwJ0WCRr4xKQ1kthZdyKfSvzVmp0rvbHl6nXg2M/zG58mkxKrvyJfpf631yjP2JeUAqvY2b5Xz2TmH0At9+eHNayW+uBaiBZD9IE6hPyCP/ivUOJ8AQAA"
    },
    "Metadata": {
-    "aws:cdk:path": "GoudaService21StateMachineStack/CDKMetadata/Default"
+    "aws:cdk:path": "GoudaService22StateMachineStack/CDKMetadata/Default"
    },
    "Condition": "CDKMetadataAvailable"
   }
@@ -523,12 +524,12 @@
   }
  },
  "Outputs": {
-  "ExportsOutputRefGoudaService21StagelocalStatusTrackingStateMachineFD2B8F6988F95783": {
+  "ExportsOutputRefGoudaService22StagelocalStatusTrackingStateMachine98153A89FC9D6E8A": {
    "Value": {
-    "Ref": "GoudaService21StagelocalStatusTrackingStateMachineFD2B8F69"
+    "Ref": "GoudaService22StagelocalStatusTrackingStateMachine98153A89"
    },
    "Export": {
-    "Name": "GoudaService21StateMachineStack:ExportsOutputRefGoudaService21StagelocalStatusTrackingStateMachineFD2B8F6988F95783"
+    "Name": "GoudaService22StateMachineStack:ExportsOutputRefGoudaService22StagelocalStatusTrackingStateMachine98153A89FC9D6E8A"
    }
   }
  },
