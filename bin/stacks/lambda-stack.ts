@@ -6,16 +6,12 @@ import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
-import * as aws_s3 from 'aws-cdk-lib/aws-s3'
 import * as aws_sns from 'aws-cdk-lib/aws-sns'
 import { Construct } from 'constructs'
 import * as path from 'path'
 import { SERVICE_NAME } from '../constants'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
-  cacheBucket: aws_s3.Bucket
-  cacheKeySuffix: string
-  infuraProjectId: string
   provisionedConcurrency: number
   chatbotSNSArn?: string
 }
@@ -25,7 +21,7 @@ export class LambdaStack extends cdk.NestedStack {
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
-    const { cacheBucket, cacheKeySuffix, infuraProjectId, provisionedConcurrency, chatbotSNSArn } = props
+    const { provisionedConcurrency, chatbotSNSArn } = props
 
     const lambdaName = `${SERVICE_NAME}TokenLambda`
 
@@ -33,8 +29,6 @@ export class LambdaStack extends cdk.NestedStack {
       assumedBy: new aws_iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')],
     })
-
-    cacheBucket.grantRead(lambdaRole)
 
     this.lambda = new aws_lambda_nodejs.NodejsFunction(this, lambdaName, {
       role: lambdaRole,
@@ -50,9 +44,6 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
-        CACHE_BUCKET: cacheBucket.bucketName,
-        CACHE_KEY_SUFFIX: cacheKeySuffix,
-        PROJECT_ID: infuraProjectId,
       },
     })
 

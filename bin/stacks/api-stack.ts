@@ -10,6 +10,7 @@ import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
 import { Construct } from 'constructs'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
+import { LambdaStack } from './lambda-stack'
 
 export class APIStack extends cdk.Stack {
   public readonly url: CfnOutput
@@ -27,7 +28,13 @@ export class APIStack extends cdk.Stack {
   ) {
     super(parent, name, props)
 
-    const { throttlingOverride, chatbotSNSArn, stage } = props
+    const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
+
+    const { lambda } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
+      provisionedConcurrency,
+      chatbotSNSArn,
+    })
+    lambda
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
 
