@@ -119,24 +119,7 @@ export class APIStack extends cdk.Stack {
       webAclArn: ipThrottlingACL.getAtt('Arn').toString(),
     })
 
-    const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {
-      requestParameters: {
-        // valid form is 'method.request.<location>.<name>,
-        // where <location> == 'querystring' || 'path'
-        'integration.request.querystring.limit': 'method.request.querystring.limit',
-        'integration.request.querystring.orderStatus': 'method.request.querystring.orderStatus',
-        'integration.request.querystring.orderHash': 'method.request.querystring.orderHash',
-        'integration.request.querystring.offerer': 'method.request.querystring.offerer',
-        'integration.request.querystring.sellToken': 'method.request.querystring.sellToken',
-      },
-      cacheKeyParameters: [
-        'method.request.querystring.limit',
-        'method.request.querystring.orderStatus',
-        'method.request.querystring.orderHash',
-        'method.request.querystring.offerer',
-        'method.request.querystring.sellToken',
-      ],
-    })
+    const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -146,15 +129,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const orders = dutchAuction.addResource('orders')
-    orders.addMethod('GET', getOrdersLambdaIntegration, {
-      requestParameters: {
-        'method.request.querystring.limit': false,
-        'method.request.querystring.orderStatus': false,
-        'method.request.querystring.orderHash': false,
-        'method.request.querystring.offerer': false,
-        'method.request.querystring.sellToken': false,
-      },
-    })
+    orders.addMethod('GET', getOrdersLambdaIntegration, {})
 
     const apiAlarm5xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-5XXAlarm`, {
       metric: api.metricServerError({

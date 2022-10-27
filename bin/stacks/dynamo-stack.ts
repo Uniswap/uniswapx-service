@@ -2,12 +2,12 @@ import * as cdk from 'aws-cdk-lib'
 import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import { Construct } from 'constructs'
 import { SERVICE_NAME } from '../constants'
+import { TABLE_KEY } from '../../lib/util/db'
 
 export interface DynamoStackProps extends cdk.NestedStackProps {}
 
 export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
-  public readonly nonceTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
@@ -16,7 +16,7 @@ export class DynamoStack extends cdk.NestedStack {
     this.ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}OrdersTable`, {
       tableName: 'Orders',
       partitionKey: {
-        name: 'orderHash',
+        name: TABLE_KEY.ORDER_HASH,
         type: aws_dynamo.AttributeType.STRING,
       },
       // in us-east-2, $1.25 per million WRU, $0.25 per million RRU
@@ -26,88 +26,77 @@ export class DynamoStack extends cdk.NestedStack {
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'offererIndex',
       partitionKey: {
-        name: 'offerer',
+        name: TABLE_KEY.OFFERER,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
-        name: 'createdAt',
+        name: TABLE_KEY.CREATED_AT,
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'sellToken', 'orderStatus'],
+      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.SELL_TOKEN, TABLE_KEY.ORDER_STATUS],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'sellTokenIndex',
       partitionKey: {
-        name: 'sellToken',
+        name: TABLE_KEY.SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
-        name: 'createdAt',
+        name: TABLE_KEY.CREATED_AT,
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'offerer', 'orderStatus'],
+      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.OFFERER, TABLE_KEY.ORDER_STATUS],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'orderStatusIndex',
       partitionKey: {
-        name: 'orderStatus',
+        name: TABLE_KEY.ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
-        name: 'createdAt',
+        name: TABLE_KEY.CREATED_AT,
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'offerer', 'sellToken'],
+      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.OFFERER, TABLE_KEY.SELL_TOKEN],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'offerer-orderStatus-index',
       partitionKey: {
-        name: 'offererOrderStatus',
+        name: TABLE_KEY.OFFERER_ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
-        name: 'sellToken',
+        name: TABLE_KEY.SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'createdAt'],
+      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.CREATED_AT],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'offerer-sellToken-index',
       partitionKey: {
-        name: 'offererSellToken',
+        name: TABLE_KEY.OFFERER_SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'orderStatus', 'createdAt'],
+      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.ORDER_STATUS, TABLE_KEY.CREATED_AT],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: 'sellToken-orderStatus-index',
       partitionKey: {
-        name: 'sellTokenOrderStatus',
+        name: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature', 'offerer', 'createdAt'],
-    })
-
-    /* nonce table */
-    this.nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
-      tableName: 'Nonces',
-      partitionKey: {
-        name: 'offerer',
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      // in us-east-2, $1.25 per million WRU, $0.25 per million RRU
-      billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
+      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.OFFERER, TABLE_KEY.CREATED_AT],
     })
   }
 }

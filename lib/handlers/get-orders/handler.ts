@@ -1,6 +1,7 @@
 import Joi from '@hapi/joi'
 import { DynamoDB } from 'aws-sdk'
-import { DynamoDbInterface } from '../../db-interface/index'
+import { DynamoOrdersInterface } from '../../db-interface/orders'
+import { ORDERS_TABLE_NAME } from '../../util/db'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { Order } from '../types/order'
 import { ContainerInjected, RequestInjected } from './injector'
@@ -21,9 +22,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       requestInjected: { limit, queryFilters, log },
     } = params
     const dynamoClient = new DynamoDB.DocumentClient()
-
-    // TODO: Will use DynamoDB Mapper to get table name
-    const dbInterface = new DynamoDbInterface(dynamoClient, 'Orders')
+    const dbInterface = new DynamoOrdersInterface(dynamoClient, ORDERS_TABLE_NAME)
 
     try {
       // THIS WILL BE REMOVED BEFORE PR MERGE

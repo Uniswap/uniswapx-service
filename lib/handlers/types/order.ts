@@ -15,5 +15,4 @@ export type Order = {
   orderHash: string
   orderStatus: ORDER_STATUS
   offerer: string
-  sourceChainId: number
 }

@@ -1,35 +1,25 @@
 import { DynamoDB } from 'aws-sdk'
-import { ExpressionAttributeValueMap, QueryInput } from 'aws-sdk/clients/dynamodb'
+import { DocumentClient, ExpressionAttributeValueMap, QueryInput } from 'aws-sdk/clients/dynamodb'
 import { default as Logger } from 'bunyan'
 import { GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { Order } from '../handlers/types/order'
+import { TABLE_KEY } from '../util/db'
+import { BaseOrdersInterface } from './base'
 
-export abstract class DbInterface {
-  public abstract dbClient: any
-  abstract getOrders: (limit: number, queryFilters: { [key: string]: string }, _log?: Logger) => Promise<Order[]>
-}
-
-export class DynamoDbInterface implements DbInterface {
-  public dbClient: DynamoDB.DocumentClient
-  public tableName: string
-
-  constructor(dbClient: DynamoDB.DocumentClient, tableName: string) {
-    this.dbClient = dbClient
-    this.tableName = tableName
-  }
+export class DynamoOrdersInterface implements BaseOrdersInterface {
+  constructor(public documentClient: DocumentClient, public tableName: string) {}
 
   public async getOrders(limit: number, queryFilters: { [key: string]: string }, _log?: Logger): Promise<Order[]> {
     const requestedParams = Object.keys(queryFilters)
 
-    // TODO: Change query strings to enum that we will get from the DynamoDB Mapper
     // Build the query input based on the requested params
     let queryInput = {}
     switch (true) {
       case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_HASH], requestedParams):
         queryInput = this.getQueryInput(
-          'orderHash = :orderHash',
+          `${TABLE_KEY.ORDER_HASH} = :${TABLE_KEY.ORDER_HASH}`,
           {
-            ':orderHash': `${queryFilters['orderHash']}`,
+            [`:${TABLE_KEY.ORDER_HASH}`]: `${queryFilters['orderHash']}`,
           } as ExpressionAttributeValueMap,
           limit
         )
@@ -37,9 +27,9 @@ export class DynamoDbInterface implements DbInterface {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
         queryInput = this.getQueryInput(
-          'offerer = :offerer',
+          `${TABLE_KEY.OFFERER} = :${TABLE_KEY.OFFERER}`,
           {
-            ':offerer': `${queryFilters['offerer']}`,
+            [`:${TABLE_KEY.OFFERER}`]: `${queryFilters['offerer']}`,
           } as ExpressionAttributeValueMap,
           limit,
           'offererIndex'
@@ -48,9 +38,9 @@ export class DynamoDbInterface implements DbInterface {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         queryInput = this.getQueryInput(
-          'orderStatus = :orderStatus',
+          `${TABLE_KEY.ORDER_STATUS} = :${TABLE_KEY.ORDER_STATUS}`,
           {
-            ':orderStatus': `${queryFilters['orderStatus']}`,
+            [`:${TABLE_KEY.ORDER_STATUS}`]: `${queryFilters['orderStatus']}`,
           } as ExpressionAttributeValueMap,
           limit,
           'orderStatusIndex'
@@ -59,9 +49,9 @@ export class DynamoDbInterface implements DbInterface {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
         queryInput = this.getQueryInput(
-          'sellToken = :sellToken',
+          `${TABLE_KEY.SELL_TOKEN} = :${TABLE_KEY.SELL_TOKEN}`,
           {
-            ':sellToken': `${queryFilters['sellToken']}`,
+            [`:${TABLE_KEY.SELL_TOKEN}`]: `${queryFilters['sellToken']}`,
           } as ExpressionAttributeValueMap,
           limit,
           'sellTokenIndex'
@@ -73,10 +63,10 @@ export class DynamoDbInterface implements DbInterface {
         requestedParams
       ):
         queryInput = this.getQueryInput(
-          'offererOrderStatus = :offererOrderStatus and sellToken = :sellToken',
+          `${TABLE_KEY.OFFERER_ORDER_STATUS} = :${TABLE_KEY.OFFERER_ORDER_STATUS} and ${TABLE_KEY.SELL_TOKEN} = :${TABLE_KEY.SELL_TOKEN}`,
           {
-            ':offererOrderStatus': `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
-            ':sellToken': queryFilters['sellToken'],
+            [`:${TABLE_KEY.OFFERER_ORDER_STATUS}`]: `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
+            [`:${TABLE_KEY.SELL_TOKEN}`]: `${queryFilters['sellToken']}`,
           } as ExpressionAttributeValueMap,
           limit,
           'offerer-orderStatus-index'
@@ -85,9 +75,9 @@ export class DynamoDbInterface implements DbInterface {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         queryInput = this.getQueryInput(
-          'offererOrderStatus = :offererOrderStatus',
+          `${TABLE_KEY.OFFERER_ORDER_STATUS} = :${TABLE_KEY.OFFERER_ORDER_STATUS}`,
           {
-            ':offererOrderStatus': `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
+            [`:${TABLE_KEY.OFFERER_ORDER_STATUS}`]: `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
           } as ExpressionAttributeValueMap,
           limit,
           'offerer-orderStatus-index'
@@ -96,9 +86,9 @@ export class DynamoDbInterface implements DbInterface {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
         queryInput = this.getQueryInput(
-          'offererSellToken = :offererSellToken',
+          `${TABLE_KEY.OFFERER_SELL_TOKEN} = :${TABLE_KEY.OFFERER_SELL_TOKEN}`,
           {
-            ':offererSellToken': `${queryFilters['offerer']}-${queryFilters['sellToken']}`,
+            [`:${TABLE_KEY.OFFERER_SELL_TOKEN}`]: `${queryFilters['offerer']}-${queryFilters['sellToken']}`,
           } as ExpressionAttributeValueMap,
           limit,
           'offerer-sellToken-index'
@@ -107,9 +97,9 @@ export class DynamoDbInterface implements DbInterface {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         queryInput = this.getQueryInput(
-          'sellTokenOrderStatus = :sellTokenOrderStatus',
+          `${TABLE_KEY.SELL_TOKEN_ORDER_STATUS} = :${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}`,
           {
-            ':sellTokenOrderStatus': `${queryFilters['sellToken']}-${queryFilters['orderStatus']}`,
+            [`:${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}`]: `${queryFilters['sellToken']}-${queryFilters['orderStatus']}`,
           } as ExpressionAttributeValueMap,
           limit,
           'sellToken-orderStatus-index'
@@ -117,18 +107,17 @@ export class DynamoDbInterface implements DbInterface {
         break
 
       default:
-        // TODO: Implement more cases
-        const getOrdersResponse = await this.dbClient
+        const getOrdersScan = await this.documentClient
           .scan({
             TableName: this.tableName,
             ...(limit && { Limit: limit }),
           })
           .promise()
-        return getOrdersResponse.Items as Order[]
+        return this.formatOrderItems(getOrdersScan.Items)
     }
-
-    const ordersRequest = await this.dbClient.query(queryInput as QueryInput).promise()
-    return ordersRequest.Items as Order[]
+    
+    const getOrdersQuery = await this.documentClient.query(queryInput as QueryInput).promise()
+    return this.formatOrderItems(getOrdersQuery.Items)
   }
 
   private getQueryInput(
@@ -144,6 +133,26 @@ export class DynamoDbInterface implements DbInterface {
       ExpressionAttributeValues: expressionAttributeValues,
       ...(limit && { Limit: limit }),
     }
+  }
+
+  private formatOrderItems(orders: DynamoDB.DocumentClient.ItemList | undefined): Order[] {
+    if (!orders) {
+      return []
+    }
+
+    const formattedOrders: Order[] = []
+    for (const order of orders) {
+      formattedOrders.push({
+        createdAt: order[TABLE_KEY.CREATED_AT],
+        encodedOrder: order[TABLE_KEY.ENCODED_ORDER],
+        signature: order[TABLE_KEY.SIGNATURE],
+        orderHash: order[TABLE_KEY.ORDER_HASH],
+        orderStatus: order[TABLE_KEY.ORDER_STATUS],
+        offerer: order[TABLE_KEY.OFFERER],
+      })
+    }
+
+    return formattedOrders
   }
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
