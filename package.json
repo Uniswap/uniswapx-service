@@ -11,7 +11,7 @@
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
     "test": "jest",
-    "integ-test": "docker-compose up -d dynamodb-local && jest --testPathPattern=integ && docker-compose down",
+    "integ-test:dynamo": "docker-compose up -d dynamodb-local && jest --testPathPattern=integ && docker-compose down",
     "cdk": "cdk",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
