@@ -1,5 +1,5 @@
-jest.unmock('aws-sdk')
-jest.unmock('aws-sdk/clients/dynamodb')
+// jest.unmock('aws-sdk')
+// jest.unmock('aws-sdk/clients/dynamodb')
 
 import { DynamoDB } from 'aws-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
@@ -20,7 +20,7 @@ describe('OrdersRepository put item test', () => {
   beforeAll(async () => {
     jest.useFakeTimers()
     const db = new DynamoDB(dynamoConfig)
-    await db
+    return db
       .createTable({
         TableName: 'Orders',
         AttributeDefinitions: [
