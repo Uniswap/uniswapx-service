@@ -12,7 +12,7 @@ export class DynamoOrdersInterface implements BaseOrdersInterface {
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, _log?: Logger): Promise<Order[]> {
     const requestedParams = Object.keys(queryFilters)
 
-    // TODO: Clean these queries up by using a data mapper 
+    // TODO: Clean these queries up by using a data mapper
     // Build the query input based on the requested params
     let queryInput = {}
     switch (true) {

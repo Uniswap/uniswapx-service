@@ -34,7 +34,13 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.SELL_TOKEN, TABLE_KEY.ORDER_STATUS],
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.SELL_TOKEN,
+        TABLE_KEY.ORDER_STATUS,
+      ],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -48,7 +54,13 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.OFFERER, TABLE_KEY.ORDER_STATUS],
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.ORDER_STATUS,
+      ],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -62,7 +74,13 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.OFFERER, TABLE_KEY.SELL_TOKEN],
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.SELL_TOKEN,
+      ],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -86,7 +104,13 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.STRING,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.ORDER_STATUS, TABLE_KEY.CREATED_AT],
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.CREATED_AT,
+      ],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -96,7 +120,13 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.STRING,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.OFFERER, TABLE_KEY.CREATED_AT],
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
     })
   }
 }
