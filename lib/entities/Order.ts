@@ -1,6 +1,5 @@
 export enum ORDER_STATUS {
   OPEN = 'open',
-  NONCE_USED = 'nonceUsed',
   EXPIRED = 'expired',
   ERROR = 'error',
   CANCELLED = 'cancelled',
