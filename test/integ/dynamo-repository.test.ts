@@ -1,60 +1,59 @@
-// jest.unmock('aws-sdk')
-// jest.unmock('aws-sdk/clients/dynamodb')
-
-import { DynamoDB } from 'aws-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
 
 const dynamoConfig = {
+  convertEmptyValues: true,
   endpoint: 'localhost:8000',
   region: 'local-env',
+  sslEnabled: false,
+}
+
+const MOCK_ORDER_1: OrderEntity = {
+  orderHash: '0x1',
+  encodedOrder: 'order1',
+  signature: 'sig1',
+  createdAt: 123,
+  nonce: '1',
+  orderStatus: ORDER_STATUS.OPEN,
+}
+
+const MOCK_ORDER_2: OrderEntity = {
+  orderHash: '0x2',
+  encodedOrder: 'order2',
+  signature: 'sig2',
+  createdAt: 123,
+  nonce: '2',
+  orderStatus: ORDER_STATUS.OPEN,
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
-
 DynamoOrdersRepository.initialize(documentClient)
 const ordersRepository = new DynamoOrdersRepository()
 
 describe('OrdersRepository put item test', () => {
+  it('should successfully put an item in table', async () => {
+    expect(() => {
+      ordersRepository.put(MOCK_ORDER_1)
+    }).not.toThrow()
+  })
+})
+
+describe('OrdersRepository get item test', () => {
   beforeAll(async () => {
-    jest.useFakeTimers()
-    const db = new DynamoDB(dynamoConfig)
-    return db
-      .createTable({
-        TableName: 'Orders',
-        AttributeDefinitions: [
-          {
-            AttributeName: 'orderHash',
-            AttributeType: 'S',
-          },
-        ],
-        KeySchema: [
-          {
-            AttributeName: 'orderHash',
-            KeyType: 'HASH',
-          },
-        ],
-        ProvisionedThroughput: {
-          ReadCapacityUnits: 10,
-          WriteCapacityUnits: 10,
-        },
-      })
-      .promise()
+    await ordersRepository.put(MOCK_ORDER_1)
+    await ordersRepository.put(MOCK_ORDER_2)
   })
 
-  it('should put an item', async () => {
-    const order: OrderEntity = {
-      orderHash: 'hash',
-      encodedOrder: 'order',
-      signature: 'sig',
-      createdAt: 123,
-      nonce: '1',
-      orderStatus: ORDER_STATUS.OPEN,
-    }
+  it('should successfully get an item from table', async () => {
+    const order1 = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
+    expect(order1).toEqual(MOCK_ORDER_1)
 
-    await ordersRepository.put(order)
-    const result = await ordersRepository.getByHash('0x123')
-    expect(result).toEqual(order)
+    const order2 = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
+    expect(order2).toEqual(MOCK_ORDER_2)
+  })
+
+  it('should return undefined if item does not exist', async () => {
+    expect(await ordersRepository.getByHash('0x3')).toBeUndefined()
   })
 })

@@ -1,5 +1,5 @@
 import { OrderEntity } from '../entities/index'
 
 export interface BaseOrdersRepository {
-  getByHash: (hash: string) => Promise<OrderEntity[]>
+  getByHash: (hash: string) => Promise<OrderEntity | undefined>
 }
