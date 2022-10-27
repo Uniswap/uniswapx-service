@@ -1,4 +1,5 @@
-export abstract class BaseOrdersRepository {
-  public abstract getByHash(hash: string): Promise<any>
-  public abstract put(order: any): Promise<void>
+import { OrderEntity } from '../entities/index'
+
+export interface BaseOrdersRepository {
+  getByHash: (hash: string) => Promise<OrderEntity[]>
 }
