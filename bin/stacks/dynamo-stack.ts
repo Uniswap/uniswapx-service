@@ -1,8 +1,8 @@
 import * as cdk from 'aws-cdk-lib'
 import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import { Construct } from 'constructs'
-import { SERVICE_NAME } from '../constants'
 import { TABLE_KEY } from '../../lib/util/db'
+import { SERVICE_NAME } from '../constants'
 
 export interface DynamoStackProps extends cdk.NestedStackProps {}
 

@@ -3,7 +3,7 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
   APIGatewayProxyResult,
-  Context,
+  Context
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 
@@ -252,7 +252,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       }
     }
 
-    let queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
+    const queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
     const queryParamsSchema = this.requestQueryParamsSchema()
 
     let queryParams: ReqQueryParams | undefined

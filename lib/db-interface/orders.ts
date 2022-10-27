@@ -1,7 +1,7 @@
 import { DynamoDB } from 'aws-sdk'
 import { DocumentClient, ExpressionAttributeValueMap, QueryInput } from 'aws-sdk/clients/dynamodb'
 import { default as Logger } from 'bunyan'
-import { GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
+import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { Order } from '../handlers/types/order'
 import { TABLE_KEY } from '../util/db'
 import { BaseOrdersInterface } from './base'
@@ -9,9 +9,10 @@ import { BaseOrdersInterface } from './base'
 export class DynamoOrdersInterface implements BaseOrdersInterface {
   constructor(public documentClient: DocumentClient, public tableName: string) {}
 
-  public async getOrders(limit: number, queryFilters: { [key: string]: string }, _log?: Logger): Promise<Order[]> {
+  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, _log?: Logger): Promise<Order[]> {
     const requestedParams = Object.keys(queryFilters)
 
+    // TODO: Clean these queries up by using a data mapper 
     // Build the query input based on the requested params
     let queryInput = {}
     switch (true) {
@@ -115,7 +116,7 @@ export class DynamoOrdersInterface implements BaseOrdersInterface {
           .promise()
         return this.formatOrderItems(getOrdersScan.Items)
     }
-    
+
     const getOrdersQuery = await this.documentClient.query(queryInput as QueryInput).promise()
     return this.formatOrderItems(getOrdersQuery.Items)
   }
@@ -157,7 +158,7 @@ export class DynamoOrdersInterface implements BaseOrdersInterface {
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
     return (
-      queryParams.every((filter) => requestedParams.includes(filter)) && requestedParams.length == queryParams.length
+      requestedParams.length == queryParams.length && queryParams.every((filter) => requestedParams.includes(filter))
     )
   }
 }
