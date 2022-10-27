@@ -5,8 +5,7 @@
 */
 
 import { DynamoDB } from 'aws-sdk'
-import { TABLE_KEY } from '../../entities/Order'
-import { ORDER_STATUS } from '../types/order'
+import { ORDER_STATUS, TABLE_KEY } from '../../entities/Order'
 
 const getItem = (
   orderHash: string,

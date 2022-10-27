@@ -10,10 +10,8 @@ import { BaseOrdersRepository } from './base'
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   private readonly ordersTable: Table
   private readonly orderEntity: any
-  private readonly documentClient: DocumentClient
 
   constructor(documentClient: DocumentClient) {
-    this.documentClient = documentClient
     this.ordersTable = new Table({
       name: 'Orders',
       partitionKey: 'orderHash',
@@ -49,36 +47,24 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     } as const)
   }
 
-  async getByHash(hash: string): Promise<OrderEntity[]> {
+  public async getByHash(hash: string): Promise<OrderEntity[]> {
     const order = await this.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
     return [order.Item]
   }
 
-  async getByOfferer(offerer: string, limit: number): Promise<OrderEntity[]> {
-    return await this.queryOrderEntity(
-      offerer,
-      'offererIndex',
-      limit,
-    )
+  public async getByOfferer(offerer: string, limit: number): Promise<OrderEntity[]> {
+    return await this.queryOrderEntity(offerer, 'offererIndex', limit)
   }
 
-  async getByOrderStatus(orderStatus: string, limit: number): Promise<OrderEntity[]> {
-    return await this.queryOrderEntity(
-      orderStatus,
-      'orderStatusIndex',
-      limit,
-    )
+  public async getByOrderStatus(orderStatus: string, limit: number): Promise<OrderEntity[]> {
+    return await this.queryOrderEntity(orderStatus, 'orderStatusIndex', limit)
   }
 
-  async getBySellToken(sellToken: string, limit: number): Promise<OrderEntity[]> {
-    return await this.queryOrderEntity(
-      sellToken,
-      'sellTokenIndex',
-      limit,
-    )
+  public async getBySellToken(sellToken: string, limit: number): Promise<OrderEntity[]> {
+    return await this.queryOrderEntity(sellToken, 'sellTokenIndex', limit)
   }
 
-  async put(_order: OrderEntity): Promise<void> {
+  public async put(_order: OrderEntity): Promise<void> {
     throw new Error('Method not implemented.')
   }
 
@@ -114,32 +100,30 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         return await this.queryOrderEntity(
           `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
           'offererOrderStatusIndex',
-          limit,
+          limit
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
         return await this.queryOrderEntity(
           `${queryFilters['offerer']}-${queryFilters['sellToken']}`,
           'offererSellTokenIndex',
-          limit,
+          limit
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         return await this.queryOrderEntity(
           `${queryFilters['sellToken']}-${queryFilters['orderStatus']}`,
           'sellTokenOrderStatusIndex',
-          limit,
+          limit
         )
 
       default:
-        const getOrdersScan = await this.documentClient
+        const getOrdersScan = await this.ordersTable
           .scan({
-            TableName: this.ordersTable.name,
-            ...(limit && { Limit: limit }),
+            ...(limit && { limit: limit }),
           })
-          .promise()
-        return getOrdersScan.Items as OrderEntity[]
-      }
+        return getOrdersScan.Items
+    }
   }
 
   private async queryOrderEntity(
@@ -148,14 +132,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     limit: number | undefined,
     sortKey?: string
   ): Promise<OrderEntity[]> {
-    const queryResult = await this.orderEntity.query(
-      partitionKey,
-      {
-        index: index,
-        ...(limit && { limit: limit }),
-        ...(sortKey && { eq: sortKey }),
-      }
-    )
+    const queryResult = await this.orderEntity.query(partitionKey, {
+      index: index,
+      ...(limit && { limit: limit }),
+      ...(sortKey && { eq: sortKey }),
+    })
     return queryResult.Items
   }
 

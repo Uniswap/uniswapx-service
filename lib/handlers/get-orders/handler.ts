@@ -1,5 +1,6 @@
 import Joi from '@hapi/joi'
 import { DynamoDB } from 'aws-sdk'
+
 import { OrderEntity } from '../../entities'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'

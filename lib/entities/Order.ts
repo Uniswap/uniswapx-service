@@ -35,5 +35,3 @@ export enum TABLE_KEY {
   OFFERER_SELL_TOKEN = 'offererSellToken',
   SELL_TOKEN_ORDER_STATUS = 'sellTokenOrderStatus',
 }
-
-export const ORDERS_TABLE_NAME = 'Orders'
