@@ -1,9 +1,8 @@
 import Joi from '@hapi/joi'
 import { DynamoDB } from 'aws-sdk'
-import { DynamoOrdersInterface } from '../../db-interface/orders'
-import { ORDERS_TABLE_NAME } from '../../util/db'
+import { OrderEntity } from '../../entities'
+import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
-import { Order } from '../types/order'
 import { ContainerInjected, RequestInjected } from './injector'
 import { setupMockItemsInDb } from './post-orders-testing-file'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, GetOrdersResponse, GetOrdersResponseJoi } from './schema/index'
@@ -22,13 +21,13 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       requestInjected: { limit, queryFilters, log },
     } = params
     const dynamoClient = new DynamoDB.DocumentClient()
-    const dbInterface = new DynamoOrdersInterface(dynamoClient, ORDERS_TABLE_NAME)
+    const dbInterface = new DynamoOrdersRepository(dynamoClient)
 
     try {
       // THIS WILL BE REMOVED BEFORE PR MERGE
       await setupMockItemsInDb()
 
-      const orders: Order[] = await dbInterface.getOrders(limit, queryFilters, log)
+      const orders: OrderEntity[] = await dbInterface.getOrders(limit, queryFilters, log)
       return {
         statusCode: 200,
         body: { orders: orders },

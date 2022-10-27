@@ -2739,6 +2739,11 @@ dtrace-provider@~0.8:
   dependencies:
     nan "^2.14.0"
 
+dynamodb-toolbox@^0.3.5:
+  version "0.3.5"
+  resolved "https://registry.yarnpkg.com/dynamodb-toolbox/-/dynamodb-toolbox-0.3.5.tgz#ebc73a26c488b16874d4f09fc382e0a3864ba051"
+  integrity sha512-UNuBwTwJwWIZQLz+STdl3xeJyxqk0vMxieUD1AO7VEpbYvGGrLxuvJzzK1ng8Gak0e8xHZlcapuj6a5Zl5pqUw==
+
 electron-to-chromium@^1.4.251:
   version "1.4.284"
   resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.284.tgz#61046d1e4cab3a25238f6bf7413795270f125592"

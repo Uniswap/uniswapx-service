@@ -5,7 +5,7 @@
 */
 
 import { DynamoDB } from 'aws-sdk'
-import { TABLE_KEY } from '../../util/db'
+import { TABLE_KEY } from '../../entities/Order'
 import { ORDER_STATUS } from '../types/order'
 
 const getItem = (

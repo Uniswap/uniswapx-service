@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import { Construct } from 'constructs'
-import { TABLE_KEY } from '../../lib/util/db'
+import { TABLE_KEY } from '../../lib/entities/Order'
 import { SERVICE_NAME } from '../constants'
 
 export interface DynamoStackProps extends cdk.NestedStackProps {}
@@ -24,7 +24,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: 'offererIndex',
+      indexName: `${TABLE_KEY.OFFERER}Index`,
       partitionKey: {
         name: TABLE_KEY.OFFERER,
         type: aws_dynamo.AttributeType.STRING,
@@ -44,7 +44,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: 'sellTokenIndex',
+      indexName: `${TABLE_KEY.SELL_TOKEN}Index`,
       partitionKey: {
         name: TABLE_KEY.SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
@@ -64,7 +64,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: 'orderStatusIndex',
+      indexName: `${TABLE_KEY.ORDER_STATUS}Index`,
       partitionKey: {
         name: TABLE_KEY.ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
@@ -84,7 +84,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: 'offerer-orderStatus-index',
+      indexName: `${TABLE_KEY.OFFERER_ORDER_STATUS}Index`,
       partitionKey: {
         name: TABLE_KEY.OFFERER_ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
@@ -98,7 +98,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: 'offerer-sellToken-index',
+      indexName: `${TABLE_KEY.OFFERER_SELL_TOKEN}Index`,
       partitionKey: {
         name: TABLE_KEY.OFFERER_SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
@@ -114,7 +114,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: 'sellToken-orderStatus-index',
+      indexName: `${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}Index`,
       partitionKey: {
         name: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
