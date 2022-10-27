@@ -18,6 +18,9 @@
    ```
    GoudaServiceStack.Url = https://...
    ```
+3. (optional) To run dynamo-db integration tests, install docker (and docker-compose);
+   using the binary is probably the easiest (https://docs.docker.com/desktop/install/mac-install/)
+   but you can also use homebrew (might require additional setup).
 
 ## Integration Tests
 
