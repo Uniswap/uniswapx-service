@@ -1,0 +1,91 @@
+{
+    "StartAt": "GoudaService22-Check-Order-Status",
+    "States": {
+      "GoudaService22-Check-Order-Status": {
+        "Next": "GoudaService22-OrderStatusChanged?",
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Type": "Task",
+        "ResultPath": "$.prevCheckOrderOutput",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:us-east-1:089388554565:function:GoudaService22StateMachin-GoudaService22Stagelocal-kAGtCIjCggr3",
+          "Payload.$": "$"
+        }
+      },
+      "GoudaService22-WaitStep": {
+        "Type": "Wait",
+        "Seconds": 10,
+        "Next": "GoudaService22-Check-Order-Status"
+      },
+      "GoudaService22-OrderStatusTerminal?": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.prevCheckOrderOutput.Payload.orderStatus",
+            "StringEquals": "open",
+            "Next": "GoudaService22-WaitStep"
+          },
+          {
+            "Variable": "$.prevCheckOrderOutput.Payload.orderStatus",
+            "StringEquals": "filled",
+            "Next": "GoudaService22-OrderInTerminalState"
+          },
+          {
+            "Variable": "$.prevCheckOrderOutput.Payload.orderStatus",
+            "StringEquals": "cancelled",
+            "Next": "GoudaService22-OrderInTerminalState"
+          },
+          {
+            "Variable": "$.prevCheckOrderOutput.Payload.orderStatus",
+            "StringEquals": "expired",
+            "Next": "GoudaService22-OrderInTerminalState"
+          }
+        ]
+      },
+      "GoudaService22-UpdateOrderStatusStep": {
+        "Next": "GoudaService22-OrderStatusTerminal?",
+        "Type": "Task",
+        "ResultPath": "$.updateOrderStatusOutput",
+        "Resource": "arn:aws:states:::dynamodb:updateItem",
+        "Parameters": {
+          "Key": {
+            "orderHash": {
+              "S.$": "$.orderHash"
+            }
+          },
+          "TableName": "Orders",
+          "ExpressionAttributeValues": {
+            ":orderStatus": {
+              "S": "$.prevCheckOrderOutput.Payload.orderStatus"
+            }
+          },
+          "UpdateExpression": "SET orderStatus = :orderStatus"
+        }
+      },
+      "GoudaService22-OrderStatusChanged?": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.prevCheckOrderOutput.Payload.orderStatusChanged",
+            "BooleanEquals": true,
+            "Next": "GoudaService22-UpdateOrderStatusStep"
+          }
+        ],
+        "Default": "GoudaService22-WaitStep"
+      },
+      "GoudaService22-OrderInTerminalState": {
+        "Type": "Succeed"
+      }
+    }
+  }

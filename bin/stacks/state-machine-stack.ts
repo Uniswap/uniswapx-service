@@ -9,8 +9,9 @@ import { SERVICE_NAME } from '../constants';
 import path from 'path';
 import { ORDER_STATUS } from '../../lib/handlers/types/order';
 import { STAGE } from '../../lib/util/stage';
-import updateDbOrderStatusJson from './custom-state-json/insert-dynamodb.json'
+import orderStatusTrackingStateMachine from './state-json-definitions/order-status-tracking.asl.json'
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
+import { CfnStateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 
 export class StateMachineStack extends cdk.Stack {
   public stateMachineARN: string;
@@ -30,9 +31,12 @@ export class StateMachineStack extends cdk.Stack {
       assumedBy: new cdk.aws_iam.ServicePrincipal('states.amazonaws.com'),
       managedPolicies: [
         cdk.aws_iam.ManagedPolicy.fromManagedPolicyArn(this, `StateMachineDynamoDbFullAccess`, "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"),
+        cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaRole')
       ],
     });
-    const checkOrderStatusLambda = new NodejsFunction(this, `${SERVICE_NAME}-Stage-${stage}-CheckOrderStatusLambda`, {
+
+    // check order status lambda
+    new NodejsFunction(this, `${SERVICE_NAME}-Stage-${stage}-CheckOrderStatusLambda`, {
       //no permissions needed
       //role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_16_X,
@@ -48,54 +52,20 @@ export class StateMachineStack extends cdk.Stack {
         ...props.envVars
       },
     });
-      
-    const checkOrderStatusStep = new tasks.LambdaInvoke(this, `${SERVICE_NAME}-Check-Order-Status`, {
-      lambdaFunction: checkOrderStatusLambda,
-      // Lambda's result is in the attribute `filledOrders`
-      resultPath: '$.prevCheckOrderOutput',
-    })
-
-    const waitStep = new sfn.Wait(this, `${SERVICE_NAME}-WaitStep`, {time: sfn.WaitTime.duration(Duration.seconds(10))})
-      .next(checkOrderStatusStep)
-
-    const succeedStep = new sfn.Succeed(this, `${SERVICE_NAME}-OrderInTerminalState`)
-
-    // task to update the order status in DynamoDB
-    const updateOrderStatusStep = new tasks.DynamoUpdateItem(this, `${SERVICE_NAME}-UpdateOrderStatusStep`, {
-      key: {
-        orderHash: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt('$.orderHash'))
-      },
-      table: Table.fromTableName(this, `${SERVICE_NAME}-StepFunction-DynamoDb-Orders`, 'Orders'),
-      expressionAttributeValues: {
-        ":orderStatus": tasks.DynamoAttributeValue.fromString("$.prevCheckOrderOutput.Payload.orderStatus")
-      },
-      updateExpression: "SET orderStatus = :orderStatus",
-      resultPath: "$.updateOrderStatusOutput"
-    })
     
-    const checkTerminalStatusStep = new sfn.Choice(this, `${SERVICE_NAME}-OrderStatusTerminal?`)
-      .when(sfn.Condition.stringEquals('$.prevCheckOrderOutput.Payload.orderStatus', ORDER_STATUS.OPEN), waitStep)
-      .when(sfn.Condition.stringEquals('$.prevCheckOrderOutput.Payload.orderStatus', ORDER_STATUS.FILLED), succeedStep)
-      .when(sfn.Condition.stringEquals('$.prevCheckOrderOutput.Payload.orderStatus', ORDER_STATUS.CANCELLED), succeedStep)
-      .when(sfn.Condition.stringEquals('$.prevCheckOrderOutput.Payload.orderStatus', ORDER_STATUS.EXPIRED), succeedStep)
+    const logGroup = new logs.LogGroup(this, name, { logGroupName: `${name}`});
 
-    const definition = checkOrderStatusStep.next(new sfn.Choice(this, `${SERVICE_NAME}-OrderStatusChanged?`)
-      .when(sfn.Condition.booleanEquals('$.prevCheckOrderOutput.Payload.orderStatusChanged', true), updateOrderStatusStep.next(checkTerminalStatusStep))
-      .otherwise(waitStep)
-    )
-
-    // prefix for vended logging
-    const prefix = '/aws/vendedlogs/states/'
-    const logGroup = new logs.LogGroup(this, name, { logGroupName: `${prefix}${name}`});
-
-    this.stateMachineARN = new sfn.StateMachine(this, `${SERVICE_NAME}-Stage-${stage}-StatusTracking-StateMachine`, {
-      role: stateMachineRole,
-      definition: sfn.Chain.start(definition),
-      logs: {
-        destination: logGroup,
-        level: sfn.LogLevel.ALL,
-      },
-    }).stateMachineArn;
+    this.stateMachineARN = new CfnStateMachine(this, `${SERVICE_NAME}-Stage-${stage}-OrderStatusTracking`, {
+      roleArn: stateMachineRole.roleArn,
+      definition: orderStatusTrackingStateMachine,
+      loggingConfiguration: {
+        destinations: [{
+          cloudWatchLogsLogGroup: {
+            logGroupArn: logGroup.logGroupArn
+          }
+        }]
+      }
+    }).attrArn
   }
 }
 
