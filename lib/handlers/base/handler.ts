@@ -83,8 +83,8 @@ const INTERNAL_ERROR = (id?: string) => {
 
 export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams, Res> {
   constructor(
-    private readonly handlerName: string,
-    private readonly injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
+    private handlerName: string,
+    private injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
   ) {}
 
   get handler(): APIGatewayProxyHandler {

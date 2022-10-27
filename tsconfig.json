@@ -18,7 +18,8 @@
     "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
     "inlineSourceMap": true,
     "inlineSources": true,
-    "strictPropertyInitialization": true,
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
     "outDir": "dist",
     "allowJs": true,
     "typeRoots": ["./node_modules/@types"]

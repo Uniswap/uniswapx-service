@@ -17,7 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "inlineSourceMap": true,
     "inlineSources": true,
-    "strictPropertyInitialization": true,
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
     "outDir": "dist",
     "typeRoots": ["./node_modules/@types"]
   },
