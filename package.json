@@ -25,7 +25,6 @@
     "@types/expect": "^24.3.0",
     "@types/hapi__joi": "^17.1.8",
     "@types/jest": "^29.2.0",
-    "@types/mocha": "^10.0.0",
     "@types/node": "^18.11.4",
     "@types/qs": "^6.9.7",
     "@types/uuid": "^8.3.4",
@@ -37,7 +36,6 @@
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-import": "^2.26.0",
     "ethers": "^5.7.2",
-    "mocha": "^10.1.0",
     "prettier": "^2.7.1",
     "prettier-plugin-organize-imports": "^3.1.1",
     "sinon": "^14.0.1",
@@ -61,15 +59,11 @@
     "jest": "^29.2.2",
     "joi": "^17.6.4",
     "source-map-support": "^0.5.21",
-    "ts-mocha": "^10.0.0",
     "uuid": "^9.0.0"
   },
   "prettier": {
     "printWidth": 120,
     "semi": false,
     "singleQuote": true
-  },
-  "mocha": {
-    "env": "dotenv_config_path=./.env"
   }
 }
