@@ -43,7 +43,7 @@ export class UnsupportedChainError extends Error {
 }
 
 export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams> {
-  private containerInjected: CInj
+  private containerInjected: CInj | undefined
   public constructor(protected injectorName: string) {}
 
   public async build() {
@@ -252,7 +252,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       }
     }
 
-    let queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
+    const queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
     const queryParamsSchema = this.requestQueryParamsSchema()
 
     let queryParams: ReqQueryParams | undefined
