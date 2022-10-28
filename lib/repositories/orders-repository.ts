@@ -46,11 +46,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       table: this.ordersTable,
     } as const)
 
-    /* Nonces Table
-     * This is needed because need want to do strongly-consistent reads on the nonce value,
-     *  which is not possible to do on secondary indexes.
-     */
-
     this.nonceTable = new Table({
       name: 'Nonces',
       partitionKey: 'offerer',

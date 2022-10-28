@@ -65,6 +65,10 @@ export class DynamoStack extends cdk.NestedStack {
       nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature'],
     })
 
+    /* Nonces Table
+     * This is needed because we want to do strongly-consistent reads on the nonce value,
+     *  which is not possible to do on secondary indexes (if we work with only the Orders table).
+     */
     this.nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
       tableName: 'Nonces',
       partitionKey: {
