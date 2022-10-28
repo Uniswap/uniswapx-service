@@ -10,7 +10,7 @@
     "build": "tsc",
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
-    "test": "jest --testPathIgnorePatterns=/test/integ/",
+    "test": "jest",
     "integ-test:dynamo": "jest --testPathPattern=integ/dynamo",
     "cdk": "cdk",
     "fix": "run-s fix:*",
