@@ -18,9 +18,7 @@
    ```
    GoudaServiceStack.Url = https://...
    ```
-3. (optional) To run dynamo-db integration tests, install docker (and docker-compose);
-   using the binary is probably the easiest (https://docs.docker.com/desktop/install/mac-install/)
-   but you can also use homebrew (might require additional setup).
+3. (optional) To run dynamo-db integration tests, you need to have Java Runtime installed (https://www.java.com/en/download/manual.jsp).
 
 ## Integration Tests
 
