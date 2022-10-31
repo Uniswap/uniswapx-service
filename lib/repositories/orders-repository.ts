@@ -5,10 +5,10 @@ import { OrderEntity } from '../entities/Order'
 import { BaseOrdersRepository } from './base'
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
-  private readonly ordersTable: Table
-  private readonly orderEntity: any
+  private static ordersTable: Table
+  private static orderEntity: any
 
-  constructor(documentClient: DocumentClient) {
+  static initialize(documentClient: DocumentClient) {
     this.ordersTable = new Table({
       name: 'Orders',
       partitionKey: 'orderHash',
@@ -44,11 +44,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   }
 
   async getByHash(hash: string): Promise<OrderEntity | undefined> {
-    const res = await this.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
+    const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
     return res.Item as OrderEntity
   }
 
   async put(order: OrderEntity): Promise<void> {
-    await this.orderEntity.put(order)
+    await DynamoOrdersRepository.orderEntity.put(order)
   }
 }

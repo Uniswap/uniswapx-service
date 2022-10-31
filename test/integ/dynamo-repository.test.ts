@@ -26,7 +26,8 @@ const MOCK_ORDER_2: OrderEntity = {
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
-const ordersRepository = new DynamoOrdersRepository(documentClient)
+const ordersRepository = new DynamoOrdersRepository()
+DynamoOrdersRepository.initialize(documentClient)
 
 describe('OrdersRepository put item test', () => {
   it('should successfully put an item in table', async () => {
