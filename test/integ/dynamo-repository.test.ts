@@ -71,6 +71,17 @@ describe('OrdersRepository get nonce test', () => {
     expect(nonce).toEqual('3')
   })
 
+  it('should get last used nonce when there are multiple orders with that nonce value in the DB', async () => {
+    await ordersRepository.putOrderAndUpdateNonceTransaction({
+      ...MOCK_ORDER_1,
+      nonce: '2',
+      orderHash: '0x3',
+    })
+    // at this point, there are three orders in the DB, two with nonce 2
+    const nonce = await ordersRepository.getNonceByAddress('hayden.eth')
+    expect(nonce).toEqual('2')
+  })
+
   it('should generate random nonce for new address', async () => {
     const spy = jest.spyOn(nonceUtil, 'generateRandomNonce')
     const res = await ordersRepository.getNonceByAddress('random.eth')
