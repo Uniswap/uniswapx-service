@@ -33,11 +33,11 @@ export class GetOrdersHandler extends APIGLambdaHandler<
         statusCode: 200,
         body: { orders: orders },
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       return {
         // TODO: differentiate between input errors
         statusCode: 500,
-        errorCode: e.message,
+        ...(e instanceof Error && {errorCode: e.message}),
       }
     }
   }

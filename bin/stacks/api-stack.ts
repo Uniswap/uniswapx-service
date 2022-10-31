@@ -32,7 +32,6 @@ export class APIStack extends cdk.Stack {
 
     const { getOrdersLambdaAlias } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
-      chatbotSNSArn,
     })
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)

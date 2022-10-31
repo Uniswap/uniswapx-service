@@ -39,9 +39,9 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
     // default to no limit
     const limit = requestQueryParams?.limit ?? 0
     const orderStatus = requestQueryParams?.orderStatus
-    const orderHash = requestQueryParams?.orderHash
-    const offerer = requestQueryParams?.offerer
-    const sellToken = requestQueryParams?.sellToken
+    const orderHash = requestQueryParams?.orderHash?.toLowerCase()
+    const offerer = requestQueryParams?.offerer?.toLowerCase()
+    const sellToken = requestQueryParams?.sellToken?.toLowerCase()
 
     return {
       limit: limit,

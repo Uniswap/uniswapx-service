@@ -73,7 +73,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
     // Query Orders table based on the requested params
     switch (true) {
-      case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_HASH], requestedParams):
+      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH):
         return await this.getByHash(queryFilters['orderHash'] as string)
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):

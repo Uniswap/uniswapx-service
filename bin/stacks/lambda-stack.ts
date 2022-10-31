@@ -2,11 +2,9 @@ import * as cdk from 'aws-cdk-lib'
 import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
-import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
-import * as aws_sns from 'aws-cdk-lib/aws-sns'
 import { Construct } from 'constructs'
 import * as path from 'path'
 import { SERVICE_NAME } from '../constants'
@@ -14,15 +12,14 @@ import { DynamoStack } from './dynamo-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
-  chatbotSNSArn?: string
 }
 export class LambdaStack extends cdk.NestedStack {
-  public readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
-    const { provisionedConcurrency, chatbotSNSArn } = props
+    const { provisionedConcurrency } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
 
@@ -53,7 +50,7 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
-    const getOrdersLambdaAlarmErrorRate = new aws_cloudwatch.Alarm(this, `GetOrdersLambdaErrorRate`, {
+    new aws_cloudwatch.Alarm(this, `GetOrdersLambdaErrorRate`, {
       metric: new aws_cloudwatch.MathExpression({
         expression: 'errors / invocations',
         usingMetrics: {
@@ -71,7 +68,7 @@ export class LambdaStack extends cdk.NestedStack {
       evaluationPeriods: 3,
     })
 
-    const getOrdersLambdaThrottlesErrorRate = new aws_cloudwatch.Alarm(this, `GetOrdersLambdaThrottles`, {
+    new aws_cloudwatch.Alarm(this, `GetOrdersLambdaThrottles`, {
       metric: this.getOrdersLambda.metricThrottles({
         period: Duration.minutes(5),
         statistic: 'sum',
@@ -79,12 +76,6 @@ export class LambdaStack extends cdk.NestedStack {
       threshold: 10,
       evaluationPeriods: 3,
     })
-
-    if (chatbotSNSArn) {
-      const chatBotTopic = aws_sns.Topic.fromTopicArn(this, `${lambdaName}-ChatbotTopic`, chatbotSNSArn)
-      getOrdersLambdaAlarmErrorRate.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      getOrdersLambdaThrottlesErrorRate.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-    }
 
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 
