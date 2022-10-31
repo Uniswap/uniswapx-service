@@ -36,9 +36,9 @@ export class StateMachineStack extends cdk.Stack {
     });
 
     // check order status lambda
-    new NodejsFunction(this, `${SERVICE_NAME}-Stage-${stage}-CheckOrderStatusLambda`, {
-      //no permissions needed
-      //role: lambdaRole,
+    const arn = new NodejsFunction(this, `${SERVICE_NAME}-Stage-${stage}-CheckOrderStatusLambda`, {
+      // no permissions needed
+      // role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'checkOrderStatusHandler',
@@ -51,13 +51,16 @@ export class StateMachineStack extends cdk.Stack {
       environment: {
         ...props.envVars
       },
-    });
-    
+    }).functionArn;
+
     const logGroup = new logs.LogGroup(this, name, { logGroupName: `${name}`});
 
     this.stateMachineARN = new CfnStateMachine(this, `${SERVICE_NAME}-Stage-${stage}-OrderStatusTracking`, {
       roleArn: stateMachineRole.roleArn,
       definition: orderStatusTrackingStateMachine,
+      definitionSubstitutions: {
+        checkOrderStatusLambdaArn: arn
+      },
       loggingConfiguration: {
         destinations: [{
           cloudWatchLogsLogGroup: {

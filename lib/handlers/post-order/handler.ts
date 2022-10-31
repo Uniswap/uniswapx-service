@@ -5,6 +5,7 @@ import { PostOrderRequestBodyJoi, PostOrderRequestBody, PostOrderResponseJoi, Po
 import { ORDER_STATUS } from '../types/order'
 import { parseOrder } from 'gouda-sdk'
 import { StepFunctions, DynamoDB } from 'aws-sdk'
+import { CheckOrderStatusQueryParams } from '../check-order-status/handler'
 
 const stepfunctions = new StepFunctions()
 
@@ -63,7 +64,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
               startBlockNumber: startBlockNumber - 1,
               chainId,
               orderHash: hash,
-            }),
+            } as CheckOrderStatusQueryParams),
           },
           (err, resp) => {
             if (err) {
