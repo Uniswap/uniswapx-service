@@ -1,4 +1,3 @@
-import Joi from 'Joi'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
@@ -6,6 +5,7 @@ import {
   Context,
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
+import Joi from 'Joi'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
@@ -234,8 +234,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       }
     | { state: 'invalid'; errorResponse: APIGatewayProxyResult }
   > {
-
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     let bodyRaw: any
 
     if (event.body) {
