@@ -1,12 +1,11 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { Entity, Table } from 'dynamodb-toolbox'
-
-import { DYNAMODB_TYPES } from '../config/dynamodb'
+import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
 import { OrderEntity } from '../entities/Order'
 import { BaseOrdersRepository } from './base'
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
-  private static ordersTable: Table<'Orders', 'orderHash', null>
+  private static ordersTable: Table
   private static orderEntity: any
 
   static initialize(documentClient: DocumentClient) {
@@ -14,6 +13,14 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       name: 'Orders',
       partitionKey: 'orderHash',
       DocumentClient: documentClient,
+      indexes: {
+        offererIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.CREATED_AT },
+        orderStatusIndex: { partitionKey: TABLE_KEY.ORDER_STATUS, sortKey: TABLE_KEY.CREATED_AT },
+        sellTokenIndex: { partitionKey: TABLE_KEY.SELL_TOKEN, sortKey: TABLE_KEY.CREATED_AT },
+        offererOrderStatusIndex: { partitionKey: TABLE_KEY.OFFERER_ORDER_STATUS, sortKey: TABLE_KEY.SELL_TOKEN },
+        offererSellTokenIndex: { partitionKey: TABLE_KEY.OFFERER_SELL_TOKEN },
+        sellTokenOrderStatusIndex: { partitionKey: TABLE_KEY.SELL_TOKEN_ORDER_STATUS },
+      },
     })
 
     this.orderEntity = new Entity({
@@ -24,7 +31,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         signature: { type: DYNAMODB_TYPES.STRING, required: true },
         orderStatus: { type: DYNAMODB_TYPES.STRING, required: true },
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
-        createdAt: { type: DYNAMODB_TYPES.NUMBER, required: true },
         startTime: { type: DYNAMODB_TYPES.NUMBER },
         endTime: { type: DYNAMODB_TYPES.NUMBER },
         deadline: { type: DYNAMODB_TYPES.NUMBER },
@@ -37,11 +43,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     } as const)
   }
 
-  async getByHash(hash: string): Promise<OrderEntity[]> {
-    throw new Error('Method not implemented.')
+  async getByHash(hash: string): Promise<OrderEntity | undefined> {
+    const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
+    return res.Item as OrderEntity
   }
 
   async put(order: OrderEntity): Promise<void> {
-    throw new Error('Method not implemented.')
+    await DynamoOrdersRepository.orderEntity.put(order)
   }
 }
