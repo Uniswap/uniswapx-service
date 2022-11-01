@@ -67,7 +67,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     await DynamoOrdersRepository.orderEntity.put(order)
   }
 
-  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, _log?: Logger): Promise<(OrderEntity | undefined)[]> {
+  public async getOrders(
+    limit: number,
+    queryFilters: GetOrdersQueryParams,
+    _log?: Logger
+  ): Promise<(OrderEntity | undefined)[]> {
     const requestedParams = Object.keys(queryFilters)
 
     // Query Orders table based on the requested params
@@ -118,10 +122,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         )
 
       default:
-        const getOrdersScan = await DynamoOrdersRepository.ordersTable
-          .scan({
-            ...(limit && { limit: limit }),
-          })
+        const getOrdersScan = await DynamoOrdersRepository.ordersTable.scan({
+          ...(limit && { limit: limit }),
+        })
         return getOrdersScan.Items
     }
   }

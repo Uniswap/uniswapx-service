@@ -21,7 +21,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     const {
       requestInjected: { limit, queryFilters, log },
     } = params
-    
+
     const documentClient = new DynamoDB.DocumentClient()
     const dbInterface = new DynamoOrdersRepository()
     DynamoOrdersRepository.initialize(documentClient)
@@ -39,7 +39,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       return {
         // TODO: differentiate between input errors
         statusCode: 500,
-        ...(e instanceof Error && {errorCode: e.message}),
+        ...(e instanceof Error && { errorCode: e.message }),
       }
     }
   }
