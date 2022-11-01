@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
-import { BuildEnvironmentVariableType, BuildSpec } from 'aws-cdk-lib/aws-codebuild'
+import { BuildEnvironmentVariableType } from 'aws-cdk-lib/aws-codebuild'
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
