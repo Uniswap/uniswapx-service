@@ -5,6 +5,7 @@ import {
   Context,
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { checkDefined } from '../../preconditions/preconditions'
 import Joi from 'Joi'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
@@ -57,10 +58,7 @@ export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryPar
   public abstract buildContainerInjected(): Promise<CInj>
 
   public async getContainerInjected(): Promise<CInj> {
-    if (this.containerInjected === undefined) {
-      throw new Error('Container injected undefined. Must call build() before using.')
-    }
-    return this.containerInjected
+    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
   }
 }
 
