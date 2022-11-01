@@ -1,4 +1,3 @@
-import Joi from '@hapi/joi'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
@@ -6,6 +5,7 @@ import {
   Context,
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
+import Joi from 'Joi'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
@@ -26,6 +26,7 @@ export type HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
 export type Response<Res> = {
   statusCode: 200 | 202
   body: Res
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   headers?: any
 }
 
@@ -43,7 +44,7 @@ export class UnsupportedChainError extends Error {
 }
 
 export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams> {
-  private containerInjected: CInj
+  private containerInjected: CInj | undefined
   public constructor(protected injectorName: string) {}
 
   public async build() {
@@ -233,6 +234,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       }
     | { state: 'invalid'; errorResponse: APIGatewayProxyResult }
   > {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     let bodyRaw: any
 
     if (event.body) {
@@ -252,7 +254,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       }
     }
 
-    let queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
+    const queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
     const queryParamsSchema = this.requestQueryParamsSchema()
 
     let queryParams: ReqQueryParams | undefined

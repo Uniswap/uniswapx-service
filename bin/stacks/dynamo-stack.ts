@@ -7,6 +7,7 @@ export interface DynamoStackProps extends cdk.NestedStackProps {}
 
 export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
+  public readonly nonceTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
@@ -23,9 +24,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: 'creatorIndex',
+      indexName: 'offererIndex',
       partitionKey: {
-        name: 'creator',
+        name: 'offerer',
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -62,6 +63,19 @@ export class DynamoStack extends cdk.NestedStack {
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
       nonKeyAttributes: ['orderHash', 'encodedOrder', 'signature'],
+    })
+
+    /* Nonces Table
+     * This is needed because we want to do strongly-consistent reads on the nonce value,
+     *  which is not possible to do on secondary indexes (if we work with only the Orders table).
+     */
+    this.nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
+      tableName: 'Nonces',
+      partitionKey: {
+        name: 'offerer',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
     })
   }
 }
