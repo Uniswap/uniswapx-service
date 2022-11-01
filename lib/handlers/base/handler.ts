@@ -5,8 +5,8 @@ import {
   Context,
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { checkDefined } from '../../preconditions/preconditions'
 import Joi from 'Joi'
+import { checkDefined } from '../../preconditions/preconditions'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
