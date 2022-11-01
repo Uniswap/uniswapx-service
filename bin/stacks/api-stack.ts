@@ -173,4 +173,3 @@ export class APIStack extends cdk.Stack {
     })
   }
 }
-

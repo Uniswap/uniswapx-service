@@ -15,7 +15,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 > {
   public async handleRequest(
     params: HandleRequestParams<ContainerInjected, RequestInjected, PostOrderRequestBody, void>
-  ): Promise<Response<any> | ErrorResponse> {
+  ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody,
       requestInjected: { log, deadline, offerer, sellToken },
