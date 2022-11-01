@@ -25,7 +25,7 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
     const dbInterface = new DynamoOrdersRepository()
     DynamoOrdersRepository.initialize(documentClient)
     return {
-      dbInterface
+      dbInterface,
     }
   }
 
