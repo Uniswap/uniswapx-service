@@ -1488,7 +1488,7 @@
     "@types/node" "*"
     jest-mock "^29.2.2"
 
-"@jest/expect-utils@^29.2.2":
+"@jest/expect-utils@^29.2.1", "@jest/expect-utils@^29.2.2":
   version "29.2.2"
   resolved "https://registry.yarnpkg.com/@jest/expect-utils/-/expect-utils-29.2.2.tgz#460a5b5a3caf84d4feb2668677393dd66ff98665"
   integrity sha512-vwnVmrVhTmGgQzyvcpze08br91OL61t9O0lJMDyb6Y/D8EKQ9V7rGUb/p7PDt0GPzK0zFYqXWFo4EO2legXmkg==
@@ -4027,7 +4027,7 @@ jest-leak-detector@^29.2.1:
     jest-get-type "^29.2.0"
     pretty-format "^29.2.1"
 
-jest-matcher-utils@^29.2.2:
+jest-matcher-utils@^29.2.1, jest-matcher-utils@^29.2.2:
   version "29.2.2"
   resolved "https://registry.yarnpkg.com/jest-matcher-utils/-/jest-matcher-utils-29.2.2.tgz#9202f8e8d3a54733266784ce7763e9a08688269c"
   integrity sha512-4DkJ1sDPT+UX2MR7Y3od6KtvRi9Im1ZGLGgdLFLm4lPexbTaCgJW5NN3IOXlQHF7NSHY/VHhflQ+WoKtD/vyCw==
@@ -4242,10 +4242,10 @@ jmespath@0.16.0:
   resolved "https://registry.yarnpkg.com/jmespath/-/jmespath-0.16.0.tgz#b15b0a85dfd4d930d43e69ed605943c802785076"
   integrity sha512-9FzQjJ7MATs1tSpnco1K6ayiYE3figslrXA72G2HQ/n76RzvYlofyi5QM+iX4YRs/pu3yzxlVQSST23+dMDknw==
 
-joi@^17.6.4:
-  version "17.6.4"
-  resolved "https://registry.yarnpkg.com/joi/-/joi-17.6.4.tgz#4d9536a059ef0762c718ae98673016b3ec151abd"
-  integrity sha512-tPzkTJHZQjSFCc842QpdVpOZ9LI2txApboNUbW70qgnRB14Lzl+oWQOPdF2N4yqyiY14wBGe8lc7f/2hZxbGmw==
+joi@^17.7.0:
+  version "17.7.0"
+  resolved "https://registry.yarnpkg.com/joi/-/joi-17.7.0.tgz#591a33b1fe1aca2bc27f290bcad9b9c1c570a6b3"
+  integrity sha512-1/ugc8djfn93rTE3WRKdCzGGt/EtiYKxITMO4Wiv6q5JL1gl9ePt4kBsl1S499nbosspfctIQTpYIhSmHA3WAg==
   dependencies:
     "@hapi/hoek" "^9.0.0"
     "@hapi/topo" "^5.0.0"

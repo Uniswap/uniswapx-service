@@ -117,7 +117,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     switch (true) {
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH):
         const order = await this.getByHash(queryFilters['orderHash'] as string)
-        return [order]
+        return order ? [order] : []
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
         return await this.getByOfferer(queryFilters['offerer'] as string, limit)
