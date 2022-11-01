@@ -55,7 +55,7 @@
     "env-cmd": "^10.1.0",
     "esm": "^3.2.25",
     "gouda-sdk": "https://github.com/Uniswap/gouda-sdk.git",
-    "joi": "^17.6.4",
+    "joi": "^17.7.0",
     "source-map-support": "^0.5.21",
     "uuid": "^9.0.0"
   },

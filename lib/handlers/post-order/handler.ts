@@ -36,33 +36,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
         offerer,
         sellToken,
         sellAmount,
-        reactor
+        reactor,
+        startTime,
+        deadline
       }
 
       // Insert Order into db
-      dbInterface.putOrderAndUpdateNonceTransaction(order)
-      // Insert Order into db
-      try {
-        const put = await dynamoClient
-          .put({
-            TableName: 'Orders',
-            Item: {
-              orderHash,
-              orderStatus: ORDER_STATUS.UNVERIFIED,
-              encodedOrder,
-              signature,
-              deadline,
-              offerer,
-              sellToken,
-              sellAmount,
-              startTime
-            },
-          })
-          .promise()
-        log.info(`Successfully inserted Order into DynamoDb: ${put.$response.requestId}. Kicking off state machine`)
-      } catch (err) {
-        throw new Error(`Failed to insert Order into DynamoDb: ${err}`)
-      }
+      await dbInterface.putOrderAndUpdateNonceTransaction(order)
+      log.info(`Successfully inserted Order with hash ${orderHash} into DynamoDb`)
 
       return {
         statusCode: 201,
