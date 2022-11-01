@@ -36,8 +36,8 @@ export class GetOrdersHandler extends APIGLambdaHandler<
         body: { orders: orders },
       }
     } catch (e: unknown) {
+      // TODO: differentiate between input errors and add logging if unknown is not type Error
       return {
-        // TODO: differentiate between input errors
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
       }
