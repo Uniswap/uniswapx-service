@@ -41,11 +41,11 @@ export class APIStage extends Stage {
 
 export class APIPipeline extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
+    super(scope, id, props)
 
     const code = CodePipelineSource.gitHub('Uniswap/gouda-service', 'main', {
       authentication: SecretValue.secretsManager('github-token-2'),
-    });
+    })
 
     const synthStep = new CodeBuildStep('Synth', {
       input: code,
@@ -62,25 +62,25 @@ export class APIPipeline extends Stack {
         'yarn build',
         'npx cdk synth',
       ],
-    });
+    })
 
     const pipeline = new CodePipeline(this, `${SERVICE_NAME}Pipeline`, {
       // The pipeline name
       pipelineName: `${SERVICE_NAME}`,
       crossAccountKeys: true,
       synth: synthStep,
-    });
+    })
 
     // Secrets are stored in secrets manager in the pipeline account. Accounts we deploy to
     // have been granted permissions to access secrets via resource policies.
     const goudaRpc = sm.Secret.fromSecretAttributes(this, 'goudaRpc', {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-2-cXyqGh',
-    });
+    })
 
-    const jsonRpcUrls: { [chain: string]: string } = {};
+    const jsonRpcUrls: { [chain: string]: string } = {}
     SUPPORTED_CHAINS.forEach((chainId: ChainId) => {
-      jsonRpcUrls[`RPC_${chainId}`] = goudaRpc.secretValueFromJson(chainId.toString()).toString();
-    });
+      jsonRpcUrls[`RPC_${chainId}`] = goudaRpc.secretValueFromJson(chainId.toString()).toString()
+    })
 
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
@@ -88,11 +88,11 @@ export class APIPipeline extends Stack {
       provisionedConcurrency: 20,
       stage: STAGE.BETA,
       envVars: jsonRpcUrls,
-    });
+    })
 
-    const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage);
+    const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
 
-    this.addIntegTests(code, betaUsEast2Stage, betaUsEast2AppStage);
+    this.addIntegTests(code, betaUsEast2Stage, betaUsEast2AppStage)
 
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
@@ -101,11 +101,11 @@ export class APIPipeline extends Stack {
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
       envVars: jsonRpcUrls,
-    });
+    })
 
-    const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage);
-    this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage);
-    pipeline.buildPipeline();
+    const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
+    this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage)
+    pipeline.buildPipeline()
   }
 
   private addIntegTests(
@@ -138,9 +138,9 @@ export class APIPipeline extends Stack {
         'yarn build',
         'yarn integ-test',
       ],
-    });
+    })
 
-    applicationStage.addPost(testAction);
+    applicationStage.addPost(testAction)
   }
 }
 
@@ -163,5 +163,4 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   envVars: {
     ...jsonRpcUrls,
   },
-});
-
+})

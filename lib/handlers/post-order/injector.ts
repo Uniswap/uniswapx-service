@@ -6,6 +6,7 @@ import { BaseRInj, Injector } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
 import { ethers } from 'ethers'
 import { SUPPORTED_CHAINS } from '../../config/supported-chains'
+import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 
 export interface RequestInjected extends BaseRInj {
   offerer: string
@@ -16,17 +17,18 @@ export interface RequestInjected extends BaseRInj {
   reactor: string,
   nonce: string,
   orderHash: string,
-  startTime: number
+  startTime: number,
 }
 
 export type ContainerDependencies = {
-  provider: ethers.providers.JsonRpcProvider
+  provider: ethers.providers.JsonRpcProvider,
 }
 
 export interface ContainerInjected {
   dependencies: {
     [chainId in ChainId]?: ContainerDependencies
   }
+  dbInterface: DynamoOrdersRepository
 }
 
 export class PostOrderInjector extends Injector<ContainerInjected, RequestInjected, PostOrderRequestBody, void> {
@@ -67,7 +69,7 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
 
       dependenciesByChain[chainId] = { provider }
     }
-    return { dependencies: dependenciesByChain }
+    return { dependencies: dependenciesByChain, dbInterface: new DynamoOrdersRepository() }
   }
 
   public async getRequestInjected(
@@ -98,7 +100,7 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
       startTime,
       nonce: nonce.toString(),
       orderHash: order.hash(),
-      provider: dependencies.provider
+      provider: dependencies.provider,
     }
   }
 }

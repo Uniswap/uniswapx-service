@@ -19,12 +19,12 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody,
       requestInjected: { log, deadline, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime },
+      containerInjected: { dbInterface }
     } = params
 
     try {
       const { encodedOrder, signature } = requestBody!
       const dynamoClient = new DynamoDB.DocumentClient()
-      const dbInterface = new DynamoOrdersRepository()
       DynamoOrdersRepository.initialize(dynamoClient)
 
       const order: OrderEntity = {
