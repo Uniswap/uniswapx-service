@@ -33,7 +33,6 @@ export class PostOrderHandler extends APIGLambdaHandler<
             TableName: 'Orders',
             Item: {
               orderHash: hash,
-              // order is not validated on chain yet
               orderStatus: ORDER_STATUS.UNVERIFIED,
               encodedOrder,
               signature,
