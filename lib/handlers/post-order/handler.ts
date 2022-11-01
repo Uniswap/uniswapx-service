@@ -2,8 +2,8 @@ import Joi from 'joi'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { PostOrderRequestBodyJoi, PostOrderRequestBody, PostOrderResponseJoi, PostOrderResponse } from './schema/index'
-import { ORDER_STATUS } from '../types/order'
-import { parseOrder } from 'gouda-sdk'
+import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
+import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { DynamoDB } from 'aws-sdk'
 
 export class PostOrderHandler extends APIGLambdaHandler<
@@ -18,27 +18,44 @@ export class PostOrderHandler extends APIGLambdaHandler<
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody,
-      requestInjected: { log, deadline, offerer, sellToken },
+      requestInjected: { log, deadline, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime },
     } = params
 
     try {
       const { encodedOrder, signature } = requestBody!
-      const hash = parseOrder(encodedOrder).hash()
       const dynamoClient = new DynamoDB.DocumentClient()
+      const dbInterface = new DynamoOrdersRepository()
+      DynamoOrdersRepository.initialize(dynamoClient)
 
+      const order: OrderEntity = {
+        encodedOrder,
+        signature,
+        nonce,
+        orderHash,
+        orderStatus: ORDER_STATUS.UNVERIFIED,
+        offerer,
+        sellToken,
+        sellAmount,
+        reactor
+      }
+
+      // Insert Order into db
+      dbInterface.putOrderAndUpdateNonceTransaction(order)
       // Insert Order into db
       try {
         const put = await dynamoClient
           .put({
             TableName: 'Orders',
             Item: {
-              orderHash: hash,
+              orderHash,
               orderStatus: ORDER_STATUS.UNVERIFIED,
               encodedOrder,
               signature,
               deadline,
               offerer,
               sellToken,
+              sellAmount,
+              startTime
             },
           })
           .promise()
@@ -49,7 +66,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
       return {
         statusCode: 201,
-        body: { hash },
+        body: { hash: orderHash },
       }
     } catch (e: any) {
       log.error(e, 'Failed to handle POST Order')

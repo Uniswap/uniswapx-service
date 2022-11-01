@@ -10,8 +10,13 @@ import { SUPPORTED_CHAINS } from '../../config/supported-chains'
 export interface RequestInjected extends BaseRInj {
   offerer: string
   sellToken: string
+  sellAmount: string,
   deadline: number
-  provider: ethers.providers.JsonRpcProvider
+  provider: ethers.providers.JsonRpcProvider,
+  reactor: string,
+  nonce: string,
+  orderHash: string,
+  startTime: number
 }
 
 export type ContainerDependencies = {
@@ -74,17 +79,12 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
   ): Promise<RequestInjected> {
     const requestId = context.awsRequestId
 
-    log = log.child({
-      serializers: bunyan.stdSerializers,
-      containerInjected: containerInjected,
-      requestId,
-    })
     const encodedOrder = requestBody.encodedOrder as string
 
     // Cast to DutchLimitOrder so that we can get the sellToken field
     // input.token does not exist on iOrder
     const order = parseOrder(encodedOrder) as DutchLimitOrder
-    const { deadline, offerer, input } = order.info
+    const { deadline, offerer, reactor, startTime, input, nonce } = order.info
     const dependencies = containerInjected.dependencies[requestBody.chainId as ChainId]!
 
     return {
@@ -93,6 +93,11 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
       deadline,
       offerer,
       sellToken: input.token,
+      sellAmount: input.amount.toString(),
+      reactor,
+      startTime,
+      nonce: nonce.toString(),
+      orderHash: order.hash(),
       provider: dependencies.provider
     }
   }
