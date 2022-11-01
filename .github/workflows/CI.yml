@@ -23,6 +23,14 @@ jobs:
           node-version: 16.x
           registry-url: https://registry.npmjs.org
 
+      - name: Setup private repository keys
+        uses: shaunco/ssh-agent@git-repo-mapping
+        with:
+          ssh-private-key: |
+            ${{ secrets.GOUDA_SDK_KEY}}
+          repo-mappings: |
+            github.com/Uniswap/gouda-sdk
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
