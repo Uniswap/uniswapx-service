@@ -13,7 +13,7 @@ export type OrderEntity = {
   nonce: string
   orderHash: string
   orderStatus: ORDER_STATUS
-  offerer?: string
+  offerer: string
   reactor?: string
   startTime?: number
   endTime?: number
