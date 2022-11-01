@@ -1,5 +1,7 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
+import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { BaseRInj, Injector } from '../base/handler'
 import { GetOrdersQueryParams } from './schema'
 
@@ -13,11 +15,18 @@ export interface RequestInjected extends BaseRInj {
   }
 }
 
-export interface ContainerInjected {}
+export interface ContainerInjected {
+  dbInterface: DynamoOrdersRepository
+}
 
 export class GetOrdersInjector extends Injector<ContainerInjected, RequestInjected, void, GetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    return {}
+    const documentClient = new DynamoDB.DocumentClient()
+    const dbInterface = new DynamoOrdersRepository()
+    DynamoOrdersRepository.initialize(documentClient)
+    return {
+      dbInterface
+    }
   }
 
   public async getRequestInjected(

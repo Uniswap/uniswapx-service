@@ -1,15 +1,13 @@
 import Joi from 'joi'
 import { OrderEntity } from '../../../entities'
-import { FieldValidator } from '../../../util/field-validator'
-
-const fieldValidator = new FieldValidator()
+import FieldValidator from '../../../util/field-validator'
 
 export const GetOrdersQueryParamsJoi = Joi.object({
-  limit: fieldValidator.isValidLimit(),
-  orderStatus: fieldValidator.isValidOrderStatus(),
-  orderHash: fieldValidator.isValidOrderHash(),
-  offerer: fieldValidator.isValidEthAddress(),
-  sellToken: fieldValidator.isValidEthAddress(),
+  limit: FieldValidator.isValidLimit(),
+  orderStatus: FieldValidator.isValidOrderStatus(),
+  orderHash: FieldValidator.isValidOrderHash(),
+  offerer: FieldValidator.isValidEthAddress(),
+  sellToken: FieldValidator.isValidEthAddress(),
 })
 
 export type GetOrdersQueryParams = {
@@ -25,12 +23,12 @@ export type GetOrdersResponse = {
 }
 
 export const OrderResponseEntryJoi = Joi.object({
-  createdAt: fieldValidator.isValidCreatedAt(),
-  encodedOrder: fieldValidator.isValidEncodedOrder(),
-  signature: fieldValidator.isValidSignature(),
-  orderStatus: fieldValidator.isValidOrderStatus(),
-  orderHash: fieldValidator.isValidOrderHash(),
-  offerer: fieldValidator.isValidEthAddress(),
+  createdAt: FieldValidator.isValidCreatedAt(),
+  encodedOrder: FieldValidator.isValidEncodedOrder(),
+  signature: FieldValidator.isValidSignature(),
+  orderStatus: FieldValidator.isValidOrderStatus(),
+  orderHash: FieldValidator.isValidOrderHash(),
+  offerer: FieldValidator.isValidEthAddress(),
 })
 
 export const GetOrdersResponseJoi = Joi.object({
