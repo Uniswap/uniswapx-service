@@ -8,6 +8,10 @@ const dynamoConfig = {
   endpoint: 'localhost:8000',
   region: 'local-env',
   sslEnabled: false,
+  credentials: {
+    accessKeyId: 'fakeMyKeyId',
+    secretAccessKey: 'fakeSecretAccessKey',
+  },
 }
 
 const MOCK_ORDER_1: OrderEntity = {
