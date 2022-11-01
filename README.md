@@ -11,13 +11,18 @@
    yarn && yarn build
    ```
 2. To deploy the API to your AWS account run:
+
    ```
    cdk deploy GoudaServiceStack
    ```
+
    Once complete it will output the url of your api:
+
    ```
    GoudaServiceStack.Url = https://...
    ```
+
+3. (optional) To run dynamo-db integration tests, you need to have Java Runtime installed (https://www.java.com/en/download/manual.jsp).
 
 ## Integration Tests
 

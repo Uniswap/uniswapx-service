@@ -35,11 +35,10 @@ export class LambdaStack extends cdk.NestedStack {
     // setup DynamoDb
     new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {});
 
-    console.log(props.envVars)
     // POST Order Lambda
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_14_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'postOrderHandler',
       memorySize: 512,

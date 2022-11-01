@@ -1,4 +1,3 @@
-import Joi from 'joi'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
@@ -6,6 +5,8 @@ import {
   Context,
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { checkDefined } from '../../preconditions/preconditions'
+import Joi from 'Joi'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
@@ -26,6 +27,7 @@ export type HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
 export type Response<Res> = {
   statusCode: 200 | 202
   body: Res
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   headers?: any
 }
 
@@ -35,15 +37,8 @@ export type ErrorResponse = {
   detail?: string
 }
 
-export class UnsupportedChainError extends Error {
-  constructor(public chainId: number) {
-    super()
-  }
-  public name = 'UnsupportedChainError'
-}
-
 export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams> {
-  private containerInjected: CInj
+  private containerInjected: CInj | undefined
   public constructor(protected injectorName: string) {}
 
   public async build() {
@@ -63,10 +58,7 @@ export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryPar
   public abstract buildContainerInjected(): Promise<CInj>
 
   public async getContainerInjected(): Promise<CInj> {
-    if (this.containerInjected === undefined) {
-      throw new Error('Container injected undefined. Must call build() before using.')
-    }
-    return this.containerInjected
+    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
   }
 }
 
@@ -233,6 +225,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       }
     | { state: 'invalid'; errorResponse: APIGatewayProxyResult }
   > {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     let bodyRaw: any
 
     if (event.body) {
