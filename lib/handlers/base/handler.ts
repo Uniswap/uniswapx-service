@@ -2,7 +2,7 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
   APIGatewayProxyResult,
-  Context
+  Context,
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'Joi'
