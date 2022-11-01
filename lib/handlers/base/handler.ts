@@ -325,7 +325,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
 
     if (res.error) {
       log.error(
-        { error: res.error?.details, errors: res.errors?.details, body },
+        { error: res.error?.details, errors: res.error?.details, body },
         'Unexpected error. Response failed validation.'
       )
       return {
