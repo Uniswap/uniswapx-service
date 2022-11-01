@@ -34,9 +34,11 @@ jobs:
           auto_fix: true
           prettier_extensions: 'js,json,jsx,md,ts,tsx,yaml,yml'
 
-      - name: Run tests
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      - name: Run tests
         run: yarn test
