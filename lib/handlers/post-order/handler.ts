@@ -49,7 +49,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
 
       return {
-        statusCode: 200,
+        statusCode: 201,
         body: { hash },
       }
     } catch (e: any) {
