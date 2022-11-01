@@ -2,10 +2,10 @@ import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
   APIGatewayProxyResult,
-  Context,
+  Context
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
-import Joi from 'joi'
+import Joi from 'Joi'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
@@ -26,6 +26,7 @@ export type HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
 export type Response<Res> = {
   statusCode: 200 | 202
   body: Res
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   headers?: any
 }
 
@@ -233,6 +234,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       }
     | { state: 'invalid'; errorResponse: APIGatewayProxyResult }
   > {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     let bodyRaw: any
 
     if (event.body) {

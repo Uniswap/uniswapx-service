@@ -1,13 +1,14 @@
 import * as cdk from 'aws-cdk-lib'
 import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import { Construct } from 'constructs'
-import { TABLE_KEY } from '../../lib/entities/Order'
+import { TABLE_KEY } from '../../lib/config/dynamodb'
 import { SERVICE_NAME } from '../constants'
 
 export interface DynamoStackProps extends cdk.NestedStackProps {}
 
 export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
+  public readonly nonceTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
@@ -126,6 +127,19 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.OFFERER,
         TABLE_KEY.CREATED_AT,
       ],
+    })
+
+    /* Nonces Table
+     * This is needed because we want to do strongly-consistent reads on the nonce value,
+     *  which is not possible to do on secondary indexes (if we work with only the Orders table).
+     */
+    this.nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
+      tableName: 'Nonces',
+      partitionKey: {
+        name: 'offerer',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
     })
   }
 }

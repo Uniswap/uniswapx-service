@@ -12,6 +12,7 @@ export enum TABLE_KEY {
   ORDER_HASH = 'orderHash',
   OFFERER = 'offerer',
   CREATED_AT = 'createdAt',
+  NONCE = 'nonce',
   ENCODED_ORDER = 'encodedOrder',
   SIGNATURE = 'signature',
   SELL_TOKEN = 'sellToken',
