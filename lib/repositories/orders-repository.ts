@@ -8,7 +8,6 @@ import { BaseOrdersRepository } from './base'
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   private static ordersTable: Table
   private static nonceTable: Table
-
   /* eslint-disable @typescript-eslint/no-explicit-any */
   private static orderEntity: any
   private static nonceEntity: any

@@ -18,7 +18,9 @@
    ```
    GoudaServiceStack.Url = https://...
    ```
+
 3. (optional) To run dynamo-db integration tests, you need to have Java Runtime installed (https://www.java.com/en/download/manual.jsp).
+
 
 ## Integration Tests
 
