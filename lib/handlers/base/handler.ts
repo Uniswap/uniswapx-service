@@ -1,4 +1,3 @@
-import Joi from '@hapi/joi'
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
@@ -6,6 +5,7 @@ import {
   Context
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
+import Joi from 'joi'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
@@ -330,7 +330,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
 
     if (res.error) {
       log.error(
-        { error: res.error?.details, errors: res.errors?.details, body },
+        { error: res.error?.details, errors: res.error?.details, body },
         'Unexpected error. Response failed validation.'
       )
       return {

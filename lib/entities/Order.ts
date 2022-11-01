@@ -8,7 +8,6 @@ export enum ORDER_STATUS {
 }
 
 export type OrderEntity = {
-  createdAt: number
   encodedOrder: string
   signature: string
   nonce: string

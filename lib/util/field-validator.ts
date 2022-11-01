@@ -1,5 +1,5 @@
-import Joi, { NumberSchema, StringSchema } from '@hapi/joi'
 import { ethers } from 'ethers'
+import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS } from '../entities'
 
 export class FieldValidator {
@@ -17,7 +17,7 @@ export class FieldValidator {
 
     public isValidEthAddress(): StringSchema {
         return Joi.string()
-        .custom((value, helpers) => {
+        .custom((value: string, helpers: CustomHelpers<any>) => {
           if (!ethers.utils.getAddress(value)) {
             return helpers.error('VALIDATION ERROR: Invalid address')
           }

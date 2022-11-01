@@ -1,5 +1,5 @@
-import Joi from '@hapi/joi'
 import { DynamoDB } from 'aws-sdk'
+import Joi from 'joi'
 
 import { OrderEntity } from '../../entities'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
@@ -21,14 +21,16 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     const {
       requestInjected: { limit, queryFilters, log },
     } = params
-    const dynamoClient = new DynamoDB.DocumentClient()
-    const dbInterface = new DynamoOrdersRepository(dynamoClient)
+    
+    const documentClient = new DynamoDB.DocumentClient()
+    const dbInterface = new DynamoOrdersRepository()
+    DynamoOrdersRepository.initialize(documentClient)
 
     try {
       // THIS WILL BE REMOVED BEFORE PR MERGE
       await setupMockItemsInDb()
 
-      const orders: OrderEntity[] = await dbInterface.getOrders(limit, queryFilters, log)
+      const orders: (OrderEntity | undefined)[] = await dbInterface.getOrders(limit, queryFilters, log)
       return {
         statusCode: 200,
         body: { orders: orders },

@@ -8,10 +8,10 @@ import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/s
 import { BaseOrdersRepository } from './base'
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
-  private readonly ordersTable: Table
-  private readonly orderEntity: any
+  private static ordersTable: Table
+  private static orderEntity: any
 
-  constructor(documentClient: DocumentClient) {
+  static initialize(documentClient: DocumentClient) {
     this.ordersTable = new Table({
       name: 'Orders',
       partitionKey: 'orderHash',
@@ -34,7 +34,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         signature: { type: DYNAMODB_TYPES.STRING, required: true },
         orderStatus: { type: DYNAMODB_TYPES.STRING, required: true },
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
-        createdAt: { type: DYNAMODB_TYPES.NUMBER, required: true },
         startTime: { type: DYNAMODB_TYPES.NUMBER },
         endTime: { type: DYNAMODB_TYPES.NUMBER },
         deadline: { type: DYNAMODB_TYPES.NUMBER },
@@ -45,11 +44,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       },
       table: this.ordersTable,
     } as const)
-  }
-
-  public async getByHash(hash: string): Promise<OrderEntity[]> {
-    const order = await this.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
-    return [order.Item]
   }
 
   public async getByOfferer(offerer: string, limit: number): Promise<OrderEntity[]> {
@@ -64,17 +58,23 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return await this.queryOrderEntity(sellToken, 'sellTokenIndex', limit)
   }
 
-  public async put(_order: OrderEntity): Promise<void> {
-    throw new Error('Method not implemented.')
+  async getByHash(hash: string): Promise<OrderEntity | undefined> {
+    const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
+    return res.Item as OrderEntity
   }
 
-  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, _log?: Logger): Promise<OrderEntity[]> {
+  async put(order: OrderEntity): Promise<void> {
+    await DynamoOrdersRepository.orderEntity.put(order)
+  }
+
+  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, _log?: Logger): Promise<(OrderEntity | undefined)[]> {
     const requestedParams = Object.keys(queryFilters)
 
     // Query Orders table based on the requested params
     switch (true) {
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH):
-        return await this.getByHash(queryFilters['orderHash'] as string)
+        const order = await this.getByHash(queryFilters['orderHash'] as string)
+        return [order]
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
         return await this.getByOfferer(queryFilters['offerer'] as string, limit)
@@ -118,7 +118,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         )
 
       default:
-        const getOrdersScan = await this.ordersTable
+        const getOrdersScan = await DynamoOrdersRepository.ordersTable
           .scan({
             ...(limit && { limit: limit }),
           })
@@ -132,7 +132,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     limit: number | undefined,
     sortKey?: string
   ): Promise<OrderEntity[]> {
-    const queryResult = await this.orderEntity.query(partitionKey, {
+    const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
       index: index,
       ...(limit && { limit: limit }),
       ...(sortKey && { eq: sortKey }),

@@ -1,4 +1,4 @@
-import Joi from '@hapi/joi'
+import Joi from 'joi'
 import { OrderEntity } from '../../../entities'
 import { FieldValidator } from '../../../util/field-validator'
 
