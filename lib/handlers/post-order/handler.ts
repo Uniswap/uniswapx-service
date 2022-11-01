@@ -4,10 +4,7 @@ import { ContainerInjected, RequestInjected } from './injector'
 import { PostOrderRequestBodyJoi, PostOrderRequestBody, PostOrderResponseJoi, PostOrderResponse } from './schema/index'
 import { ORDER_STATUS } from '../types/order'
 import { parseOrder } from 'gouda-sdk'
-import { StepFunctions, DynamoDB } from 'aws-sdk'
-import { CheckOrderStatusQueryParams } from '../check-order-status/handler'
-
-const stepfunctions = new StepFunctions()
+import { DynamoDB } from 'aws-sdk'
 
 export class PostOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
@@ -21,16 +18,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
   ): Promise<Response<any> | ErrorResponse> {
     const {
       requestBody,
-      requestInjected: { log, deadline, offerer, sellToken, provider },
+      requestInjected: { log, deadline, offerer, sellToken },
     } = params
 
     try {
-      const { encodedOrder, signature, chainId } = requestBody!
+      const { encodedOrder, signature } = requestBody!
       const hash = parseOrder(encodedOrder).hash()
       const dynamoClient = new DynamoDB.DocumentClient()
 
-      // Get block height right before inserting into dynamo
-      const startBlockNumber = await provider.getBlockNumber()
       // Insert Order into db
       try {
         const put = await dynamoClient
@@ -52,29 +47,6 @@ export class PostOrderHandler extends APIGLambdaHandler<
       } catch (err) {
         throw new Error(`Failed to insert Order into DynamoDb: ${err}`)
       }
-
-      await stepfunctions
-        .startExecution(
-          {
-            stateMachineArn: process.env[`STATE_MACHINE_ARN`]!,
-            name: `${hash}`,
-            input: JSON.stringify({
-              encodedOrder,
-              signature,
-              startBlockNumber: startBlockNumber - 1,
-              chainId,
-              orderHash: hash,
-            } as CheckOrderStatusQueryParams),
-          },
-          (err, resp) => {
-            if (err) {
-              log.info({ encodedOrder, signature, chainId }, err)
-              throw new Error(`Failed to kick off state machine: ${err}`)
-            }
-            log.info(`Successfully kicked off state machine: ${resp.executionArn}`)
-          }
-        )
-        .promise()
 
       return {
         statusCode: 200,

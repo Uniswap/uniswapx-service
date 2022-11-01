@@ -1,4 +1,4 @@
-import { APIGatewayProxyEvent, Context } from 'aws-lambda'
+import { Context } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import { ChainId } from '../../util/chains'

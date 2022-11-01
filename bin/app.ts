@@ -11,7 +11,6 @@ import { ChainId } from '../lib/util/chains'
 import { STAGE } from '../lib/util/stage'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
-import { StateMachineStack } from './stacks/state-machine-stack';
 dotenv.config()
 
 export class APIStage extends Stage {
@@ -34,7 +33,7 @@ export class APIStage extends Stage {
       provisionedConcurrency,
       chatbotSNSArn,
       stage,
-      envVars: { ...props.envVars, STATE_MACHINE_ARN: stateMachineStack.stateMachineARN }
+      envVars: { ...props.envVars }
     })
     this.url = url
   }
@@ -167,8 +166,6 @@ SUPPORTED_CHAINS.forEach(chainId => {
   jsonRpcUrls[name] = process.env[name]!
 })
 
-const stateMachineStack = new StateMachineStack(app, `${SERVICE_NAME}StateMachineStack`, { envVars: jsonRpcUrls, stage: STAGE.LOCAL })
-
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,
@@ -176,7 +173,6 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   stage: STAGE.LOCAL,
   envVars: {
     ...jsonRpcUrls,
-    STATE_MACHINE_ARN: stateMachineStack.stateMachineARN
   },
 });
 
