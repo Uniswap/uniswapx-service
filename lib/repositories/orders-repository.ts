@@ -1,5 +1,4 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
@@ -106,18 +105,15 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     )
   }
 
-  public async getOrders(
-    limit: number,
-    queryFilters: GetOrdersQueryParams,
-    _log?: Logger
-  ): Promise<(OrderEntity | undefined)[]> {
+  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams): Promise<(OrderEntity | undefined)[]> {
     const requestedParams = Object.keys(queryFilters)
 
     // Query Orders table based on the requested params
     switch (true) {
-      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH):
+      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
         const order = await this.getByHash(queryFilters['orderHash'] as string)
         return order ? [order] : []
+      }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
         return await this.getByOfferer(queryFilters['offerer'] as string, limit)
@@ -160,11 +156,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit
         )
 
-      default:
+      default: {
         const getOrdersScan = await DynamoOrdersRepository.ordersTable.scan({
           ...(limit && { limit: limit }),
         })
         return getOrdersScan.Items
+      }
     }
   }
 

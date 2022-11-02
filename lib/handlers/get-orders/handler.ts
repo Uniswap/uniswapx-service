@@ -14,14 +14,14 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 > {
   public async handleRequest(
     params: HandleRequestParams<ContainerInjected, RequestInjected, void, GetOrdersQueryParams>
-  ): Promise<Response<any> | ErrorResponse> {
+  ): Promise<Response<GetOrdersResponse> | ErrorResponse> {
     const {
-      requestInjected: { limit, queryFilters, log },
+      requestInjected: { limit, queryFilters },
       containerInjected: { dbInterface },
     } = params
 
     try {
-      const orders: (OrderEntity | undefined)[] = await dbInterface.getOrders(limit, queryFilters, log)
+      const orders: (OrderEntity | undefined)[] = await dbInterface.getOrders(limit, queryFilters)
       return {
         statusCode: 200,
         body: { orders: orders },

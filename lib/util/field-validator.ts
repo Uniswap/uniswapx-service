@@ -3,7 +3,7 @@ import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS } from '../entities'
 
 export default class FieldValidator {
-  private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex())
+  private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
   private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
   private static readonly NUMBER_JOI = Joi.number()
@@ -15,6 +15,7 @@ export default class FieldValidator {
     ORDER_STATUS.ERROR,
     ORDER_STATUS.UNVERIFIED
   )
+
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.getAddress(value)) {
       return helpers.error('VALIDATION ERROR: Invalid address')
@@ -50,8 +51,11 @@ export default class FieldValidator {
     return this.NUMBER_JOI
   }
 
-  private static getHexiDecimalRegex(length?: number): RegExp {
-    const lengthModifier = length ? `{${length}}` : '*'
+  private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {
+    let lengthModifier = '*'
+    if (length) {
+      lengthModifier = maxLength ? `{0,${length}}` : `{${length}}`
+    }
     return new RegExp(`^0x[0-9,a-z,A-Z]${lengthModifier}$`)
   }
 }
