@@ -1,15 +1,31 @@
+import { ORDER_STATUS } from '../../lib/entities'
 import { GetOrdersHandler } from '../../lib/handlers/get-orders/handler'
-import { MOCK_ORDER_1 } from '../../lib/testing/order-mocks'
 
 describe('Testing get orders handler.', () => {
+  const MOCK_ORDER_1 = {
+    orderHash: '0x1',
+    offerer: 'hayden.eth',
+    encodedOrder: 'order1',
+    signature: 'sig1',
+    nonce: '1',
+    orderStatus: ORDER_STATUS.OPEN,
+    sellToken: 'weth',
+    offererOrderStatus: `hayden.eth-${ORDER_STATUS.OPEN}`,
+    offererSellToken: 'hayden.eth-weth',
+    sellTokenOrderStatus: `weth-${ORDER_STATUS.OPEN}`,
+  }
+
   const getOrdersMock = jest.fn()
+
   const dbInterfaceMock = {
     getOrders: getOrdersMock,
   }
+
   const requestInjectedMock = {
     limit: 10,
     queryFilters: { offerer: MOCK_ORDER_1.offerer },
   }
+
   const getOrdersHandler = new GetOrdersHandler('get-orders', jest.mock as any)
 
   it('Returns request body and 200 status code.', async () => {
