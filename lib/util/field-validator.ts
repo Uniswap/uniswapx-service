@@ -7,7 +7,7 @@ export default class FieldValidator {
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
   private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
   private static readonly NUMBER_JOI = Joi.number()
-  private static readonly ORDER_STATUS_JOI = Joi.string().valid( 
+  private static readonly ORDER_STATUS_JOI = Joi.string().valid(
     ORDER_STATUS.OPEN,
     ORDER_STATUS.FILLED,
     ORDER_STATUS.CANCELLED,
