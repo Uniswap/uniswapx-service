@@ -33,7 +33,7 @@ export type Response<Res> = {
 
 export type ErrorResponse = {
   statusCode: 400 | 403 | 404 | 408 | 409 | 500
-  errorCode: string
+  errorCode?: string
   detail?: string
 }
 
