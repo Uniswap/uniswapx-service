@@ -19,7 +19,7 @@ export type GetOrdersQueryParams = {
 }
 
 export type GetOrdersResponse = {
-  orders: Array<OrderEntity>
+  orders: (OrderEntity | undefined)[]
 }
 
 export const OrderResponseEntryJoi = Joi.object({

@@ -89,4 +89,20 @@ describe('Testing each field on the FieldValidator class.', () => {
       )
     })
   })
+
+  describe('Testing encodedOrder field.', () => {
+    it('should validate field.', async () => {
+      const encodedOrder = '0x00000000001325ad66ad5fa02621d3ad52c9323c6c2bff26820000000'
+      expect(FieldValidator.isValidEncodedOrder().validate(encodedOrder)).toEqual({ value: encodedOrder })
+    })
+
+    it('should invalidate field.', async () => {
+      const invalidOrder = '0xnot_a_valid_order_$$$$'
+      const validatedField = FieldValidator.isValidEncodedOrder().validate(invalidOrder)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        `"value" with value "${invalidOrder}" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{0,2000}$/`
+      )
+    })
+  })
 })

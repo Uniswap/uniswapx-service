@@ -1,5 +1,4 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
@@ -109,11 +108,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     )
   }
 
-  public async getOrders(
-    limit: number,
-    queryFilters: GetOrdersQueryParams,
-    _log?: Logger
-  ): Promise<(OrderEntity | undefined)[]> {
+  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams): Promise<(OrderEntity | undefined)[]> {
     const requestedParams = Object.keys(queryFilters)
 
     // Query Orders table based on the requested params
