@@ -96,7 +96,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
     await DynamoOrdersRepository.ordersTable.transactWrite(
       [
-        DynamoOrdersRepository.orderEntity.putTransaction(order),
+        DynamoOrdersRepository.orderEntity.putTransaction({
+          ...order,
+          offererOrderStatus: `${order.offerer}-${order.orderStatus}`,
+          offererSellToken: `${order.offerer}-${order.sellToken}`,
+          sellTokenOrderStatus: `${order.sellToken}-${order.orderStatus}`,
+        }),
         DynamoOrdersRepository.nonceEntity.updateTransaction({
           offerer: order.offerer,
           nonce: order.nonce,

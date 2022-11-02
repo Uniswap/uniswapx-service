@@ -7,4 +7,5 @@ module.exports = {
   ...dynamo_preset,
   testEnvironment: 'node',
   testPathIgnorePatterns: ['bin', 'dist'],
+  collectCoverageFrom: ['**/*.ts', '!**/build/**', '!**/node_modules/**', '!**/dist/**', '!**/bin/**'],
 }
