@@ -40,7 +40,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const validatedField = FieldValidator.isValidOrderHash().validate(invalidOrderHash)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
-        `\"value\" with value \"${invalidOrderHash}\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{64}$/`
+        `"value" with value "${invalidOrderHash}" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{64}$/`
       )
     })
   })
@@ -57,7 +57,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const validatedField = FieldValidator.isValidSignature().validate(invalidSignature)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
-        `\"value\" with value \"${invalidSignature}\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/`
+        `"value" with value "${invalidSignature}" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/`
       )
     })
   })
@@ -85,7 +85,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const validatedField = FieldValidator.isValidEthAddress().validate(invalidAddress)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
-        `\"value\" failed custom validation because invalid address (argument=\"address\", value=\"${invalidAddress}\", code=INVALID_ARGUMENT, version=address/5.7.0)`
+        `"value" failed custom validation because invalid address (argument="address", value="${invalidAddress}", code=INVALID_ARGUMENT, version=address/5.7.0)`
       )
     })
   })

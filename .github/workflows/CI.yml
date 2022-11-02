@@ -42,3 +42,9 @@ jobs:
 
       - name: Run tests
         run: yarn test
+
+      - uses: ArtiomTr/jest-coverage-report-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          package-manager: yarn
+          test-script: yarn test --coverage

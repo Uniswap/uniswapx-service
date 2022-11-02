@@ -45,6 +45,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         reactor: { type: DYNAMODB_TYPES.STRING },
         sellToken: { type: DYNAMODB_TYPES.STRING },
         sellAmount: { type: DYNAMODB_TYPES.STRING },
+        offererOrderStatus: { type: DYNAMODB_TYPES.STRING },
+        offererSellToken: { type: DYNAMODB_TYPES.STRING },
+        sellTokenOrderStatus: { type: DYNAMODB_TYPES.STRING },
       },
       table: this.ordersTable,
     } as const)
@@ -115,9 +118,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
     // Query Orders table based on the requested params
     switch (true) {
-      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH):
+      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
         const order = await this.getByHash(queryFilters['orderHash'] as string)
         return order ? [order] : []
+      }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
         return await this.getByOfferer(queryFilters['offerer'] as string, limit)
@@ -160,11 +164,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit
         )
 
-      default:
+      default: {
         const getOrdersScan = await DynamoOrdersRepository.ordersTable.scan({
           ...(limit && { limit: limit }),
         })
         return getOrdersScan.Items
+      }
     }
   }
 
