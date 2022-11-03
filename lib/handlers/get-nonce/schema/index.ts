@@ -2,7 +2,7 @@ import Joi from 'joi'
 import FieldValidator from '../../../util/field-validator'
 
 export const GetNonceQueryParamsJoi = Joi.object({
-  address: FieldValidator.isValidEthAddress(),
+  address: FieldValidator.isValidEthAddress().required(),
 })
 
 export type GetNonceQueryParams = {

@@ -56,6 +56,7 @@ describe('Testing get nonce handler.', () => {
         { address: '0xF53bDa7e0337BD456cDcDab0Ab24Db43E738065' },
         '"address\\" failed custom validation because invalid address',
       ],
+      [{}, '"address\\" is required'],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
         ...event,
