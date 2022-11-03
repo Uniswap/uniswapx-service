@@ -3541,9 +3541,9 @@ globby@^11.1.0:
     merge2 "^1.4.1"
     slash "^3.0.0"
 
-"gouda-sdk@github:Uniswap/gouda-sdk":
+"gouda-sdk@git+ssh://git@github.com:Uniswap/gouda-sdk":
   version "0.1.0"
-  resolved "git+ssh://git@github.com/Uniswap/gouda-sdk.git#3ed7083277a492826c85e35e6cc71933e26324aa"
+  resolved "git+ssh://git@github.com:Uniswap/gouda-sdk#06923cb5785b0ea48e1cd09e7eddbf3f53356277"
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"

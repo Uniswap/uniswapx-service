@@ -57,7 +57,7 @@
     "dynamodb-toolbox": "0.3.5",
     "env-cmd": "^10.1.0",
     "esm": "^3.2.25",
-    "gouda-sdk": "github:Uniswap/gouda-sdk",
+    "gouda-sdk": "git+ssh://git@github.com:Uniswap/gouda-sdk",
     "joi": "^17.7.0",
     "source-map-support": "^0.5.21",
     "uuid": "^9.0.0"
