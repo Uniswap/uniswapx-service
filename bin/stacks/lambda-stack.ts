@@ -10,7 +10,6 @@ import { SERVICE_NAME } from '../constants'
 import { DynamoStack } from './dynamo-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
-  envVars: { [key: string]: string }
   provisionedConcurrency: number
 }
 export class LambdaStack extends cdk.NestedStack {
@@ -47,7 +46,6 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
-        ...props.envVars,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -65,7 +63,6 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
-        ...props.envVars,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },

@@ -30,7 +30,6 @@ export class APIStack extends cdk.Stack {
     const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
 
     const { getOrdersLambdaAlias, postOrderLambdaAlias } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
-      envVars: {},
       provisionedConcurrency,
     })
 

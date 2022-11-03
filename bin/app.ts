@@ -20,7 +20,6 @@ export class APIStage extends Stage {
       provisionedConcurrency: number
       chatbotSNSArn?: string
       stage: string
-      envVars: { [key: string]: string }
     }
   ) {
     super(scope, id, props)
@@ -72,7 +71,6 @@ export class APIPipeline extends Stack {
       env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 20,
       stage: STAGE.BETA,
-      envVars: {},
     })
 
     const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
@@ -85,7 +83,6 @@ export class APIPipeline extends Stack {
       provisionedConcurrency: 100,
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
-      envVars: {},
     })
 
     const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
