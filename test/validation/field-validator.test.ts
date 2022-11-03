@@ -115,7 +115,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const validatedField = FieldValidator.isValidNonce().validate('not_a_number')
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
-        '"value" with value "not_a_number" fails to match the required pattern: /^-?[0-9]+$/'
+        '"value" with value "not_a_number" fails to match the required pattern: /^[0-9]+$/'
       )
     })
   })
