@@ -17,8 +17,8 @@ export interface RequestInjected extends BaseRInj {
   startTime: number,
 }
 
-// eslint-disable-next-line @typescript-eslint/ban-types
 // No deps yet!
+// eslint-disable-next-line @typescript-eslint/ban-types
 export type ContainerDependencies = {}
 
 export interface ContainerInjected {
