@@ -50,9 +50,9 @@ export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryPar
     containerInjected: CInj,
     requestBody: ReqBody,
     requestQueryParams: ReqQueryParams,
+    event: APIGatewayProxyEvent,
     context: Context,
     log: Logger,
-    event?: APIGatewayProxyEvent,
   ): Promise<RInj>
 
   public abstract buildContainerInjected(): Promise<CInj>
@@ -135,9 +135,9 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
           containerInjected,
           requestBody,
           requestQueryParams,
+          event,
           context,
           log,
-          event
         )
       } catch (err) {
         log.error({ err, event }, 'Unexpected error building request injected.')

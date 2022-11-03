@@ -4214,10 +4214,10 @@ jmespath@0.16.0:
   resolved "https://registry.yarnpkg.com/jmespath/-/jmespath-0.16.0.tgz#b15b0a85dfd4d930d43e69ed605943c802785076"
   integrity sha512-9FzQjJ7MATs1tSpnco1K6ayiYE3figslrXA72G2HQ/n76RzvYlofyi5QM+iX4YRs/pu3yzxlVQSST23+dMDknw==
 
-joi@^17.6.4:
-  version "17.6.4"
-  resolved "https://registry.yarnpkg.com/joi/-/joi-17.6.4.tgz#4d9536a059ef0762c718ae98673016b3ec151abd"
-  integrity sha512-tPzkTJHZQjSFCc842QpdVpOZ9LI2txApboNUbW70qgnRB14Lzl+oWQOPdF2N4yqyiY14wBGe8lc7f/2hZxbGmw==
+joi@^17.7.0:
+  version "17.7.0"
+  resolved "https://registry.yarnpkg.com/joi/-/joi-17.7.0.tgz#591a33b1fe1aca2bc27f290bcad9b9c1c570a6b3"
+  integrity sha512-1/ugc8djfn93rTE3WRKdCzGGt/EtiYKxITMO4Wiv6q5JL1gl9ePt4kBsl1S499nbosspfctIQTpYIhSmHA3WAg==
   dependencies:
     "@hapi/hoek" "^9.0.0"
     "@hapi/topo" "^5.0.0"

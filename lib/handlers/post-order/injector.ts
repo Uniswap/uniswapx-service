@@ -1,4 +1,4 @@
-import { Context } from 'aws-lambda'
+import { APIGatewayEvent, Context } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import { ChainId } from '../../util/chains'
@@ -76,6 +76,7 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
     containerInjected: ContainerInjected,
     requestBody: PostOrderRequestBody,
     _requestQueryParams: void,
+    _event: APIGatewayEvent,
     context: Context,
     log: Logger,
   ): Promise<RequestInjected> {
