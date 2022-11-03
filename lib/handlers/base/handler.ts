@@ -39,7 +39,7 @@ export type ErrorResponse = {
 
 export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams> {
   private containerInjected: CInj | undefined
-  public constructor(protected injectorName: string) { }
+  public constructor(protected injectorName: string) {}
 
   public async build() {
     this.containerInjected = await this.buildContainerInjected()
@@ -78,8 +78,8 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
     private readonly handlerName: string,
     private readonly injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
   ) {
-    checkDefined(handlerName);
-    checkDefined(injectorPromise);
+    checkDefined(handlerName)
+    checkDefined(injectorPromise)
   }
 
   get handler(): APIGatewayProxyHandler {
@@ -149,7 +149,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
 
       const { requestId: id } = requestInjected
 
-        ; ({ log } = requestInjected)
+      ;({ log } = requestInjected)
 
       let statusCode: number
       let body: Res
@@ -176,7 +176,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
           }
         } else {
           log.info({ requestBody, requestQueryParams }, 'Handler returned 200')
-            ; ({ body, statusCode } = handleRequestResult)
+          ;({ body, statusCode } = handleRequestResult)
         }
       } catch (err) {
         log.error({ err }, 'Unexpected error in handler')
@@ -222,10 +222,10 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
     log: Logger
   ): Promise<
     | {
-      state: 'valid'
-      requestBody: ReqBody
-      requestQueryParams: ReqQueryParams
-    }
+        state: 'valid'
+        requestBody: ReqBody
+        requestQueryParams: ReqQueryParams
+      }
     | { state: 'invalid'; errorResponse: APIGatewayProxyResult }
   > {
     /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
