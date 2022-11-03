@@ -5,7 +5,7 @@ import {
   Context,
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
-import Joi from 'Joi'
+import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
@@ -103,7 +103,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       let log: Logger = bunyan.createLogger({
         name: this.handlerName,
         serializers: bunyan.stdSerializers,
-        level: bunyan.INFO,
+        level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
         requestId: context.awsRequestId,
       })
 
