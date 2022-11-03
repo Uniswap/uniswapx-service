@@ -4,7 +4,6 @@ import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import { BaseRInj, Injector } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import { ChainId, SUPPORTED_CHAINS } from '../../util/chain'
 
 export interface RequestInjected extends BaseRInj {
   offerer: string
@@ -17,26 +16,13 @@ export interface RequestInjected extends BaseRInj {
   startTime: number,
 }
 
-// No deps yet!
-// eslint-disable-next-line @typescript-eslint/ban-types
-export type ContainerDependencies = {}
-
 export interface ContainerInjected {
-  dependencies: {
-    [chainId in ChainId]?: ContainerDependencies
-  }
   dbInterface: DynamoOrdersRepository
 }
 
 export class PostOrderInjector extends Injector<ContainerInjected, RequestInjected, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    const dependenciesByChain: {
-      [chainId in ChainId]?: ContainerDependencies
-    } = {}
-    for(let i=0; i<SUPPORTED_CHAINS.length; i++) {
-      dependenciesByChain[SUPPORTED_CHAINS[i]] = {}
-    }
-    return { dependencies: dependenciesByChain, dbInterface: new DynamoOrdersRepository() }
+    return { dbInterface: new DynamoOrdersRepository() }
   }
 
   public async getRequestInjected(

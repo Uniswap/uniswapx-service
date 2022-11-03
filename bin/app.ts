@@ -30,7 +30,6 @@ export class APIStage extends Stage {
       provisionedConcurrency,
       chatbotSNSArn,
       stage,
-      envVars: { ...props.envVars }
     })
     this.url = url
   }
@@ -139,5 +138,4 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
   stage: STAGE.LOCAL,
-  envVars: {},
 })

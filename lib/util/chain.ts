@@ -16,7 +16,7 @@ export enum ChainId {
     MOONBEAM = 1284
 }
 
-export const SUPPORTED_CHAINS: ChainId[] = [
+export const SUPPORTED_CHAINS = [
     ChainId.MAINNET,
     ChainId.GÖRLI
 ];

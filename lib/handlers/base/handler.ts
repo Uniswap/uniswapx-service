@@ -16,9 +16,9 @@ export type BaseRInj = {
 }
 
 export type HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
-  context?: Context
-  event?: APIGatewayProxyEvent
-  requestBody?: ReqBody
+  context: Context
+  event: APIGatewayProxyEvent
+  requestBody: ReqBody
   requestQueryParams: ReqQueryParams
   containerInjected: CInj
   requestInjected: RInj

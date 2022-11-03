@@ -23,7 +23,6 @@ export class APIStack extends cdk.Stack {
       throttlingOverride?: string
       chatbotSNSArn?: string
       stage: string
-      envVars: { [key: string]: string }
     }
   ) {
     super(parent, name, props)
@@ -31,7 +30,7 @@ export class APIStack extends cdk.Stack {
     const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
 
     const { getOrdersLambdaAlias, postOrderLambdaAlias } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
-      envVars: props.envVars,
+      envVars: {},
       provisionedConcurrency,
     })
 
@@ -120,7 +119,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
-    const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias)
+    const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {

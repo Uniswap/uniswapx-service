@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib'
-import { Duration } from 'aws-cdk-lib'
+import { aws_cloudwatch, Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
@@ -89,7 +89,7 @@ export class LambdaStack extends cdk.NestedStack {
       evaluationPeriods: 3,
     })
 
-    new cdk.aws_cloudwatch.Alarm(this, `GetOrdersLambdaThrottles`, {
+    new aws_cloudwatch.Alarm(this, `GetOrdersLambdaThrottles`, {
       metric: this.getOrdersLambda.metricThrottles({
         period: Duration.minutes(5),
         statistic: 'sum',

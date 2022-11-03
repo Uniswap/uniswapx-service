@@ -23,7 +23,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     } = params
 
     try {
-      const { encodedOrder, signature } = requestBody!
+      const { encodedOrder, signature } = requestBody
       const dynamoClient = new DynamoDB.DocumentClient()
       DynamoOrdersRepository.initialize(dynamoClient)
 
@@ -39,6 +39,15 @@ export class PostOrderHandler extends APIGLambdaHandler<
         reactor,
         startTime,
         deadline
+      }
+
+      // Order could not possibly be inserted into db, queried,
+      // and filled all within one second
+      if(deadline < 1+(new Date().getTime())/1000) {
+        return {
+          statusCode: 400,
+          errorCode: 'Invalid deadline',
+        }
       }
 
       // Insert Order into db

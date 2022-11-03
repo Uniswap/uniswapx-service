@@ -8,10 +8,7 @@ export default class FieldValidator {
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
   private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
   private static readonly NUMBER_JOI = Joi.number()
-  private static readonly CHAIN_ID_JOI = Joi.number().allow(SUPPORTED_CHAINS)
-
-  // Deadline should be greater than current timestamp.
-  private static readonly DEADLINE_JOI = Joi.number().greater(new Date().getTime())
+  private static readonly CHAIN_ID_JOI = Joi.number().valid(...SUPPORTED_CHAINS)
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
     ORDER_STATUS.OPEN,
     ORDER_STATUS.FILLED,
@@ -54,10 +51,6 @@ export default class FieldValidator {
 
   public static isValidCreatedAt(): NumberSchema {
     return this.NUMBER_JOI
-  }
-
-  public static isValidDeadline(): NumberSchema {
-    return this.DEADLINE_JOI
   }
 
   public static isValidChainId(): NumberSchema {
