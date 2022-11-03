@@ -1,10 +1,10 @@
+import { DynamoDB } from 'aws-sdk'
 import Joi from 'joi'
-import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
-import { ContainerInjected, RequestInjected } from './injector'
-import { PostOrderRequestBodyJoi, PostOrderRequestBody, PostOrderResponseJoi, PostOrderResponse } from './schema/index'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import { DynamoDB } from 'aws-sdk'
+import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
+import { ContainerInjected, RequestInjected } from './injector'
+import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
 
 export class PostOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
@@ -19,7 +19,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody,
       requestInjected: { log, deadline, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime },
-      containerInjected: { dbInterface }
+      containerInjected: { dbInterface },
     } = params
 
     try {
@@ -38,12 +38,12 @@ export class PostOrderHandler extends APIGLambdaHandler<
         sellAmount,
         reactor,
         startTime,
-        deadline
+        deadline,
       }
 
       // Order could not possibly be inserted into db, queried,
       // and filled all within one second
-      if(deadline < 1+(new Date().getTime())/1000) {
+      if (deadline < 1 + new Date().getTime() / 1000) {
         return {
           statusCode: 400,
           errorCode: 'Invalid deadline',

@@ -19,7 +19,7 @@ export class APIStage extends Stage {
     props: StageProps & {
       provisionedConcurrency: number
       chatbotSNSArn?: string
-      stage: string,
+      stage: string
       envVars: { [key: string]: string }
     }
   ) {
@@ -128,7 +128,6 @@ export class APIPipeline extends Stack {
     applicationStage.addPost(testAction)
   }
 }
-
 
 // Local Dev Stack
 const app = new cdk.App()

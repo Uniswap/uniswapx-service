@@ -130,7 +130,7 @@ export class APIStack extends cdk.Stack {
 
     const order = dutchAuction.addResource('order')
     order.addMethod('POST', postOrderLambdaIntegration)
-    
+
     const orders = dutchAuction.addResource('orders')
     orders.addMethod('GET', getOrdersLambdaIntegration, {})
 

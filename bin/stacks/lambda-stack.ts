@@ -10,18 +10,18 @@ import { SERVICE_NAME } from '../constants'
 import { DynamoStack } from './dynamo-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
-  envVars: { [key: string]: string };
+  envVars: { [key: string]: string }
   provisionedConcurrency: number
 }
 export class LambdaStack extends cdk.NestedStack {
-  public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction;
-  public readonly postOrderLambdaAlias: aws_lambda.Alias;
+  public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly postOrderLambdaAlias: aws_lambda.Alias
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
-    const { provisionedConcurrency } = props;
+    const { provisionedConcurrency } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
 
@@ -51,7 +51,7 @@ export class LambdaStack extends cdk.NestedStack {
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
-    });
+    })
 
     // POST Order Lambda
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
@@ -110,7 +110,7 @@ export class LambdaStack extends cdk.NestedStack {
       aliasName: 'live',
       version: this.postOrderLambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
-    });
+    })
 
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
@@ -119,14 +119,14 @@ export class LambdaStack extends cdk.NestedStack {
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
-      });
+      })
 
-      postOrderTarget.node.addDependency(this.postOrderLambdaAlias);
+      postOrderTarget.node.addDependency(this.postOrderLambdaAlias)
       postOrderTarget.scaleToTrackMetric(`${lambdaName}-PostOrder-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      });
-      
+      })
+
       const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
         maxCapacity: provisionedConcurrency * 5,
@@ -140,7 +140,7 @@ export class LambdaStack extends cdk.NestedStack {
       getOrdersTarget.scaleToTrackMetric(`GetOrders-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      });
+      })
     }
   }
 }

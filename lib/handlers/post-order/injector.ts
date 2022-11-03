@@ -1,19 +1,19 @@
 import { APIGatewayEvent, Context } from 'aws-lambda'
 import { default as Logger } from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
+import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { BaseRInj, Injector } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
-import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 
 export interface RequestInjected extends BaseRInj {
   offerer: string
   sellToken: string
-  sellAmount: string,
+  sellAmount: string
   deadline: number
-  reactor: string,
-  nonce: string,
-  orderHash: string,
-  startTime: number,
+  reactor: string
+  nonce: string
+  orderHash: string
+  startTime: number
 }
 
 export interface ContainerInjected {
@@ -31,7 +31,7 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
     _requestQueryParams: void,
     _event: APIGatewayEvent,
     context: Context,
-    log: Logger,
+    log: Logger
   ): Promise<RequestInjected> {
     const requestId = context.awsRequestId
 
