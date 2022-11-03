@@ -1,13 +1,10 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
 import { BuildEnvironmentVariableType } from 'aws-cdk-lib/aws-codebuild'
-import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
 import 'source-map-support/register'
-import { SUPPORTED_CHAINS } from '../lib/config/supported-chains'
-import { ChainId } from '../lib/util/chains'
 import { STAGE } from '../lib/util/stage'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
@@ -71,23 +68,12 @@ export class APIPipeline extends Stack {
       synth: synthStep,
     })
 
-    // Secrets are stored in secrets manager in the pipeline account. Accounts we deploy to
-    // have been granted permissions to access secrets via resource policies.
-    const goudaRpc = sm.Secret.fromSecretAttributes(this, 'goudaRpc', {
-      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-2-cXyqGh',
-    })
-
-    const jsonRpcUrls: { [chain: string]: string } = {}
-    SUPPORTED_CHAINS.forEach((chainId: ChainId) => {
-      jsonRpcUrls[`RPC_${chainId}`] = goudaRpc.secretValueFromJson(chainId.toString()).toString()
-    })
-
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 20,
       stage: STAGE.BETA,
-      envVars: jsonRpcUrls,
+      envVars: {},
     })
 
     const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
@@ -100,7 +86,7 @@ export class APIPipeline extends Stack {
       provisionedConcurrency: 100,
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
-      envVars: jsonRpcUrls,
+      envVars: {},
     })
 
     const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
@@ -148,19 +134,10 @@ export class APIPipeline extends Stack {
 // Local Dev Stack
 const app = new cdk.App()
 
-const jsonRpcUrls = {} as {[key:string]:string}
-
-SUPPORTED_CHAINS.forEach(chainId => {
-  const name = `RPC_${chainId}`
-  jsonRpcUrls[name] = process.env[name]!
-})
-
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
   stage: STAGE.LOCAL,
-  envVars: {
-    ...jsonRpcUrls,
-  },
+  envVars: {},
 })

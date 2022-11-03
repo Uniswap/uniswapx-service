@@ -1,12 +1,20 @@
 import { ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
-import { ORDER_STATUS } from '../entities'
+import { ORDER_STATUS, SUPPORTED_CHAINS } from '../entities'
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
   private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
   private static readonly NUMBER_JOI = Joi.number()
+  private static readonly CHAIN_ID_JOI = Joi.number().allow(
+    [
+      SUPPORTED_CHAINS.MAINNET
+    ]
+  )
+
+  // Deadline should be greater than current timestamp.
+  private static readonly DEADLINE_JOI = Joi.number().greater(new Date().getTime())
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
     ORDER_STATUS.OPEN,
     ORDER_STATUS.FILLED,
@@ -49,6 +57,14 @@ export default class FieldValidator {
 
   public static isValidCreatedAt(): NumberSchema {
     return this.NUMBER_JOI
+  }
+
+  public static isValidDeadline(): NumberSchema {
+    return this.DEADLINE_JOI
+  }
+
+  public static isValidChainId(): NumberSchema {
+    return this.CHAIN_ID_JOI
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {
