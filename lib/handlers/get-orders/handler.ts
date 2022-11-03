@@ -12,7 +12,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   GetOrdersQueryParams,
   GetOrdersResponse
 > {
-  public async handleRequest(
+  protected async handleRequest(
     params: HandleRequestParams<ContainerInjected, RequestInjected, void, GetOrdersQueryParams>
   ): Promise<Response<GetOrdersResponse> | ErrorResponse> {
     const {
