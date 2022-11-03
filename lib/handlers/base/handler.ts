@@ -103,7 +103,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
       let log: Logger = bunyan.createLogger({
         name: this.handlerName,
         serializers: bunyan.stdSerializers,
-        level: bunyan.INFO,
+        level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
         requestId: context.awsRequestId,
       })
 

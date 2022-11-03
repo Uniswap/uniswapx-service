@@ -14,7 +14,7 @@ const dynamoConfig = {
   },
 }
 
-export const MOCK_ORDER_1 = {
+const MOCK_ORDER_1 = {
   orderHash: '0x1',
   offerer: 'hayden.eth',
   encodedOrder: 'order1',
@@ -24,7 +24,7 @@ export const MOCK_ORDER_1 = {
   sellToken: 'weth',
 }
 
-export const MOCK_ORDER_2 = {
+const MOCK_ORDER_2 = {
   orderHash: '0x2',
   offerer: 'riley.eth',
   encodedOrder: 'order2',
