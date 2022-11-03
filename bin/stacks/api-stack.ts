@@ -10,6 +10,7 @@ import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
 import { Construct } from 'constructs'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
+import { LambdaStack } from './lambda-stack'
 
 export class APIStack extends cdk.Stack {
   public readonly url: CfnOutput
@@ -27,7 +28,11 @@ export class APIStack extends cdk.Stack {
   ) {
     super(parent, name, props)
 
-    const { throttlingOverride, chatbotSNSArn, stage } = props
+    const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
+
+    const { getOrdersLambdaAlias } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
+      provisionedConcurrency,
+    })
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
 
@@ -112,6 +117,18 @@ export class APIStack extends cdk.Stack {
       resourceArn: apiArn,
       webAclArn: ipThrottlingACL.getAtt('Arn').toString(),
     })
+
+    const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
+
+    const dutchAuction = api.root.addResource('dutch-auction', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
+        allowMethods: aws_apigateway.Cors.ALL_METHODS,
+      },
+    })
+
+    const orders = dutchAuction.addResource('orders')
+    orders.addMethod('GET', getOrdersLambdaIntegration, {})
 
     const apiAlarm5xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-5XXAlarm`, {
       metric: api.metricServerError({

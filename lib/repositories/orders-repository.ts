@@ -1,7 +1,9 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { Entity, Table } from 'dynamodb-toolbox'
+
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
 import { OrderEntity } from '../entities/Order'
+import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { generateRandomNonce } from '../util/nonce'
 import { BaseOrdersRepository } from './base'
 
@@ -62,6 +64,18 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     } as const)
   }
 
+  public async getByOfferer(offerer: string, limit: number): Promise<OrderEntity[]> {
+    return await this.queryOrderEntity(offerer, 'offererIndex', limit)
+  }
+
+  public async getByOrderStatus(orderStatus: string, limit: number): Promise<OrderEntity[]> {
+    return await this.queryOrderEntity(orderStatus, 'orderStatusIndex', limit)
+  }
+
+  public async getBySellToken(sellToken: string, limit: number): Promise<OrderEntity[]> {
+    return await this.queryOrderEntity(sellToken, 'sellTokenIndex', limit)
+  }
+
   async getByHash(hash: string): Promise<OrderEntity | undefined> {
     const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
     return res.Item as OrderEntity
@@ -88,6 +102,86 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       {
         capacity: 'total',
       }
+    )
+  }
+
+  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams): Promise<(OrderEntity | undefined)[]> {
+    const requestedParams = Object.keys(queryFilters)
+
+    // Query Orders table based on the requested params
+    switch (true) {
+      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
+        const order = await this.getByHash(queryFilters['orderHash'] as string)
+        return order ? [order] : []
+      }
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
+        return await this.getByOfferer(queryFilters['offerer'] as string, limit)
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
+        return await this.getByOrderStatus(queryFilters['orderStatus'] as string, limit)
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
+        return await this.getBySellToken(queryFilters['sellToken'] as string, limit)
+
+      case this.areParamsRequested(
+        [GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS],
+        requestedParams
+      ):
+        return await this.queryOrderEntity(
+          `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
+          'offererOrderStatusIndex',
+          limit,
+          queryFilters['sellToken']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
+        return await this.queryOrderEntity(
+          `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
+          'offererOrderStatusIndex',
+          limit
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
+        return await this.queryOrderEntity(
+          `${queryFilters['offerer']}-${queryFilters['sellToken']}`,
+          'offererSellTokenIndex',
+          limit
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
+        return await this.queryOrderEntity(
+          `${queryFilters['sellToken']}-${queryFilters['orderStatus']}`,
+          'sellTokenOrderStatusIndex',
+          limit
+        )
+
+      default: {
+        const getOrdersScan = await DynamoOrdersRepository.ordersTable.scan({
+          ...(limit && { limit: limit }),
+        })
+        return getOrdersScan.Items
+      }
+    }
+  }
+
+  private async queryOrderEntity(
+    partitionKey: string,
+    index: string,
+    limit: number | undefined,
+    sortKey?: string
+  ): Promise<OrderEntity[]> {
+    const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
+      index: index,
+      ...(limit && { limit: limit }),
+      ...(sortKey && { eq: sortKey }),
+    })
+    return queryResult.Items
+  }
+
+  private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
+    return (
+      requestedParams.length == queryParams.length && queryParams.every((filter) => requestedParams.includes(filter))
     )
   }
 }
