@@ -1,28 +1,25 @@
 import { APIGatewayEvent, Context } from 'aws-lambda'
-import { default as bunyan, default as Logger } from 'bunyan'
+import { default as Logger } from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
-import { ChainId } from '../../util/chains'
 import { BaseRInj, Injector } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
-import { ethers } from 'ethers'
-import { SUPPORTED_CHAINS } from '../../config/supported-chains'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { ChainId, SUPPORTED_CHAINS } from '../../util/chain'
 
 export interface RequestInjected extends BaseRInj {
   offerer: string
   sellToken: string
   sellAmount: string,
   deadline: number
-  provider: ethers.providers.JsonRpcProvider,
   reactor: string,
   nonce: string,
   orderHash: string,
   startTime: number,
 }
 
-export type ContainerDependencies = {
-  provider: ethers.providers.JsonRpcProvider,
-}
+// eslint-disable-next-line @typescript-eslint/ban-types
+// No deps yet!
+export type ContainerDependencies = {}
 
 export interface ContainerInjected {
   dependencies: {
@@ -33,47 +30,17 @@ export interface ContainerInjected {
 
 export class PostOrderInjector extends Injector<ContainerInjected, RequestInjected, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    const log: Logger = bunyan.createLogger({
-      name: this.injectorName,
-      serializers: bunyan.stdSerializers,
-      level: bunyan.INFO,
-    })
     const dependenciesByChain: {
       [chainId in ChainId]?: ContainerDependencies
     } = {}
     for(let i=0; i<SUPPORTED_CHAINS.length; i++) {
-      const chainId = SUPPORTED_CHAINS[i]
-      const url = process.env[`RPC_${chainId.toString()}`]!
-      if (!url) {
-        log.error(`Fatal: No RPC endpoint set`)
-      }
-
-      let timeout: number
-      switch (chainId) {
-        case ChainId.ARBITRUM_ONE:
-        case ChainId.ARBITRUM_RINKEBY:
-          timeout = 8000
-          break
-        default:
-          timeout = 5000
-          break
-      }
-
-      const provider = new ethers.providers.JsonRpcProvider(
-        {
-          url: url,
-          timeout,
-        },
-        chainId
-      )
-
-      dependenciesByChain[chainId] = { provider }
+      dependenciesByChain[SUPPORTED_CHAINS[i]] = {}
     }
     return { dependencies: dependenciesByChain, dbInterface: new DynamoOrdersRepository() }
   }
 
   public async getRequestInjected(
-    containerInjected: ContainerInjected,
+    _containerInjected: ContainerInjected,
     requestBody: PostOrderRequestBody,
     _requestQueryParams: void,
     _event: APIGatewayEvent,
@@ -88,7 +55,6 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
     // input.token does not exist on iOrder
     const order = parseOrder(encodedOrder) as DutchLimitOrder
     const { deadline, offerer, reactor, startTime, input, nonce } = order.info
-    const dependencies = containerInjected.dependencies[requestBody.chainId as ChainId]!
 
     return {
       requestId,
@@ -101,7 +67,6 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
       startTime,
       nonce: nonce.toString(),
       orderHash: order.hash(),
-      provider: dependencies.provider,
     }
   }
 }

@@ -21,7 +21,3 @@ export type OrderEntity = {
   sellToken?: string
   sellAmount?: string
 }
-
-export enum SUPPORTED_CHAINS {
-  MAINNET = 1
-}
