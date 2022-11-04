@@ -1,40 +1,47 @@
+import { parseOrder, DutchLimitOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
-import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
-import { ContainerInjected, RequestInjected } from './injector'
+import { APIGLambdaHandler, BaseRInj, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
+import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
 
 export class PostOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
-  RequestInjected,
+  BaseRInj,
   PostOrderRequestBody,
   void,
   PostOrderResponse
 > {
   public async handleRequest(
-    params: HandleRequestParams<ContainerInjected, RequestInjected, PostOrderRequestBody, void>
+    params: HandleRequestParams<ContainerInjected, BaseRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
-      requestBody,
-      requestInjected: { log, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime, endTime, deadline },
+      requestBody: { encodedOrder, signature },
+      requestInjected: { log },
       containerInjected: { dbInterface },
     } = params
     log.info('Handling POST Order request', params)
     try {
-      const { encodedOrder, signature } = requestBody
+      // Cast to DutchLimitOrder so that we can get the sellToken field
+      // input.token does not exist on iOrder
+      const decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
+      const orderHash = decodedOrder.hash().toLowerCase()
+      const { deadline, offerer, reactor, startTime, input: {token, amount}, nonce } = decodedOrder.info
 
       const order: OrderEntity = {
         encodedOrder,
         signature,
-        nonce,
+        nonce: nonce.toString(),
         orderHash,
         orderStatus: ORDER_STATUS.UNVERIFIED,
-        offerer,
-        sellToken,
-        sellAmount,
-        reactor,
+        offerer: offerer.toLowerCase(),
+        sellToken: token.toLowerCase(),
+        sellAmount: amount.toString(),
+        reactor: reactor.toLowerCase(),
         startTime,
-        endTime,
+        // endTime not in the parsed order, so using deadline
+        // TODO: get endTime in the right way
+        endTime: deadline,
         deadline,
       }
 
@@ -55,11 +62,11 @@ export class PostOrderHandler extends APIGLambdaHandler<
         statusCode: 201,
         body: { hash: orderHash },
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       log.error(e, 'Failed to handle POST Order')
       return {
         statusCode: 500,
-        errorCode: e.message,
+        ...(e instanceof Error && { errorCode: e.message }),
       }
     }
   }

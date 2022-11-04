@@ -113,7 +113,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       expect(FieldValidator.isValidChainId().validate(chainId)).toEqual({ value: chainId })
     })
     it('should invalidate field.', async () => {
-      const chainId = ChainId.MOONBEAM
+      const chainId = ChainId.ARBITRUM_ONE
       const validatedField = FieldValidator.isValidChainId().validate(chainId)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(

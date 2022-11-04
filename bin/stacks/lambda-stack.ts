@@ -13,7 +13,7 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
 }
 export class LambdaStack extends cdk.NestedStack {
-  public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
@@ -51,7 +51,6 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
-    // POST Order Lambda
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_16_X,
