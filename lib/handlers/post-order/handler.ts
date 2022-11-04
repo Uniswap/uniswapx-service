@@ -21,6 +21,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       requestInjected: { log, deadline, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime },
       containerInjected: { dbInterface },
     } = params
+    log.info({ log, deadline, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime })
 
     try {
       const { encodedOrder, signature } = requestBody
