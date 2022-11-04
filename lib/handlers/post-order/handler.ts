@@ -1,4 +1,4 @@
-import { parseOrder, DutchLimitOrder } from 'gouda-sdk'
+import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
 import { APIGLambdaHandler, BaseRInj, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
@@ -26,7 +26,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
       // input.token does not exist on iOrder
       const decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
       const orderHash = decodedOrder.hash().toLowerCase()
-      const { deadline, offerer, reactor, startTime, input: {token, amount}, nonce } = decodedOrder.info
+      const {
+        deadline,
+        offerer,
+        reactor,
+        startTime,
+        input: { token, amount },
+        nonce,
+      } = decodedOrder.info
 
       const order: OrderEntity = {
         encodedOrder,

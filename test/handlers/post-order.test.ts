@@ -52,15 +52,15 @@ describe('Testing post order handler.', () => {
     nonce: nonceMock,
     orderHash: orderHashMock,
     orderStatus: ORDER_STATUS.UNVERIFIED,
-    offerer: offererMock,
+    offerer: offererMock.toLowerCase(),
   }
 
   // All fields, including optional ones
   const MOCK_ORDER: OrderEntity = {
     ...MOCK_ORDER_MINIMAL,
-    sellToken: sellTokenMock,
+    sellToken: sellTokenMock.toLowerCase(),
     sellAmount: sellAmountMock,
-    reactor: reactorMock,
+    reactor: reactorMock.toLowerCase(),
     startTime: startTimeMock,
     endTime: deadlineMock,
     deadline: deadlineMock,
