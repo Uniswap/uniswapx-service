@@ -14,6 +14,7 @@ export interface RequestInjected extends BaseRInj {
   nonce: string
   orderHash: string
   startTime: number
+  endTime: number
 }
 
 export interface ContainerInjected {
@@ -51,6 +52,8 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
       sellAmount: input.amount.toString(),
       reactor,
       startTime,
+      // endTime not in the parsed order, so using deadline
+      endTime: deadline,
       nonce: nonce.toString(),
       orderHash: order.hash(),
     }

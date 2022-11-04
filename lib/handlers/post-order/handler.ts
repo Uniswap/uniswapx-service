@@ -18,11 +18,10 @@ export class PostOrderHandler extends APIGLambdaHandler<
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody,
-      requestInjected: { log, deadline, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime },
+      requestInjected: { log, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime, endTime, deadline },
       containerInjected: { dbInterface },
     } = params
-    log.info({ log, deadline, offerer, sellToken, sellAmount, nonce, orderHash, reactor, startTime })
-
+    log.info('Handling POST Order request', params)
     try {
       const { encodedOrder, signature } = requestBody
       const dynamoClient = new DynamoDB.DocumentClient()
@@ -39,6 +38,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
         sellAmount,
         reactor,
         startTime,
+        endTime,
         deadline,
       }
 

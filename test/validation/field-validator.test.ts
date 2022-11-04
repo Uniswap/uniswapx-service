@@ -1,4 +1,5 @@
 import { ORDER_STATUS } from '../../lib/entities'
+import { ChainId } from '../../lib/util/chain'
 import FieldValidator from '../../lib/util/field-validator'
 
 describe('Testing each field on the FieldValidator class.', () => {
@@ -102,6 +103,21 @@ describe('Testing each field on the FieldValidator class.', () => {
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
         `"value" with value "${invalidOrder}" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{0,2000}$/`
+      )
+    })
+  })
+
+  describe('Testing chainId field.', () => {
+    it('should validate field.', async () => {
+      const chainId = ChainId.MAINNET
+      expect(FieldValidator.isValidChainId().validate(chainId)).toEqual({ value: chainId })
+    })
+    it('should invalidate field.', async () => {
+      const chainId = ChainId.MOONBEAM
+      const validatedField = FieldValidator.isValidChainId().validate(chainId)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        '"value" must be one of [1, 5]'
       )
     })
   })
