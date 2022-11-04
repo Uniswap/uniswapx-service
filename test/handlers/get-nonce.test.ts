@@ -1,4 +1,5 @@
 import { GetNonceHandler } from '../../lib/handlers/get-nonce/handler'
+import { HeaderExpectation } from '../utils'
 
 describe('Testing get nonce handler.', () => {
   const MOCK_ADDRESS = '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa'
@@ -41,11 +42,14 @@ describe('Testing get nonce handler.', () => {
   it('Testing valid request and response.', async () => {
     const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
     expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address)
-    expect(getNonceResponse).toEqual({
+    expect(getNonceResponse).toMatchObject({
       body: JSON.stringify({ nonce: MOCK_NONCE }),
       statusCode: 200,
-      headers: expect.anything(),
     })
+
+    expect(getNonceResponse.headers).not.toBeUndefined()
+    const headerExpectation = new HeaderExpectation(getNonceResponse.headers)
+    headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
   })
 
   describe('Testing invalid nonce request validation.', () => {
@@ -89,11 +93,14 @@ describe('Testing get nonce handler.', () => {
       })
       const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
       expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address)
-      expect(getNonceResponse).toEqual({
+      expect(getNonceResponse).toMatchObject({
         body: JSON.stringify({ errorCode: error.message }),
         statusCode: 500,
-        headers: expect.anything(),
       })
+
+      expect(getNonceResponse.headers).not.toBeUndefined()
+      const headerExpectation = new HeaderExpectation(getNonceResponse.headers)
+      headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
     })
   })
 })
