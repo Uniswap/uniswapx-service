@@ -95,6 +95,35 @@ export class LambdaStack extends cdk.NestedStack {
       evaluationPeriods: 3,
     })
 
+    // Post Order Lambda Alarms
+
+    new cdk.aws_cloudwatch.Alarm(this, `PostOrderLambdaErrorRate`, {
+      metric: new cdk.aws_cloudwatch.MathExpression({
+        expression: 'errors / invocations',
+        usingMetrics: {
+          errors: this.postOrderLambda.metricErrors({
+            period: Duration.minutes(5),
+            statistic: 'avg',
+          }),
+          invocations: this.postOrderLambda.metricInvocations({
+            period: Duration.minutes(5),
+            statistic: 'avg',
+          }),
+        },
+      }),
+      threshold: 0.05,
+      evaluationPeriods: 3,
+    })
+  
+    new aws_cloudwatch.Alarm(this, `PostOrderLambdaThrottles`, {
+      metric: this.postOrderLambda.metricThrottles({
+        period: Duration.minutes(5),
+        statistic: 'sum',
+      }),
+      threshold: 10,
+      evaluationPeriods: 3,
+    })
+
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 
     this.getOrdersLambdaAlias = new aws_lambda.Alias(this, `GetOrdersLiveAlias`, {

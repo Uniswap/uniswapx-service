@@ -1,7 +1,5 @@
-import { DynamoDB } from 'aws-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
-import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
@@ -24,8 +22,6 @@ export class PostOrderHandler extends APIGLambdaHandler<
     log.info('Handling POST Order request', params)
     try {
       const { encodedOrder, signature } = requestBody
-      const dynamoClient = new DynamoDB.DocumentClient()
-      DynamoOrdersRepository.initialize(dynamoClient)
 
       const order: OrderEntity = {
         encodedOrder,

@@ -1,4 +1,5 @@
 import { APIGatewayEvent, Context } from 'aws-lambda'
+import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
@@ -23,7 +24,12 @@ export interface ContainerInjected {
 
 export class PostOrderInjector extends Injector<ContainerInjected, RequestInjected, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    return { dbInterface: new DynamoOrdersRepository() }
+    const documentClient = new DynamoDB.DocumentClient()
+    const dbInterface = new DynamoOrdersRepository()
+    DynamoOrdersRepository.initialize(documentClient)
+    return {
+      dbInterface,
+    }
   }
 
   public async getRequestInjected(
@@ -53,6 +59,7 @@ export class PostOrderInjector extends Injector<ContainerInjected, RequestInject
       reactor,
       startTime,
       // endTime not in the parsed order, so using deadline
+      // TODO: get endTime in the right way
       endTime: deadline,
       nonce: nonce.toString(),
       orderHash: order.hash(),
