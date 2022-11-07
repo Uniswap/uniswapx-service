@@ -80,14 +80,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
       if (FieldValidator.isValidEthAddress().validate(token).error) {
         return {
           statusCode: 400,
-          errorCode: 'Invalid token'
+          errorCode: 'Invalid token',
         }
       }
 
       if (amount.lte(0)) {
         return {
           statusCode: 400,
-          errorCode: 'Invalid amount'
+          errorCode: 'Invalid amount',
         }
       }
 
