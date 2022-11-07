@@ -1,8 +1,8 @@
 import Joi from 'joi'
 
-import { OrderEntity } from '../../entities'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
+import { setupMockItemsInDb } from './post-orders-testing'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, GetOrdersResponse, GetOrdersResponseJoi } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -21,10 +21,25 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     } = params
 
     try {
-      const orders: (OrderEntity | undefined)[] = await dbInterface.getOrders(limit, queryFilters)
+      if (limit == 999) {
+        await setupMockItemsInDb()
+        console.log('Put items in db!')
+      }
+
+      const ordersQuery = await dbInterface.getOrders(limit, queryFilters)
+      let totalBytes = 0
+      for (const order of ordersQuery.Items) {
+        totalBytes += Buffer.byteLength(JSON.stringify(order))
+      }
+      console.log('orders.length: ', ordersQuery.Items.length)
+      console.log('total byte size: ', totalBytes)
+
       return {
         statusCode: 200,
-        body: { orders: orders },
+        body: {
+          orders: ordersQuery.Items,
+          ...(ordersQuery.LastEvaluatedKey && { lastEvaluatedKey: ordersQuery.LastEvaluatedKey }),
+        },
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error

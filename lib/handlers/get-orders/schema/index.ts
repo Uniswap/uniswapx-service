@@ -20,6 +20,7 @@ export type GetOrdersQueryParams = {
 
 export type GetOrdersResponse = {
   orders: (OrderEntity | undefined)[]
+  lastEvaluatedKey?: { [key: string]: string }
 }
 
 export const OrderResponseEntryJoi = Joi.object({
@@ -33,6 +34,7 @@ export const OrderResponseEntryJoi = Joi.object({
 
 export const GetOrdersResponseJoi = Joi.object({
   orders: Joi.array().items(OrderResponseEntryJoi),
+  lastEvaluatedKey: FieldValidator.isValidLastEvaluatedKey(),
 })
 
 export enum GET_QUERY_PARAMS {
