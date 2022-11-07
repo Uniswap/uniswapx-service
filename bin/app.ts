@@ -107,10 +107,6 @@ export class APIPipeline extends Stack {
             value: 'npm-private-repo-access-token',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          GH_TOKEN: {
-            value: 'github-token-2',
-            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
-          },
         },
       },
       commands: [
