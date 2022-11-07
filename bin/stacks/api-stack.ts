@@ -29,7 +29,7 @@ export class APIStack extends cdk.Stack {
 
     const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
 
-    const { getOrdersLambdaAlias, postOrderLambdaAlias } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
+    const { getOrdersLambdaAlias, getNonceLambdaAlias, postOrderLambdaAlias } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
     })
 
@@ -119,6 +119,7 @@ export class APIStack extends cdk.Stack {
 
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
     const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
+    const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -131,7 +132,9 @@ export class APIStack extends cdk.Stack {
     order.addMethod('POST', postOrderLambdaIntegration)
 
     const orders = dutchAuction.addResource('orders')
+    const nonce = dutchAuction.addResource('nonce')
     orders.addMethod('GET', getOrdersLambdaIntegration, {})
+    nonce.addMethod('GET', getNonceLambdaIntegration, {})
 
     const apiAlarm5xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-5XXAlarm`, {
       metric: api.metricServerError({
