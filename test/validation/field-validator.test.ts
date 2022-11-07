@@ -112,8 +112,8 @@ describe('Testing each field on the FieldValidator class.', () => {
       const chainId = ChainId.MAINNET
       expect(FieldValidator.isValidChainId().validate(chainId)).toEqual({ value: chainId })
     })
-    it('should invalidate unsupported chain.', async () => {
-      const chainId = ChainId.ARBITRUM_ONE
+    it('should invalidate non numeric.', async () => {
+      const chainId = 'MAINNET'
       const validatedField = FieldValidator.isValidChainId().validate(chainId)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
