@@ -55,7 +55,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
         }
       }
 
-      if (FieldValidator.isValidNonce().validate(nonce).error) {
+      if (nonce.lt(0)) {
         return {
           statusCode: 400,
           errorCode: 'Invalid nonce',

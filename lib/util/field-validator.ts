@@ -60,7 +60,7 @@ export default class FieldValidator {
   public static isValidChainId(): NumberSchema {
     return this.CHAIN_ID_JOI
   }
-  
+
   public static isValidNonce(): StringSchema {
     return this.NONCE_JOI
   }
