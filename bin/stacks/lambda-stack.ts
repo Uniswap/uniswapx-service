@@ -68,6 +68,8 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    /* TODO: review all alarms holistically and adjust thresholds, metrics definitions, etc. */
+
     new aws_cloudwatch.Alarm(this, `GetOrdersLambdaErrorRate`, {
       metric: new aws_cloudwatch.MathExpression({
         expression: 'errors / invocations',
