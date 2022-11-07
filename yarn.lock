@@ -2032,11 +2032,6 @@
     "@typescript-eslint/types" "5.41.0"
     eslint-visitor-keys "^3.3.0"
 
-"@uniswap/default-token-list@^5.2.0":
-  version "5.2.0"
-  resolved "https://registry.yarnpkg.com/@uniswap/default-token-list/-/default-token-list-5.2.0.tgz#68bed7fa8d9c31e93431cdb50c45f2984f5859ff"
-  integrity sha512-ipIuYdW/56xwNxR2Z0xB+kfWKraar9nYHS/Y0QOOQ0rpMM6fZ9ro8KKxsOOQF9irVpf20Fgusk2jLcL2TdPqAg==
-
 "@uniswap/sdk-core@^3.0.2":
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-3.1.0.tgz#595b6396763fd2553531423c8eec83bfb4840a27"
@@ -2048,11 +2043,6 @@
     jsbi "^3.1.4"
     tiny-invariant "^1.1.0"
     toformat "^2.0.0"
-
-"@uniswap/token-lists@^1.0.0-beta.30":
-  version "1.0.0-beta.30"
-  resolved "https://registry.yarnpkg.com/@uniswap/token-lists/-/token-lists-1.0.0-beta.30.tgz#2103ca23b8007c59ec71718d34cdc97861c409e5"
-  integrity sha512-HwY2VvkQ8lNR6ks5NqQfAtg+4IZqz3KV1T8d2DlI8emIn9uMmaoFbIOg0nzjqAVKKnZSbMTRRtUoAh6mmjRvog==
 
 acorn-jsx@^5.3.2:
   version "5.3.2"
@@ -4324,11 +4314,6 @@ js-yaml@^4.1.0:
   integrity sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==
   dependencies:
     argparse "^2.0.1"
-
-jsbi@^3.1.4:
-  version "3.2.5"
-  resolved "https://registry.yarnpkg.com/jsbi/-/jsbi-3.2.5.tgz#b37bb90e0e5c2814c1c2a1bcd8c729888a2e37d6"
-  integrity sha512-aBE4n43IPvjaddScbvWRA2YlTzKEynHzu7MqOyTipdHucf/VxS63ViCjxYRg86M8Rxwbt/GfzHl1kKERkt45fQ==
 
 jsbi@^3.1.4:
   version "3.2.5"
