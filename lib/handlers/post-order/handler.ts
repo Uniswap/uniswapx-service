@@ -24,7 +24,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     log.info('Handling POST order request', params)
     let decodedOrder: DutchLimitOrder
-    
+
     try {
       decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
     } catch (e: unknown) {
