@@ -51,6 +51,10 @@ export default class FieldValidator {
     return this.NUMBER_JOI
   }
 
+  public static isValidSortQuery(): StringSchema {
+    return Joi.string()
+  }
+
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {
     let lengthModifier = '*'
     if (length) {

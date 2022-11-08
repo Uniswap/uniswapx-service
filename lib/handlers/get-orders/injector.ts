@@ -4,7 +4,7 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { BaseRInj, Injector } from '../base/handler'
-import { GetOrdersQueryParams } from './schema'
+import { GetOrdersQueryParams, SORT_FIELDS } from './schema'
 
 export interface RequestInjected extends BaseRInj {
   limit: number
@@ -13,6 +13,8 @@ export interface RequestInjected extends BaseRInj {
     orderHash?: string
     offerer?: string
     sellToken?: string
+    sortKey?: SORT_FIELDS
+    sort?: string
   }
 }
 
@@ -52,6 +54,8 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
     const orderHash = requestQueryParams?.orderHash?.toLowerCase()
     const offerer = requestQueryParams?.offerer?.toLowerCase()
     const sellToken = requestQueryParams?.sellToken?.toLowerCase()
+    const sortKey = requestQueryParams?.sortKey
+    const sort = requestQueryParams?.sort
 
     return {
       limit: limit,
@@ -60,6 +64,8 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
         ...(orderHash && { orderHash: orderHash }),
         ...(offerer && { offerer: offerer }),
         ...(sellToken && { sellToken: sellToken }),
+        ...(sortKey && { sortKey: sortKey }),
+        ...(sort && { sort: sort }),
       },
       requestId,
       log,
