@@ -4,6 +4,7 @@ import { default as Logger } from 'bunyan'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { BaseRInj, Injector } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
+
 export interface ContainerInjected {
   dbInterface: DynamoOrdersRepository
 }

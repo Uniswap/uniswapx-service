@@ -27,49 +27,40 @@ export class PostOrderHandler extends APIGLambdaHandler<
       // input.token does not exist on iOrder
       const decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
       const orderHash = decodedOrder.hash().toLowerCase()
-      const {
-        deadline,
-        offerer,
-        reactor,
-        startTime,
-        input: { token, amount },
-        nonce,
-        outputs,
-      } = decodedOrder.info
 
       // Offchain Validation
 
       // Order could not possibly be inserted into db, queried,
       // and filled all within one second
-      if (deadline < 1 + new Date().getTime() / 1000) {
+      if (decodedOrder.info.deadline < 1 + new Date().getTime() / 1000) {
         return {
           statusCode: 400,
           errorCode: 'Invalid deadline',
         }
       }
 
-      if (startTime > deadline) {
+      if (decodedOrder.info.startTime > decodedOrder.info.deadline) {
         return {
           statusCode: 400,
           errorCode: 'Invalid startTime',
         }
       }
 
-      if (nonce.lt(0)) {
+      if (decodedOrder.info.nonce.lt(0)) {
         return {
           statusCode: 400,
           errorCode: 'Invalid nonce',
         }
       }
 
-      if (FieldValidator.isValidEthAddress().validate(offerer).error) {
+      if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.offerer).error) {
         return {
           statusCode: 400,
           errorCode: 'Invalid offerer',
         }
       }
 
-      if (FieldValidator.isValidEthAddress().validate(reactor).error) {
+      if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.reactor).error) {
         return {
           statusCode: 400,
           errorCode: 'Invalid reactor',
@@ -77,14 +68,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
 
       // Validate input token and amount
-      if (FieldValidator.isValidEthAddress().validate(token).error) {
+      if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.input.token).error) {
         return {
           statusCode: 400,
           errorCode: 'Invalid token',
         }
       }
 
-      if (amount.lte(0)) {
+      if (decodedOrder.info.input.amount.lte(0)) {
         return {
           statusCode: 400,
           errorCode: 'Invalid amount',
@@ -92,8 +83,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
 
       // Validate outputs
-      for (let i = 0; i < outputs.length; i++) {
-        const { token, recipient, startAmount, endAmount } = outputs[i]
+      for (let i = 0; i < decodedOrder.info.outputs.length; i++) {
+        const { token, recipient, startAmount, endAmount } = decodedOrder.info.outputs[i]
         if (FieldValidator.isValidEthAddress().validate(token).error) {
           return {
             statusCode: 400,
@@ -118,7 +109,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
         if (endAmount.lt(0)) {
           return {
             statusCode: 400,
-            errorCode: `Invalid endAmount ${outputs[i].endAmount.toString()}`,
+            errorCode: `Invalid endAmount ${decodedOrder.info.outputs[i].endAmount.toString()}`,
           }
         }
       }
@@ -127,18 +118,18 @@ export class PostOrderHandler extends APIGLambdaHandler<
       const order: OrderEntity = {
         encodedOrder,
         signature,
-        nonce: nonce.toString(),
+        nonce: decodedOrder.info.nonce.toString(),
         orderHash,
         orderStatus: ORDER_STATUS.UNVERIFIED,
-        offerer: offerer.toLowerCase(),
-        sellToken: token.toLowerCase(),
-        sellAmount: amount.toString(),
-        reactor: reactor.toLowerCase(),
-        startTime,
+        offerer: decodedOrder.info.offerer.toLowerCase(),
+        sellToken: decodedOrder.info.input.token.toLowerCase(),
+        sellAmount: decodedOrder.info.input.amount.toString(),
+        reactor: decodedOrder.info.reactor.toLowerCase(),
+        startTime: decodedOrder.info.startTime,
         // endTime not in the parsed order, so using deadline
         // TODO: get endTime in the right way
-        endTime: deadline,
-        deadline,
+        endTime: decodedOrder.info.deadline,
+        deadline: decodedOrder.info.deadline,
       }
 
       // Insert Order into db
