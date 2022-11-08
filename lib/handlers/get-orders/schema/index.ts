@@ -8,8 +8,8 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash(),
   offerer: FieldValidator.isValidEthAddress(),
   sellToken: FieldValidator.isValidEthAddress(),
-  sortKey: FieldValidator.isValidSortQuery(),
-  sort: FieldValidator.isValidSortQuery(),
+  sortKey: FieldValidator.isValidSortKey(),
+  sort: FieldValidator.isValidSort(),
 })
 
 export type GetOrdersQueryParams = {

@@ -1,10 +1,9 @@
 import Joi from 'joi'
 
 import { OrderEntity } from '../../entities'
-import { getRequestedParams } from '../../util/request'
+import { validateSortQueryParams } from '../../util/request'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
-import { setupMockItemsInDb } from './post-orders-testing'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, GetOrdersResponse, GetOrdersResponseJoi } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -23,26 +22,10 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     } = params
 
     try {
-      if (limit == 999) {
-        await setupMockItemsInDb()
-        console.log('Put items in db!')
-      }
-
-      if (queryFilters.sortKey || queryFilters.sort) {
-        if (!(queryFilters.sortKey && queryFilters.sort)) {
-          return {
-            statusCode: 400,
-            detail: 'Need both a sortKey and sort in order to query with sorting.',
-            errorCode: 'VALIDATION_ERROR',
-          }
-        }
-        if (getRequestedParams(queryFilters).length == 0) {
-          return {
-            statusCode: 400,
-            detail: "Can't query sort without additional query params.",
-            errorCode: 'VALIDATION_ERROR',
-          }
-        }
+      // TODO: when the base handler is more generalized we should be able to include this logic in request validation
+      const hasInvalidSortParams = validateSortQueryParams(queryFilters)
+      if (hasInvalidSortParams) {
+        return hasInvalidSortParams as ErrorResponse
       }
 
       const orders: (OrderEntity | undefined)[] = await dbInterface.getOrders(limit, queryFilters)

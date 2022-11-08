@@ -2,6 +2,8 @@ import { ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS } from '../entities'
 
+export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
+
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
@@ -19,6 +21,8 @@ export default class FieldValidator {
     ORDER_STATUS.ERROR,
     ORDER_STATUS.UNVERIFIED
   )
+  private static readonly SORT_KEY_JOI = Joi.string().valid('createdAt', 'deadline')
+  private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.getAddress(value)) {
@@ -55,8 +59,12 @@ export default class FieldValidator {
     return this.NUMBER_JOI
   }
 
-  public static isValidSortQuery(): StringSchema {
-    return Joi.string()
+  public static isValidSortKey(): StringSchema {
+    return this.SORT_KEY_JOI
+  }
+
+  public static isValidSort(): StringSchema {
+    return this.SORT_JOI
   }
 
   public static isValidNonce(): StringSchema {

@@ -5,40 +5,8 @@ import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
 import { OrderEntity } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS, SORT_FIELDS } from '../handlers/get-orders/schema'
 import { generateRandomNonce } from '../util/nonce'
-import { getRequestedParams } from '../util/request'
+import { getRequestedParams, parseComparisonFilter } from '../util/request'
 import { BaseOrdersRepository } from './base'
-
-const OperatorRegex = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
-
-enum COMPARISON_OPERATORS {
-  GT = 'gt',
-  LT = 'lt',
-  GTE = 'gte',
-  LTE = 'lte',
-  BETWEEN = 'between',
-}
-
-type ComparisonFilter = {
-  operator: string
-  values: number[]
-}
-
-export function parseComparisonFilter(queryParam: string | undefined): ComparisonFilter {
-  const match = queryParam?.match(OperatorRegex)
-  if (!match || match.length != 4) {
-    // the optional capturing group will be 'undefined' but still counts for .length
-    throw new Error(`Unable to parse operator and value for query param: ${queryParam}`)
-  }
-  const operator = match[1]
-
-  if (!Object.values(COMPARISON_OPERATORS).includes(operator as COMPARISON_OPERATORS)) {
-    throw new Error(`Unsupported comparison operator ${operator} in query param ${queryParam}`)
-  }
-
-  const values = match.slice(2).map((v) => parseInt(v))
-
-  return { operator: operator, values: values }
-}
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   private static ordersTable: Table
