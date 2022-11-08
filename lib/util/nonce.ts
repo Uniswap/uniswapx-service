@@ -16,7 +16,6 @@ export function generateRandomNonce(): string {
   const wordPos = new Uint8Array(31)
   wordPos.set(goudaPrefixBits, 0)
   wordPos.set(randomBits, 3)
-  console.log(ethers.BigNumber.from(wordPos))
 
   return ethers.BigNumber.from(wordPos).shl(8).toString()
 }
