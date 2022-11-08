@@ -8,4 +8,5 @@ export interface BaseOrdersRepository {
   getByOfferer: (offerer: string, limit: number, sortKey?: SORT_FIELDS, sort?: string) => Promise<OrderEntity[]>
   getByOrderStatus: (orderStatus: string, limit: number, sortKey?: SORT_FIELDS, sort?: string) => Promise<OrderEntity[]>
   getBySellToken: (sellToken: string, limit: number, sortKey?: SORT_FIELDS, sort?: string) => Promise<OrderEntity[]>
+  getNonceByAddress: (address: string) => Promise<string>
 }

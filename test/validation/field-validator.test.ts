@@ -105,4 +105,26 @@ describe('Testing each field on the FieldValidator class.', () => {
       )
     })
   })
+
+  describe('Testing nonce field.', () => {
+    it('should validate field.', async () => {
+      expect(FieldValidator.isValidNonce().validate('1')).toEqual({ value: '1' })
+    })
+
+    it('should invalidate non-numeric value.', async () => {
+      const validatedField = FieldValidator.isValidNonce().validate('not_a_number')
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        '"value" with value "not_a_number" fails to match the required pattern: /^[0-9]+$/'
+      )
+    })
+
+    it('should invalidate string that exceeds max length.', async () => {
+      const validatedField = FieldValidator.isValidNonce().validate('1'.repeat(79))
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        '"value" length must be less than or equal to 78 characters long'
+      )
+    })
+  })
 })
