@@ -1,5 +1,4 @@
 import * as cdk from 'aws-cdk-lib'
-import { aws_cloudwatch, Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'

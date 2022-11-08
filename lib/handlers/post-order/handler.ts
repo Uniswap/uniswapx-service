@@ -21,131 +21,132 @@ export class PostOrderHandler extends APIGLambdaHandler<
       requestInjected: { log },
       containerInjected: { dbInterface },
     } = params
-    log.info('Handling POST Order request', params)
+
+    log.info('Handling POST order request', params)
+    let decodedOrder: DutchLimitOrder
+    
     try {
-      // Cast to DutchLimitOrder so that we can get the sellToken field
-      // input.token does not exist on iOrder
-      const decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
-      const orderHash = decodedOrder.hash().toLowerCase()
-
-      // Offchain Validation
-
-      // Order could not possibly be inserted into db, queried,
-      // and filled all within one second
-      if (decodedOrder.info.deadline < 1 + new Date().getTime() / 1000) {
-        return {
-          statusCode: 400,
-          errorCode: 'Invalid deadline',
-        }
-      }
-
-      if (decodedOrder.info.startTime > decodedOrder.info.deadline) {
-        return {
-          statusCode: 400,
-          errorCode: 'Invalid startTime',
-        }
-      }
-
-      if (decodedOrder.info.nonce.lt(0)) {
-        return {
-          statusCode: 400,
-          errorCode: 'Invalid nonce',
-        }
-      }
-
-      if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.offerer).error) {
-        return {
-          statusCode: 400,
-          errorCode: 'Invalid offerer',
-        }
-      }
-
-      if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.reactor).error) {
-        return {
-          statusCode: 400,
-          errorCode: 'Invalid reactor',
-        }
-      }
-
-      // Validate input token and amount
-      if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.input.token).error) {
-        return {
-          statusCode: 400,
-          errorCode: 'Invalid token',
-        }
-      }
-
-      if (decodedOrder.info.input.amount.lte(0)) {
-        return {
-          statusCode: 400,
-          errorCode: 'Invalid amount',
-        }
-      }
-
-      // Validate outputs
-      for (let i = 0; i < decodedOrder.info.outputs.length; i++) {
-        const { token, recipient, startAmount, endAmount } = decodedOrder.info.outputs[i]
-        if (FieldValidator.isValidEthAddress().validate(token).error) {
-          return {
-            statusCode: 400,
-            errorCode: `Invalid output token ${token}`,
-          }
-        }
-
-        if (FieldValidator.isValidEthAddress().validate(recipient).error) {
-          return {
-            statusCode: 400,
-            errorCode: `Invalid recipient ${recipient}`,
-          }
-        }
-
-        if (startAmount.lt(0)) {
-          return {
-            statusCode: 400,
-            errorCode: `Invalid startAmount ${startAmount.toString()}`,
-          }
-        }
-
-        if (endAmount.lt(0)) {
-          return {
-            statusCode: 400,
-            errorCode: `Invalid endAmount ${decodedOrder.info.outputs[i].endAmount.toString()}`,
-          }
-        }
-      }
-      // End offchain validation
-
-      const order: OrderEntity = {
-        encodedOrder,
-        signature,
-        nonce: decodedOrder.info.nonce.toString(),
-        orderHash,
-        orderStatus: ORDER_STATUS.UNVERIFIED,
-        offerer: decodedOrder.info.offerer.toLowerCase(),
-        sellToken: decodedOrder.info.input.token.toLowerCase(),
-        sellAmount: decodedOrder.info.input.amount.toString(),
-        reactor: decodedOrder.info.reactor.toLowerCase(),
-        startTime: decodedOrder.info.startTime,
-        // endTime not in the parsed order, so using deadline
-        // TODO: get endTime in the right way
-        endTime: decodedOrder.info.deadline,
-        deadline: decodedOrder.info.deadline,
-      }
-
-      // Insert Order into db
-      await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`Successfully inserted Order with hash ${orderHash} into DynamoDb`)
-
-      return {
-        statusCode: 201,
-        body: { hash: orderHash },
-      }
+      decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
     } catch (e: unknown) {
-      log.error(e, 'Failed to handle POST Order')
+      log.error(e, 'Failed to parse encodedOrder')
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
       }
+    }
+    const orderHash = decodedOrder.hash().toLowerCase()
+
+    // Offchain Validation
+
+    // Order could not possibly be inserted into db, queried,
+    // and filled all within one second
+    if (decodedOrder.info.deadline < 1 + new Date().getTime() / 1000) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid deadline',
+      }
+    }
+
+    if (decodedOrder.info.startTime > decodedOrder.info.deadline) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid startTime',
+      }
+    }
+
+    if (decodedOrder.info.nonce.lt(0)) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid nonce',
+      }
+    }
+
+    if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.offerer).error) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid offerer',
+      }
+    }
+
+    if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.reactor).error) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid reactor',
+      }
+    }
+
+    // Validate input token and amount
+    if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.input.token).error) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid token',
+      }
+    }
+
+    if (decodedOrder.info.input.amount.lte(0)) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid amount',
+      }
+    }
+
+    // Validate outputs
+    for (const output of decodedOrder.info.outputs) {
+      const { token, recipient, startAmount, endAmount } = output
+      if (FieldValidator.isValidEthAddress().validate(token).error) {
+        return {
+          statusCode: 400,
+          errorCode: `Invalid output token ${token}`,
+        }
+      }
+
+      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
+        return {
+          statusCode: 400,
+          errorCode: `Invalid recipient ${recipient}`,
+        }
+      }
+
+      if (startAmount.lt(0)) {
+        return {
+          statusCode: 400,
+          errorCode: `Invalid startAmount ${startAmount.toString()}`,
+        }
+      }
+
+      if (endAmount.lt(0)) {
+        return {
+          statusCode: 400,
+          errorCode: `Invalid endAmount ${output.endAmount.toString()}`,
+        }
+      }
+    }
+    // End offchain validation
+
+    const order: OrderEntity = {
+      encodedOrder,
+      signature,
+      nonce: decodedOrder.info.nonce.toString(),
+      orderHash,
+      orderStatus: ORDER_STATUS.UNVERIFIED,
+      offerer: decodedOrder.info.offerer.toLowerCase(),
+      sellToken: decodedOrder.info.input.token.toLowerCase(),
+      sellAmount: decodedOrder.info.input.amount.toString(),
+      reactor: decodedOrder.info.reactor.toLowerCase(),
+      startTime: decodedOrder.info.startTime,
+      // endTime not in the parsed order, so using deadline
+      // TODO: get endTime in the right way
+      endTime: decodedOrder.info.deadline,
+      deadline: decodedOrder.info.deadline,
+    }
+
+    // Insert Order into db
+    await dbInterface.putOrderAndUpdateNonceTransaction(order)
+    log.info(`Successfully inserted Order with hash ${orderHash} into DynamoDb`)
+
+    return {
+      statusCode: 201,
+      body: { hash: orderHash },
     }
   }
 
