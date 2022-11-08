@@ -10,12 +10,9 @@ import { ethers } from 'ethers'
  */
 export function generateRandomNonce(): string {
   // TODO: store the prefix bits in an env/config file that is not open-sourced.
-  const goudaPrefixBits = ethers.utils.arrayify('0x046832') // 3 bytes
-  const randomBits = ethers.utils.randomBytes(28)
-
-  const wordPos = new Uint8Array(31)
-  wordPos.set(goudaPrefixBits, 0)
-  wordPos.set(randomBits, 3)
-
-  return ethers.BigNumber.from(wordPos).shl(8).toString()
+  return ethers.BigNumber.from('0x046832')
+    .shl(224) // 28 bytes
+    .or(ethers.BigNumber.from(ethers.utils.randomBytes(28)))
+    .shl(8)
+    .toString()
 }
