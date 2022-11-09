@@ -4,8 +4,11 @@ import { Entity, Table } from 'dynamodb-toolbox'
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
 import { OrderEntity } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
+import { decode } from '../util/field-validator'
 import { generateRandomNonce } from '../util/nonce'
 import { BaseOrdersRepository, QueryResult } from './base'
+
+export const MAX_ORDERS = 1000
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   private static ordersTable: Table
@@ -67,16 +70,16 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     } as const)
   }
 
-  public async getByOfferer(offerer: string, limit: number): Promise<QueryResult> {
-    return await this.queryOrderEntity(offerer, 'offererIndex', limit)
+  public async getByOfferer(offerer: string, limit: number, cursor?: string): Promise<QueryResult> {
+    return await this.queryOrderEntity(offerer, 'offererIndex', limit, cursor)
   }
 
-  public async getByOrderStatus(orderStatus: string, limit: number): Promise<QueryResult> {
-    return await this.queryOrderEntity(orderStatus, 'orderStatusIndex', limit)
+  public async getByOrderStatus(orderStatus: string, limit: number, cursor?: string): Promise<QueryResult> {
+    return await this.queryOrderEntity(orderStatus, 'orderStatusIndex', limit, cursor)
   }
 
-  public async getBySellToken(sellToken: string, limit: number): Promise<QueryResult> {
-    return await this.queryOrderEntity(sellToken, 'sellTokenIndex', limit)
+  public async getBySellToken(sellToken: string, limit: number, cursor?: string): Promise<QueryResult> {
+    return await this.queryOrderEntity(sellToken, 'sellTokenIndex', limit, cursor)
   }
 
   async getByHash(hash: string): Promise<OrderEntity | undefined> {
@@ -113,7 +116,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     )
   }
 
-  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams): Promise<QueryResult> {
+  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
     const requestedParams = Object.keys(queryFilters)
 
     // Query Orders table based on the requested params
@@ -124,15 +127,14 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
-        return await this.getByOfferer(queryFilters['offerer'] as string, limit)
+        return await this.getByOfferer(queryFilters['offerer'] as string, limit, cursor)
 
       case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams): {
-        const orderStatusQuery = await this.getByOrderStatus(queryFilters['orderStatus'] as string, limit)
-        return orderStatusQuery
+        return await this.getByOrderStatus(queryFilters['orderStatus'] as string, limit, cursor)
       }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
-        return await this.getBySellToken(queryFilters['sellToken'] as string, limit)
+        return await this.getBySellToken(queryFilters['sellToken'] as string, limit, cursor)
 
       case this.areParamsRequested(
         [GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS],
@@ -142,6 +144,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
           'offererOrderStatusIndex',
           limit,
+          cursor,
           queryFilters['sellToken']
         )
 
@@ -149,29 +152,31 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         return await this.queryOrderEntity(
           `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
           'offererOrderStatusIndex',
-          limit
+          limit,
+          cursor
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
         return await this.queryOrderEntity(
           `${queryFilters['offerer']}-${queryFilters['sellToken']}`,
           'offererSellTokenIndex',
-          limit
+          limit,
+          cursor
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         return await this.queryOrderEntity(
           `${queryFilters['sellToken']}-${queryFilters['orderStatus']}`,
           'sellTokenOrderStatusIndex',
-          limit
+          limit,
+          cursor
         )
 
       default: {
-        const getOrdersScan = await DynamoOrdersRepository.ordersTable.scan({
-          ...(limit && { limit: limit }),
+        return await DynamoOrdersRepository.ordersTable.scan({
+          limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
+          ...(cursor && { startKey: JSON.parse(decode(cursor)) }),
         })
-
-        return getOrdersScan.Items
       }
     }
   }
@@ -180,12 +185,14 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     partitionKey: string,
     index: string,
     limit: number | undefined,
+    cursor?: string,
     sortKey?: string
   ): Promise<QueryResult> {
     return await DynamoOrdersRepository.orderEntity.query(partitionKey, {
       index: index,
-      ...(limit && { limit: limit }),
+      limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
       ...(sortKey && { eq: sortKey }),
+      ...(cursor && { startKey: JSON.parse(decode(cursor)) }),
     })
   }
 

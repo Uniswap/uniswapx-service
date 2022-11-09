@@ -21,6 +21,7 @@ describe('Testing get orders handler.', () => {
   }
   const requestInjectedMock = {
     limit: 10,
+    cursor: 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0=',
     queryFilters: queryFiltersMock,
     log: { info: () => jest.fn(), error: () => jest.fn() },
   }
@@ -35,17 +36,14 @@ describe('Testing get orders handler.', () => {
     getRequestInjected: () => requestInjectedMock,
   }
   const event = {
-    queryStringParameters: {
-      ...queryFiltersMock,
-      limit: 1,
-    },
+    queryStringParameters: queryFiltersMock,
     body: null,
   }
 
   const getOrdersHandler = new GetOrdersHandler('get-orders', injectorPromiseMock)
 
   beforeAll(async () => {
-    getOrdersMock.mockReturnValue([MOCK_ORDER])
+    getOrdersMock.mockReturnValue({ Items: [MOCK_ORDER], LastEvaluatedKey: { test: 'key' } })
   })
 
   afterEach(() => {
@@ -54,9 +52,9 @@ describe('Testing get orders handler.', () => {
 
   it('Testing valid request and response.', async () => {
     const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock)
+    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
     expect(getOrdersResponse).toEqual({
-      body: JSON.stringify({ orders: [MOCK_ORDER] }),
+      body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eyJ0ZXN0Ijoia2V5In0=' }),
       statusCode: 200,
       headers: expect.anything(),
     })
@@ -69,6 +67,7 @@ describe('Testing get orders handler.', () => {
       [{ orderStatus: 'bad_status' }, 'must be one of [open, filled, cancelled, expired, error, unverified]'],
       [{ sellToken: '0xcorn' }, 'failed custom validation because invalid address'],
       [{ limit: 'bad_limit' }, 'must be a number'],
+      [{ cursor: 1 }, 'must be a string'],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
         ...event,
@@ -91,9 +90,13 @@ describe('Testing get orders handler.', () => {
       [{ encodedOrder: '0xencoded$$$order' }],
       [{ createdAt: 'bad_created_at' }],
     ])('Throws 500 with invalid field %p in the response', async (invalidResponseField) => {
-      getOrdersMock.mockReturnValue([{ ...MOCK_ORDER, ...invalidResponseField }])
+      getOrdersMock.mockReturnValue({ Items: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters)
+      expect(getOrdersMock).toBeCalledWith(
+        requestInjectedMock.limit,
+        requestInjectedMock.queryFilters,
+        requestInjectedMock.cursor
+      )
       expect(getOrdersResponse.statusCode).toEqual(500)
       expect(getOrdersResponse.body).toEqual(expect.stringContaining('INTERNAL_ERROR'))
     })
@@ -104,7 +107,11 @@ describe('Testing get orders handler.', () => {
         throw error
       })
       const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters)
+      expect(getOrdersMock).toBeCalledWith(
+        requestInjectedMock.limit,
+        requestInjectedMock.queryFilters,
+        requestInjectedMock.cursor
+      )
       expect(getOrdersResponse).toEqual({
         body: JSON.stringify({ errorCode: error.message }),
         statusCode: 500,

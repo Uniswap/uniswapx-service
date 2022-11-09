@@ -1,13 +1,16 @@
 import { ethers } from 'ethers'
-import Joi, { CustomHelpers, NumberSchema, ObjectSchema, StringSchema } from 'joi'
+import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS } from '../entities'
+
+export const decode = (str: string): string => Buffer.from(str, 'base64').toString('binary')
+export const encode = (str: string): string => Buffer.from(str, 'binary').toString('base64')
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
-  // private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
-  private static readonly ORDER_HASH_JOI = Joi.string()
+  private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
   private static readonly NUMBER_JOI = Joi.number()
+  private static readonly BASE_64_STRING = Joi.string().base64()
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
     ORDER_STATUS.OPEN,
     ORDER_STATUS.FILLED,
@@ -16,7 +19,6 @@ export default class FieldValidator {
     ORDER_STATUS.ERROR,
     ORDER_STATUS.UNVERIFIED
   )
-  private static readonly OBJECT_JOI = Joi.object()
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.getAddress(value)) {
@@ -53,8 +55,8 @@ export default class FieldValidator {
     return this.NUMBER_JOI
   }
 
-  public static isValidLastEvaluatedKey(): ObjectSchema {
-    return this.OBJECT_JOI
+  public static isValidCursor(): StringSchema {
+    return this.BASE_64_STRING
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {

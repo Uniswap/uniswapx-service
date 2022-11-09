@@ -1,8 +1,8 @@
 import Joi from 'joi'
+import { encode } from '../../util/field-validator'
 
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
-import { setupMockItemsInDb } from './post-orders-testing'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, GetOrdersResponse, GetOrdersResponseJoi } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -16,29 +16,20 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     params: HandleRequestParams<ContainerInjected, RequestInjected, void, GetOrdersQueryParams>
   ): Promise<Response<GetOrdersResponse> | ErrorResponse> {
     const {
-      requestInjected: { limit, queryFilters },
+      requestInjected: { limit, queryFilters, cursor },
       containerInjected: { dbInterface },
     } = params
 
     try {
-      if (limit == 999) {
-        await setupMockItemsInDb()
-        console.log('Put items in db!')
-      }
-
-      const ordersQuery = await dbInterface.getOrders(limit, queryFilters)
-      let totalBytes = 0
-      for (const order of ordersQuery.Items) {
-        totalBytes += Buffer.byteLength(JSON.stringify(order))
-      }
-      console.log('orders.length: ', ordersQuery.Items.length)
-      console.log('total byte size: ', totalBytes)
+      const ordersQuery = await dbInterface.getOrders(limit, queryFilters, cursor)
 
       return {
         statusCode: 200,
         body: {
           orders: ordersQuery.Items,
-          ...(ordersQuery.LastEvaluatedKey && { lastEvaluatedKey: ordersQuery.LastEvaluatedKey }),
+          ...(ordersQuery.LastEvaluatedKey && {
+            cursor: encode(JSON.stringify(ordersQuery.LastEvaluatedKey)),
+          }),
         },
       }
     } catch (e: unknown) {
