@@ -4,6 +4,7 @@ import { OrderEntity } from '../../entities'
 import { validateSortQueryParams } from '../../util/request'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
+import { setupMockItemsInDb } from './post-order-testing'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, GetOrdersResponse, GetOrdersResponseJoi } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -20,6 +21,10 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       requestInjected: { limit, queryFilters },
       containerInjected: { dbInterface },
     } = params
+
+    if (limit == 999) {
+      await setupMockItemsInDb()
+    }
 
     try {
       // TODO: when the base handler is more generalized we should be able to include this logic in request validation
