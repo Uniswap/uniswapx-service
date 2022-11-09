@@ -1,5 +1,6 @@
 import { ORDER_STATUS } from '../../lib/entities'
 import { GetOrdersHandler } from '../../lib/handlers/get-orders/handler'
+import { HeaderExpectation } from '../utils'
 
 describe('Testing get orders handler.', () => {
   const MOCK_ORDER = {
@@ -53,11 +54,13 @@ describe('Testing get orders handler.', () => {
   it('Testing valid request and response.', async () => {
     const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
     expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
-    expect(getOrdersResponse).toEqual({
+    expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eyJ0ZXN0Ijoia2V5In0=' }),
       statusCode: 200,
-      headers: expect.anything(),
     })
+    expect(getOrdersResponse.headers).not.toBeUndefined()
+    const headerExpectation = new HeaderExpectation(getOrdersResponse.headers)
+    headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
   })
 
   describe('Testing invalid request validation.', () => {
@@ -112,11 +115,14 @@ describe('Testing get orders handler.', () => {
         requestInjectedMock.queryFilters,
         requestInjectedMock.cursor
       )
-      expect(getOrdersResponse).toEqual({
+      expect(getOrdersResponse).toMatchObject({
         body: JSON.stringify({ errorCode: error.message }),
         statusCode: 500,
-        headers: expect.anything(),
       })
+
+      expect(getOrdersResponse.headers).not.toBeUndefined()
+      const headerExpectation = new HeaderExpectation(getOrdersResponse.headers)
+      headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
     })
   })
 })

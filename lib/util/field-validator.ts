@@ -9,6 +9,10 @@ export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
   private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
+  private static readonly NONCE_JOI = Joi.string()
+    .min(1)
+    .max(78) // 2^256 - 1 in base 10 is 78 digits long
+    .regex(/^[0-9]+$/)
   private static readonly NUMBER_JOI = Joi.number()
   private static readonly BASE_64_STRING = Joi.string().base64()
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
@@ -57,6 +61,10 @@ export default class FieldValidator {
 
   public static isValidCursor(): StringSchema {
     return this.BASE_64_STRING
+  }
+
+  public static isValidNonce(): StringSchema {
+    return this.NONCE_JOI
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {

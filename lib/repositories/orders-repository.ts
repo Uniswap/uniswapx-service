@@ -82,12 +82,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return await this.queryOrderEntity(sellToken, 'sellTokenIndex', limit, cursor)
   }
 
-  async getByHash(hash: string): Promise<OrderEntity | undefined> {
+  public async getByHash(hash: string): Promise<OrderEntity | undefined> {
     const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
     return res.Item as OrderEntity
   }
 
-  async getNonceByAddress(address: string): Promise<string> {
+  public async getNonceByAddress(address: string): Promise<string> {
     const res = await DynamoOrdersRepository.nonceEntity.query(address, {
       limit: 1,
       reverse: true,
@@ -96,7 +96,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return res.Items.length > 0 ? res.Items[0].nonce : generateRandomNonce()
   }
 
-  async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
+  public async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
     await DynamoOrdersRepository.ordersTable.transactWrite(
       [
         DynamoOrdersRepository.orderEntity.putTransaction({
