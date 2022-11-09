@@ -165,8 +165,8 @@ describe('OrdersRepository getOrders test', () => {
     expect(orders.Items).toEqual([])
   })
 
-  it('should successfully get orders given a sellToken and orderStatus', async () => {
-    const orders = await ordersRepository.getOrders(10, {
+  it('should successfully get orders given a sellToken and orderStatus with limit 0', async () => {
+    const orders = await ordersRepository.getOrders(0, {
       sellToken: MOCK_ORDER_1.sellToken,
       orderStatus: ORDER_STATUS.OPEN,
     })
@@ -199,9 +199,10 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.Items.length).toEqual(1)
     expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
     const cursor = encode(JSON.stringify(orders.LastEvaluatedKey))
-    orders = await ordersRepository.getOrders(1, { offerer: 'riley.eth' }, cursor)
+    orders = await ordersRepository.getOrders(2, { offerer: 'riley.eth' }, cursor)
     expect(orders.Items.length).toEqual(1)
     expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(orders.LastEvaluatedKey).toEqual(undefined)
   })
 
   it('should successfully page through orders with orderStatus', async () => {
@@ -209,9 +210,10 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.Items.length).toEqual(1)
     expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     const cursor = encode(JSON.stringify(orders.LastEvaluatedKey))
-    orders = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN }, cursor)
+    orders = await ordersRepository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN }, cursor)
     expect(orders.Items.length).toEqual(1)
     expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(orders.LastEvaluatedKey).toEqual(undefined)
   })
 
   it('should successfully page through orders with sellToken', async () => {
@@ -219,9 +221,22 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.Items.length).toEqual(1)
     expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
     const cursor = encode(JSON.stringify(orders.LastEvaluatedKey))
-    orders = await ordersRepository.getOrders(1, { sellToken: 'weth' }, cursor)
+    orders = await ordersRepository.getOrders(2, { sellToken: 'weth' }, cursor)
     expect(orders.Items.length).toEqual(1)
     expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(orders.LastEvaluatedKey).toEqual(undefined)
+  })
+
+  it('should successfully page through orders with limit', async () => {
+    let orders = await ordersRepository.getOrders(2, {})
+    expect(orders.Items.length).toEqual(2)
+    expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(orders.Items[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    const cursor = encode(JSON.stringify(orders.LastEvaluatedKey))
+    orders = await ordersRepository.getOrders(0, {}, cursor)
+    expect(orders.Items.length).toEqual(1)
+    expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(orders.LastEvaluatedKey).toEqual(undefined)
   })
 })
 

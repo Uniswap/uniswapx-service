@@ -25,7 +25,7 @@ export default class FieldValidator {
   )
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
-    if (!ethers.utils.getAddress(value)) {
+    if (!ethers.utils.isAddress(value)) {
       return helpers.error('VALIDATION ERROR: Invalid address')
     }
     return value

@@ -8,7 +8,7 @@ import { decode } from '../util/field-validator'
 import { generateRandomNonce } from '../util/nonce'
 import { BaseOrdersRepository, QueryResult } from './base'
 
-export const MAX_ORDERS = 1000
+export const MAX_ORDERS = 500
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   private static ordersTable: Table

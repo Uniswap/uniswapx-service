@@ -66,9 +66,15 @@ describe('Testing get orders handler.', () => {
   describe('Testing invalid request validation.', () => {
     it.each([
       [{ orderHash: '0xbad_hash' }, 'orderHash\\" with value \\"0xbad_hash\\" fails to match the required pattern'],
-      [{ offerer: '0xbad_address' }, 'failed custom validation because invalid address'],
+      [
+        { offerer: '0xbad_address' },
+        '"VALIDATION ERROR: Invalid address\\" is not defined, your custom type is missing the correct messages definition"',
+      ],
       [{ orderStatus: 'bad_status' }, 'must be one of [open, filled, cancelled, expired, error, unverified]'],
-      [{ sellToken: '0xcorn' }, 'failed custom validation because invalid address'],
+      [
+        { sellToken: '0xcorn' },
+        '"VALIDATION ERROR: Invalid address\\" is not defined, your custom type is missing the correct messages definition"',
+      ],
       [{ limit: 'bad_limit' }, 'must be a number'],
       [{ cursor: 1 }, 'must be a string'],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
