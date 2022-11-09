@@ -53,6 +53,10 @@ export default class FieldValidator {
     return this.NUMBER_JOI
   }
 
+  public static isValidDeadline(): NumberSchema {
+    return this.NUMBER_JOI
+  }
+
   public static isValidCreatedAt(): NumberSchema {
     return this.NUMBER_JOI
   }

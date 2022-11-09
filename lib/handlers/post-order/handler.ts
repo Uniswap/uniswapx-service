@@ -1,7 +1,6 @@
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
-import FieldValidator from '../../util/field-validator'
 import { APIGLambdaHandler, BaseRInj, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
@@ -19,12 +18,12 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody: { encodedOrder, signature },
       requestInjected: { log },
-      containerInjected: { dbInterface },
+      containerInjected: { dbInterface, offchainValidationProvider },
     } = params
 
     log.info('Handling POST order request', params)
     let decodedOrder: DutchLimitOrder
-
+    
     try {
       decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
     } catch (e: unknown) {
@@ -36,92 +35,16 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
     const orderHash = decodedOrder.hash().toLowerCase()
 
-    // Offchain Validation
-
-    // Order could not possibly be inserted into db, queried,
-    // and filled all within one second
-    if (decodedOrder.info.deadline < 1 + new Date().getTime() / 1000) {
-      return {
-        statusCode: 400,
-        errorCode: 'Invalid deadline',
-      }
+    let error
+    try {
+      error = offchainValidationProvider.validate(decodedOrder)
+    } catch(err) {
+      console.log(err)
+      throw(err)
     }
-
-    if (decodedOrder.info.startTime > decodedOrder.info.deadline) {
-      return {
-        statusCode: 400,
-        errorCode: 'Invalid startTime',
-      }
+    if(error) {
+      return error
     }
-
-    if (decodedOrder.info.nonce.lt(0)) {
-      return {
-        statusCode: 400,
-        errorCode: 'Invalid nonce',
-      }
-    }
-
-    if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.offerer).error) {
-      return {
-        statusCode: 400,
-        errorCode: 'Invalid offerer',
-      }
-    }
-
-    if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.reactor).error) {
-      return {
-        statusCode: 400,
-        errorCode: 'Invalid reactor',
-      }
-    }
-
-    // Validate input token and amount
-    if (FieldValidator.isValidEthAddress().validate(decodedOrder.info.input.token).error) {
-      return {
-        statusCode: 400,
-        errorCode: 'Invalid token',
-      }
-    }
-
-    if (decodedOrder.info.input.amount.lte(0)) {
-      return {
-        statusCode: 400,
-        errorCode: 'Invalid amount',
-      }
-    }
-
-    // Validate outputs
-    for (const output of decodedOrder.info.outputs) {
-      const { token, recipient, startAmount, endAmount } = output
-      if (FieldValidator.isValidEthAddress().validate(token).error) {
-        return {
-          statusCode: 400,
-          errorCode: `Invalid output token ${token}`,
-        }
-      }
-
-      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
-        return {
-          statusCode: 400,
-          errorCode: `Invalid recipient ${recipient}`,
-        }
-      }
-
-      if (startAmount.lt(0)) {
-        return {
-          statusCode: 400,
-          errorCode: `Invalid startAmount ${startAmount.toString()}`,
-        }
-      }
-
-      if (endAmount.lt(0)) {
-        return {
-          statusCode: 400,
-          errorCode: `Invalid endAmount ${output.endAmount.toString()}`,
-        }
-      }
-    }
-    // End offchain validation
 
     const order: OrderEntity = {
       encodedOrder,
@@ -140,9 +63,17 @@ export class PostOrderHandler extends APIGLambdaHandler<
       deadline: decodedOrder.info.deadline,
     }
 
-    // Insert Order into db
-    await dbInterface.putOrderAndUpdateNonceTransaction(order)
-    log.info(`Successfully inserted Order with hash ${orderHash} into DynamoDb`)
+    try {
+      // Insert Order into db
+      await dbInterface.putOrderAndUpdateNonceTransaction(order)
+      log.info(`Successfully inserted Order with hash ${orderHash} into DynamoDb`)
+    } catch(e: unknown) {
+      log.error(e, 'Failed to insert into dynamodb')
+      return {
+        statusCode: 500,
+        ...(e instanceof Error && { errorCode: e.message }),
+      }
+    }
 
     return {
       statusCode: 201,

@@ -36,6 +36,7 @@ const infoMock = {
 describe('Testing post order handler.', () => {
   // Creating mocks for all the handler dependencies.
   const postOrderMock = jest.fn()
+  const offchainValidationProviderMock = jest.fn()
   const encodedOrderMock = '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000e9781560d93c27aa4c4f3543631d191d10608d20000000000000000000000000eaf1c41339f7d33a2c47f82f7b9309b5cbc83b5f0000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000006364432c0000000000000000000000000000000000000000000000000000000063644200000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000000000000000000000000000000000000000e4e1c0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000010000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000000ac2d18f78e5c8000000000000000000000000000000000000000000000000000a8c0ff92d4c00000000000000000000000000000eaf1c41339f7d33a2c47f82f7b9309b5cbc83b5f'
   const signatureMock = '0xd3ed296bc55f59105abfd47566f65d2984dab6a49deac772d9c33d047c9952272642a5131f37ba8766db78b3302f939079c702e5627ea1d80a8a9d8cf54c5f8a1c'
   const postRequestBodyMock = {
@@ -71,7 +72,10 @@ describe('Testing post order handler.', () => {
     getContainerInjected: () => {
       return {
         dbInterface: {
-            putOrderAndUpdateNonceTransaction: postOrderMock,
+          putOrderAndUpdateNonceTransaction: postOrderMock,
+        },
+        offchainValidationProvider: {
+          validate: offchainValidationProviderMock
         }
       }
     }
@@ -85,6 +89,7 @@ describe('Testing post order handler.', () => {
       info: infoMock,
       hash: () => orderHashMock
     })
+    offchainValidationProviderMock.mockReturnValue(undefined)
   })
 
   afterEach(() => {
@@ -125,6 +130,7 @@ describe('Testing post order handler.', () => {
         queryStringParameters: {},
       }
       const postOrderResponse = await postOrderHandler.handler(invalidEvent as any, {} as any)
+      expect(offchainValidationProviderMock).not.toHaveBeenCalled()
       expect(postOrderMock).not.toHaveBeenCalled()
       expect(postOrderResponse.statusCode).toEqual(400)
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
@@ -156,269 +162,24 @@ describe('Testing post order handler.', () => {
       })
     })
   })
-
-  describe('Testing off chain validation', () => {
-    it('Testing invalid parsed deadline.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          deadline: new Date().getTime()/1000
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid deadline\",\"id\":\"testRequest\"}",
+  
+  describe('When offchain validation fails', () => {
+    it('Throws 400', async () => {
+      const errorCode = 'order failed validation'
+      const detail = 'testing offchain validation'
+      offchainValidationProviderMock.mockReturnValue({
         statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed offerer.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          offerer: '0xhacker_offerer'
-        },
-        hash: () => orderHashMock
+        errorCode,
+        detail
       })
       const event = {
         queryStringParameters: {},
         body: JSON.stringify(postRequestBodyMock),
       }
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
+      expect(postOrderMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid offerer\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed reactor.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          reactor: '0xfake_reactor'
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid reactor\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed startTime.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          startTime: deadlineMock+1
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid startTime\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed outputs: endAmount.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          outputs: [{endAmount:BigNumber.from(-1), startAmount:BigNumber.from(0), recipient:USDC_MAINNET, token:USDC_MAINNET}]
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid endAmount -1\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed outputs: startAmount.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          outputs: [{endAmount:BigNumber.from(0), startAmount:BigNumber.from(-2), recipient:USDC_MAINNET, token:USDC_MAINNET}]
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid startAmount -2\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed outputs: recipient.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          outputs: [{endAmount:BigNumber.from(0), startAmount:BigNumber.from(0), recipient:'0xawful_address', token:USDC_MAINNET}]
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid recipient 0xawful_address\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed outputs: token.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          outputs: [{endAmount:BigNumber.from(0), startAmount:BigNumber.from(0), recipient:USDC_MAINNET, token:'0xworst_token'}]
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid output token 0xworst_token\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed nonce.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          nonce: BigNumber.from(-1)
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid nonce\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed input token.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          input: {
-            token: '0xmalicious_token',
-            amount: BigNumber.from(1)
-          }
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid token\",\"id\":\"testRequest\"}",
-        statusCode: 400,
-        headers: {
-          "Access-Control-Allow-Credentials": true,
-          "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
-      })
-    })
-    it('Testing invalid parsed input amount.', async () => {
-      parseOrderMock.mockReturnValue({
-        info: { 
-          ...infoMock,
-          input: {
-            token: USDC_MAINNET,
-            amount: BigNumber.from(0)
-          }
-        },
-        hash: () => orderHashMock
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBodyMock),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(postOrderResponse).toEqual({
-        body: "{\"errorCode\":\"Invalid amount\",\"id\":\"testRequest\"}",
+        body: JSON.stringify({ detail, errorCode, id: requestIdMock }),
         statusCode: 400,
         headers: {
           "Access-Control-Allow-Credentials": true,
