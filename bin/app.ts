@@ -44,7 +44,7 @@ export class APIPipeline extends Stack {
     super(scope, id, props)
 
     const code = CodePipelineSource.gitHub('Uniswap/gouda-service', 'main', {
-      authentication: SecretValue.secretsManager('github-token-2'),
+      authentication: SecretValue.secretsManager(' '),
     })
 
     const synthStep = new CodeBuildStep('Synth', {
@@ -55,15 +55,18 @@ export class APIPipeline extends Stack {
             value: 'npm-private-repo-access-token',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          // TODO: Use SSH keys instead of GitHub tokens
-          GH_TOKEN: {
-            value: 'github-token-2',
+          SSH_KEY: {
+            value: 'GOUDA_SDK_REPO_KEY',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
         },
       },
       commands: [
-        'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf git+ssh://git@github.com/',
+        'mkdir -p ~/.ssh',
+        'echo "${SSH_KEY}" > ~/.ssh/id_rsa',
+        'chmod 600 ~/.ssh/id_rsa',
+        'ssh-keygen -F github.com || ssh-keyscan github.com >>~/.ssh/known_hosts',
+        'git config --global url."git@github.com:".insteadOf "https://github.com/"',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && yarn install --frozen-lockfile',
         'yarn build',
         'npx cdk synth',
@@ -138,15 +141,18 @@ export class APIPipeline extends Stack {
             value: 'npm-private-repo-access-token',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          // TODO: Use SSH keys instead of GitHub tokens
-          GH_TOKEN: {
-            value: 'github-token-2',
+          SSH_KEY: {
+            value: 'GOUDA_SDK_REPO_KEY',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
         },
       },
       commands: [
-        'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf git+ssh://git@github.com/',
+        'mkdir -p ~/.ssh',
+        'echo "${SSH_KEY}" > ~/.ssh/id_rsa',
+        'chmod 600 ~/.ssh/id_rsa',
+        'ssh-keygen -F github.com || ssh-keyscan github.com >>~/.ssh/known_hosts',
+        'git config --global url."git@github.com:".insteadOf "https://github.com/"',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && yarn install --frozen-lockfile',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
         'yarn install',
