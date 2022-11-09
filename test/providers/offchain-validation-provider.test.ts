@@ -161,6 +161,4 @@ describe('Testing off chain validation', () => {
       })
     })
   })
-  /*
-   */
 })
