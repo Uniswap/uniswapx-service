@@ -9,10 +9,10 @@ import { generateRandomNonce } from '../util/nonce'
 import { BaseOrdersRepository } from './base'
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
-  private static ordersTable: Table
-  private static nonceTable: Table
-  private static orderEntity: Entity<{}>
-  private static nonceEntity: Entity<{}>
+  private static ordersTable: Table<'Orders', 'orderHash', null>
+  private static nonceTable: Table<'Nonces', 'offerer', null>
+  private static orderEntity: Entity
+  private static nonceEntity: Entity
 
   static initialize(documentClient: DocumentClient) {
     this.ordersTable = new Table({
@@ -81,7 +81,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   }
 
   public async getByHash(hash: string): Promise<OrderEntity | undefined> {
-    const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
+    const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
     return res.Item as OrderEntity
   }
 
@@ -90,8 +90,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       limit: 1,
       reverse: true,
       consistent: true,
+      execute: true,
     })
-    return res.Items.length > 0 ? res.Items[0].nonce : generateRandomNonce()
+    return res.Items && res.Items.length > 0 ? res.Items[0].nonce : generateRandomNonce()
   }
 
   public async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
@@ -117,12 +118,20 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   public async updateOrderStatus(orderHash: string, status: ORDER_STATUS): Promise<void> {
     const order = checkDefined(await this.getByHash(orderHash), 'cannot find order by hash when updating order status')
 
-    await DynamoOrdersRepository.orderEntity.update({
-      [TABLE_KEY.ORDER_HASH]: orderHash,
-      orderStatus: status,
-      offererOrderStatus: `${order.offerer}-${status}`,
-      sellTokenOrderStatus: `${order.sellToken}-${status}`,
-    })
+    await DynamoOrdersRepository.orderEntity.update(
+      {
+        [TABLE_KEY.ORDER_HASH]: orderHash,
+        orderStatus: status,
+        offererOrderStatus: `${order.offerer}-${status}`,
+        sellTokenOrderStatus: `${order.sellToken}-${status}`,
+      },
+      {
+        conditions: {
+          attr: 'orderHash',
+          eq: orderHash,
+        },
+      }
+    )
   }
 
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams): Promise<(OrderEntity | undefined)[]> {
@@ -179,8 +188,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       default: {
         const getOrdersScan = await DynamoOrdersRepository.ordersTable.scan({
           ...(limit && { limit: limit }),
+          execute: true,
         })
-        return getOrdersScan.Items
+        return getOrdersScan.Items as OrderEntity[]
       }
     }
   }
@@ -193,10 +203,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   ): Promise<OrderEntity[]> {
     const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
       index: index,
+      execute: true,
       ...(limit && { limit: limit }),
       ...(sortKey && { eq: sortKey }),
     })
-    return queryResult.Items
+    return queryResult.Items as OrderEntity[]
   }
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
