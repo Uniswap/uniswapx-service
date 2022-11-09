@@ -2,7 +2,10 @@ import { APIGatewayEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import { iOffchainValidationProvider, OffchainValidationProvider } from '../../util/providers/offchain-validation-provider'
+import {
+  iOffchainValidationProvider,
+  OffchainValidationProvider,
+} from '../../util/providers/offchain-validation-provider'
 import { BaseRInj, Injector } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
 
@@ -19,7 +22,7 @@ export class PostOrderInjector extends Injector<ContainerInjected, BaseRInj, Pos
     DynamoOrdersRepository.initialize(documentClient)
     return {
       dbInterface,
-      offchainValidationProvider
+      offchainValidationProvider,
     }
   }
 

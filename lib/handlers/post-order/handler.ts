@@ -23,7 +23,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     log.info('Handling POST order request', params)
     let decodedOrder: DutchLimitOrder
-    
+
     try {
       decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
     } catch (e: unknown) {
@@ -35,14 +35,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
     const orderHash = decodedOrder.hash().toLowerCase()
 
-    let error
-    try {
-      error = offchainValidationProvider.validate(decodedOrder)
-    } catch(err) {
-      console.log(err)
-      throw(err)
-    }
-    if(error) {
+    const error = offchainValidationProvider.validate(decodedOrder)
+    if (error) {
       return error
     }
 
@@ -64,10 +58,9 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
 
     try {
-      // Insert Order into db
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
       log.info(`Successfully inserted Order with hash ${orderHash} into DynamoDb`)
-    } catch(e: unknown) {
+    } catch (e: unknown) {
       log.error(e, 'Failed to insert into dynamodb')
       return {
         statusCode: 500,
