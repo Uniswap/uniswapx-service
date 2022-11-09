@@ -1,6 +1,7 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
+import { encode } from '../../lib/util/field-validator'
 import * as nonceUtil from '../../lib/util/nonce'
 
 const dynamoConfig = {
@@ -189,6 +190,38 @@ describe('OrdersRepository getOrders test', () => {
     expect(orders.Items.length).toEqual(2)
     expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
     expect(orders.Items[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+  })
+})
+
+describe('OrdersRepository getOrders test with pagination', () => {
+  it('should successfully page through orders with offerer', async () => {
+    let orders = await ordersRepository.getOrders(1, { offerer: 'riley.eth' })
+    expect(orders.Items.length).toEqual(1)
+    expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    const cursor = encode(JSON.stringify(orders.LastEvaluatedKey))
+    orders = await ordersRepository.getOrders(1, { offerer: 'riley.eth' }, cursor)
+    expect(orders.Items.length).toEqual(1)
+    expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+  })
+
+  it('should successfully page through orders with orderStatus', async () => {
+    let orders = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN })
+    expect(orders.Items.length).toEqual(1)
+    expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    const cursor = encode(JSON.stringify(orders.LastEvaluatedKey))
+    orders = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN }, cursor)
+    expect(orders.Items.length).toEqual(1)
+    expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+  })
+
+  it('should successfully page through orders with sellToken', async () => {
+    let orders = await ordersRepository.getOrders(1, { sellToken: 'weth' })
+    expect(orders.Items.length).toEqual(1)
+    expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    const cursor = encode(JSON.stringify(orders.LastEvaluatedKey))
+    orders = await ordersRepository.getOrders(1, { sellToken: 'weth' }, cursor)
+    expect(orders.Items.length).toEqual(1)
+    expect(orders.Items[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
   })
 })
 
