@@ -11,7 +11,7 @@
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
     "test": "jest",
-    "integ-test:dynamo": "jest --testPathPattern=integ/dynamo",
+    "integ-test": "jest --testPathPattern=integ/",
     "cdk": "cdk",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
