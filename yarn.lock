@@ -2669,10 +2669,12 @@ dynamodb-local@0.0.31:
     q "~1.4.1"
     tar "~4.4.8"
 
-dynamodb-toolbox@0.3.5:
-  version "0.3.5"
-  resolved "https://registry.yarnpkg.com/dynamodb-toolbox/-/dynamodb-toolbox-0.3.5.tgz#ebc73a26c488b16874d4f09fc382e0a3864ba051"
-  integrity sha512-UNuBwTwJwWIZQLz+STdl3xeJyxqk0vMxieUD1AO7VEpbYvGGrLxuvJzzK1ng8Gak0e8xHZlcapuj6a5Zl5pqUw==
+dynamodb-toolbox@^0.5.0:
+  version "0.5.0"
+  resolved "https://registry.yarnpkg.com/dynamodb-toolbox/-/dynamodb-toolbox-0.5.0.tgz#263cc37041985c51bff350748526b5f2ddb6e031"
+  integrity sha512-eBUc8RIOyifKB95luBtB9A3iDktkIdLAIaHgqxmQVcF6B/V1YX5G7yKhB7GUoEBEEfkV7sqOhW5EL1tPr+LtCg==
+  dependencies:
+    ts-toolbelt "^9.6.0"
 
 electron-to-chromium@^1.4.251:
   version "1.4.284"
@@ -5320,6 +5322,11 @@ ts-node@^10.9.1:
     make-error "^1.1.1"
     v8-compile-cache-lib "^3.0.1"
     yn "3.1.1"
+
+ts-toolbelt@^9.6.0:
+  version "9.6.0"
+  resolved "https://registry.yarnpkg.com/ts-toolbelt/-/ts-toolbelt-9.6.0.tgz#50a25426cfed500d4a09bd1b3afb6f28879edfd5"
+  integrity sha512-nsZd8ZeNUzukXPlJmTBwUAuABDe/9qtVDelJeT/qW0ow3ZS3BsQJtNkan1802aM9Uf68/Y8ljw86Hu0h5IUW3w==
 
 tsconfig-paths@^3.14.1:
   version "3.14.1"

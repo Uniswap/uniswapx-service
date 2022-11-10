@@ -50,10 +50,16 @@ export class APIPipeline extends Stack {
             value: 'npm-private-repo-access-token',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          // TODO: Use SSH keys instead of GitHub tokens
+          GH_TOKEN: {
+            value: 'github-token-2',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
         },
       },
       commands: [
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && yarn install --frozen-lockfile',
+        'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
+        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc && yarn install --frozen-lockfile',
         'yarn build',
         'npx cdk synth',
       ],
@@ -107,10 +113,16 @@ export class APIPipeline extends Stack {
             value: 'npm-private-repo-access-token',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          // TODO: Use SSH keys instead of GitHub tokens
+          GH_TOKEN: {
+            value: 'github-token-2',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
         },
       },
       commands: [
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && yarn install --frozen-lockfile',
+        'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
+        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc && yarn install --frozen-lockfile',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
         'yarn install',
         'yarn build',

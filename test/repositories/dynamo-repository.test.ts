@@ -236,3 +236,20 @@ describe('OrdersRepository get nonce test', () => {
     expect(spy).toHaveBeenCalled()
   })
 })
+
+describe('OrdersRepository update status test', () => {
+  it('should successfully update orderStatus of an order identified by orderHash', async () => {
+    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED)
+    await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
+      orderStatus: ORDER_STATUS.FILLED,
+      sellTokenOrderStatus: `${MOCK_ORDER_1.sellToken}-${ORDER_STATUS.FILLED}`,
+      offererOrderStatus: `${MOCK_ORDER_1.offerer}-${ORDER_STATUS.FILLED}`,
+    })
+  })
+
+  it('should throw error if order does not exist', async () => {
+    await expect(ordersRepository.updateOrderStatus('nonexistent', ORDER_STATUS.FILLED)).rejects.toEqual(
+      new Error('cannot find order by hash when updating order status')
+    )
+  })
+})
