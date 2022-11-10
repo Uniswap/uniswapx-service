@@ -88,12 +88,11 @@ describe('Testing off chain validation', () => {
     it('Testing invalid parsed nonce.', async () => {
       const nonce = BigNumber.from(-1)
       const validationResp = offchainValidationProvider.validateNonce(nonce)
-      expect(validationResp).toEqual(
-        {
-          errorString: "Invalid nonce: ValidationError: \"value\" with value \"-1\" fails to match the required pattern: /^[0-9]+$/",
-          valid: false
-        }
-      )
+      expect(validationResp).toEqual({
+        errorString:
+          'Invalid nonce: ValidationError: "value" with value "-1" fails to match the required pattern: /^[0-9]+$/',
+        valid: false,
+      })
     })
     it('Testing valid parsed nonce.', async () => {
       const nonce = BigNumber.from(0)
