@@ -62,6 +62,8 @@ export class APIPipeline extends Stack {
         },
       },
       commands: [
+        'echo SHH_KEY',
+        'echo "${SSH_KEY}"',
         'mkdir -p ~/.ssh',
         'echo "${SSH_KEY}" > ~/.ssh/id_rsa',
         'chmod 600 ~/.ssh/id_rsa',
@@ -148,6 +150,8 @@ export class APIPipeline extends Stack {
         },
       },
       commands: [
+        'echo SHH_KEY_INTEG',
+        'echo "${SSH_KEY}"',
         'mkdir -p ~/.ssh',
         'echo "${SSH_KEY}" > ~/.ssh/id_rsa',
         'chmod 600 ~/.ssh/id_rsa',
