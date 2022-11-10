@@ -20,7 +20,7 @@ export class OffchainValidationProvider implements ValidationProvider {
   private minOffset: number
   private getCurrentTime: () => number
 
-  constructor(getCurrentTime: () => number, minOffset = 1) {
+  constructor(getCurrentTime: () => number, minOffset = 60) {
     this.getCurrentTime = getCurrentTime
     this.minOffset = minOffset
   }
@@ -65,6 +65,11 @@ export class OffchainValidationProvider implements ValidationProvider {
     if (!outputsValidation.valid) {
       return outputsValidation
     }
+
+    const orderHashValidation = this.validateHash(order.hash())
+    if(!orderHashValidation.valid) {
+      return orderHashValidation
+    }
     return {
       valid: true,
     }
@@ -75,6 +80,17 @@ export class OffchainValidationProvider implements ValidationProvider {
       return {
         valid: false,
         errorString: `Deadline field invalid: value too small`,
+      }
+    }
+    /* 
+      We use AWS step function for status tracking
+      Step function last at most one year, so deadline can
+      be at most one year from now
+    */
+    if (deadline > this.getCurrentTime() + 365*24*60*60) {
+      return {
+        valid: false,
+        errorString: `Deadline field invalid: value too large`,
       }
     }
     return {
@@ -190,6 +206,19 @@ export class OffchainValidationProvider implements ValidationProvider {
     }
     return {
       valid: true,
+    }
+  }
+
+  validateHash(orderHash: string): ValidationResponse {
+    const error = FieldValidator.isValidOrderHash().validate(orderHash).error
+    if(error) {
+      return {
+        valid: false,
+        errorString: `Invalid orderHash: ${error}`
+      }
+    }
+    return {
+      valid: true
     }
   }
 }

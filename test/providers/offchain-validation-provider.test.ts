@@ -6,20 +6,28 @@ let getCurrentTime: () => number
 let offchainValidationProvider: OffchainValidationProvider
 const USDC_MAINNET = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 
+const CURRENT_TIME = 1500000000
+const ONE_YEAR = 60*60*24*365
+
 beforeAll(() => {
-    getCurrentTime = () => 1500000000
+    getCurrentTime = () => CURRENT_TIME
     offchainValidationProvider = new OffchainValidationProvider(getCurrentTime)
 })
 
 describe('Testing off chain validation', () => {
   describe('Testing deadline', () => {
     it('Testing deadline < current time.', async () => {
-      const deadline = 1450000000
+      const deadline = CURRENT_TIME - 1
       const validationResp = offchainValidationProvider.validateDeadline(deadline)
       expect(validationResp).toEqual({"errorString": "Deadline field invalid: value too small", "valid": false})
     })
+    it('Testing deadline longer than one year.', async () => {
+      const deadline = CURRENT_TIME + ONE_YEAR + 1
+      const validationResp = offchainValidationProvider.validateDeadline(deadline)
+      expect(validationResp).toEqual({"errorString": "Deadline field invalid: value too large", "valid": false})
+    })
     it('Testing valid deadline.', async () => {
-      const deadline = 1550000000
+      const deadline = CURRENT_TIME + ONE_YEAR
       const validationResp = offchainValidationProvider.validateDeadline(deadline)
       expect(validationResp).toEqual({"valid": true})
     })
@@ -176,6 +184,23 @@ describe('Testing off chain validation', () => {
         const validationResp = offchainValidationProvider.validateOutputs(outputs)
         expect(validationResp).toEqual({"valid": true})
       })
+    })
+  })
+  describe('Testing order hash', () => {
+    it('Testing valid hash.', async () => {
+      const hash = '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3'
+      const validationResp = offchainValidationProvider.validateHash(hash)
+      expect(validationResp).toEqual({"valid": true})
+    })
+    it('Testing invalid hash.', async () => {
+      const hash = '0xliveb33f'
+      const validationResp = offchainValidationProvider.validateHash(hash)
+      expect(validationResp).toEqual(
+        {
+          "errorString": "Invalid orderHash: ValidationError: \"value\" with value \"0xliveb33f\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{64}$/",
+          "valid": false
+        }
+      )
     })
   })
 })
