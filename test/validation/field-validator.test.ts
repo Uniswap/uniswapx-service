@@ -84,9 +84,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const invalidAddress = '0xnot_a_valid_eth_address'
       const validatedField = FieldValidator.isValidEthAddress().validate(invalidAddress)
       expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toEqual(
-        'Error code "VALIDATION ERROR: Invalid address" is not defined, your custom type is missing the correct messages definition'
-      )
+      expect(validatedField.error?.details[0].message).toEqual('VALIDATION ERROR: Invalid address')
     })
   })
 

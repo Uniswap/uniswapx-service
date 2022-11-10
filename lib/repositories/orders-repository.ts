@@ -4,7 +4,7 @@ import { Entity, Table } from 'dynamodb-toolbox'
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
 import { OrderEntity } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
-import { decode } from '../util/field-validator'
+import { decode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
 import { BaseOrdersRepository, QueryResult } from './base'
 

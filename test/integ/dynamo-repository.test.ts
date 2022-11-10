@@ -1,7 +1,7 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
-import { encode } from '../../lib/util/field-validator'
+import { encode } from '../../lib/util/encryption'
 import * as nonceUtil from '../../lib/util/nonce'
 
 const dynamoConfig = {

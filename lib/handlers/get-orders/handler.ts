@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { encode } from '../../util/field-validator'
+import { encode } from '../../util/encryption'
 
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'

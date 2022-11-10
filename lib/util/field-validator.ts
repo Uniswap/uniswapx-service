@@ -2,9 +2,6 @@ import { ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS } from '../entities'
 
-export const decode = (str: string): string => Buffer.from(str, 'base64').toString('binary')
-export const encode = (str: string): string => Buffer.from(str, 'binary').toString('base64')
-
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
@@ -26,7 +23,7 @@ export default class FieldValidator {
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.isAddress(value)) {
-      return helpers.error('VALIDATION ERROR: Invalid address')
+      return helpers.message({ custom: 'VALIDATION ERROR: Invalid address' })
     }
     return value
   })
