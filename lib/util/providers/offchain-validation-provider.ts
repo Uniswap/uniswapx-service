@@ -3,8 +3,8 @@ import { DutchLimitOrder, DutchOutput } from 'gouda-sdk'
 import FieldValidator from '../field-validator'
 
 export type ValidationResponse = {
-  valid: boolean;
-  errorString?: string;
+  valid: boolean
+  errorString?: string
 }
 
 /**
@@ -66,7 +66,7 @@ export class OffchainValidationProvider implements ValidationProvider {
       return outputsValidation
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 
@@ -74,11 +74,11 @@ export class OffchainValidationProvider implements ValidationProvider {
     if (deadline < this.getCurrentTime() + this.minOffset) {
       return {
         valid: false,
-        errorString: `Deadline field invalid: value too small`
+        errorString: `Deadline field invalid: value too small`,
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 
@@ -86,11 +86,11 @@ export class OffchainValidationProvider implements ValidationProvider {
     if (startTime > deadline) {
       return {
         valid: false,
-        errorString: 'Invalid startTime: startTime > deadline'
+        errorString: 'Invalid startTime: startTime > deadline',
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 
@@ -98,11 +98,11 @@ export class OffchainValidationProvider implements ValidationProvider {
     if (nonce.lt(0)) {
       return {
         valid: false,
-        errorString: 'Invalid startTime: nonce < 0'
+        errorString: 'Invalid startTime: nonce < 0',
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 
@@ -111,11 +111,11 @@ export class OffchainValidationProvider implements ValidationProvider {
     if (error) {
       return {
         valid: false,
-        errorString: `Invalid offerer: ${error}`
+        errorString: `Invalid offerer: ${error}`,
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 
@@ -124,11 +124,11 @@ export class OffchainValidationProvider implements ValidationProvider {
     if (error) {
       return {
         valid: false,
-        errorString: `Invalid reactor: ${error}`
+        errorString: `Invalid reactor: ${error}`,
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 
@@ -137,11 +137,11 @@ export class OffchainValidationProvider implements ValidationProvider {
     if (error) {
       return {
         valid: false,
-        errorString: `Invalid input token: ${error}`
+        errorString: `Invalid input token: ${error}`,
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 
@@ -149,11 +149,11 @@ export class OffchainValidationProvider implements ValidationProvider {
     if (amount.lte(0)) {
       return {
         valid: false,
-        errorString: 'Invalid input amount: amount <= 0'
+        errorString: 'Invalid input amount: amount <= 0',
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 
@@ -163,33 +163,33 @@ export class OffchainValidationProvider implements ValidationProvider {
       if (FieldValidator.isValidEthAddress().validate(token).error) {
         return {
           valid: false,
-          errorString: `Invalid output token ${token}`
+          errorString: `Invalid output token ${token}`,
         }
       }
 
       if (FieldValidator.isValidEthAddress().validate(recipient).error) {
         return {
           valid: false,
-          errorString: `Invalid recipient ${recipient}`
+          errorString: `Invalid recipient ${recipient}`,
         }
       }
 
       if (startAmount.lt(0)) {
         return {
           valid: false,
-          errorString: `Invalid startAmount ${startAmount.toString()}`
+          errorString: `Invalid startAmount ${startAmount.toString()}`,
         }
       }
 
       if (endAmount.lt(0)) {
         return {
           valid: false,
-          errorString: `Invalid endAmount ${output.endAmount.toString()}`
+          errorString: `Invalid endAmount ${output.endAmount.toString()}`,
         }
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 }

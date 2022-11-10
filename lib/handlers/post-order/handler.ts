@@ -39,7 +39,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       return {
         statusCode: 400,
         errorCode: 'Order failed off-chain validation',
-        detail: validationResponse.errorString
+        detail: validationResponse.errorString,
       }
     }
     const orderHash = decodedOrder.hash().toLowerCase()

@@ -2,10 +2,7 @@ import { APIGatewayEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import {
-  ValidationProvider,
-  OffchainValidationProvider,
-} from '../../util/providers/offchain-validation-provider'
+import { OffchainValidationProvider, ValidationProvider } from '../../util/providers/offchain-validation-provider'
 import { BaseRInj, Injector } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
 
