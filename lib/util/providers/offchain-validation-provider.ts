@@ -67,7 +67,7 @@ export class OffchainValidationProvider implements ValidationProvider {
     }
 
     const orderHashValidation = this.validateHash(order.hash())
-    if(!orderHashValidation.valid) {
+    if (!orderHashValidation.valid) {
       return orderHashValidation
     }
     return {
@@ -87,7 +87,7 @@ export class OffchainValidationProvider implements ValidationProvider {
       Step function last at most one year, so deadline can
       be at most one year from now
     */
-    if (deadline > this.getCurrentTime() + 365*24*60*60) {
+    if (deadline > this.getCurrentTime() + 365 * 24 * 60 * 60) {
       return {
         valid: false,
         errorString: `Deadline field invalid: value too large`,
@@ -211,14 +211,14 @@ export class OffchainValidationProvider implements ValidationProvider {
 
   validateHash(orderHash: string): ValidationResponse {
     const error = FieldValidator.isValidOrderHash().validate(orderHash).error
-    if(error) {
+    if (error) {
       return {
         valid: false,
-        errorString: `Invalid orderHash: ${error}`
+        errorString: `Invalid orderHash: ${error}`,
       }
     }
     return {
-      valid: true
+      valid: true,
     }
   }
 }
