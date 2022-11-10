@@ -4,7 +4,7 @@ import FieldValidator from '../../lib/util/field-validator'
 describe('Testing each field on the FieldValidator class.', () => {
   describe('Testing createdAt field.', () => {
     it('should validate field.', async () => {
-      const currentTime = new Date().getTime()
+      const currentTime = 1668068872
       expect(FieldValidator.isValidCreatedAt().validate(currentTime)).toEqual({ value: currentTime })
     })
 

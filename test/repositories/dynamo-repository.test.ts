@@ -2,6 +2,9 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
 import * as nonceUtil from '../../lib/util/nonce'
+import { getCurrentMonth } from '../../lib/util/time'
+
+jest.mock('../../lib/util/time')
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -48,22 +51,25 @@ const ADDITIONAL_FIELDS_ORDER_1 = {
   ...MOCK_ORDER_1,
   createdAt: 1,
   deadline: 1,
-  createdAtMonth: new Date().getMonth(),
+  createdAtMonth: 1,
 }
 
 const ADDITIONAL_FIELDS_ORDER_2 = {
   ...MOCK_ORDER_2,
   createdAt: 2,
   deadline: 2,
-  createdAtMonth: new Date().getMonth(),
+  createdAtMonth: 1,
 }
 
 const ADDITIONAL_FIELDS_ORDER_3 = {
   ...MOCK_ORDER_3,
   createdAt: 3,
   deadline: 3,
-  createdAtMonth: new Date().getMonth(),
+  createdAtMonth: 1,
 }
+
+const mockedGetCurrentMonth = jest.mocked(getCurrentMonth)
+mockedGetCurrentMonth.mockImplementation(() => 1)
 
 const documentClient = new DocumentClient(dynamoConfig)
 const ordersRepository = new DynamoOrdersRepository()

@@ -16,7 +16,6 @@ type ComparisonFilter = {
 export function parseComparisonFilter(queryParam: string | undefined): ComparisonFilter {
   const match = queryParam?.match(SORT_REGEX)
   if (!match || match.length != 4) {
-    // the optional capturing group will be 'undefined' but still counts for .length
     throw new Error(`Unable to parse operator and value for query param: ${queryParam}`)
   }
   const operator = match[1]

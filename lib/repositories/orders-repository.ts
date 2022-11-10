@@ -6,6 +6,7 @@ import { OrderEntity, SORT_FIELDS } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { parseComparisonFilter } from '../util/comparison'
 import { generateRandomNonce } from '../util/nonce'
+import { getCurrentMonth } from '../util/time'
 import { BaseOrdersRepository } from './base'
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
@@ -266,7 +267,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       case requestedParams.length == 0 && !!queryFilters['sortKey'] && !!queryFilters['sort']:
         return await this.queryOrderEntity(
-          new Date().getMonth(),
+          // TODO: This won't work well if it is the first of the month.
+          // We should make two queries so we can capture the last 30 days of orders.
+          getCurrentMonth(),
           `${TABLE_KEY.CREATED_AT_MONTH}`,
           limit,
           queryFilters['sortKey'],
