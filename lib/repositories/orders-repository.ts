@@ -118,20 +118,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   public async updateOrderStatus(orderHash: string, status: ORDER_STATUS): Promise<void> {
     const order = checkDefined(await this.getByHash(orderHash), 'cannot find order by hash when updating order status')
 
-    await DynamoOrdersRepository.orderEntity.update(
-      {
-        [TABLE_KEY.ORDER_HASH]: orderHash,
-        orderStatus: status,
-        offererOrderStatus: `${order.offerer}-${status}`,
-        sellTokenOrderStatus: `${order.sellToken}-${status}`,
-      },
-      {
-        conditions: {
-          attr: 'orderHash',
-          eq: orderHash,
-        },
-      }
-    )
+    await DynamoOrdersRepository.orderEntity.update({
+      [TABLE_KEY.ORDER_HASH]: orderHash,
+      orderStatus: status,
+      offererOrderStatus: `${order.offerer}-${status}`,
+      sellTokenOrderStatus: `${order.sellToken}-${status}`,
+    })
   }
 
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams): Promise<(OrderEntity | undefined)[]> {
