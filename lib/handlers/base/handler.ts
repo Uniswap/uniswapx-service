@@ -67,8 +67,6 @@ export abstract class SfnInjector<CInj, RInj extends BaseRInj> extends BaseInjec
   }
 
   public abstract getRequestInjected(containerInjected: CInj, event: SfnStateInputOutput, log: Logger): Promise<RInj>
-
-  protected abstract buildRequestInjected(event: SfnStateInputOutput): Promise<RInj>
 }
 
 export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> extends BaseInjector<CInj> {
@@ -384,7 +382,7 @@ export abstract class APIGLambdaHandler<
 
 export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
   SfnHandler,
-  { input: SfnStateInputOutput; containerInjected: CInj; requestInjected: RInj },
+  { containerInjected: CInj; requestInjected: RInj },
   SfnStateInputOutput
 > {
   constructor(private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>, handlerName: string) {
@@ -399,7 +397,7 @@ export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends Base
   }
 
   protected buildHandler(): SfnHandler {
-    return async (input: SfnStateInputOutput): Promise<SfnStateInputOutput> => {
+    return async (sfnInput: SfnStateInputOutput): Promise<SfnStateInputOutput> => {
       const log: Logger = bunyan.createLogger({
         name: this.handlerName,
         serializers: bunyan.stdSerializers,
@@ -412,19 +410,15 @@ export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends Base
 
       let requestInjected: RInj
       try {
-        requestInjected = await injector.getRequestInjected(containerInjected, input, log)
+        requestInjected = await injector.getRequestInjected(containerInjected, sfnInput, log)
       } catch (err) {
-        log.error({ err, input }, 'Unexpected error building request injected.')
+        log.error({ err, sfnInput }, 'Unexpected error building request injected.')
         throw new InjectionError('Unexpected error building request injected.')
       }
 
-      return await this.handleRequest({ input, containerInjected, requestInjected })
+      return await this.handleRequest({ containerInjected, requestInjected })
     }
   }
 
-  public abstract handleRequest(input: {
-    input: SfnStateInputOutput
-    containerInjected: CInj
-    requestInjected: RInj
-  }): Promise<SfnStateInputOutput>
+  public abstract handleRequest(input: { containerInjected: CInj; requestInjected: RInj }): Promise<SfnStateInputOutput>
 }
