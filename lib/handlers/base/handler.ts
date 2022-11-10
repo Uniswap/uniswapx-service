@@ -21,15 +21,7 @@ export type BaseRInj = {
 
 export type ApiRInj = BaseRInj & { requestId: string }
 
-export type BaseHandleRequestParams<CInj, Event = Record<string, string | number>> = {
-  event: Event
-  containerInjected: CInj
-}
-
-export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = BaseHandleRequestParams<
-  CInj,
-  APIGatewayProxyEvent
-> & {
+export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
   context: Context
   event: APIGatewayProxyEvent
   requestBody: ReqBody
