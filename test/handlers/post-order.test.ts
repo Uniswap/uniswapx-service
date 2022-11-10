@@ -8,11 +8,11 @@ const USDC_MAINNET = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 
 // max unix time
 const deadlineMock = (2**31)-1
+const startTimeMock = deadlineMock-10000
 const offererMock = '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa'
 const sellTokenMock = USDC_MAINNET
 const sellAmountMock = '14000000'
 const reactorMock = '0xE9781560d93c27aa4C4F3543631d191D10608d20'
-const startTimeMock = (new Date().getTime())/1000
 const nonceMock = '25'
 const orderHashMock = '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae4'
 const requestIdMock = 'testRequest'
