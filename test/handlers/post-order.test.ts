@@ -6,8 +6,8 @@ import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
 
 const USDC_MAINNET = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 
-// set to expire in 10 minutes
-const deadlineMock = 10*60+(new Date().getTime())/1000
+// max unix time
+const deadlineMock = (2**31)-1
 const offererMock = '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa'
 const sellTokenMock = USDC_MAINNET
 const sellAmountMock = '14000000'
@@ -19,7 +19,6 @@ const requestIdMock = 'testRequest'
 
 // mock decoded order response from sdk
 jest.mock('gouda-sdk', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   parseOrder: parseOrderMock
 }))
 
@@ -89,7 +88,7 @@ describe('Testing post order handler.', () => {
       info: infoMock,
       hash: () => orderHashMock
     })
-    offchainValidationProviderMock.mockReturnValue(undefined)
+    offchainValidationProviderMock.mockReturnValue({valid: true})
   })
 
   afterEach(() => {
@@ -165,12 +164,11 @@ describe('Testing post order handler.', () => {
   
   describe('When offchain validation fails', () => {
     it('Throws 400', async () => {
-      const errorCode = 'order failed validation'
-      const detail = 'testing offchain validation'
+      const errorCode = "Order failed off-chain validation"
+      const errorString = "testing offchain validation"
       offchainValidationProviderMock.mockReturnValue({
-        statusCode: 400,
-        errorCode,
-        detail
+        valid: false,
+        errorString,
       })
       const event = {
         queryStringParameters: {},
@@ -179,7 +177,7 @@ describe('Testing post order handler.', () => {
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(postOrderMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ detail, errorCode, id: requestIdMock }),
+        body: JSON.stringify({ detail: errorString, errorCode, id: requestIdMock }),
         statusCode: 400,
         headers: {
           "Access-Control-Allow-Credentials": true,

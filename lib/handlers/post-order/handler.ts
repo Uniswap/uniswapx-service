@@ -33,12 +33,16 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { errorCode: e.message }),
       }
     }
-    const orderHash = decodedOrder.hash().toLowerCase()
 
-    const error = offchainValidationProvider.validate(decodedOrder)
-    if (error) {
-      return error
+    const validationResponse = offchainValidationProvider.validate(decodedOrder)
+    if (!validationResponse.valid) {
+      return {
+        statusCode: 400,
+        errorCode: 'Order failed off-chain validation',
+        detail: validationResponse.errorString
+      }
     }
+    const orderHash = decodedOrder.hash().toLowerCase()
 
     const order: OrderEntity = {
       encodedOrder,
