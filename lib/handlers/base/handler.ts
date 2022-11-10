@@ -21,7 +21,15 @@ export type BaseRInj = {
 
 export type ApiRInj = BaseRInj & { requestId: string }
 
-export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
+export type BaseHandleRequestParams<CInj, Event = Record<string, string | number>> = {
+  event: Event
+  containerInjected: CInj
+}
+
+export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = BaseHandleRequestParams<
+  CInj,
+  APIGatewayProxyEvent
+> & {
   context: Context
   event: APIGatewayProxyEvent
   requestBody: ReqBody
@@ -68,6 +76,8 @@ export abstract class SfnInjector<CInj, RInj extends BaseRInj> extends BaseInjec
   }
 
   public abstract getRequestInjected(containerInjected: CInj, event: SfnStateInputOutput, log: Logger): Promise<RInj>
+
+  protected abstract buildRequestInjected(event: SfnStateInputOutput): Promise<RInj>
 }
 
 export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> extends BaseInjector<CInj> {
