@@ -111,10 +111,11 @@ export class OffchainValidationProvider implements ValidationProvider {
   }
 
   validateNonce(nonce: BigNumber): ValidationResponse {
-    if (nonce.lt(0)) {
+    const error = FieldValidator.isValidNonce().validate(nonce.toString()).error
+    if (error) {
       return {
         valid: false,
-        errorString: 'Invalid startTime: nonce < 0',
+        errorString: `Invalid nonce: ${error}`,
       }
     }
     return {
@@ -135,6 +136,8 @@ export class OffchainValidationProvider implements ValidationProvider {
     }
   }
 
+  // TODO: Once deployed contracts are finalized, we can restrict this
+  // to check against a known set of addresses.
   validateReactor(reactor: string): ValidationResponse {
     const error = FieldValidator.isValidEthAddress().validate(reactor).error
     if (error) {
