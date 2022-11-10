@@ -1,10 +1,11 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { SORT_FIELDS } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { BaseRInj, Injector } from '../base/handler'
-import { GetOrdersQueryParams, SORT_FIELDS } from './schema'
+import { GetOrdersQueryParams } from './schema'
 
 export interface RequestInjected extends BaseRInj {
   limit: number

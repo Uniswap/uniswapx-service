@@ -22,6 +22,7 @@ const getItem = (
     offererSellToken: `${offerer}-${sellToken}`,
     sellTokenOrderStatus: `${sellToken}-${orderStatus}`,
     createdAt: new Date().getTime(),
+    createdAtMonth: new Date().getMonth(),
   }
 }
 function pad(n: string, width: number, z: string) {
@@ -46,7 +47,7 @@ export const setupMockItemsInDb = async () => {
             }`,
             `0x1325ad66ad5fa02621d3ad52c9323c6c2bff268${y % 10}`,
             i % 2 == 0 ? `0x1f9840a85d5af5bf1d1762f925bdaddc4201f984` : `0x6b3595068778dd592e39a122f4f5a5cf09c90fe2`,
-            100
+            i
           ),
         },
       })

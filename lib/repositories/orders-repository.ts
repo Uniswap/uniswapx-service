@@ -2,10 +2,10 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
-import { OrderEntity } from '../entities/Order'
-import { GetOrdersQueryParams, GET_QUERY_PARAMS, SORT_FIELDS } from '../handlers/get-orders/schema'
+import { OrderEntity, SORT_FIELDS } from '../entities/Order'
+import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
+import { parseComparisonFilter } from '../util/comparison'
 import { generateRandomNonce } from '../util/nonce'
-import { getRequestedParams, parseComparisonFilter } from '../util/request'
 import { BaseOrdersRepository } from './base'
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
@@ -48,6 +48,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           partitionKey: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
           sortKey: TABLE_KEY.CREATED_AT,
         },
+        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}-index`]: {
+          partitionKey: TABLE_KEY.CREATED_AT_MONTH,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
         [`${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}-index`]: {
           partitionKey: TABLE_KEY.OFFERER,
           sortKey: TABLE_KEY.DEADLINE,
@@ -76,6 +80,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           partitionKey: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
           sortKey: TABLE_KEY.DEADLINE,
         },
+        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.DEADLINE}-index`]: {
+          partitionKey: TABLE_KEY.CREATED_AT_MONTH,
+          sortKey: TABLE_KEY.DEADLINE,
+        },
         offererNonceIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.NONCE },
       },
     })
@@ -100,6 +108,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         offererSellToken: { type: DYNAMODB_TYPES.STRING },
         sellTokenOrderStatus: { type: DYNAMODB_TYPES.STRING },
         offererOrderStatusSellToken: { type: DYNAMODB_TYPES.STRING },
+        createdAtMonth: { type: DYNAMODB_TYPES.NUMBER },
       },
       table: this.ordersTable,
     } as const)
@@ -183,7 +192,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   }
 
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams): Promise<(OrderEntity | undefined)[]> {
-    const requestedParams = getRequestedParams(queryFilters)
+    const requestedParams = this.getRequestedParams(queryFilters)
 
     // Query Orders table based on the requested params
     switch (true) {
@@ -255,6 +264,15 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           queryFilters['sort']
         )
 
+      case requestedParams.length == 0 && !!queryFilters['sortKey'] && !!queryFilters['sort']:
+        return await this.queryOrderEntity(
+          new Date().getMonth(),
+          `${TABLE_KEY.CREATED_AT_MONTH}`,
+          limit,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
       default: {
         const getOrdersScan = await DynamoOrdersRepository.ordersTable.scan({
           ...(limit && { limit: limit }),
@@ -265,7 +283,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   }
 
   private async queryOrderEntity(
-    partitionKey: string,
+    partitionKey: string | number,
     index: string,
     limit: number | undefined,
     sortKey: SORT_FIELDS | undefined,
@@ -294,5 +312,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return (
       requestedParams.length == queryParams.length && queryParams.every((filter) => requestedParams.includes(filter))
     )
+  }
+
+  private getRequestedParams(queryFilters: GetOrdersQueryParams) {
+    return Object.keys(queryFilters).filter((requestedParam) => {
+      return ![GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT].includes(requestedParam as GET_QUERY_PARAMS)
+    })
   }
 }

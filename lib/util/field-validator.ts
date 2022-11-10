@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
-import { ORDER_STATUS } from '../entities'
+import { ORDER_STATUS, SORT_FIELDS } from '../entities'
 
 export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 
@@ -21,12 +21,12 @@ export default class FieldValidator {
     ORDER_STATUS.ERROR,
     ORDER_STATUS.UNVERIFIED
   )
-  private static readonly SORT_KEY_JOI = Joi.string().valid('createdAt', 'deadline')
+  private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT, SORT_FIELDS.DEADLINE)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
-    if (!ethers.utils.getAddress(value)) {
-      return helpers.error('VALIDATION ERROR: Invalid address')
+    if (!ethers.utils.isAddress(value)) {
+      return helpers.message({ custom: 'VALIDATION ERROR: Invalid address' })
     }
     return value
   })

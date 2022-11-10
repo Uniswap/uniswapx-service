@@ -1,7 +1,6 @@
 import Joi from 'joi'
 
 import { OrderEntity } from '../../entities'
-import { validateSortQueryParams } from '../../util/request'
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { setupMockItemsInDb } from './post-order-testing'
@@ -28,9 +27,12 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
     try {
       // TODO: when the base handler is more generalized we should be able to include this logic in request validation
-      const hasInvalidSortParams = validateSortQueryParams(queryFilters)
-      if (hasInvalidSortParams) {
-        return hasInvalidSortParams as ErrorResponse
+      if ((queryFilters.sortKey || queryFilters.sort) && !(queryFilters.sortKey && queryFilters.sort)) {
+        return {
+          statusCode: 400,
+          detail: 'Need both a sortKey and sort for a sorted query.',
+          errorCode: 'VALIDATION_ERROR',
+        }
       }
 
       const orders: (OrderEntity | undefined)[] = await dbInterface.getOrders(limit, queryFilters)

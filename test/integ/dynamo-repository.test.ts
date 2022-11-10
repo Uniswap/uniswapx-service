@@ -1,6 +1,5 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import { ORDER_STATUS } from '../../lib/entities/Order'
-import { SORT_FIELDS } from '../../lib/handlers/get-orders/schema'
+import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
 import * as nonceUtil from '../../lib/util/nonce'
 
@@ -49,18 +48,21 @@ const ADDITIONAL_FIELDS_ORDER_1 = {
   ...MOCK_ORDER_1,
   createdAt: 1,
   deadline: 1,
+  createdAtMonth: new Date().getMonth(),
 }
 
 const ADDITIONAL_FIELDS_ORDER_2 = {
   ...MOCK_ORDER_2,
   createdAt: 2,
   deadline: 2,
+  createdAtMonth: new Date().getMonth(),
 }
 
 const ADDITIONAL_FIELDS_ORDER_3 = {
   ...MOCK_ORDER_3,
   createdAt: 3,
   deadline: 3,
+  createdAtMonth: new Date().getMonth(),
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
@@ -283,6 +285,27 @@ describe('OrdersRepository getOrders test with sorting', () => {
       sort: 'lt(1)',
     })
     expect(orders).toEqual([])
+  })
+
+  it('should successfully get orders given only sort for createdAt', async () => {
+    const orders = await ordersRepository.getOrders(10, {
+      sortKey: SORT_FIELDS.CREATED_AT,
+      sort: 'between(1,3)',
+    })
+    expect(orders.length).toEqual(3)
+    expect(orders[0]?.orderHash).toEqual(MOCK_ORDER_1.orderHash)
+    expect(orders[1]?.orderHash).toEqual(MOCK_ORDER_2.orderHash)
+    expect(orders[2]?.orderHash).toEqual(MOCK_ORDER_3.orderHash)
+  })
+
+  it('should successfully get orders given only sort for deadline', async () => {
+    const orders = await ordersRepository.getOrders(10, {
+      sortKey: SORT_FIELDS.DEADLINE,
+      sort: 'lt(3)',
+    })
+    expect(orders.length).toEqual(2)
+    expect(orders[0]?.orderHash).toEqual(MOCK_ORDER_1.orderHash)
+    expect(orders[1]?.orderHash).toEqual(MOCK_ORDER_2.orderHash)
   })
 })
 

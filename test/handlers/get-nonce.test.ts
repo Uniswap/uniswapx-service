@@ -54,12 +54,9 @@ describe('Testing get nonce handler.', () => {
 
   describe('Testing invalid nonce request validation.', () => {
     it.each([
-      [{ address: '123' }, '"address\\" failed custom validation because invalid address'],
+      [{ address: '123' }, 'VALIDATION ERROR: Invalid address'],
       [{ address: '' }, '"address\\" is not allowed to be empty"'],
-      [
-        { address: '0xF53bDa7e0337BD456cDcDab0Ab24Db43E738065' },
-        '"address\\" failed custom validation because invalid address',
-      ],
+      [{ address: '0xF53bDa7e0337BD456cDcDab0Ab24Db43E738065' }, 'VALIDATION ERROR: Invalid address'],
       [{}, '"address\\" is required'],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {

@@ -84,9 +84,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const invalidAddress = '0xnot_a_valid_eth_address'
       const validatedField = FieldValidator.isValidEthAddress().validate(invalidAddress)
       expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toEqual(
-        `"value" failed custom validation because invalid address (argument="address", value="${invalidAddress}", code=INVALID_ARGUMENT, version=address/5.7.0)`
-      )
+      expect(validatedField.error?.details[0].message).toEqual('VALIDATION ERROR: Invalid address')
     })
   })
 
@@ -124,6 +122,37 @@ describe('Testing each field on the FieldValidator class.', () => {
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
         '"value" length must be less than or equal to 78 characters long'
+      )
+    })
+  })
+
+  describe('Testing sortKey field.', () => {
+    it('should validate field.', async () => {
+      expect(FieldValidator.isValidSortKey().validate('createdAt')).toEqual({ value: 'createdAt' })
+      expect(FieldValidator.isValidSortKey().validate('deadline')).toEqual({ value: 'deadline' })
+    })
+
+    it('should invalidate non-numeric value.', async () => {
+      const validatedField = FieldValidator.isValidSortKey().validate('createdBy')
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [createdAt, deadline]')
+    })
+  })
+
+  describe('Testing sort field.', () => {
+    it('should validate field.', async () => {
+      expect(FieldValidator.isValidSort().validate('gt(12)')).toEqual({ value: 'gt(12)' })
+      expect(FieldValidator.isValidSort().validate('gte(12)')).toEqual({ value: 'gte(12)' })
+      expect(FieldValidator.isValidSort().validate('lt(12)')).toEqual({ value: 'lt(12)' })
+      expect(FieldValidator.isValidSort().validate('lte(12)')).toEqual({ value: 'lte(12)' })
+      expect(FieldValidator.isValidSort().validate('between(1,12)')).toEqual({ value: 'between(1,12)' })
+    })
+
+    it('should invalidate non-numeric value.', async () => {
+      const validatedField = FieldValidator.isValidSort().validate('1(gt)')
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        '"value" with value "1(gt)" fails to match the required pattern: /(\\w+)\\(([0-9]+)(?:,([0-9]+))?\\)/'
       )
     })
   })

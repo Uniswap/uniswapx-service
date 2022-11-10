@@ -159,6 +159,26 @@ export class DynamoStack extends cdk.NestedStack {
       ],
     })
 
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}-index`,
+      partitionKey: {
+        name: TABLE_KEY.CREATED_AT_MONTH,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+      ],
+    })
+
     // Create global secondary indexes with deadline sort key
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -303,6 +323,26 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
         TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.DEADLINE}-index`,
+      partitionKey: {
+        name: TABLE_KEY.CREATED_AT_MONTH,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
       ],
     })
 

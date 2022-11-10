@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { OrderEntity } from '../../../entities'
+import { OrderEntity, SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 
 export const GetOrdersQueryParamsJoi = Joi.object({
@@ -47,9 +47,4 @@ export enum GET_QUERY_PARAMS {
   ORDER_HASH = 'orderHash',
   SORT_KEY = 'sortKey',
   SORT = 'sort',
-}
-
-export enum SORT_FIELDS {
-  DEADLINE = 'deadline',
-  CREATED_AT = 'createdAt',
 }

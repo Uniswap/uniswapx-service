@@ -1,5 +1,5 @@
-import { OrderEntity } from '../entities/index'
-import { GetOrdersQueryParams, SORT_FIELDS } from '../handlers/get-orders/schema'
+import { OrderEntity, SORT_FIELDS } from '../entities/index'
+import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export interface BaseOrdersRepository {
   getByHash: (hash: string) => Promise<OrderEntity | undefined>
