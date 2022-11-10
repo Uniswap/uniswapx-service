@@ -1,4 +1,4 @@
-import { OrderEntity } from '../entities/index'
+import { OrderEntity, ORDER_STATUS } from '../entities/index'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export type QueryResult = {
@@ -14,4 +14,5 @@ export interface BaseOrdersRepository {
   getByOrderStatus: (orderStatus: string, limit: number) => Promise<QueryResult>
   getBySellToken: (sellToken: string, limit: number) => Promise<QueryResult>
   getNonceByAddress: (address: string) => Promise<string>
+  updateOrderStatus: (orderHash: string, status: ORDER_STATUS) => Promise<void>
 }

@@ -43,7 +43,7 @@ export class APIPipeline extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props)
 
-    const code = CodePipelineSource.gitHub('Uniswap/api-template', 'main', {
+    const code = CodePipelineSource.gitHub('Uniswap/gouda-service', 'main', {
       authentication: SecretValue.secretsManager('github-token-2'),
     })
 
@@ -55,10 +55,16 @@ export class APIPipeline extends Stack {
             value: 'npm-private-repo-access-token',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          // TODO: Use SSH keys instead of GitHub tokens
+          GH_TOKEN: {
+            value: 'github-token-2',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
         },
       },
       commands: [
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && yarn install --frozen-lockfile',
+        'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
+        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc && yarn install --frozen-lockfile',
         'yarn build',
         'npx cdk synth',
       ],
@@ -80,7 +86,7 @@ export class APIPipeline extends Stack {
 
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
-      env: { account: '000000000000', region: 'us-east-2' },
+      env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 20,
       stage: STAGE.BETA,
       infuraProjectId: infuraProjectId.secretValue.toString(),
@@ -92,7 +98,7 @@ export class APIPipeline extends Stack {
 
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
-      env: { account: '000000000000', region: 'us-east-2' },
+      env: { account: '316116520258', region: 'us-east-2' },
       infuraProjectId: infuraProjectId.secretValue.toString(),
       provisionedConcurrency: 100,
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
@@ -132,10 +138,16 @@ export class APIPipeline extends Stack {
             value: 'npm-private-repo-access-token',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          // TODO: Use SSH keys instead of GitHub tokens
+          GH_TOKEN: {
+            value: 'github-token-2',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
         },
       },
       commands: [
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && yarn install --frozen-lockfile',
+        'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
+        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc && yarn install --frozen-lockfile',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
         'yarn install',
         'yarn build',

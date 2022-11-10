@@ -2,8 +2,9 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
-import { OrderEntity } from '../entities/Order'
+import { OrderEntity, ORDER_STATUS } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
+import { checkDefined } from '../preconditions/preconditions'
 import { decode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
 import { BaseOrdersRepository, QueryResult } from './base'
@@ -11,10 +12,10 @@ import { BaseOrdersRepository, QueryResult } from './base'
 export const MAX_ORDERS = 500
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
-  private static ordersTable: Table
-  private static nonceTable: Table
-  private static orderEntity: Entity<{}>
-  private static nonceEntity: Entity<{}>
+  private static ordersTable: Table<'Orders', 'orderHash', null>
+  private static nonceTable: Table<'Nonces', 'offerer', null>
+  private static orderEntity: Entity
+  private static nonceEntity: Entity
 
   static initialize(documentClient: DocumentClient) {
     this.ordersTable = new Table({
@@ -83,7 +84,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   }
 
   public async getByHash(hash: string): Promise<OrderEntity | undefined> {
-    const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash })
+    const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
     return res.Item as OrderEntity
   }
 
@@ -92,8 +93,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       limit: 1,
       reverse: true,
       consistent: true,
+      execute: true,
     })
-    return res.Items.length > 0 ? res.Items[0].nonce : generateRandomNonce()
+    return res.Items && res.Items.length > 0 ? res.Items[0].nonce : generateRandomNonce()
   }
 
   public async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
@@ -114,6 +116,17 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         capacity: 'total',
       }
     )
+  }
+
+  public async updateOrderStatus(orderHash: string, status: ORDER_STATUS): Promise<void> {
+    const order = checkDefined(await this.getByHash(orderHash), 'cannot find order by hash when updating order status')
+
+    await DynamoOrdersRepository.orderEntity.update({
+      [TABLE_KEY.ORDER_HASH]: orderHash,
+      orderStatus: status,
+      offererOrderStatus: `${order.offerer}-${status}`,
+      sellTokenOrderStatus: `${order.sellToken}-${status}`,
+    })
   }
 
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
@@ -173,10 +186,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         )
 
       default: {
-        return await DynamoOrdersRepository.ordersTable.scan({
+        return (await DynamoOrdersRepository.ordersTable.scan({
           limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
+          execute: true,
           ...(cursor && { startKey: JSON.parse(decode(cursor)) }),
-        })
+        })) as QueryResult
       }
     }
   }
@@ -188,12 +202,13 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     cursor?: string,
     sortKey?: string
   ): Promise<QueryResult> {
-    return await DynamoOrdersRepository.orderEntity.query(partitionKey, {
+    return (await DynamoOrdersRepository.orderEntity.query(partitionKey, {
       index: index,
+      execute: true,
       limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
       ...(sortKey && { eq: sortKey }),
       ...(cursor && { startKey: JSON.parse(decode(cursor)) }),
-    })
+    })) as QueryResult
   }
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
