@@ -3,7 +3,7 @@ import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { OrderValidator } from '../../util/order-validator'
-import { BaseRInj, Injector } from '../base/handler'
+import { ApiInjector, ApiRInj } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
 
 export interface ContainerInjected {
@@ -11,7 +11,7 @@ export interface ContainerInjected {
   orderValidator: OrderValidator
 }
 
-export class PostOrderInjector extends Injector<ContainerInjected, BaseRInj, PostOrderRequestBody, void> {
+export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     const documentClient = new DynamoDB.DocumentClient()
     const dbInterface = new DynamoOrdersRepository()
@@ -33,7 +33,7 @@ export class PostOrderInjector extends Injector<ContainerInjected, BaseRInj, Pos
     _event: APIGatewayEvent,
     context: Context,
     log: Logger
-  ): Promise<BaseRInj> {
+  ): Promise<ApiRInj> {
     return {
       requestId: context.awsRequestId,
       log,

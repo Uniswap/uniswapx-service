@@ -10,12 +10,25 @@ import { checkDefined } from '../../preconditions/preconditions'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
+export type SfnStateInputOutput = Record<string, string | number>
+
+export type SfnHandler = (event: SfnStateInputOutput) => Promise<SfnStateInputOutput>
+
 export type BaseRInj = {
   log: Logger
-  requestId: string
 }
 
-export type HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
+export type ApiRInj = BaseRInj & { requestId: string }
+
+export type BaseHandleRequestParams<CInj, Event = Record<string, string | number>> = {
+  event: Event
+  containerInjected: CInj
+}
+
+export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = BaseHandleRequestParams<
+  CInj,
+  APIGatewayProxyEvent
+> & {
   context: Context
   event: APIGatewayProxyEvent
   requestBody: ReqBody
@@ -37,13 +50,38 @@ export type ErrorResponse = {
   detail?: string
 }
 
-export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams> {
-  private containerInjected: CInj | undefined
+export class InjectionError extends Error {}
+
+export abstract class BaseInjector<CInj> {
+  protected containerInjected: CInj | undefined
+
   public constructor(protected injectorName: string) {}
+
+  protected abstract buildContainerInjected(): Promise<CInj>
 
   public async build() {
     this.containerInjected = await this.buildContainerInjected()
     return this
+  }
+
+  public async getContainerInjected(): Promise<CInj> {
+    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
+  }
+}
+
+export abstract class SfnInjector<CInj, RInj extends BaseRInj> extends BaseInjector<CInj> {
+  public constructor(protected injectorName: string) {
+    super(injectorName)
+  }
+
+  public abstract getRequestInjected(containerInjected: CInj, event: SfnStateInputOutput, log: Logger): Promise<RInj>
+
+  protected abstract buildRequestInjected(event: SfnStateInputOutput): Promise<RInj>
+}
+
+export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> extends BaseInjector<CInj> {
+  public constructor(protected injectorName: string) {
+    super(injectorName)
   }
 
   public abstract getRequestInjected(
@@ -54,12 +92,6 @@ export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryPar
     context: Context,
     log: Logger
   ): Promise<RInj>
-
-  public abstract buildContainerInjected(): Promise<CInj>
-
-  public async getContainerInjected(): Promise<CInj> {
-    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
-  }
 }
 
 const INTERNAL_ERROR = (id?: string) => {
@@ -73,11 +105,33 @@ const INTERNAL_ERROR = (id?: string) => {
   }
 }
 
-export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams, Res> {
+export abstract class BaseLambdaHandler<HandlerType, InputType, OutputType> {
+  constructor(protected readonly handlerName: string) {}
+
+  public abstract get handler(): HandlerType
+
+  protected abstract buildHandler(): HandlerType
+
+  protected abstract handleRequest(params: InputType): Promise<OutputType>
+}
+
+export abstract class APIGLambdaHandler<
+  CInj,
+  RInj extends ApiRInj,
+  ReqBody,
+  ReqQueryParams,
+  Res
+> extends BaseLambdaHandler<
+  APIGatewayProxyHandler,
+  APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams>,
+  Response<Res> | ErrorResponse
+> {
   constructor(
-    private readonly handlerName: string,
-    private readonly injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
-  ) {}
+    handlerName: string,
+    private readonly injectorPromise: Promise<ApiInjector<CInj, RInj, ReqBody, ReqQueryParams>>
+  ) {
+    super(handlerName)
+  }
 
   get handler(): APIGatewayProxyHandler {
     return async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
@@ -98,7 +152,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
     }
   }
 
-  private buildHandler(): APIGatewayProxyHandler {
+  protected buildHandler(): APIGatewayProxyHandler {
     return async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
       let log: Logger = bunyan.createLogger({
         name: this.handlerName,
@@ -203,7 +257,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
   }
 
   public abstract handleRequest(
-    params: HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams>
+    params: APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams>
   ): Promise<Response<Res> | ErrorResponse>
 
   protected abstract requestBodySchema(): Joi.ObjectSchema | null
@@ -334,4 +388,51 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
 
     return { state: 'valid', response: res.value as Res }
   }
+}
+
+export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
+  SfnHandler,
+  { input: SfnStateInputOutput; containerInjected: CInj; requestInjected: RInj },
+  SfnStateInputOutput
+> {
+  constructor(private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>, handlerName: string) {
+    super(handlerName)
+  }
+
+  get handler(): SfnHandler {
+    return async (event: SfnStateInputOutput): Promise<SfnStateInputOutput> => {
+      const handler = this.buildHandler()
+      return await handler(event)
+    }
+  }
+
+  protected buildHandler(): SfnHandler {
+    return async (input: SfnStateInputOutput): Promise<SfnStateInputOutput> => {
+      const log: Logger = bunyan.createLogger({
+        name: this.handlerName,
+        serializers: bunyan.stdSerializers,
+        level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
+      })
+
+      const injector = await this.injectorPromise
+
+      const containerInjected = await injector.getContainerInjected()
+
+      let requestInjected: RInj
+      try {
+        requestInjected = await injector.getRequestInjected(containerInjected, input, log)
+      } catch (err) {
+        log.error({ err, input }, 'Unexpected error building request injected.')
+        throw new InjectionError('Unexpected error building request injected.')
+      }
+
+      return await this.handleRequest({ input, containerInjected, requestInjected })
+    }
+  }
+
+  public abstract handleRequest(input: {
+    input: SfnStateInputOutput
+    containerInjected: CInj
+    requestInjected: RInj
+  }): Promise<SfnStateInputOutput>
 }
