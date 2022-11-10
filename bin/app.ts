@@ -44,7 +44,7 @@ export class APIPipeline extends Stack {
     super(scope, id, props)
 
     const code = CodePipelineSource.gitHub('Uniswap/gouda-service', 'main', {
-      authentication: SecretValue.secretsManager(' '),
+      authentication: SecretValue.secretsManager('github-token-2'),
     })
 
     const synthStep = new CodeBuildStep('Synth', {
