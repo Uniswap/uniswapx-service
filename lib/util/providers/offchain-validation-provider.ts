@@ -25,6 +25,8 @@ export class OffchainValidationProvider implements ValidationProvider {
     this.minOffset = minOffset
   }
 
+  // TODO: Instead of returning early, collect all validation errors
+  // and return them to the user
   validate(order: DutchLimitOrder): ValidationResponse {
     const deadlineValidation = this.validateDeadline(order.info.deadline)
     if (!deadlineValidation.valid) {
