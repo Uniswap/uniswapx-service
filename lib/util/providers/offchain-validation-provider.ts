@@ -8,9 +8,9 @@ export type ValidationResponse = {
 }
 
 /*
- * Interface for a provider that validates decoded dutch orders
+ * Provider that validates decoded dutch orders
  * @export
- * @interface ValidationProvider
+ * @class ValidationProvider
  */
 export class ValidationProvider {
   constructor(private readonly getCurrentTime: () => number, private readonly minOffset = 60) {
