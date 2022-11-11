@@ -7,26 +7,17 @@ export type ValidationResponse = {
   errorString?: string
 }
 
-/**
+/*
  * Interface for a provider that validates decoded dutch orders
  * @export
  * @interface ValidationProvider
  */
-export interface ValidationProvider {
-  validate(order: DutchLimitOrder): ValidationResponse
-}
-
-export class OffchainValidationProvider implements ValidationProvider {
-  private minOffset: number
-  private getCurrentTime: () => number
-
-  constructor(getCurrentTime: () => number, minOffset = 60) {
+export class ValidationProvider {
+  constructor(private readonly getCurrentTime: () => number, private readonly minOffset = 60) {
     this.getCurrentTime = getCurrentTime
     this.minOffset = minOffset
   }
 
-  // TODO: Instead of returning early, collect all validation errors
-  // and return them to the user
   validate(order: DutchLimitOrder): ValidationResponse {
     const deadlineValidation = this.validateDeadline(order.info.deadline)
     if (!deadlineValidation.valid) {

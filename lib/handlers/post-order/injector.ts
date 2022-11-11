@@ -2,13 +2,13 @@ import { APIGatewayEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import { OffchainValidationProvider, ValidationProvider } from '../../util/providers/offchain-validation-provider'
+import { ValidationProvider } from '../../util/providers/offchain-validation-provider'
 import { BaseRInj, Injector } from '../base/handler'
 import { PostOrderRequestBody } from './schema'
 
 export interface ContainerInjected {
   dbInterface: DynamoOrdersRepository
-  offchainValidationProvider: ValidationProvider
+  validationProvider: ValidationProvider
 }
 
 export class PostOrderInjector extends Injector<ContainerInjected, BaseRInj, PostOrderRequestBody, void> {
@@ -18,11 +18,11 @@ export class PostOrderInjector extends Injector<ContainerInjected, BaseRInj, Pos
     DynamoOrdersRepository.initialize(documentClient)
 
     const getCurrentTime = () => new Date().getTime() / 1000
-    const offchainValidationProvider = new OffchainValidationProvider(getCurrentTime)
+    const validationProvider = new ValidationProvider(getCurrentTime)
 
     return {
       dbInterface,
-      offchainValidationProvider,
+      validationProvider,
     }
   }
 

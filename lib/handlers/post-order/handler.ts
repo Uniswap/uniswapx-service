@@ -18,7 +18,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody: { encodedOrder, signature },
       requestInjected: { log },
-      containerInjected: { dbInterface, offchainValidationProvider },
+      containerInjected: { dbInterface, validationProvider },
     } = params
 
     log.info('Handling POST order request', params)
@@ -29,12 +29,12 @@ export class PostOrderHandler extends APIGLambdaHandler<
     } catch (e: unknown) {
       log.error(e, 'Failed to parse encodedOrder')
       return {
-        statusCode: 500,
+        statusCode: 400,
         ...(e instanceof Error && { errorCode: e.message }),
       }
     }
 
-    const validationResponse = offchainValidationProvider.validate(decodedOrder)
+    const validationResponse = validationProvider.validate(decodedOrder)
     if (!validationResponse.valid) {
       return {
         statusCode: 400,
