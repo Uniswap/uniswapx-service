@@ -2,7 +2,6 @@ import Joi from 'joi'
 
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
-import { setupMockItemsInDb } from './post-order-testing'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, GetOrdersResponse, GetOrdersResponseJoi } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -21,9 +20,6 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     } = params
 
     try {
-      if (limit == 999) {
-        await setupMockItemsInDb()
-      }
       const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
 
       return {
