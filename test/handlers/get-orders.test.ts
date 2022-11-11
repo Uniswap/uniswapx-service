@@ -44,7 +44,7 @@ describe('Testing get orders handler.', () => {
   const getOrdersHandler = new GetOrdersHandler('get-orders', injectorPromiseMock)
 
   beforeAll(async () => {
-    getOrdersMock.mockReturnValue({ Items: [MOCK_ORDER], LastEvaluatedKey: { test: 'key' } })
+    getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' })
   })
 
   afterEach(() => {
@@ -55,7 +55,7 @@ describe('Testing get orders handler.', () => {
     const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
     expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
     expect(getOrdersResponse).toMatchObject({
-      body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eyJ0ZXN0Ijoia2V5In0=' }),
+      body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' }),
       statusCode: 200,
     })
     expect(getOrdersResponse.headers).not.toBeUndefined()
@@ -93,7 +93,7 @@ describe('Testing get orders handler.', () => {
       [{ encodedOrder: '0xencoded$$$order' }],
       [{ createdAt: 'bad_created_at' }],
     ])('Throws 500 with invalid field %p in the response', async (invalidResponseField) => {
-      getOrdersMock.mockReturnValue({ Items: [{ ...MOCK_ORDER, ...invalidResponseField }] })
+      getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
       expect(getOrdersMock).toBeCalledWith(
         requestInjectedMock.limit,

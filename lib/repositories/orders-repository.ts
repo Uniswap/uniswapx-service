@@ -2,10 +2,10 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
-import { OrderEntity, ORDER_STATUS } from '../entities/Order'
+import { getValidKeys, OrderEntity, ORDER_STATUS } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { checkDefined } from '../preconditions/preconditions'
-import { decode } from '../util/encryption'
+import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
 import { BaseOrdersRepository, QueryResult } from './base'
 
@@ -136,15 +136,14 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     switch (true) {
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
         const order = await this.getByHash(queryFilters['orderHash'] as string)
-        return { Items: order ? [order] : [] }
+        return { orders: order ? [order] : [] }
       }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
         return await this.getByOfferer(queryFilters['offerer'] as string, limit, cursor)
 
-      case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams): {
+      case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         return await this.getByOrderStatus(queryFilters['orderStatus'] as string, limit, cursor)
-      }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
         return await this.getBySellToken(queryFilters['sellToken'] as string, limit, cursor)
@@ -186,11 +185,16 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         )
 
       default: {
-        return (await DynamoOrdersRepository.ordersTable.scan({
+        const scanResult = await DynamoOrdersRepository.ordersTable.scan({
           limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
           execute: true,
-          ...(cursor && { startKey: JSON.parse(decode(cursor)) }),
-        })) as QueryResult
+          ...(cursor && { startKey: this.getStartKey(cursor) }),
+        })
+
+        return {
+          orders: scanResult.Items as OrderEntity[],
+          ...(scanResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(scanResult.LastEvaluatedKey)) }),
+        }
       }
     }
   }
@@ -202,18 +206,43 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     cursor?: string,
     sortKey?: string
   ): Promise<QueryResult> {
-    return (await DynamoOrdersRepository.orderEntity.query(partitionKey, {
+    const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
       index: index,
       execute: true,
       limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
       ...(sortKey && { eq: sortKey }),
-      ...(cursor && { startKey: JSON.parse(decode(cursor)) }),
-    })) as QueryResult
+      ...(cursor && { startKey: this.getStartKey(cursor, index) }),
+    })
+
+    return {
+      orders: queryResult.Items as OrderEntity[],
+      ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
+    }
   }
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
     return (
       requestedParams.length == queryParams.length && queryParams.every((filter) => requestedParams.includes(filter))
     )
+  }
+
+  private getStartKey(cursor: string, index?: string) {
+    let lastEvaluatedKey = []
+    try {
+      lastEvaluatedKey = JSON.parse(decode(cursor))
+    } catch (e) {
+      throw new Error('Invalid cursor.')
+    }
+    const keys = Object.keys(lastEvaluatedKey)
+    const validKeys = getValidKeys(index)
+    const keysMatch = keys.every((key: string) => {
+      return validKeys.includes(key as TABLE_KEY)
+    })
+
+    if (keys.length != validKeys.length || !keysMatch) {
+      throw new Error('Invalid cursor.')
+    }
+
+    return lastEvaluatedKey
   }
 }

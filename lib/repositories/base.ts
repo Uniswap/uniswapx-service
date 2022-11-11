@@ -2,8 +2,8 @@ import { OrderEntity, ORDER_STATUS } from '../entities/index'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export type QueryResult = {
-  Items: OrderEntity[]
-  LastEvaluatedKey?: { [key: string]: string }
+  orders: OrderEntity[]
+  cursor?: string
 }
 
 export interface BaseOrdersRepository {

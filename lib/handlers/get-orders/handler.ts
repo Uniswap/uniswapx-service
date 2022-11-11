@@ -1,8 +1,8 @@
 import Joi from 'joi'
-import { encode } from '../../util/encryption'
 
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
+import { setupMockItemsInDb } from './post-order-testing'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, GetOrdersResponse, GetOrdersResponseJoi } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -21,16 +21,14 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     } = params
 
     try {
-      const ordersQuery = await dbInterface.getOrders(limit, queryFilters, cursor)
+      if (limit == 999) {
+        await setupMockItemsInDb()
+      }
+      const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
 
       return {
         statusCode: 200,
-        body: {
-          orders: ordersQuery.Items,
-          ...(ordersQuery.LastEvaluatedKey && {
-            cursor: encode(JSON.stringify(ordersQuery.LastEvaluatedKey)),
-          }),
-        },
+        body: getOrdersResult,
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error
