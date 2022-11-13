@@ -70,7 +70,7 @@ export class APIPipeline extends Stack {
         'eval "$(ssh-agent -s)"',
         'ssh-keygen -F github.com || ssh-keyscan github.com >>~/.ssh/known_hosts',
         'git init',
-        'git remote add origin "$remote_origin',
+        'git remote add origin "$remote_origin"',
         'git fetch',
         'git checkout -f "$CODEBUILD_RESOLVED_SOURCE_VERSION"',
         'git submodule init',
