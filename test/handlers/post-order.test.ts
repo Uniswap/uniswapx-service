@@ -76,7 +76,7 @@ describe('Testing post order handler.', () => {
         dbInterface: {
           putOrderAndUpdateNonceTransaction: postOrderMock,
         },
-        validationProvider: {
+        orderValidator: {
           validate: validationProviderMock,
         },
       }

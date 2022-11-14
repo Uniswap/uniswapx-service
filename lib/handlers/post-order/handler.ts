@@ -18,7 +18,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody: { encodedOrder, signature },
       requestInjected: { log },
-      containerInjected: { dbInterface, validationProvider },
+      containerInjected: { dbInterface, orderValidator },
     } = params
 
     log.info('Handling POST order request', params)
@@ -34,7 +34,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const validationResponse = validationProvider.validate(decodedOrder)
+    const validationResponse = orderValidator.validate(decodedOrder)
     if (!validationResponse.valid) {
       return {
         statusCode: 400,

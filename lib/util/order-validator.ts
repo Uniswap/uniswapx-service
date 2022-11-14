@@ -1,24 +1,19 @@
 import { BigNumber } from 'ethers'
 import { DutchLimitOrder, DutchOutput } from 'gouda-sdk'
-import FieldValidator from '../field-validator'
+import FieldValidator from './field-validator'
 
-export type ValidationResponse = {
+export type OrderValidationResponse = {
   valid: boolean
   errorString?: string
 }
 
-/*
- * Provider that validates decoded dutch orders
- * @export
- * @class ValidationProvider
- */
-export class ValidationProvider {
+const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
+
+export class OrderValidator {
   constructor(private readonly getCurrentTime: () => number, private readonly minOffset = 60) {
-    this.getCurrentTime = getCurrentTime
-    this.minOffset = minOffset
   }
 
-  validate(order: DutchLimitOrder): ValidationResponse {
+  validate(order: DutchLimitOrder): OrderValidationResponse {
     const deadlineValidation = this.validateDeadline(order.info.deadline)
     if (!deadlineValidation.valid) {
       return deadlineValidation
@@ -68,7 +63,7 @@ export class ValidationProvider {
     }
   }
 
-  validateDeadline(deadline: number): ValidationResponse {
+  private validateDeadline(deadline: number): OrderValidationResponse {
     if (deadline < this.getCurrentTime() + this.minOffset) {
       return {
         valid: false,
@@ -80,7 +75,7 @@ export class ValidationProvider {
       Step function last at most one year, so deadline can
       be at most one year from now
     */
-    if (deadline > this.getCurrentTime() + 365 * 24 * 60 * 60) {
+    if (deadline > this.getCurrentTime() + ONE_YEAR_IN_SECONDS) {
       return {
         valid: false,
         errorString: `Deadline field invalid: value too large`,
@@ -91,7 +86,7 @@ export class ValidationProvider {
     }
   }
 
-  validateStartTime(startTime: number, deadline: number): ValidationResponse {
+  private validateStartTime(startTime: number, deadline: number): OrderValidationResponse {
     if (startTime > deadline) {
       return {
         valid: false,
@@ -103,7 +98,7 @@ export class ValidationProvider {
     }
   }
 
-  validateNonce(nonce: BigNumber): ValidationResponse {
+  private validateNonce(nonce: BigNumber): OrderValidationResponse {
     const error = FieldValidator.isValidNonce().validate(nonce.toString()).error
     if (error) {
       return {
@@ -116,7 +111,7 @@ export class ValidationProvider {
     }
   }
 
-  validateOfferer(offerer: string): ValidationResponse {
+  private validateOfferer(offerer: string): OrderValidationResponse {
     const error = FieldValidator.isValidEthAddress().validate(offerer).error
     if (error) {
       return {
@@ -131,7 +126,7 @@ export class ValidationProvider {
 
   // TODO: Once deployed contracts are finalized, we can restrict this
   // to check against a known set of addresses.
-  validateReactor(reactor: string): ValidationResponse {
+  private validateReactor(reactor: string): OrderValidationResponse {
     const error = FieldValidator.isValidEthAddress().validate(reactor).error
     if (error) {
       return {
@@ -144,7 +139,7 @@ export class ValidationProvider {
     }
   }
 
-  validateInputToken(token: string): ValidationResponse {
+  private validateInputToken(token: string): OrderValidationResponse {
     const error = FieldValidator.isValidEthAddress().validate(token).error
     if (error) {
       return {
@@ -157,19 +152,20 @@ export class ValidationProvider {
     }
   }
 
-  validateInputAmount(amount: BigNumber): ValidationResponse {
-    if (amount.lte(0)) {
+  private validateInputAmount(amount: BigNumber): OrderValidationResponse {
+    if (!this.isValidUint256(amount)) {
       return {
         valid: false,
-        errorString: 'Invalid input amount: amount <= 0',
+        errorString: `Invalid input amount: ${amount.toString()}`,
       }
     }
+
     return {
       valid: true,
     }
   }
 
-  validateOutputs(dutchOutputs: DutchOutput[]): ValidationResponse {
+  private validateOutputs(dutchOutputs: DutchOutput[]): OrderValidationResponse {
     for (const output of dutchOutputs) {
       const { token, recipient, startAmount, endAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
@@ -186,17 +182,24 @@ export class ValidationProvider {
         }
       }
 
-      if (startAmount.lt(0)) {
+      if (!this.isValidUint256(startAmount)) {
         return {
           valid: false,
           errorString: `Invalid startAmount ${startAmount.toString()}`,
         }
       }
 
-      if (endAmount.lt(0)) {
+      if (!this.isValidUint256(endAmount)) {
         return {
           valid: false,
-          errorString: `Invalid endAmount ${output.endAmount.toString()}`,
+          errorString: `Invalid endAmount ${endAmount.toString()}`,
+        }
+      }
+
+      if (endAmount.gt(startAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid endAmount > startAmount`,
         }
       }
     }
@@ -205,7 +208,7 @@ export class ValidationProvider {
     }
   }
 
-  validateHash(orderHash: string): ValidationResponse {
+  private validateHash(orderHash: string): OrderValidationResponse {
     const error = FieldValidator.isValidOrderHash().validate(orderHash).error
     if (error) {
       return {
@@ -216,5 +219,9 @@ export class ValidationProvider {
     return {
       valid: true,
     }
+  }
+
+  private isValidUint256(value: BigNumber) {
+    return value.gte(0) && value.lt(BigNumber.from(1).shl(256));
   }
 }
