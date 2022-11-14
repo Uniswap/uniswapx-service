@@ -23,12 +23,6 @@ jobs:
           node-version: 16.x
           registry-url: https://registry.npmjs.org
 
-      - name: Setup private repository keys
-        uses: webfactory/ssh-agent@v0.6.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.GOUDA_SDK_KEY}}
-
       - name: Install dependencies
         run: yarn install --network-concurrency 1 --frozen-lockfile
 
