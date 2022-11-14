@@ -29,9 +29,13 @@ export class APIStack extends cdk.Stack {
 
     const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
 
-    const { getOrdersLambdaAlias, getNonceLambdaAlias, postOrderLambdaAlias } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
-      provisionedConcurrency,
-    })
+    const { getOrdersLambdaAlias, getNonceLambdaAlias, postOrderLambdaAlias } = new LambdaStack(
+      this,
+      `${SERVICE_NAME}LambdaStack`,
+      {
+        provisionedConcurrency,
+      }
+    )
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
 

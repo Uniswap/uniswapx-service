@@ -27,7 +27,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     try {
       decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
     } catch (e: unknown) {
-      log.error(e, 'Failed to parse encodedOrder')
+      log.error(e, 'Failed to parse order')
       return {
         statusCode: 400,
         ...(e instanceof Error && { errorCode: e.message }),
@@ -38,17 +38,18 @@ export class PostOrderHandler extends APIGLambdaHandler<
     if (!validationResponse.valid) {
       return {
         statusCode: 400,
-        errorCode: 'Order failed off-chain validation',
+        errorCode: 'Invalid order',
         detail: validationResponse.errorString,
       }
     }
-    const orderHash = decodedOrder.hash().toLowerCase()
+
+    const id = decodedOrder.hash().toLowerCase()
 
     const order: OrderEntity = {
       encodedOrder,
       signature,
       nonce: decodedOrder.info.nonce.toString(),
-      orderHash,
+      orderHash: id,
       orderStatus: ORDER_STATUS.UNVERIFIED,
       offerer: decodedOrder.info.offerer.toLowerCase(),
       sellToken: decodedOrder.info.input.token.toLowerCase(),
@@ -61,9 +62,9 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     try {
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`Successfully inserted Order with id ${orderHash} into DynamoDb`)
+      log.info(`Successfully inserted Order with id ${id} into DynamoDb`)
     } catch (e: unknown) {
-      log.error(e, `Failed to Order with id ${orderHash} insert into DynamoDb`)
+      log.error(e, `Failed to Order with id ${id} insert into DynamoDb`)
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
@@ -72,7 +73,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     return {
       statusCode: 201,
-      body: { hash: orderHash },
+      body: { hash: id },
     }
   }
 

@@ -67,7 +67,7 @@ export class LambdaStack extends cdk.NestedStack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
-    
+
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_16_X,
