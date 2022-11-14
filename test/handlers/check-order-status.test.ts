@@ -77,7 +77,7 @@ describe('Testing check order status handler', () => {
       await expect(
         checkOrderStatusHandler.handler({ orderHash: MOCK_ORDER_HASH, chainId: 1, orderStatus: 'foo' } as any)
       ).rejects.toThrowError(
-        '"orderStatus" must be one of [open, expired, error, cancelled, filled, unverified, insufficient-funds]'
+        '"orderStatus" must be one of [open, filled, cancelled, expired, error, unverified, insufficient-funds]'
       )
     })
 
