@@ -26,6 +26,9 @@ jobs:
 
       - name: Install dependencies
         run: yarn install --network-concurrency 1 --frozen-lockfile
+        with:
+          persist-credentials: false
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Run linters
         uses: wearerequired/lint-action@v2
