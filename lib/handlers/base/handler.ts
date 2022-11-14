@@ -7,6 +7,7 @@ import {
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
+import { SfnInputValidationError } from '../../util/errors'
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
@@ -385,7 +386,9 @@ export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends Base
   { containerInjected: CInj; requestInjected: RInj },
   SfnStateInputOutput
 > {
-  constructor(private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>, handlerName: string) {
+  protected abstract inputSchema(): Joi.ObjectSchema | null
+
+  constructor(handlerName: string, private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>) {
     super(handlerName)
   }
 
@@ -404,6 +407,8 @@ export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends Base
         level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
       })
 
+      await this.validateInput(sfnInput, log)
+
       const injector = await this.injectorPromise
 
       const containerInjected = await injector.getContainerInjected()
@@ -413,11 +418,26 @@ export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends Base
         requestInjected = await injector.getRequestInjected(containerInjected, sfnInput, log)
       } catch (err) {
         log.error({ err, sfnInput }, 'Unexpected error building request injected.')
-        throw new InjectionError('Unexpected error building request injected.')
+        throw new InjectionError(`Unexpected error building request injected:\n${err}`)
       }
 
       return await this.handleRequest({ containerInjected, requestInjected })
     }
+  }
+
+  private async validateInput(input: SfnStateInputOutput, log: Logger): Promise<SfnStateInputOutput> {
+    const schema = this.inputSchema()
+
+    if (schema) {
+      const inputValidation = schema.validate(input, {
+        allowUnknown: false,
+      })
+      if (inputValidation.error) {
+        log.info({ inputValidation }, 'Input failed validation')
+        throw new SfnInputValidationError(inputValidation.error.message)
+      }
+    }
+    return input
   }
 
   public abstract handleRequest(input: { containerInjected: CInj; requestInjected: RInj }): Promise<SfnStateInputOutput>
