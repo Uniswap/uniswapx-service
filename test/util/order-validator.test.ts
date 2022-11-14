@@ -41,7 +41,7 @@ describe('Testing off chain validation', () => {
     it('Testing deadline longer than one year.', async () => {
       const order = newOrder({ deadline: CURRENT_TIME + ONE_YEAR + 1 })
       const validationResp = validationProvider.validate(order)
-      expect(validationResp).toEqual({ errorString: 'Deadline field invalid: value too large', valid: false })
+      expect(validationResp).toEqual({ errorString: 'Deadline field invalid: Order expiry cannot be larger than one year', valid: false })
     })
     it('Testing valid deadline.', async () => {
       const order = newOrder({ deadline: CURRENT_TIME + ONE_YEAR })
