@@ -9,7 +9,7 @@ const DECODED_ORDER = {
     reactor: '0x0000000000000000000000000000000000000002',
     startTime: 20,
     input: {
-      token: "0x0000000000000000000000000000000000000003",
+      token: '0x0000000000000000000000000000000000000003',
       amount: BigNumber.from('30'),
     },
     nonce: BigNumber.from('40'),
@@ -17,19 +17,17 @@ const DECODED_ORDER = {
       {
         endAmount: BigNumber.from(50),
         startAmount: BigNumber.from(60),
-        recipient: "0x0000000000000000000000000000000000000004",
-        token: "0x0000000000000000000000000000000000000005",
+        recipient: '0x0000000000000000000000000000000000000004',
+        token: '0x0000000000000000000000000000000000000005',
       },
     ],
   },
   hash: () => '0x0000000000000000000000000000000000000000000000000000000000000006',
 }
 
-
 jest.mock('gouda-sdk', () => ({
-  parseOrder: () => DECODED_ORDER
-}
-));
+  parseOrder: () => DECODED_ORDER,
+}))
 
 describe('Testing post order handler.', () => {
   const putOrderAndUpdateNonceTransaction = jest.fn()
@@ -56,7 +54,7 @@ describe('Testing post order handler.', () => {
     orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
     orderStatus: ORDER_STATUS.UNVERIFIED,
     offerer: '0x0000000000000000000000000000000000000001',
-    sellToken: "0x0000000000000000000000000000000000000003",
+    sellToken: '0x0000000000000000000000000000000000000003',
     sellAmount: '30',
     reactor: '0x0000000000000000000000000000000000000002',
     startTime: 20,
@@ -87,8 +85,6 @@ describe('Testing post order handler.', () => {
 
   describe('Testing valid request and response', () => {
     it('Testing valid request and response.', async () => {
-
-
       validatorMock.mockReturnValue({ valid: true })
 
       const event = {
@@ -139,7 +135,6 @@ describe('Testing post order handler.', () => {
 
   describe('Testing invalid response validation.', () => {
     it('Throws 500 when db interface errors out.', async () => {
-
       putOrderAndUpdateNonceTransaction.mockImplementation(() => {
         throw new Error('database unavailable')
       })
@@ -153,7 +148,7 @@ describe('Testing post order handler.', () => {
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
       expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ errorCode: "database unavailable", id: 'testRequest' }),
+        body: JSON.stringify({ errorCode: 'database unavailable', id: 'testRequest' }),
         statusCode: 500,
         headers: {
           'Access-Control-Allow-Credentials': true,
