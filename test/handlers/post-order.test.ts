@@ -87,16 +87,9 @@ describe('Testing post order handler.', () => {
 
   describe('Testing valid request and response', () => {
     it('Testing valid request and response.', async () => {
-<<<<<<< Updated upstream
-      putOrderAndUpdateNonceTransaction.mockReturnValue(
-        '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae4'
-      )
-      validationProviderMock.mockReturnValue({ valid: true })
-=======
 
 
       validatorMock.mockReturnValue({ valid: true })
->>>>>>> Stashed changes
 
       const event = {
         queryStringParameters: {},
