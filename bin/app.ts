@@ -142,3 +142,7 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
   stage: STAGE.LOCAL,
 })
+
+new APIPipeline(app, `${SERVICE_NAME}PipelineStack`, {
+  env: { account: '644039819003', region: 'us-east-2' },
+})

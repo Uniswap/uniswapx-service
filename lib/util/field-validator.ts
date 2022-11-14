@@ -15,7 +15,7 @@ export default class FieldValidator {
     .regex(/^[0-9]+$/)
     .custom((value: string, helpers: CustomHelpers<any>) => {
       if (!BigNumber.from(value).lt(MAX)) {
-        return helpers.error('VALIDATION ERROR: Nonce too large')
+        return helpers.error('VALIDATION ERROR: Nonce is larger than max uint256 integer')
       }
       return value
     })

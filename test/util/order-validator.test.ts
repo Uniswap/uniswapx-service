@@ -36,12 +36,15 @@ describe('Testing off chain validation', () => {
     it('Testing deadline < current time.', async () => {
       const order = newOrder({ deadline: 9 })
       const validationResp = validationProvider.validate(order)
-      expect(validationResp).toEqual({ errorString: 'Deadline field invalid: value too small', valid: false })
+      expect(validationResp).toEqual({ errorString: 'Insufficient Deadline', valid: false })
     })
     it('Testing deadline longer than one year.', async () => {
       const order = newOrder({ deadline: CURRENT_TIME + ONE_YEAR + 1 })
       const validationResp = validationProvider.validate(order)
-      expect(validationResp).toEqual({ errorString: 'Deadline field invalid: value too large', valid: false })
+      expect(validationResp).toEqual({
+        errorString: 'Deadline invalid, trades can only be open for one year.',
+        valid: false,
+      })
     })
     it('Testing valid deadline.', async () => {
       const order = newOrder({ deadline: CURRENT_TIME + ONE_YEAR })
@@ -100,7 +103,7 @@ describe('Testing off chain validation', () => {
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         errorString:
-          'Invalid nonce: ValidationError: Error code "VALIDATION ERROR: Nonce too large" is not defined, your custom type is missing the correct messages definition',
+          'Invalid nonce: ValidationError: Error code "VALIDATION ERROR: Nonce is larger than max uint256 integer" is not defined, your custom type is missing the correct messages definition',
         valid: false,
       })
     })
