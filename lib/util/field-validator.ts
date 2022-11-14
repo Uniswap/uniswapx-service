@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import Joi, { CustomHelpers, NumberSchema, StringSchema, ObjectSchema } from 'joi'
+import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS } from '../entities'
 import { SUPPORTED_CHAINS } from './chain'
 

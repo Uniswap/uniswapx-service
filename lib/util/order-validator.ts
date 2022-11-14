@@ -1,6 +1,8 @@
-import { BigNumber } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import { DutchLimitOrder, DutchOutput } from 'gouda-sdk'
-import FieldValidator from '../field-validator'
+import FieldValidator from './field-validator'
+
+const ONE_YEAR = 365 * 24 * 60 * 60
 
 export type ValidationResponse = {
   valid: boolean
@@ -10,12 +12,10 @@ export type ValidationResponse = {
 /*
  * Provider that validates decoded dutch orders
  * @export
- * @class ValidationProvider
+ * @class OrderValidator
  */
-export class ValidationProvider {
+export class OrderValidator {
   constructor(private readonly getCurrentTime: () => number, private readonly minOffset = 60) {
-    this.getCurrentTime = getCurrentTime
-    this.minOffset = minOffset
   }
 
   validate(order: DutchLimitOrder): ValidationResponse {
@@ -72,7 +72,7 @@ export class ValidationProvider {
     if (deadline < this.getCurrentTime() + this.minOffset) {
       return {
         valid: false,
-        errorString: `Deadline field invalid: value too small`,
+        errorString: `Insufficient Deadline`,
       }
     }
     /* 
@@ -80,10 +80,10 @@ export class ValidationProvider {
       Step function last at most one year, so deadline can
       be at most one year from now
     */
-    if (deadline > this.getCurrentTime() + 365 * 24 * 60 * 60) {
+    if (deadline > this.getCurrentTime() + ONE_YEAR) {
       return {
         valid: false,
-        errorString: `Deadline field invalid: value too large`,
+        errorString: `Deadline invalid, trades can only be open for one year.`,
       }
     }
     return {
@@ -162,6 +162,12 @@ export class ValidationProvider {
       return {
         valid: false,
         errorString: 'Invalid input amount: amount <= 0',
+      }
+    }
+    if (amount.gt(ethers.constants.MaxUint256)) {
+      return {
+        valid: false,
+        errorString: 'Invalid input amount: amount > Max Uint256'
       }
     }
     return {

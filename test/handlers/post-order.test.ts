@@ -35,7 +35,7 @@ jest.mock('gouda-sdk', () => ({
 describe('Testing post order handler.', () => {
   // Creating mocks for all the handler dependencies.
   const postOrderMock = jest.fn()
-  const validationProviderMock = jest.fn()
+  const orderValidatorMock = jest.fn()
   const encodedOrder =
     '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000e9781560d93c27aa4c4f3543631d191d10608d20000000000000000000000000eaf1c41339f7d33a2c47f82f7b9309b5cbc83b5f0000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000006364432c0000000000000000000000000000000000000000000000000000000063644200000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000000000000000000000000000000000000000e4e1c0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000010000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000000ac2d18f78e5c8000000000000000000000000000000000000000000000000000a8c0ff92d4c00000000000000000000000000000eaf1c41339f7d33a2c47f82f7b9309b5cbc83b5f'
   const postRequestBodyMock = {
@@ -76,8 +76,8 @@ describe('Testing post order handler.', () => {
         dbInterface: {
           putOrderAndUpdateNonceTransaction: postOrderMock,
         },
-        validationProvider: {
-          validate: validationProviderMock,
+        orderValidator: {
+          validate: orderValidatorMock,
         },
       }
     },
@@ -87,7 +87,7 @@ describe('Testing post order handler.', () => {
 
   beforeAll(async () => {
     postOrderMock.mockReturnValue('0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae4')
-    validationProviderMock.mockReturnValue({ valid: true })
+    orderValidatorMock.mockReturnValue({ valid: true })
   })
 
   afterEach(() => {
@@ -134,7 +134,7 @@ describe('Testing post order handler.', () => {
         queryStringParameters: {},
       }
       const postOrderResponse = await postOrderHandler.handler(invalidEvent as any, {} as any)
-      expect(validationProviderMock).not.toHaveBeenCalled()
+      expect(orderValidatorMock).not.toHaveBeenCalled()
       expect(postOrderMock).not.toHaveBeenCalled()
       expect(postOrderResponse.statusCode).toEqual(400)
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
@@ -171,7 +171,7 @@ describe('Testing post order handler.', () => {
     it('Throws 400', async () => {
       const errorCode = 'Order failed off-chain validation'
       const errorString = 'testing offchain validation'
-      validationProviderMock.mockReturnValue({
+      orderValidatorMock.mockReturnValue({
         valid: false,
         errorString,
       })

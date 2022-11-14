@@ -18,7 +18,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody: { encodedOrder, signature },
       requestInjected: { log },
-      containerInjected: { dbInterface, validationProvider },
+      containerInjected: { dbInterface, orderValidator },
     } = params
 
     log.info('Handling POST order request', params)
@@ -34,7 +34,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const validationResponse = validationProvider.validate(decodedOrder)
+    const validationResponse = orderValidator.validate(decodedOrder)
     if (!validationResponse.valid) {
       return {
         statusCode: 400,
@@ -55,17 +55,15 @@ export class PostOrderHandler extends APIGLambdaHandler<
       sellAmount: decodedOrder.info.input.amount.toString(),
       reactor: decodedOrder.info.reactor.toLowerCase(),
       startTime: decodedOrder.info.startTime,
-      // endTime not in the parsed order, so using deadline
-      // TODO: get endTime in the right way
       endTime: decodedOrder.info.deadline,
       deadline: decodedOrder.info.deadline,
     }
 
     try {
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`Successfully inserted Order with hash ${orderHash} into DynamoDb`)
+      log.info(`Successfully inserted Order with id ${orderHash} into DynamoDb`)
     } catch (e: unknown) {
-      log.error(e, 'Failed to insert into dynamodb')
+      log.error(e, `Failed to Order with id ${orderHash} insert into DynamoDb`)
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
