@@ -440,7 +440,7 @@ export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends Base
 
     if (schema) {
       const inputValidation = schema.validate(input, {
-        allowUnknown: false,
+        allowUnknown: true,
       })
       if (inputValidation.error) {
         log.info({ inputValidation }, 'Input failed validation')
