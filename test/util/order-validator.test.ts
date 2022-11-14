@@ -42,7 +42,7 @@ describe('Testing off chain validation', () => {
       const order = newOrder({ deadline: CURRENT_TIME + ONE_YEAR + 1 })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
-        errorString: 'Deadline invalid, trades can only be open for one year.',
+        errorString: 'Deadline field invalid: Order expiry cannot be larger than one year',
         valid: false,
       })
     })

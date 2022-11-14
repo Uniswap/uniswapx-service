@@ -77,7 +77,7 @@ export class OrderValidator {
     if (deadline > this.getCurrentTime() + ONE_YEAR_IN_SECONDS) {
       return {
         valid: false,
-        errorString: `Deadline invalid, trades can only be open for one year.`,
+        errorString: `Deadline field invalid: Order expiry cannot be larger than one year`,
       }
     }
     return {
