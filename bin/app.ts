@@ -90,8 +90,7 @@ export class APIPipeline extends Stack {
     // Secrets are stored in secrets manager in the pipeline account. Accounts we deploy to
     // have been granted permissions to access secrets via resource policies.
     const jsonRpcProvidersSecret = sm.Secret.fromSecretAttributes(this, 'RPCProviderUrls', {
-      secretCompleteArn:
-        'arn:aws:secretsmanager:us-east-2:644039819003:secret:routing-api-rpc-urls-json-primary-ixS8mw',
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-service-rpc-urls-E4FbSb',
     })
 
     const goudaRpcTenderly = sm.Secret.fromSecretAttributes(this, 'goudaRpcTenderly', {
