@@ -107,29 +107,6 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           log
         )
     }
-
-    // const curBlockNumber = await provider.getBlockNumber()
-
-    // const isFilled = await reactorContract.queryFilter(
-    //   reactorContract.filters.Fill(orderHash),
-    //   lastBlockNumber,
-    //   curBlockNumber
-    // )
-
-    // if (isFilled.length > 0) {
-    //   return this.updateStatusAndReturn(
-    //     dbInterface,
-    //     orderHash,
-    //     retryCount,
-    //     curBlockNumber,
-    //     chainId,
-    //     ORDER_STATUS.FILLED
-    //   )
-    // }
-
-    // // check for Cancel event
-    // // TODO: use Pertmi2Contract.queryFilter() after Cancel event is finalized
-    // const watcher = new EventWatcher(provider, reactorContract.address)
   }
 
   private async updateStatusAndReturn(
