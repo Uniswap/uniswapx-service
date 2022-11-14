@@ -14,6 +14,7 @@ export interface RequestInjected extends BaseRInj {
     offerer?: string
     sellToken?: string
   }
+  cursor?: string
 }
 
 export interface ContainerInjected {
@@ -52,6 +53,7 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
     const orderHash = requestQueryParams?.orderHash?.toLowerCase()
     const offerer = requestQueryParams?.offerer?.toLowerCase()
     const sellToken = requestQueryParams?.sellToken?.toLowerCase()
+    const cursor = requestQueryParams?.cursor
 
     return {
       limit: limit,
@@ -63,6 +65,7 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
       },
       requestId,
       log,
+      ...(cursor && { cursor: cursor }),
     }
   }
 }

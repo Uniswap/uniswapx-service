@@ -11,6 +11,7 @@ export default class FieldValidator {
     .max(78) // 2^256 - 1 in base 10 is 78 digits long
     .regex(/^[0-9]+$/)
   private static readonly NUMBER_JOI = Joi.number()
+  private static readonly BASE_64_STRING = Joi.string().max(500).base64()
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
     ORDER_STATUS.OPEN,
     ORDER_STATUS.FILLED,
@@ -21,8 +22,8 @@ export default class FieldValidator {
   )
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
-    if (!ethers.utils.getAddress(value)) {
-      return helpers.error('VALIDATION ERROR: Invalid address')
+    if (!ethers.utils.isAddress(value)) {
+      return helpers.message({ custom: 'VALIDATION ERROR: Invalid address' })
     }
     return value
   })
@@ -53,6 +54,10 @@ export default class FieldValidator {
 
   public static isValidCreatedAt(): NumberSchema {
     return this.NUMBER_JOI
+  }
+
+  public static isValidCursor(): StringSchema {
+    return this.BASE_64_STRING
   }
 
   public static isValidNonce(): StringSchema {

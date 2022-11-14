@@ -84,9 +84,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const invalidAddress = '0xnot_a_valid_eth_address'
       const validatedField = FieldValidator.isValidEthAddress().validate(invalidAddress)
       expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toEqual(
-        `"value" failed custom validation because invalid address (argument="address", value="${invalidAddress}", code=INVALID_ARGUMENT, version=address/5.7.0)`
-      )
+      expect(validatedField.error?.details[0].message).toEqual('VALIDATION ERROR: Invalid address')
     })
   })
 
@@ -124,6 +122,35 @@ describe('Testing each field on the FieldValidator class.', () => {
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
         '"value" length must be less than or equal to 78 characters long'
+      )
+    })
+  })
+
+  describe('Testing cursor field.', () => {
+    it('should validate field.', async () => {
+      const cursor = 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0='
+      expect(FieldValidator.isValidCursor().validate(cursor)).toEqual({ value: cursor })
+    })
+
+    it('should invalidate field.', async () => {
+      const invalidCursor = '0xnot_a_valid_order_$$$$'
+      const validatedField = FieldValidator.isValidCursor().validate(invalidCursor)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be a valid base64 string')
+    })
+
+    it('should invalidate field.', async () => {
+      const maxLengthCursor = `jfkasdjfkdsajfdjsafjdsjfkljsddkfjdhsajkgfhdgjkdfshgkfhdjkghjkfdhgjkh
+        hsdfjhgjkfdshgjksdfjkgfdjkshgjkhsdfjkghfdjkghjkfdshgjklhdfsjkghkjfdshg
+        hsdfjhgjkfdshgjksdfjkgfdjkshgjkhsdfjkghfdjkghjkfdshgjklhdfsjkghkjfdshg
+        kljdfhsgjklhsdfjkghsdfjklghjkdfhgjksdfhjkghfdjkghsdfkjlghdfjksghjkfdhg
+        kjlfdhgjkhfdkjghsdfjkhgkjdfshgkjdfhskgjhfdjkghdfjkhgkjdfkghsdfjkghfkgh
+        kjfdshgkljdfhsgjklhsdfjkghsdfjklghjkdfhgjksdfhjkghfdjkghsdfkjlghdfjksgh
+        2giOiIweGRlYWRiZWVmNTcxNDAzIn0=`
+      const validatedField = FieldValidator.isValidCursor().validate(maxLengthCursor)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        '"value" length must be less than or equal to 500 characters long'
       )
     })
   })
