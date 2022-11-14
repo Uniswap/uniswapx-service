@@ -7,11 +7,10 @@ export type OrderValidationResponse = {
   errorString?: string
 }
 
-const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
+const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
 
 export class OrderValidator {
-  constructor(private readonly getCurrentTime: () => number, private readonly minOffset = 60) {
-  }
+  constructor(private readonly getCurrentTime: () => number, private readonly minOffset = 60) {}
 
   validate(order: DutchLimitOrder): OrderValidationResponse {
     const deadlineValidation = this.validateDeadline(order.info.deadline)
@@ -222,6 +221,6 @@ export class OrderValidator {
   }
 
   private isValidUint256(value: BigNumber) {
-    return value.gte(0) && value.lt(BigNumber.from(1).shl(256));
+    return value.gte(0) && value.lt(BigNumber.from(1).shl(256))
   }
 }

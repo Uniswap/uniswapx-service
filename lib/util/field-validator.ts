@@ -3,7 +3,7 @@ import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS } from '../entities'
 import { SUPPORTED_CHAINS } from './chain'
 
-const MAX = BigNumber.from(1).shl(256);
+const MAX = BigNumber.from(1).shl(256)
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
@@ -12,12 +12,13 @@ export default class FieldValidator {
   private static readonly NONCE_JOI = Joi.string()
     .min(1)
     .max(78) // 2^256 - 1 in base 10 is 78 digits long
-    .regex(/^[0-9]+$/).custom((value: string, helpers: CustomHelpers<any>) => {
+    .regex(/^[0-9]+$/)
+    .custom((value: string, helpers: CustomHelpers<any>) => {
       if (!BigNumber.from(value).lt(MAX)) {
         return helpers.error('VALIDATION ERROR: Nonce too large')
       }
       return value
-    });
+    })
   private static readonly NUMBER_JOI = Joi.number()
   private static readonly CHAIN_ID_JOI = Joi.number().valid(...SUPPORTED_CHAINS)
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
