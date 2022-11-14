@@ -32,8 +32,7 @@ jest.mock('gouda-sdk', () => ({
 describe('Testing post order handler.', () => {
   const putOrderAndUpdateNonceTransaction = jest.fn()
   const validatorMock = jest.fn()
-  const encodedOrder =
-    '0x01'
+  const encodedOrder = '0x01'
   const postRequestBody = {
     encodedOrder: encodedOrder,
     signature:
