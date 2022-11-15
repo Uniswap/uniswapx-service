@@ -81,7 +81,7 @@ describe('Testing each field on the FieldValidator class.', () => {
     })
 
     it('should invalidate field.', async () => {
-      const invalidAddress = '0xnot_a_valid_eth_address'
+      const invalidAddress = '0xnot_a_valid_eth_adress'
       const validatedField = FieldValidator.isValidEthAddress().validate(invalidAddress)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual('VALIDATION ERROR: Invalid address')
