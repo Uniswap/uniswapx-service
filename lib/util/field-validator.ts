@@ -25,6 +25,7 @@ export default class FieldValidator {
     if (!ethers.utils.isAddress(value)) {
       return helpers.message({ custom: 'VALIDATION ERROR: Invalid address' })
     }
+
     return value
   })
 
