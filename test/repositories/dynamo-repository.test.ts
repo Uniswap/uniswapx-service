@@ -1,24 +1,10 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import { TABLE_KEY } from '../../lib/config/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
 import * as nonceUtil from '../../lib/util/nonce'
-import { getCurrentMonth } from '../../lib/util/time'
+import { getCurrentMonth, getCurrentTime } from '../../lib/util/time'
 
 jest.mock('../../lib/util/time')
-
-jest.mock('../../lib/entities/Order', () => ({
-  ...jest.requireActual('../../lib/entities/Order'),
-  getValidKeys: jest.fn().mockImplementation((index: string | undefined) => {
-    const TEST_MAPPING: { [key: string]: TABLE_KEY[] } = {
-      primaryTable: [TABLE_KEY.ORDER_HASH],
-      'offerer-createdAt-index': [TABLE_KEY.OFFERER, TABLE_KEY.ORDER_HASH, TABLE_KEY.CREATED_AT],
-      'orderStatus-createdAt-index': [TABLE_KEY.ORDER_STATUS, TABLE_KEY.ORDER_HASH, TABLE_KEY.CREATED_AT],
-      'sellToken-createdAt-index': [TABLE_KEY.SELL_TOKEN, TABLE_KEY.ORDER_HASH, TABLE_KEY.CREATED_AT],
-    }
-    return index ? TEST_MAPPING[index] : TEST_MAPPING['primaryTable']
-  }),
-}))
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -63,41 +49,43 @@ const MOCK_ORDER_3 = {
 
 const ADDITIONAL_FIELDS_ORDER_1 = {
   ...MOCK_ORDER_1,
-  createdAt: 1,
   deadline: 1,
-  createdAtMonth: 1,
 }
 
 const ADDITIONAL_FIELDS_ORDER_2 = {
   ...MOCK_ORDER_2,
-  createdAt: 2,
   deadline: 2,
-  createdAtMonth: 1,
 }
 
 const ADDITIONAL_FIELDS_ORDER_3 = {
   ...MOCK_ORDER_3,
-  createdAt: 3,
   deadline: 3,
-  createdAtMonth: 1,
 }
 
 const mockedGetCurrentMonth = jest.mocked(getCurrentMonth)
+const mockedGetCurrentTime = jest.mocked(getCurrentTime)
 mockedGetCurrentMonth.mockImplementation(() => 1)
+const mockTimeAndMonth = (time: number) => {
+  mockedGetCurrentTime.mockImplementation(() => time)
+}
 
 const documentClient = new DocumentClient(dynamoConfig)
 const ordersRepository = new DynamoOrdersRepository()
 DynamoOrdersRepository.initialize(documentClient)
 
 beforeAll(async () => {
+  mockTimeAndMonth(1)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1)
+  mockTimeAndMonth(2)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_2)
+  mockTimeAndMonth(3)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_3)
 })
 
 describe('OrdersRepository put item test', () => {
   it('should successfully put an item in table', async () => {
     expect(() => {
+      mockTimeAndMonth(1)
       ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1)
     }).not.toThrow()
   })
@@ -161,7 +149,7 @@ describe('OrdersRepository getOrders test', () => {
     expect(queryResult.orders[0]).toEqual(
       expect.objectContaining({
         ...MOCK_ORDER_1,
-        offererOrderStatusSellToken: `${MOCK_ORDER_1.offerer}-${MOCK_ORDER_1.orderStatus}-${MOCK_ORDER_1.sellToken}`,
+        offerer_orderStatus_sellToken: `${MOCK_ORDER_1.offerer}_${MOCK_ORDER_1.orderStatus}_${MOCK_ORDER_1.sellToken}`,
       })
     )
   })
@@ -184,7 +172,7 @@ describe('OrdersRepository getOrders test', () => {
     expect(queryResult.orders[0]).toEqual(
       expect.objectContaining({
         ...MOCK_ORDER_2,
-        offererOrderStatus: `${MOCK_ORDER_2.offerer}-${MOCK_ORDER_2.orderStatus}`,
+        offerer_orderStatus: `${MOCK_ORDER_2.offerer}_${MOCK_ORDER_2.orderStatus}`,
       })
     )
   })
@@ -206,7 +194,7 @@ describe('OrdersRepository getOrders test', () => {
     expect(queryResult.orders[0]).toEqual(
       expect.objectContaining({
         ...MOCK_ORDER_1,
-        offererSellToken: `${MOCK_ORDER_1.offerer}-${MOCK_ORDER_1.sellToken}`,
+        offerer_sellToken: `${MOCK_ORDER_1.offerer}_${MOCK_ORDER_1.sellToken}`,
       })
     )
   })
@@ -228,7 +216,7 @@ describe('OrdersRepository getOrders test', () => {
     expect(queryResult.orders[0]).toEqual(
       expect.objectContaining({
         ...MOCK_ORDER_1,
-        sellTokenOrderStatus: `${MOCK_ORDER_1.sellToken}-${MOCK_ORDER_1.orderStatus}`,
+        sellToken_orderStatus: `${MOCK_ORDER_1.sellToken}_${MOCK_ORDER_1.orderStatus}`,
       })
     )
   })
@@ -442,8 +430,9 @@ describe('OrdersRepository update status test', () => {
     await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED)
     await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
       orderStatus: ORDER_STATUS.FILLED,
-      sellTokenOrderStatus: `${MOCK_ORDER_1.sellToken}-${ORDER_STATUS.FILLED}`,
-      offererOrderStatus: `${MOCK_ORDER_1.offerer}-${ORDER_STATUS.FILLED}`,
+      sellToken_orderStatus: `${MOCK_ORDER_1.sellToken}_${ORDER_STATUS.FILLED}`,
+      offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
+      offerer_orderStatus_sellToken: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}_${MOCK_ORDER_1.sellToken}`,
     })
   })
 

@@ -8,17 +8,17 @@ module.exports = {
         { AttributeName: 'offerer', AttributeType: 'S' },
         { AttributeName: 'orderStatus', AttributeType: 'S' },
         { AttributeName: 'sellToken', AttributeType: 'S' },
-        { AttributeName: 'offererOrderStatus', AttributeType: 'S' },
-        { AttributeName: 'offererSellToken', AttributeType: 'S' },
-        { AttributeName: 'sellTokenOrderStatus', AttributeType: 'S' },
-        { AttributeName: 'offererOrderStatusSellToken', AttributeType: 'S' },
+        { AttributeName: 'offerer_orderStatus', AttributeType: 'S' },
+        { AttributeName: 'offerer_sellToken', AttributeType: 'S' },
+        { AttributeName: 'sellToken_orderStatus', AttributeType: 'S' },
+        { AttributeName: 'offerer_orderStatus_sellToken', AttributeType: 'S' },
         { AttributeName: 'deadline', AttributeType: 'N' },
         { AttributeName: 'createdAt', AttributeType: 'N' },
         { AttributeName: 'createdAtMonth', AttributeType: 'N' },
       ],
       GlobalSecondaryIndexes: [
         {
-          IndexName: 'offerer-createdAt-index',
+          IndexName: 'offerer-createdAt',
           KeySchema: [
             { AttributeName: 'offerer', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -30,7 +30,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'orderStatus-createdAt-index',
+          IndexName: 'orderStatus-createdAt',
           KeySchema: [
             { AttributeName: 'orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -42,7 +42,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'sellToken-createdAt-index',
+          IndexName: 'sellToken-createdAt',
           KeySchema: [
             { AttributeName: 'sellToken', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -54,9 +54,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offererOrderStatusSellToken-createdAt-index',
+          IndexName: 'offerer_orderStatus_sellToken-createdAt',
           KeySchema: [
-            { AttributeName: 'offererOrderStatusSellToken', KeyType: 'HASH' },
+            { AttributeName: 'offerer_orderStatus_sellToken', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -74,9 +74,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offererOrderStatus-createdAt-index',
+          IndexName: 'offerer_orderStatus-createdAt',
           KeySchema: [
-            { AttributeName: 'offererOrderStatus', KeyType: 'HASH' },
+            { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -94,9 +94,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offererSellToken-createdAt-index',
+          IndexName: 'offerer_sellToken-createdAt',
           KeySchema: [
-            { AttributeName: 'offererSellToken', KeyType: 'HASH' },
+            { AttributeName: 'offerer_sellToken', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -114,9 +114,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'sellTokenOrderStatus-createdAt-index',
+          IndexName: 'sellToken_orderStatus-createdAt',
           KeySchema: [
-            { AttributeName: 'sellTokenOrderStatus', KeyType: 'HASH' },
+            { AttributeName: 'sellToken_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -134,7 +134,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'createdAtMonth-createdAt-index',
+          IndexName: 'createdAtMonth-createdAt',
           KeySchema: [
             { AttributeName: 'createdAtMonth', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -154,7 +154,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offerer-deadline-index',
+          IndexName: 'offerer-deadline',
           KeySchema: [
             { AttributeName: 'offerer', KeyType: 'HASH' },
             { AttributeName: 'deadline', KeyType: 'RANGE' },
@@ -166,7 +166,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'orderStatus-deadline-index',
+          IndexName: 'orderStatus-deadline',
           KeySchema: [
             { AttributeName: 'orderStatus', KeyType: 'HASH' },
             { AttributeName: 'deadline', KeyType: 'RANGE' },
@@ -178,7 +178,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'sellToken-deadline-index',
+          IndexName: 'sellToken-deadline',
           KeySchema: [
             { AttributeName: 'sellToken', KeyType: 'HASH' },
             { AttributeName: 'deadline', KeyType: 'RANGE' },
@@ -190,9 +190,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offererOrderStatusSellToken-deadline-index',
+          IndexName: 'offerer_orderStatus_sellToken-deadline',
           KeySchema: [
-            { AttributeName: 'offererOrderStatusSellToken', KeyType: 'HASH' },
+            { AttributeName: 'offerer_orderStatus_sellToken', KeyType: 'HASH' },
             { AttributeName: 'deadline', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -210,9 +210,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offererOrderStatus-deadline-index',
+          IndexName: 'offerer_orderStatus-deadline',
           KeySchema: [
-            { AttributeName: 'offererOrderStatus', KeyType: 'HASH' },
+            { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'deadline', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -230,9 +230,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offererSellToken-deadline-index',
+          IndexName: 'offerer_sellToken-deadline',
           KeySchema: [
-            { AttributeName: 'offererSellToken', KeyType: 'HASH' },
+            { AttributeName: 'offerer_sellToken', KeyType: 'HASH' },
             { AttributeName: 'deadline', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -250,9 +250,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'sellTokenOrderStatus-deadline-index',
+          IndexName: 'sellToken_orderStatus-deadline',
           KeySchema: [
-            { AttributeName: 'sellTokenOrderStatus', KeyType: 'HASH' },
+            { AttributeName: 'sellToken_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'deadline', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -262,7 +262,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'createdAtMonth-deadline-index',
+          IndexName: 'createdAtMonth-deadline',
           KeySchema: [
             { AttributeName: 'createdAtMonth', KeyType: 'HASH' },
             { AttributeName: 'deadline', KeyType: 'RANGE' },

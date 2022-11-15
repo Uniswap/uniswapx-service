@@ -2,13 +2,13 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
-import { getValidKeys, OrderEntity, ORDER_STATUS, SORT_FIELDS } from '../entities/Order'
+import { OrderEntity, ORDER_STATUS, SORT_FIELDS } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { checkDefined } from '../preconditions/preconditions'
 import { parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
-import { getCurrentMonth } from '../util/time'
+import { getCurrentMonth, getCurrentTime } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
 export const MAX_ORDERS = 500
@@ -25,67 +25,67 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       partitionKey: 'orderHash',
       DocumentClient: documentClient,
       indexes: {
-        [`${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-index`]: {
+        [`${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`]: {
           partitionKey: TABLE_KEY.OFFERER,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}-index`]: {
+        [`${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`]: {
           partitionKey: TABLE_KEY.SELL_TOKEN,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-index`]: {
+        [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
           partitionKey: TABLE_KEY.ORDER_STATUS,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN}-${TABLE_KEY.CREATED_AT}-index`]: {
-          partitionKey: TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN,
+        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.OFFERER_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-index`]: {
-          partitionKey: TABLE_KEY.OFFERER_ORDER_STATUS,
+        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.OFFERER_SELL_TOKEN}-${TABLE_KEY.CREATED_AT}-index`]: {
-          partitionKey: TABLE_KEY.OFFERER_SELL_TOKEN,
+        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-index`]: {
-          partitionKey: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
+        [`${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}-index`]: {
+        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}`]: {
           partitionKey: TABLE_KEY.CREATED_AT_MONTH,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}-index`]: {
+        [`${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}`]: {
           partitionKey: TABLE_KEY.OFFERER,
           sortKey: TABLE_KEY.DEADLINE,
         },
-        [`${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}-index`]: {
+        [`${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`]: {
           partitionKey: TABLE_KEY.SELL_TOKEN,
           sortKey: TABLE_KEY.DEADLINE,
         },
-        [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}-index`]: {
+        [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`]: {
           partitionKey: TABLE_KEY.ORDER_STATUS,
           sortKey: TABLE_KEY.DEADLINE,
         },
-        [`${TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN}-${TABLE_KEY.DEADLINE}-index`]: {
-          partitionKey: TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN,
+        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`]: {
+          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
           sortKey: TABLE_KEY.DEADLINE,
         },
-        [`${TABLE_KEY.OFFERER_ORDER_STATUS}-${TABLE_KEY.DEADLINE}-index`]: {
-          partitionKey: TABLE_KEY.OFFERER_ORDER_STATUS,
+        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`]: {
+          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.DEADLINE,
         },
-        [`${TABLE_KEY.OFFERER_SELL_TOKEN}-${TABLE_KEY.DEADLINE}-index`]: {
-          partitionKey: TABLE_KEY.OFFERER_SELL_TOKEN,
+        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`]: {
+          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
           sortKey: TABLE_KEY.DEADLINE,
         },
-        [`${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}-${TABLE_KEY.DEADLINE}-index`]: {
-          partitionKey: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
+        [`${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`]: {
+          partitionKey: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.DEADLINE,
         },
-        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.DEADLINE}-index`]: {
+        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.DEADLINE}`]: {
           partitionKey: TABLE_KEY.CREATED_AT_MONTH,
           sortKey: TABLE_KEY.DEADLINE,
         },
@@ -109,10 +109,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         reactor: { type: DYNAMODB_TYPES.STRING },
         sellToken: { type: DYNAMODB_TYPES.STRING },
         sellAmount: { type: DYNAMODB_TYPES.STRING },
-        offererOrderStatus: { type: DYNAMODB_TYPES.STRING },
-        offererSellToken: { type: DYNAMODB_TYPES.STRING },
-        sellTokenOrderStatus: { type: DYNAMODB_TYPES.STRING },
-        offererOrderStatusSellToken: { type: DYNAMODB_TYPES.STRING },
+        offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        offerer_sellToken: { type: DYNAMODB_TYPES.STRING },
+        sellToken_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        offerer_orderStatus_sellToken: { type: DYNAMODB_TYPES.STRING },
         createdAtMonth: { type: DYNAMODB_TYPES.NUMBER },
       },
       table: this.ordersTable,
@@ -184,10 +184,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       [
         DynamoOrdersRepository.orderEntity.putTransaction({
           ...order,
-          offererOrderStatus: `${order.offerer}-${order.orderStatus}`,
-          offererSellToken: `${order.offerer}-${order.sellToken}`,
-          sellTokenOrderStatus: `${order.sellToken}-${order.orderStatus}`,
-          offererOrderStatusSellToken: `${order.offerer}-${order.orderStatus}-${order.sellToken}`,
+          offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
+          offerer_sellToken: `${order.offerer}_${order.sellToken}`,
+          sellToken_orderStatus: `${order.sellToken}_${order.orderStatus}`,
+          offerer_orderStatus_sellToken: `${order.offerer}_${order.orderStatus}_${order.sellToken}`,
+          createdAtMonth: getCurrentMonth(),
+          createdAt: getCurrentTime(),
         }),
         DynamoOrdersRepository.nonceEntity.updateTransaction({
           offerer: order.offerer,
@@ -206,8 +208,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     await DynamoOrdersRepository.orderEntity.update({
       [TABLE_KEY.ORDER_HASH]: orderHash,
       orderStatus: status,
-      offererOrderStatus: `${order.offerer}-${status}`,
-      sellTokenOrderStatus: `${order.sellToken}-${status}`,
+      offerer_orderStatus: `${order.offerer}_${status}`,
+      sellToken_orderStatus: `${order.sellToken}_${status}`,
+      offerer_orderStatus_sellToken: `${order.offerer}_${status}_${order.sellToken}`,
     })
   }
 
@@ -253,8 +256,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         requestedParams
       ):
         return await this.queryOrderEntity(
-          `${queryFilters['offerer']}-${queryFilters['orderStatus']}-${queryFilters['sellToken']}`,
-          `${TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN}`,
+          `${queryFilters['offerer']}_${queryFilters['orderStatus']}_${queryFilters['sellToken']}`,
+          `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
           limit,
           cursor,
           queryFilters['sortKey'],
@@ -263,8 +266,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         return await this.queryOrderEntity(
-          `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.OFFERER_ORDER_STATUS}`,
+          `${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
+          `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           limit,
           cursor,
           queryFilters['sortKey'],
@@ -273,8 +276,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
         return await this.queryOrderEntity(
-          `${queryFilters['offerer']}-${queryFilters['sellToken']}`,
-          `${TABLE_KEY.OFFERER_SELL_TOKEN}`,
+          `${queryFilters['offerer']}_${queryFilters['sellToken']}`,
+          `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
           limit,
           cursor,
           queryFilters['sortKey'],
@@ -283,8 +286,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         return await this.queryOrderEntity(
-          `${queryFilters['sellToken']}-${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}`,
+          `${queryFilters['sellToken']}_${queryFilters['orderStatus']}`,
+          `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
           limit,
           cursor,
           queryFilters['sortKey'],
@@ -330,7 +333,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     if (sortKey) {
       comparison = parseComparisonFilter(sort)
     }
-    const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-index`
+    const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}`
 
     const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
       index: formattedIndex,
@@ -369,7 +372,14 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       throw new Error('Invalid cursor.')
     }
     const keys = Object.keys(lastEvaluatedKey)
-    const validKeys = getValidKeys(index)
+    const validKeys: string[] = [TABLE_KEY.ORDER_HASH]
+
+    index?.split('-').forEach((key: string) => {
+      if (key) {
+        validKeys.push(key)
+      }
+    })
+
     const keysMatch = keys.every((key: string) => {
       return validKeys.includes(key as TABLE_KEY)
     })

@@ -26,7 +26,7 @@ export class DynamoStack extends cdk.NestedStack {
     // Create global secondary indexes with createdAt sort key
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-index`,
+      indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
         name: TABLE_KEY.OFFERER,
         type: aws_dynamo.AttributeType.STRING,
@@ -40,7 +40,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}-index`,
+      indexName: `${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
         name: TABLE_KEY.SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
@@ -60,7 +60,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-index`,
+      indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
         name: TABLE_KEY.ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
@@ -80,9 +80,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN}-${TABLE_KEY.CREATED_AT}-index`,
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
-        name: TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN,
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -100,9 +100,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-index`,
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
-        name: TABLE_KEY.OFFERER_ORDER_STATUS,
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -120,9 +120,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER_SELL_TOKEN}-${TABLE_KEY.CREATED_AT}-index`,
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
-        name: TABLE_KEY.OFFERER_SELL_TOKEN,
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -140,9 +140,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-index`,
+      indexName: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
-        name: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
+        name: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -160,7 +160,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}-index`,
+      indexName: `${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
         name: TABLE_KEY.CREATED_AT_MONTH,
         type: aws_dynamo.AttributeType.NUMBER,
@@ -182,7 +182,7 @@ export class DynamoStack extends cdk.NestedStack {
     // Create global secondary indexes with deadline sort key
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}-index`,
+      indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
         name: TABLE_KEY.OFFERER,
         type: aws_dynamo.AttributeType.STRING,
@@ -202,7 +202,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}-index`,
+      indexName: `${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
         name: TABLE_KEY.SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
@@ -223,7 +223,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}-index`,
+      indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
         name: TABLE_KEY.ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
@@ -243,9 +243,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN}-${TABLE_KEY.DEADLINE}-index`,
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
-        name: TABLE_KEY.OFFERER_ORDER_STATUS_SELL_TOKEN,
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -264,9 +264,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER_ORDER_STATUS}-${TABLE_KEY.DEADLINE}-index`,
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
-        name: TABLE_KEY.OFFERER_ORDER_STATUS,
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -285,9 +285,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER_SELL_TOKEN}-${TABLE_KEY.DEADLINE}-index`,
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
-        name: TABLE_KEY.OFFERER_SELL_TOKEN,
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -306,9 +306,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}-${TABLE_KEY.DEADLINE}-index`,
+      indexName: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
-        name: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
+        name: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
@@ -327,7 +327,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.DEADLINE}-index`,
+      indexName: `${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
         name: TABLE_KEY.CREATED_AT_MONTH,
         type: aws_dynamo.AttributeType.NUMBER,
