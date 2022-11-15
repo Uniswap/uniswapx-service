@@ -10,6 +10,7 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   sellToken: FieldValidator.isValidEthAddress(),
   sortKey: FieldValidator.isValidSortKey(),
   sort: FieldValidator.isValidSort(),
+  cursor: FieldValidator.isValidCursor(),
 })
 
 export type GetOrdersQueryParams = {
@@ -20,10 +21,12 @@ export type GetOrdersQueryParams = {
   sellToken?: string
   sortKey?: SORT_FIELDS
   sort?: string
+  cursor?: string
 }
 
 export type GetOrdersResponse = {
   orders: (OrderEntity | undefined)[]
+  cursor?: string
 }
 
 export const OrderResponseEntryJoi = Joi.object({
@@ -37,6 +40,7 @@ export const OrderResponseEntryJoi = Joi.object({
 
 export const GetOrdersResponseJoi = Joi.object({
   orders: Joi.array().items(OrderResponseEntryJoi),
+  cursor: FieldValidator.isValidCursor(),
 })
 
 export enum GET_QUERY_PARAMS {

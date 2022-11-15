@@ -17,6 +17,7 @@ export interface RequestInjected extends BaseRInj {
     sortKey?: SORT_FIELDS
     sort?: string
   }
+  cursor?: string
 }
 
 export interface ContainerInjected {
@@ -57,6 +58,7 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
     const sellToken = requestQueryParams?.sellToken?.toLowerCase()
     const sortKey = requestQueryParams?.sortKey
     const sort = requestQueryParams?.sort
+    const cursor = requestQueryParams?.cursor
 
     return {
       limit: limit,
@@ -70,6 +72,7 @@ export class GetOrdersInjector extends Injector<ContainerInjected, RequestInject
       },
       requestId,
       log,
+      ...(cursor && { cursor: cursor }),
     }
   }
 }

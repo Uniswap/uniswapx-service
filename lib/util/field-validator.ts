@@ -13,6 +13,7 @@ export default class FieldValidator {
     .max(78) // 2^256 - 1 in base 10 is 78 digits long
     .regex(/^[0-9]+$/)
   private static readonly NUMBER_JOI = Joi.number()
+  private static readonly BASE_64_STRING = Joi.string().max(500).base64()
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
     ORDER_STATUS.OPEN,
     ORDER_STATUS.FILLED,
@@ -65,6 +66,10 @@ export default class FieldValidator {
 
   public static isValidSort(): StringSchema {
     return this.SORT_JOI
+  }
+
+  public static isValidCursor(): StringSchema {
+    return this.BASE_64_STRING
   }
 
   public static isValidNonce(): StringSchema {

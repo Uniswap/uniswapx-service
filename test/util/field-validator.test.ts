@@ -156,4 +156,33 @@ describe('Testing each field on the FieldValidator class.', () => {
       )
     })
   })
+
+  describe('Testing cursor field.', () => {
+    it('should validate field.', async () => {
+      const cursor = 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0='
+      expect(FieldValidator.isValidCursor().validate(cursor)).toEqual({ value: cursor })
+    })
+
+    it('should invalidate field.', async () => {
+      const invalidCursor = '0xnot_a_valid_order_$$$$'
+      const validatedField = FieldValidator.isValidCursor().validate(invalidCursor)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be a valid base64 string')
+    })
+
+    it('should invalidate field.', async () => {
+      const maxLengthCursor = `jfkasdjfkdsajfdjsafjdsjfkljsddkfjdhsajkgfhdgjkdfshgkfhdjkghjkfdhgjkh
+        hsdfjhgjkfdshgjksdfjkgfdjkshgjkhsdfjkghfdjkghjkfdshgjklhdfsjkghkjfdshg
+        hsdfjhgjkfdshgjksdfjkgfdjkshgjkhsdfjkghfdjkghjkfdshgjklhdfsjkghkjfdshg
+        kljdfhsgjklhsdfjkghsdfjklghjkdfhgjksdfhjkghfdjkghsdfkjlghdfjksghjkfdhg
+        kjlfdhgjkhfdkjghsdfjkhgkjdfshgkjdfhskgjhfdjkghdfjkhgkjdfkghsdfjkghfkgh
+        kjfdshgkljdfhsgjklhsdfjkghsdfjklghjkdfhgjksdfhjkghfdjkghsdfkjlghdfjksgh
+        2giOiIweGRlYWRiZWVmNTcxNDAzIn0=`
+      const validatedField = FieldValidator.isValidCursor().validate(maxLengthCursor)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        '"value" length must be less than or equal to 500 characters long'
+      )
+    })
+  })
 })
