@@ -2,11 +2,14 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
-import { OrderEntity, ORDER_STATUS } from '../entities/Order'
+import { getValidKeys, OrderEntity, ORDER_STATUS } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { checkDefined } from '../preconditions/preconditions'
+import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
-import { BaseOrdersRepository } from './base'
+import { BaseOrdersRepository, QueryResult } from './base'
+
+export const MAX_ORDERS = 500
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   private static ordersTable: Table<'Orders', 'orderHash', null>
@@ -68,16 +71,16 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     } as const)
   }
 
-  public async getByOfferer(offerer: string, limit: number): Promise<OrderEntity[]> {
-    return await this.queryOrderEntity(offerer, 'offererIndex', limit)
+  public async getByOfferer(offerer: string, limit: number, cursor?: string): Promise<QueryResult> {
+    return await this.queryOrderEntity(offerer, 'offererIndex', limit, cursor)
   }
 
-  public async getByOrderStatus(orderStatus: string, limit: number): Promise<OrderEntity[]> {
-    return await this.queryOrderEntity(orderStatus, 'orderStatusIndex', limit)
+  public async getByOrderStatus(orderStatus: string, limit: number, cursor?: string): Promise<QueryResult> {
+    return await this.queryOrderEntity(orderStatus, 'orderStatusIndex', limit, cursor)
   }
 
-  public async getBySellToken(sellToken: string, limit: number): Promise<OrderEntity[]> {
-    return await this.queryOrderEntity(sellToken, 'sellTokenIndex', limit)
+  public async getBySellToken(sellToken: string, limit: number, cursor?: string): Promise<QueryResult> {
+    return await this.queryOrderEntity(sellToken, 'sellTokenIndex', limit, cursor)
   }
 
   public async getByHash(hash: string): Promise<OrderEntity | undefined> {
@@ -126,24 +129,24 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     })
   }
 
-  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams): Promise<(OrderEntity | undefined)[]> {
+  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
     const requestedParams = Object.keys(queryFilters)
 
     // Query Orders table based on the requested params
     switch (true) {
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
         const order = await this.getByHash(queryFilters['orderHash'] as string)
-        return order ? [order] : []
+        return { orders: order ? [order] : [] }
       }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
-        return await this.getByOfferer(queryFilters['offerer'] as string, limit)
+        return await this.getByOfferer(queryFilters['offerer'] as string, limit, cursor)
 
       case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.getByOrderStatus(queryFilters['orderStatus'] as string, limit)
+        return await this.getByOrderStatus(queryFilters['orderStatus'] as string, limit, cursor)
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
-        return await this.getBySellToken(queryFilters['sellToken'] as string, limit)
+        return await this.getBySellToken(queryFilters['sellToken'] as string, limit, cursor)
 
       case this.areParamsRequested(
         [GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS],
@@ -153,6 +156,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
           'offererOrderStatusIndex',
           limit,
+          cursor,
           queryFilters['sellToken']
         )
 
@@ -160,29 +164,37 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         return await this.queryOrderEntity(
           `${queryFilters['offerer']}-${queryFilters['orderStatus']}`,
           'offererOrderStatusIndex',
-          limit
+          limit,
+          cursor
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
         return await this.queryOrderEntity(
           `${queryFilters['offerer']}-${queryFilters['sellToken']}`,
           'offererSellTokenIndex',
-          limit
+          limit,
+          cursor
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         return await this.queryOrderEntity(
           `${queryFilters['sellToken']}-${queryFilters['orderStatus']}`,
           'sellTokenOrderStatusIndex',
-          limit
+          limit,
+          cursor
         )
 
       default: {
-        const getOrdersScan = await DynamoOrdersRepository.ordersTable.scan({
-          ...(limit && { limit: limit }),
+        const scanResult = await DynamoOrdersRepository.ordersTable.scan({
+          limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
           execute: true,
+          ...(cursor && { startKey: this.getStartKey(cursor) }),
         })
-        return getOrdersScan.Items as OrderEntity[]
+
+        return {
+          orders: scanResult.Items as OrderEntity[],
+          ...(scanResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(scanResult.LastEvaluatedKey)) }),
+        }
       }
     }
   }
@@ -191,20 +203,46 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     partitionKey: string,
     index: string,
     limit: number | undefined,
+    cursor?: string,
     sortKey?: string
-  ): Promise<OrderEntity[]> {
+  ): Promise<QueryResult> {
     const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
       index: index,
       execute: true,
-      ...(limit && { limit: limit }),
+      limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
       ...(sortKey && { eq: sortKey }),
+      ...(cursor && { startKey: this.getStartKey(cursor, index) }),
     })
-    return queryResult.Items as OrderEntity[]
+
+    return {
+      orders: queryResult.Items as OrderEntity[],
+      ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
+    }
   }
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
     return (
       requestedParams.length == queryParams.length && queryParams.every((filter) => requestedParams.includes(filter))
     )
+  }
+
+  private getStartKey(cursor: string, index?: string) {
+    let lastEvaluatedKey = []
+    try {
+      lastEvaluatedKey = JSON.parse(decode(cursor))
+    } catch (e) {
+      throw new Error('Invalid cursor.')
+    }
+    const keys = Object.keys(lastEvaluatedKey)
+    const validKeys = getValidKeys(index)
+    const keysMatch = keys.every((key: string) => {
+      return validKeys.includes(key as TABLE_KEY)
+    })
+
+    if (keys.length != validKeys.length || !keysMatch) {
+      throw new Error('Invalid cursor.')
+    }
+
+    return lastEvaluatedKey
   }
 }

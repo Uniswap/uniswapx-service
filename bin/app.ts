@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
-import { BuildEnvironmentVariableType } from 'aws-cdk-lib/aws-codebuild'
+import { BuildEnvironmentVariableType, BuildSpec } from 'aws-cdk-lib/aws-codebuild'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
@@ -45,6 +45,7 @@ export class APIPipeline extends Stack {
     const synthStep = new CodeBuildStep('Synth', {
       input: code,
       buildEnvironment: {
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -59,10 +60,20 @@ export class APIPipeline extends Stack {
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        'yarn install --frozen-lockfile',
+        //'yarn add https://${GH_TOKEN}@github.com/Uniswap/gouda-sdk.git',
+        'yarn install --network-concurrency 1 --skip-integrity-check --check-cache',
         'yarn build',
         'npx cdk synth',
       ],
+      partialBuildSpec: BuildSpec.fromObject({
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: '16',
+            },
+          },
+        },
+      }),
     })
 
     const pipeline = new CodePipeline(this, `${SERVICE_NAME}Pipeline`, {
@@ -108,6 +119,7 @@ export class APIPipeline extends Stack {
         UNISWAP_API: apiStage.url,
       },
       buildEnvironment: {
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -121,12 +133,21 @@ export class APIPipeline extends Stack {
       },
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
+        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
-        'yarn install --frozen-lockfile',
+        'yarn install --network-concurrency 1 --skip-integrity-check',
         'yarn build',
         'yarn run integ-test',
       ],
+      partialBuildSpec: BuildSpec.fromObject({
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: '16',
+            },
+          },
+        },
+      }),
     })
 
     applicationStage.addPost(testAction)
