@@ -1,19 +1,19 @@
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
-import { APIGLambdaHandler, BaseRInj, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
+import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/handler'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
 
 export class PostOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
-  BaseRInj,
+  ApiRInj,
   PostOrderRequestBody,
   void,
   PostOrderResponse
 > {
   public async handleRequest(
-    params: HandleRequestParams<ContainerInjected, BaseRInj, PostOrderRequestBody, void>
+    params: APIHandleRequestParams<ContainerInjected, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody: { encodedOrder, signature },
