@@ -77,8 +77,7 @@ describe('Testing off chain validation', () => {
       const validationResp = validationProvider.validate(order)
 
       expect(validationResp).toEqual({
-        errorString:
-          "Invalid offerer: ValidationError: VALIDATION ERROR: Invalid address",
+        errorString: 'Invalid offerer: ValidationError: VALIDATION ERROR: Invalid address',
         valid: false,
       })
     })
@@ -89,8 +88,7 @@ describe('Testing off chain validation', () => {
       const order = newOrder({ reactor: '0xbad_actor' })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
-        errorString:
-          "Invalid reactor: ValidationError: VALIDATION ERROR: Invalid address",
+        errorString: 'Invalid reactor: ValidationError: VALIDATION ERROR: Invalid address',
         valid: false,
       })
     })
@@ -125,8 +123,7 @@ describe('Testing off chain validation', () => {
       const order = newOrder({ input: { token: '0xbad_token', amount: BigNumber.from(1) } })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
-        errorString:
-          "Invalid input token: ValidationError: VALIDATION ERROR: Invalid address",
+        errorString: 'Invalid input token: ValidationError: VALIDATION ERROR: Invalid address',
         valid: false,
       })
     })
