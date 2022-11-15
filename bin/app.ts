@@ -63,8 +63,9 @@ export class APIPipeline extends Stack {
       },
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        'yarn install --frozen-lockfile',
+        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc',
+        'yarn add git+https://git@github.com/Uniswap/gouda-sdk.git',
+        'yarn install',
         'yarn build',
         'npx cdk synth',
       ],
@@ -146,9 +147,9 @@ export class APIPipeline extends Stack {
       },
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
+        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
-        'yarn install --frozen-lockfile',
+        'yarn install',
         'yarn build',
         'yarn run integ-test',
       ],

@@ -56,6 +56,7 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.SIGNATURE,
         TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 
@@ -96,6 +97,7 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.SIGNATURE,
         TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 
@@ -116,6 +118,7 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.SIGNATURE,
         TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 
@@ -136,6 +139,7 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.SIGNATURE,
         TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 
@@ -156,6 +160,7 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.SIGNATURE,
         TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 
@@ -176,6 +181,7 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.SIGNATURE,
         TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 
@@ -343,6 +349,7 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.SIGNATURE,
         TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 

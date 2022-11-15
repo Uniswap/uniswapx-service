@@ -15,7 +15,8 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: false
+          persist-credentials: true
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Set up node
         uses: actions/setup-node@v1
@@ -23,14 +24,8 @@ jobs:
           node-version: 16.x
           registry-url: https://registry.npmjs.org
 
-      - name: Setup private repository keys
-        uses: webfactory/ssh-agent@v0.6.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.GOUDA_SDK_KEY}}
-
-      - name: Install dependencies
-        run: yarn install --network-concurrency 1 --frozen-lockfile
+      - run: git config --global url."https://${{ secrets.GH_TOKEN }}@github.com/".insteadOf ssh://git@github.com/
+      - run: yarn install --network-concurrency 1
 
       - name: Run linters
         uses: wearerequired/lint-action@v2
