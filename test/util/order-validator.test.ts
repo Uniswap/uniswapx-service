@@ -78,7 +78,7 @@ describe('Testing off chain validation', () => {
 
       expect(validationResp).toEqual({
         errorString:
-        "Invalid offerer: ValidationError: value failed custom validation because invalid address (argument=\"address\", value=0xbad_actor, code=INVALID_ARGUMENT, version=address/5.7.0)",
+          "Invalid offerer: ValidationError: VALIDATION ERROR: Invalid address",
         valid: false,
       })
     })
@@ -90,7 +90,7 @@ describe('Testing off chain validation', () => {
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         errorString:
-          "Invalid reactor: ValidationError: value failed custom validation because invalid address (argument=\"address\", value=0xbad_actor, code=INVALID_ARGUMENT, version=address/5.7.0)",
+          "Invalid reactor: ValidationError: VALIDATION ERROR: Invalid address",
         valid: false,
       })
     })
@@ -126,7 +126,7 @@ describe('Testing off chain validation', () => {
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         errorString:
-        "Invalid input token: ValidationError: value failed custom validation because invalid address (argument=\"address\", value=0xbad_token, code=INVALID_ARGUMENT, version=address/5.7.0)",
+          "Invalid input token: ValidationError: VALIDATION ERROR: Invalid address",
         valid: false,
       })
     })
