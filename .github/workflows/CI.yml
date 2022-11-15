@@ -45,4 +45,4 @@ jobs:
         with:
           package-manager: yarn
           test-script: yarn test --coverage
-          annotations: none
+          annotations: failed-tests
