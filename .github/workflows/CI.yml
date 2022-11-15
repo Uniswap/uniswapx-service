@@ -25,7 +25,6 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - run: git config --global url."https://${{ secrets.GH_TOKEN }}@github.com/".insteadOf ssh://git@github.com/
-      - run: yarn add https://${{ secrets.GH_TOKEN }}@github.com/Uniswap/gouda-sdk.git
       - run: yarn install --network-concurrency 1
 
       - name: Run linters
