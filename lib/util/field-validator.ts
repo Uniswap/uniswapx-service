@@ -20,6 +20,7 @@ export default class FieldValidator {
       return value
     })
   private static readonly NUMBER_JOI = Joi.number()
+  private static readonly BASE_64_STRING = Joi.string().max(500).base64()
   private static readonly CHAIN_ID_JOI = Joi.number().valid(...SUPPORTED_CHAINS)
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
     ORDER_STATUS.OPEN,
@@ -67,6 +68,10 @@ export default class FieldValidator {
 
   public static isValidCreatedAt(): NumberSchema {
     return this.NUMBER_JOI
+  }
+
+  public static isValidCursor(): StringSchema {
+    return this.BASE_64_STRING
   }
 
   public static isValidChainId(): NumberSchema {
