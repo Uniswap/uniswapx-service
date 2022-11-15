@@ -62,7 +62,8 @@ export class APIPipeline extends Stack {
         },
       },
       commands: [
-        'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
+        'git config --global url."git+https://${GH_TOKEN}:x-oauth-basic@github.com/".insteadOf ssh://git@github.com/',
+        //'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc',
         'echo "{GH_TOKEN}"',
         'yarn install',
