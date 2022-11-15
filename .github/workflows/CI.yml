@@ -24,6 +24,7 @@ jobs:
           node-version: 16.x
           registry-url: https://registry.npmjs.org
 
+      - run: git config --global url."https://${{ secrets.GH_TOKEN }}@github.com/".insteadOf ssh://git@github.com/
       - run: yarn install --network-concurrency 1 --frozen-lockfile
 
       - name: Run linters
