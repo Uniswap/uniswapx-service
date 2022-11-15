@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@types/sinon": "^10.0.13",
-    "aws-cdk-lib": "^2.50.0",
+    "aws-cdk-lib": "^2.24.1",
     "aws-sdk": "^2.1238.0",
     "bunyan": "^1.8.15",
     "constructs": "^10.1.137",
