@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
 import * as chatbot from 'aws-cdk-lib/aws-chatbot'
-import { BuildEnvironmentVariableType } from 'aws-cdk-lib/aws-codebuild'
+import { BuildEnvironmentVariableType, BuildSpec } from 'aws-cdk-lib/aws-codebuild'
 import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
@@ -65,10 +65,19 @@ export class APIPipeline extends Stack {
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
         //'yarn add https://${GH_TOKEN}@github.com/Uniswap/gouda-sdk.git',
-        'npm install',
+        'yarn install --network-concurrency 1 --skip-integrity-check --check-cache',
         'yarn build',
         'npx cdk synth',
       ],
+      partialBuildSpec: BuildSpec.fromObject({
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: '16',
+            },
+          },
+        },
+      }),
     })
 
     const pipeline = new CodePipeline(this, `${SERVICE_NAME}Pipeline`, {
@@ -149,7 +158,7 @@ export class APIPipeline extends Stack {
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
-        'yarn install',
+        'yarn install --network-concurrency 1 --skip-integrity-check',
         'yarn build',
         'yarn run integ-test',
       ],
