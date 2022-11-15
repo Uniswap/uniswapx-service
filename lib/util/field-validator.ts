@@ -33,7 +33,7 @@ export default class FieldValidator {
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.isAddress(value)) {
-      return helpers.message({ custom: `value failed custom validation because invalid address (argument="address", value=${value}, code=INVALID_ARGUMENT, version=address/5.7.0)` })
+      return helpers.message({ custom: 'VALIDATION ERROR: Invalid address' })
     }
     return value
   })
