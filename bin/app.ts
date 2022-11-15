@@ -65,7 +65,7 @@ export class APIPipeline extends Stack {
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
         //'yarn add https://${GH_TOKEN}@github.com/Uniswap/gouda-sdk.git',
-        'yarn install --network-concurrency 1 --skip-integrity-check',
+        'yarn install --network-concurrency 1 --skip-integrity-check --check-cache',
         'yarn build',
         'npx cdk synth',
       ],
