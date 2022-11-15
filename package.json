@@ -48,7 +48,7 @@
     "@types/sinon": "^10.0.13",
     "@uniswap/default-token-list": "^5.2.0",
     "@uniswap/token-lists": "^1.0.0-beta.30",
-    "aws-cdk-lib": "^2.24.1",
+    "aws-cdk-lib": "^2.50.0",
     "aws-sdk": "^2.1238.0",
     "bunyan": "^1.8.15",
     "constructs": "^10.1.137",
