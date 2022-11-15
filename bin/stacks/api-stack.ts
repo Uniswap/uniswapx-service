@@ -19,7 +19,6 @@ export class APIStack extends cdk.Stack {
     parent: Construct,
     name: string,
     props: cdk.StackProps & {
-      infuraProjectId: string
       provisionedConcurrency: number
       throttlingOverride?: string
       chatbotSNSArn?: string
@@ -30,9 +29,13 @@ export class APIStack extends cdk.Stack {
 
     const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
 
-    const { getOrdersLambdaAlias, getNonceLambdaAlias } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
-      provisionedConcurrency,
-    })
+    const { getOrdersLambdaAlias, getNonceLambdaAlias, postOrderLambdaAlias } = new LambdaStack(
+      this,
+      `${SERVICE_NAME}LambdaStack`,
+      {
+        provisionedConcurrency,
+      }
+    )
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
 
@@ -119,6 +122,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
+    const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
@@ -127,6 +131,9 @@ export class APIStack extends cdk.Stack {
         allowMethods: aws_apigateway.Cors.ALL_METHODS,
       },
     })
+
+    const order = dutchAuction.addResource('order')
+    order.addMethod('POST', postOrderLambdaIntegration)
 
     const orders = dutchAuction.addResource('orders')
     const nonce = dutchAuction.addResource('nonce')

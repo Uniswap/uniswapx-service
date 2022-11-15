@@ -1,7 +1,5 @@
 import * as cdk from 'aws-cdk-lib'
-import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
-import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
@@ -14,6 +12,8 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
 }
 export class LambdaStack extends cdk.NestedStack {
+  private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly postOrderLambdaAlias: aws_lambda.Alias
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
@@ -52,6 +52,22 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'postOrderHandler',
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
+
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_16_X,
@@ -68,68 +84,17 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
-    /* TODO: review all alarms holistically and adjust thresholds, metrics definitions, etc. */
-
-    new aws_cloudwatch.Alarm(this, `GetOrdersLambdaErrorRate`, {
-      metric: new aws_cloudwatch.MathExpression({
-        expression: 'errors / invocations',
-        usingMetrics: {
-          errors: this.getOrdersLambda.metricErrors({
-            period: Duration.minutes(5),
-            statistic: 'avg',
-          }),
-          invocations: this.getOrdersLambda.metricInvocations({
-            period: Duration.minutes(5),
-            statistic: 'avg',
-          }),
-        },
-      }),
-      threshold: 0.05,
-      evaluationPeriods: 3,
-    })
-
-    new aws_cloudwatch.Alarm(this, `GetOrdersLambdaThrottles`, {
-      metric: this.getOrdersLambda.metricThrottles({
-        period: Duration.minutes(5),
-        statistic: 'sum',
-      }),
-      threshold: 10,
-      evaluationPeriods: 3,
-    })
-
-    new aws_cloudwatch.Alarm(this, `GetNonceLambdaErrorRate`, {
-      metric: new aws_cloudwatch.MathExpression({
-        expression: 'errors / invocations',
-        usingMetrics: {
-          errors: this.getNonceLambda.metricErrors({
-            period: Duration.minutes(5),
-            statistic: 'avg',
-          }),
-          invocations: this.getNonceLambda.metricInvocations({
-            period: Duration.minutes(5),
-            statistic: 'avg',
-          }),
-        },
-      }),
-      threshold: 0.05,
-      evaluationPeriods: 3,
-      treatMissingData: aws_cloudwatch.TreatMissingData.NOT_BREACHING,
-    })
-
-    new aws_cloudwatch.Alarm(this, `GetNonceLambdaThrottles`, {
-      metric: this.getNonceLambda.metricThrottles({
-        period: Duration.minutes(5),
-        statistic: 'sum',
-      }),
-      threshold: 10,
-      evaluationPeriods: 3,
-    })
-
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 
     this.getOrdersLambdaAlias = new aws_lambda.Alias(this, `GetOrdersLiveAlias`, {
       aliasName: 'live',
       version: this.getOrdersLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
+    this.postOrderLambdaAlias = new aws_lambda.Alias(this, `PostOrderLiveAlias`, {
+      aliasName: 'live',
+      version: this.postOrderLambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
@@ -140,6 +105,20 @@ export class LambdaStack extends cdk.NestedStack {
     })
 
     if (enableProvisionedConcurrency) {
+      const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 5,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      postOrderTarget.node.addDependency(this.postOrderLambdaAlias)
+      postOrderTarget.scaleToTrackMetric(`${lambdaName}-PostOrder-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
       const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
         maxCapacity: provisionedConcurrency * 5,

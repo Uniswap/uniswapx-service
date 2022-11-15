@@ -1,6 +1,9 @@
-import { ethers } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS } from '../entities'
+import { SUPPORTED_CHAINS } from './chain'
+
+const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
@@ -10,8 +13,15 @@ export default class FieldValidator {
     .min(1)
     .max(78) // 2^256 - 1 in base 10 is 78 digits long
     .regex(/^[0-9]+$/)
+    .custom((value: string, helpers: CustomHelpers<any>) => {
+      if (!BigNumber.from(value).lt(UINT256_MAX)) {
+        return helpers.error('VALIDATION ERROR: Nonce is larger than max uint256 integer')
+      }
+      return value
+    })
   private static readonly NUMBER_JOI = Joi.number()
   private static readonly BASE_64_STRING = Joi.string().max(500).base64()
+  private static readonly CHAIN_ID_JOI = Joi.number().valid(...SUPPORTED_CHAINS)
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
     ORDER_STATUS.OPEN,
     ORDER_STATUS.FILLED,
@@ -52,12 +62,20 @@ export default class FieldValidator {
     return this.NUMBER_JOI
   }
 
+  public static isValidDeadline(): NumberSchema {
+    return this.NUMBER_JOI
+  }
+
   public static isValidCreatedAt(): NumberSchema {
     return this.NUMBER_JOI
   }
 
   public static isValidCursor(): StringSchema {
     return this.BASE_64_STRING
+  }
+
+  public static isValidChainId(): NumberSchema {
+    return this.CHAIN_ID_JOI
   }
 
   public static isValidNonce(): StringSchema {

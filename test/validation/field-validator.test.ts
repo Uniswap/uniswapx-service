@@ -1,10 +1,11 @@
 import { ORDER_STATUS } from '../../lib/entities'
+import { ChainId } from '../../lib/util/chain'
 import FieldValidator from '../../lib/util/field-validator'
 
 describe('Testing each field on the FieldValidator class.', () => {
   describe('Testing createdAt field.', () => {
     it('should validate field.', async () => {
-      const currentTime = new Date().getTime()
+      const currentTime = 15000
       expect(FieldValidator.isValidCreatedAt().validate(currentTime)).toEqual({ value: currentTime })
     })
 
@@ -104,6 +105,24 @@ describe('Testing each field on the FieldValidator class.', () => {
     })
   })
 
+  describe('Testing chainId field.', () => {
+    it('should validate field.', async () => {
+      const chainId = ChainId.MAINNET
+      expect(FieldValidator.isValidChainId().validate(chainId)).toEqual({ value: chainId })
+    })
+    it('should invalidate non numeric.', async () => {
+      const chainId = 'MAINNET'
+      const validatedField = FieldValidator.isValidChainId().validate(chainId)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [1, 5]')
+    })
+    it('should invalidate unsupported chain.', async () => {
+      const chainId = ChainId.ARBITRUM_ONE
+      const validatedField = FieldValidator.isValidChainId().validate(chainId)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [1, 5]')
+    })
+  })
   describe('Testing nonce field.', () => {
     it('should validate field.', async () => {
       expect(FieldValidator.isValidNonce().validate('1')).toEqual({ value: '1' })

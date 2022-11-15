@@ -25,7 +25,7 @@ export type HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
 }
 
 export type Response<Res> = {
-  statusCode: 200 | 202
+  statusCode: 200 | 201 | 202
   body: Res
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   headers?: any
@@ -211,7 +211,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
   protected abstract responseBodySchema(): Joi.ObjectSchema | null
 
   private isError(result: Response<Res> | ErrorResponse): result is ErrorResponse {
-    return result.statusCode != 200 && result.statusCode != 202
+    return result.statusCode < 200 || result.statusCode > 202
   }
 
   private async parseAndValidateRequest(
