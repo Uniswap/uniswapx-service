@@ -45,7 +45,7 @@ export class APIPipeline extends Stack {
     const synthStep = new CodeBuildStep('Synth', {
       input: code,
       buildEnvironment: {
-        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_1_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -119,7 +119,7 @@ export class APIPipeline extends Stack {
         UNISWAP_API: apiStage.url,
       },
       buildEnvironment: {
-        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_1_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
