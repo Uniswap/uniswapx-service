@@ -1,9 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
-import * as chatbot from 'aws-cdk-lib/aws-chatbot'
-import { BuildEnvironmentVariableType } from 'aws-cdk-lib/aws-codebuild'
-import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
-import * as sm from 'aws-cdk-lib/aws-secretsmanager'
+import { BuildEnvironmentVariableType, BuildSpec } from 'aws-cdk-lib/aws-codebuild'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
@@ -20,17 +17,15 @@ export class APIStage extends Stage {
     scope: Construct,
     id: string,
     props: StageProps & {
-      infuraProjectId: string
       provisionedConcurrency: number
       chatbotSNSArn?: string
       stage: string
     }
   ) {
     super(scope, id, props)
-    const { infuraProjectId, provisionedConcurrency, chatbotSNSArn, stage } = props
+    const { provisionedConcurrency, chatbotSNSArn, stage } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
-      infuraProjectId,
       provisionedConcurrency,
       chatbotSNSArn,
       stage,
@@ -50,6 +45,7 @@ export class APIPipeline extends Stack {
     const synthStep = new CodeBuildStep('Synth', {
       input: code,
       buildEnvironment: {
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -63,12 +59,21 @@ export class APIPipeline extends Stack {
       },
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
-        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc',
-        'yarn add git+https://git@github.com/Uniswap/gouda-sdk.git',
-        'yarn install',
+        'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
+        //'yarn add https://${GH_TOKEN}@github.com/Uniswap/gouda-sdk.git',
+        'yarn install --network-concurrency 1 --skip-integrity-check --check-cache',
         'yarn build',
         'npx cdk synth',
       ],
+      partialBuildSpec: BuildSpec.fromObject({
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: '16',
+            },
+          },
+        },
+      }),
     })
 
     const pipeline = new CodePipeline(this, `${SERVICE_NAME}Pipeline`, {
@@ -78,19 +83,11 @@ export class APIPipeline extends Stack {
       synth: synthStep,
     })
 
-    // Secrets are stored in secrets manager in the pipeline account. Accounts we deploy to
-    // have been granted permissions to access secrets via resource policies.
-
-    const infuraProjectId = sm.Secret.fromSecretAttributes(this, 'InfuraProjectId', {
-      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:infuraProjectId-UlSwK2',
-    })
-
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 20,
       stage: STAGE.BETA,
-      infuraProjectId: infuraProjectId.secretValue.toString(),
     })
 
     const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
@@ -100,26 +97,14 @@ export class APIPipeline extends Stack {
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
       env: { account: '316116520258', region: 'us-east-2' },
-      infuraProjectId: infuraProjectId.secretValue.toString(),
       provisionedConcurrency: 100,
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
     })
 
     const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
-
     this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage)
-
-    const slackChannel = chatbot.SlackChannelConfiguration.fromSlackChannelConfigurationArn(
-      this,
-      'SlackChannel',
-      'arn:aws:chatbot::644039819003:chat-configuration/slack-channel/eng-ops-slack-chatbot'
-    )
-
     pipeline.buildPipeline()
-    pipeline.pipeline.notifyOn('NotifySlack', slackChannel, {
-      events: [PipelineNotificationEvents.PIPELINE_EXECUTION_FAILED],
-    })
   }
 
   private addIntegTests(
@@ -134,6 +119,7 @@ export class APIPipeline extends Stack {
         UNISWAP_API: apiStage.url,
       },
       buildEnvironment: {
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -149,21 +135,29 @@ export class APIPipeline extends Stack {
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .yarnrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
-        'yarn install',
+        'yarn install --network-concurrency 1 --skip-integrity-check',
         'yarn build',
         'yarn run integ-test',
       ],
+      partialBuildSpec: BuildSpec.fromObject({
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: '16',
+            },
+          },
+        },
+      }),
     })
 
     applicationStage.addPost(testAction)
   }
 }
 
+// Local Dev Stack
 const app = new cdk.App()
 
-// Local dev stack
 new APIStack(app, `${SERVICE_NAME}Stack`, {
-  infuraProjectId: process.env.PROJECT_ID!,
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,

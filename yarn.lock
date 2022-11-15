@@ -2032,11 +2032,6 @@
     "@typescript-eslint/types" "5.41.0"
     eslint-visitor-keys "^3.3.0"
 
-"@uniswap/default-token-list@^5.2.0":
-  version "5.2.0"
-  resolved "https://registry.yarnpkg.com/@uniswap/default-token-list/-/default-token-list-5.2.0.tgz#68bed7fa8d9c31e93431cdb50c45f2984f5859ff"
-  integrity sha512-ipIuYdW/56xwNxR2Z0xB+kfWKraar9nYHS/Y0QOOQ0rpMM6fZ9ro8KKxsOOQF9irVpf20Fgusk2jLcL2TdPqAg==
-
 "@uniswap/sdk-core@^3.0.2":
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-3.1.0.tgz#595b6396763fd2553531423c8eec83bfb4840a27"
@@ -2048,11 +2043,6 @@
     jsbi "^3.1.4"
     tiny-invariant "^1.1.0"
     toformat "^2.0.0"
-
-"@uniswap/token-lists@^1.0.0-beta.30":
-  version "1.0.0-beta.30"
-  resolved "https://registry.yarnpkg.com/@uniswap/token-lists/-/token-lists-1.0.0-beta.30.tgz#2103ca23b8007c59ec71718d34cdc97861c409e5"
-  integrity sha512-HwY2VvkQ8lNR6ks5NqQfAtg+4IZqz3KV1T8d2DlI8emIn9uMmaoFbIOg0nzjqAVKKnZSbMTRRtUoAh6mmjRvog==
 
 acorn-jsx@^5.3.2:
   version "5.3.2"
@@ -2186,19 +2176,19 @@ available-typed-arrays@^1.0.5:
   resolved "https://registry.yarnpkg.com/available-typed-arrays/-/available-typed-arrays-1.0.5.tgz#92f95616501069d07d10edb2fc37d3e1c65123b7"
   integrity sha512-DMD0KiN46eipeziST1LPP/STfDU0sufISXmjSgvVsoU2tqxctQeASejWcfNtxYKqETM1UxQ8sp2OrSBWpHY6sw==
 
-aws-cdk-lib@^2.24.1:
-  version "2.27.0"
-  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.27.0.tgz#cfc068618485b07a913f8bc3b8beea9b2d4ca767"
-  integrity sha512-CsTy/+RIBMvP9LlZjkQakkKPpwU50+HAMCMaGOcyIHADDQdXobGcZXTO+Tq00sH2DoQjPV1ZhhBim5z3k/2KXw==
+aws-cdk-lib@^2.50.0:
+  version "2.50.0"
+  resolved "https://registry.yarnpkg.com/aws-cdk-lib/-/aws-cdk-lib-2.50.0.tgz#2b3a9ba4c1c4c56fd32e3e4f57eea8bf9fa3dbba"
+  integrity sha512-deDbZTI7oyu3rqUyqjwhP6tnUO8MD70lE98yR65xiYty4yXBpsWKbeH3s1wNLpLAWS3hWJYyMtjZ4ZfC35NtVg==
   dependencies:
     "@balena/dockerignore" "^1.0.2"
     case "1.6.3"
     fs-extra "^9.1.0"
     ignore "^5.2.0"
-    jsonschema "^1.4.0"
+    jsonschema "^1.4.1"
     minimatch "^3.1.2"
     punycode "^2.1.1"
-    semver "^7.3.7"
+    semver "^7.3.8"
     yaml "1.10.2"
 
 aws-sdk@^2.1238.0:
@@ -4380,7 +4370,7 @@ jsonfile@^6.0.1:
   optionalDependencies:
     graceful-fs "^4.1.6"
 
-jsonschema@^1.4.0:
+jsonschema@^1.4.1:
   version "1.4.1"
   resolved "https://registry.yarnpkg.com/jsonschema/-/jsonschema-1.4.1.tgz#cc4c3f0077fb4542982973d8a083b6b34f482dab"
   integrity sha512-S6cATIPVv1z0IlxdN+zUk5EPjkGCdnhN4wVSBlvoUO1tOLJootbo9CquNJmbIh4yikWHiUedhRYrNPn1arpEmQ==
@@ -5035,7 +5025,7 @@ scrypt-js@3.0.1:
   resolved "https://registry.yarnpkg.com/scrypt-js/-/scrypt-js-3.0.1.tgz#d314a57c2aef69d1ad98a138a21fe9eafa9ee312"
   integrity sha512-cdwTTnqPu0Hyvf5in5asVdZocVDTNRmR7XEcJuIzMjJeSHybHl7vpB66AzwTaIg6CLSbtjcxc8fqcySfnTkccA==
 
-semver@7.x, semver@^7.3.5, semver@^7.3.7:
+semver@7.x, semver@^7.3.5, semver@^7.3.7, semver@^7.3.8:
   version "7.3.8"
   resolved "https://registry.yarnpkg.com/semver/-/semver-7.3.8.tgz#07a78feafb3f7b32347d725e33de7e2a2df67798"
   integrity sha512-NB1ctGL5rlHrPJtFDVIVzTyQylMLu9N9VICA6HSFJo8MCGVTMW6gfpicwKmmK/dAjTOrqu5l63JJOpDSrAis3A==
