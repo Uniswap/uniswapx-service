@@ -144,6 +144,7 @@ export class APIPipeline extends Stack {
         UNISWAP_API: apiStage.url,
       },
       buildEnvironment: {
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -163,6 +164,15 @@ export class APIPipeline extends Stack {
         'yarn build',
         'yarn run integ-test',
       ],
+      partialBuildSpec: BuildSpec.fromObject({
+        phases: {
+          install: {
+            'runtime-versions': {
+              nodejs: '16',
+            },
+          },
+        },
+      }),
     })
 
     applicationStage.addPost(testAction)
