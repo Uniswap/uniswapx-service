@@ -7,6 +7,7 @@ import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/s
 import { checkDefined } from '../preconditions/preconditions'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
+import { getCurrentTime } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
 export const MAX_ORDERS = 500
@@ -45,6 +46,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         startTime: { type: DYNAMODB_TYPES.NUMBER },
         endTime: { type: DYNAMODB_TYPES.NUMBER },
         deadline: { type: DYNAMODB_TYPES.NUMBER },
+        createdAt: { type: DYNAMODB_TYPES.NUMBER },
         reactor: { type: DYNAMODB_TYPES.STRING },
         sellToken: { type: DYNAMODB_TYPES.STRING },
         sellAmount: { type: DYNAMODB_TYPES.STRING },
@@ -103,6 +105,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       [
         DynamoOrdersRepository.orderEntity.putTransaction({
           ...order,
+          createdAt: getCurrentTime(),
           offererOrderStatus: `${order.offerer}-${order.orderStatus}`,
           offererSellToken: `${order.offerer}-${order.sellToken}`,
           sellTokenOrderStatus: `${order.sellToken}-${order.orderStatus}`,
