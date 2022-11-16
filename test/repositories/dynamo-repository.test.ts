@@ -76,7 +76,6 @@ beforeAll(async () => {
   await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_1)
   await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_2)
   await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_3)
-  await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_5)
 })
 
 describe('OrdersRepository put item test', () => {
@@ -84,16 +83,6 @@ describe('OrdersRepository put item test', () => {
     expect(() => {
       ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_1)
     }).not.toThrow()
-  })
-})
-
-describe('OrdersRepository get order count by offerer test', () => {
-  it('should successfully return order count by existing offerer', async () => {
-    expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_1.offerer, ORDER_STATUS.OPEN)).toEqual(2)
-  })
-
-  it('should return 0 for nonexistent offerer', async () => {
-    expect(await ordersRepository.countOrdersByOffererAndStatus('nonexistent', ORDER_STATUS.OPEN)).toEqual(0)
   })
 })
 
@@ -349,5 +338,16 @@ describe('OrdersRepository update status test', () => {
     await expect(ordersRepository.updateOrderStatus('nonexistent', ORDER_STATUS.FILLED)).rejects.toEqual(
       new Error('cannot find order by hash when updating order status')
     )
+  })
+})
+
+describe('OrdersRepository get order count by offerer test', () => {
+  it('should successfully return order count by existing offerer', async () => {
+    await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_5)
+    expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_1.offerer, ORDER_STATUS.OPEN)).toEqual(2)
+  })
+
+  it('should return 0 for nonexistent offerer', async () => {
+    expect(await ordersRepository.countOrdersByOffererAndStatus('nonexistent', ORDER_STATUS.OPEN)).toEqual(0)
   })
 })
