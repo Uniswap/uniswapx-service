@@ -100,6 +100,15 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return res.Items && res.Items.length > 0 ? res.Items[0].nonce : generateRandomNonce()
   }
 
+  public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
+    const res = await DynamoOrdersRepository.orderEntity.query(`${offerer}-${orderStatus}`, {
+      index: 'offererOrderStatusIndex',
+      execute: true,
+      select: 'COUNT',
+    })
+    return res.Count || 0
+  }
+
   public async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
     await DynamoOrdersRepository.ordersTable.transactWrite(
       [

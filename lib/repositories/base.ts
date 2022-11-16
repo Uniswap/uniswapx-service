@@ -9,6 +9,7 @@ export type QueryResult = {
 export interface BaseOrdersRepository {
   getByHash: (hash: string) => Promise<OrderEntity | undefined>
   putOrderAndUpdateNonceTransaction: (order: OrderEntity) => Promise<void>
+  countOrdersByOffererAndStatus: (offerer: string, orderStatus: ORDER_STATUS) => Promise<number>
   getOrders: (limit: number, queryFilters: GetOrdersQueryParams, cursor?: string) => Promise<QueryResult>
   getByOfferer: (offerer: string, limit: number) => Promise<QueryResult>
   getByOrderStatus: (orderStatus: string, limit: number) => Promise<QueryResult>
