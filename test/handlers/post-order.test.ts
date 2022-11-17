@@ -25,6 +25,8 @@ const DECODED_ORDER = {
   hash: () => '0x0000000000000000000000000000000000000000000000000000000000000006',
 }
 
+const MOCK_ARN = 'MOCK_ARN'
+
 jest.mock('gouda-sdk', () => ({
   parseOrder: () => DECODED_ORDER,
 }))
@@ -76,6 +78,14 @@ describe('Testing post order handler.', () => {
 
   const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
 
+  const kickoffSfnMock = jest
+    .spyOn(PostOrderHandler.prototype as any, 'kickoffOrderTrackingSfn')
+    .mockReturnValue(Promise.resolve())
+
+  beforeAll(() => {
+    process.env['STATE_MACHINE_ARN'] = MOCK_ARN
+  })
+
   afterEach(() => {
     jest.clearAllMocks()
   })
@@ -93,7 +103,7 @@ describe('Testing post order handler.', () => {
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
-
+      expect(kickoffSfnMock).toBeCalledWith(ORDER.orderHash, 1, MOCK_ARN, requestInjected.log)
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -146,6 +156,7 @@ describe('Testing post order handler.', () => {
       }
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
+      expect(kickoffSfnMock).not.toBeCalled()
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ errorCode: 'database unavailable', id: 'testRequest' }),
         statusCode: 500,

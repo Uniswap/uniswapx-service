@@ -40,7 +40,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
 
-    new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
+    const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
       stage: props.stage as STAGE,
       envVars: {
         ...props.envVars,
@@ -77,6 +77,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
+        STATE_MACHINE_ARN: sfnStack.statusTrackingStateMachine.attrArn,
       },
     })
 

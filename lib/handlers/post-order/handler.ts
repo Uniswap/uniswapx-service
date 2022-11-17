@@ -1,3 +1,5 @@
+import { StepFunctions } from 'aws-sdk'
+import Logger from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
@@ -16,7 +18,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     params: APIHandleRequestParams<ContainerInjected, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
-      requestBody: { encodedOrder, signature },
+      requestBody: { encodedOrder, signature, chainId },
       requestInjected: { log },
       containerInjected: { dbInterface, orderValidator },
     } = params
@@ -60,11 +62,17 @@ export class PostOrderHandler extends APIGLambdaHandler<
       deadline: decodedOrder.info.deadline,
     }
 
+    const stateMachineArn = process.env['STATE_MACHINE_ARN']
+    if (!stateMachineArn) {
+      throw new Error('Missing STATE_MACHINE_ARN env variable')
+    }
+
     try {
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`Successfully inserted Order with id ${id} into DynamoDb`)
+      await this.kickoffOrderTrackingSfn(id, chainId, stateMachineArn, log)
+      log.info(`uccessfully inserted Order ${id} and kicked off order tracking`)
     } catch (e: unknown) {
-      log.error(e, `Failed to Order with id ${id} insert into DynamoDb`)
+      log.error(e, `Failed to insert order ${id} and/or kick off order tracking`)
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
@@ -75,6 +83,30 @@ export class PostOrderHandler extends APIGLambdaHandler<
       statusCode: 201,
       body: { hash: id },
     }
+  }
+
+  private async kickoffOrderTrackingSfn(hash: string, chainId: number, stateMachineArn: string, log?: Logger) {
+    const sfn = new StepFunctions()
+    await sfn
+      .startExecution(
+        {
+          stateMachineArn: stateMachineArn,
+          name: hash,
+          input: JSON.stringify({
+            orderHash: hash,
+            chainId: chainId,
+            orderStatus: ORDER_STATUS.UNVERIFIED,
+          }),
+        },
+        (err, data) => {
+          if (err) {
+            log?.error(err, err.stack)
+          } else {
+            log?.info(data, 'Successfully started state machine')
+          }
+        }
+      )
+      .promise()
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {
