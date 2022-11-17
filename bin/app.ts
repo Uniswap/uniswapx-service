@@ -6,7 +6,7 @@ import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pip
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
 import 'source-map-support/register'
-import { SupportedChains } from '../lib/util/chains'
+import { SUPPORTED_CHAINS } from '../lib/util/chain'
 import { STAGE } from '../lib/util/stage'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
@@ -98,7 +98,7 @@ export class APIPipeline extends Stack {
     })
 
     const jsonRpcUrls: { [chain: string]: string } = {}
-    Object.values(SupportedChains).forEach((chainId) => {
+    Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
       const key = `WEB3_RPC_${chainId}`
       jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
     })
@@ -182,7 +182,7 @@ const app = new cdk.App()
 // Local dev stack
 const envVars: { [key: string]: string } = {}
 
-Object.values(SupportedChains).forEach((chainId) => {
+Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
   envVars[`WEB3_RPC_${chainId}`] = process.env[`RPC_${chainId}`] || ''
 })
 
