@@ -18,7 +18,6 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
 }
 
 describe('Testing check order status handler', () => {
-  const updateStatusAndReturnMock = jest.spyOn(CheckOrderStatusHandler.prototype as any, 'updateStatusAndReturn')
   const validateMock = jest.fn()
 
   const getByHashMock = jest.fn().mockReturnValue(MOCK_ORDER_ENTITY)
@@ -110,7 +109,6 @@ describe('Testing check order status handler', () => {
       })
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
-      expect(updateStatusAndReturnMock).toBeCalled()
       expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN)
       expect(response).toEqual({
         orderHash: MOCK_ORDER_HASH,

@@ -25,14 +25,7 @@ export class StepFunctionStack extends cdk.NestedStack {
 
     const stateMachineRole = new cdk.aws_iam.Role(this, `StepFunctionRole`, {
       assumedBy: new cdk.aws_iam.ServicePrincipal('states.amazonaws.com'),
-      managedPolicies: [
-        cdk.aws_iam.ManagedPolicy.fromManagedPolicyArn(
-          this,
-          `StateMachineDynamoDbFullAccess`,
-          'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
-        ),
-        cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaRole'),
-      ],
+      managedPolicies: [cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaRole')],
     })
 
     if (stage === STAGE.LOCAL) {

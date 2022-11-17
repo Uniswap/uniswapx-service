@@ -76,8 +76,6 @@ export abstract class SfnInjector<CInj, RInj extends BaseRInj> extends BaseInjec
   }
 
   public abstract getRequestInjected(containerInjected: CInj, event: SfnStateInputOutput, log: Logger): Promise<RInj>
-
-  protected abstract buildRequestInjected(event: SfnStateInputOutput): Promise<RInj>
 }
 
 export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> extends BaseInjector<CInj> {
