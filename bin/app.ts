@@ -93,7 +93,7 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-service-rpc-urls-E4FbSb',
     })
 
-    const goudaRpcTenderly = sm.Secret.fromSecretAttributes(this, 'goudaRpcTenderly', {
+    const rpcTenderly = sm.Secret.fromSecretAttributes(this, 'rpcTenderly', {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-tenderly-Jh1BNl',
     })
 
@@ -103,7 +103,7 @@ export class APIPipeline extends Stack {
       jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
     })
 
-    jsonRpcUrls[`WEB3_RPC_TENDERLY`] = goudaRpcTenderly.secretValueFromJson('RPC_TENDERLY').toString()
+    jsonRpcUrls[`WEB3_RPC_TENDERLY`] = rpcTenderly.secretValueFromJson('RPC_TENDERLY').toString()
 
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
