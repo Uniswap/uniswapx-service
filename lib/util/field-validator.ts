@@ -28,7 +28,8 @@ export default class FieldValidator {
     ORDER_STATUS.CANCELLED,
     ORDER_STATUS.EXPIRED,
     ORDER_STATUS.ERROR,
-    ORDER_STATUS.UNVERIFIED
+    ORDER_STATUS.UNVERIFIED,
+    ORDER_STATUS.INSUFFICIENT_FUNDS
   )
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {

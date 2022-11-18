@@ -1,6 +1,25 @@
+import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
+import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
 import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
+
+const MOCK_ARN = 'MOCK_ARN'
+const MOCK_HASH = '0xhash'
+const MOCK_START_EXECUTION_INPUT = JSON.stringify({
+  orderHash: MOCK_HASH,
+  chainId: 1,
+  orderStatus: ORDER_STATUS.UNVERIFIED,
+})
+
+const mockSfnClient = mockClient(SFNClient)
+mockSfnClient
+  .on(StartExecutionCommand, {
+    stateMachineArn: MOCK_ARN,
+    name: MOCK_HASH,
+    input: MOCK_START_EXECUTION_INPUT,
+  })
+  .resolves({})
 
 const DECODED_ORDER = {
   info: {
@@ -72,15 +91,20 @@ describe('Testing post order handler.', () => {
         },
       }
     },
+    getRequestInjected: () => requestInjected,
   }
 
   const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
 
-  afterEach(() => {
-    jest.clearAllMocks()
+  beforeAll(() => {
+    process.env['STATE_MACHINE_ARN'] = MOCK_ARN
+    process.env['REGION'] = 'region'
   })
 
-  injectorPromiseMock.getRequestInjected = () => requestInjected
+  afterEach(() => {
+    jest.clearAllMocks()
+    mockSfnClient.reset()
+  })
 
   describe('Testing valid request and response', () => {
     it('Testing valid request and response.', async () => {
@@ -93,7 +117,6 @@ describe('Testing post order handler.', () => {
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
-
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -129,6 +152,22 @@ describe('Testing post order handler.', () => {
       expect(postOrderResponse.statusCode).toEqual(400)
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
+    })
+
+    it('should call StepFunctions.startExecution method with the correct params', async () => {
+      expect(async () => await postOrderHandler['kickoffOrderTrackingSfn']('0xhash', 1, MOCK_ARN)).not.toThrow()
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
+        new StartExecutionCommand({
+          stateMachineArn: MOCK_ARN,
+          name: '0xhash',
+          input: JSON.stringify({
+            orderHash: '0xhash',
+            chainId: 1,
+            orderStatus: ORDER_STATUS.UNVERIFIED,
+          }),
+        }).input
+      )
     })
   })
 

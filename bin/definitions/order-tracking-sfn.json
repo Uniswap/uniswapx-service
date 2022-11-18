@@ -1,0 +1,58 @@
+{
+  "StartAt": "checkOrderStatus",
+  "States": {
+    "checkOrderStatus": {
+      "Next": "latestOrderStatus",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 4,
+          "BackoffRate": 2
+        }
+      ],
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${checkOrderStatusLambdaArn}",
+        "Payload.$": "$"
+      }
+    },
+    "latestOrderStatus": {
+      "Type": "Choice",
+      "InputPath": "$.Payload",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.orderStatus",
+              "StringEquals": "cancelled"
+            },
+            {
+              "Variable": "$.orderStatus",
+              "StringEquals": "filled"
+            },
+            {
+              "Variable": "$.orderStatus",
+              "StringEquals": "expired"
+            },
+            {
+              "Variable": "$.orderStatus",
+              "StringEquals": "error"
+            }
+          ],
+          "Next": "orderInTerminalState"
+        }
+      ],
+      "Default": "waitStep"
+    },
+    "waitStep": {
+      "Type": "Wait",
+      "SecondsPath": "$.retryWaitSeconds",
+      "Next": "checkOrderStatus"
+    },
+    "orderInTerminalState": {
+      "Type": "Succeed"
+    }
+  }
+}
