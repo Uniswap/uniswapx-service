@@ -140,6 +140,22 @@ describe('Testing post order handler.', () => {
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
     })
+
+    it('should call StepFunctions.startExecution method with the correct params', async () => {
+      expect(async () => await postOrderHandler['kickoffOrderTrackingSfn']('0xhash', 1, MOCK_ARN)).not.toThrow()
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
+        new StartExecutionCommand({
+          stateMachineArn: MOCK_ARN,
+          name: '0xhash',
+          input: JSON.stringify({
+            orderHash: '0xhash',
+            chainId: 1,
+            orderStatus: ORDER_STATUS.UNVERIFIED,
+          }),
+        }).input
+      )
+    })
   })
 
   describe('Testing invalid response validation.', () => {
@@ -194,40 +210,5 @@ describe('Testing post order handler.', () => {
         },
       })
     })
-  })
-})
-
-describe('Testing kickoffOrderTrackingSfn method', () => {
-  const injectorPromiseMock: any = {
-    getContainerInjected: () => {
-      return jest.fn()
-    },
-    getRequestInjected: () => {
-      return {
-        log: { info: () => jest.fn(), error: () => jest.fn() },
-      }
-    },
-  }
-
-  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
-
-  beforeAll(() => {
-    jest.resetAllMocks()
-  })
-
-  it('should call StepFunctions.startExecution method with the correct params', async () => {
-    expect(async () => await postOrderHandler['kickoffOrderTrackingSfn']('0xhash', 1, MOCK_ARN)).not.toThrow()
-    expect(mockSfnClient.calls()).toHaveLength(1)
-    expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
-      new StartExecutionCommand({
-        stateMachineArn: MOCK_ARN,
-        name: '0xhash',
-        input: JSON.stringify({
-          orderHash: '0xhash',
-          chainId: 1,
-          orderStatus: ORDER_STATUS.UNVERIFIED,
-        }),
-      }).input
-    )
   })
 })
