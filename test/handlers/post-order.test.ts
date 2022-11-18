@@ -90,6 +90,7 @@ describe('Testing post order handler.', () => {
 
   afterEach(() => {
     jest.clearAllMocks()
+    mockSfnClient.reset()
   })
 
   describe('Testing valid request and response', () => {
@@ -100,13 +101,9 @@ describe('Testing post order handler.', () => {
         queryStringParameters: {},
         body: JSON.stringify(postRequestBody),
       }
-      const kickoffSfnMock = jest
-        .spyOn(PostOrderHandler.prototype as any, 'kickoffOrderTrackingSfn')
-        .mockReturnValue(Promise.resolve())
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
-      expect(kickoffSfnMock).toBeCalledWith(ORDER.orderHash, 1, MOCK_ARN, requestInjected.log)
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -219,7 +216,7 @@ describe('Testing kickoffOrderTrackingSfn method', () => {
   })
 
   it('should call StepFunctions.startExecution method with the correct params', async () => {
-    expect(await postOrderHandler['kickoffOrderTrackingSfn']('0xhash', 1, MOCK_ARN)).not.toThrow()
+    expect(async () => await postOrderHandler['kickoffOrderTrackingSfn']('0xhash', 1, MOCK_ARN)).not.toThrow()
     expect(mockSfnClient.calls()).toHaveLength(1)
     expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
       new StartExecutionCommand({
@@ -230,7 +227,7 @@ describe('Testing kickoffOrderTrackingSfn method', () => {
           chainId: 1,
           orderStatus: ORDER_STATUS.UNVERIFIED,
         }),
-      })
+      }).input
     )
   })
 })
