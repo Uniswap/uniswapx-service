@@ -75,18 +75,10 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { errorCode: e.message }),
       }
     }
-    try {
-      await this.kickoffOrderTrackingSfn(id, chainId, stateMachineArn, log)
-      return {
-        statusCode: 201,
-        body: { hash: id },
-      }
-    } catch (e) {
-      log?.error(e, `Failed to start state machine execution for order ${id}`)
-      return {
-        statusCode: 500,
-        ...(e instanceof Error && { errorCode: e.message }),
-      }
+    await this.kickoffOrderTrackingSfn(id, chainId, stateMachineArn, log)
+    return {
+      statusCode: 201,
+      body: { hash: id },
     }
   }
 
