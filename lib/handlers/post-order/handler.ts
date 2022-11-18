@@ -3,6 +3,7 @@ import Logger from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
+import { checkDefined } from '../../preconditions/preconditions'
 import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/handler'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
@@ -62,32 +63,36 @@ export class PostOrderHandler extends APIGLambdaHandler<
       deadline: decodedOrder.info.deadline,
     }
 
-    const stateMachineArn = process.env['STATE_MACHINE_ARN']
-    if (!stateMachineArn) {
-      throw new Error('Missing STATE_MACHINE_ARN env variable')
-    }
+    const stateMachineArn = checkDefined(process.env['STATE_MACHINE_ARN'])
 
     try {
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      await this.kickoffOrderTrackingSfn(id, chainId, stateMachineArn, log)
-      log.info(`uccessfully inserted Order ${id} and kicked off order tracking`)
+      log.info(`uccessfully inserted Order ${id} into DB`)
     } catch (e: unknown) {
-      log.error(e, `Failed to insert order ${id} and/or kick off order tracking`)
+      log.error(e, `Failed to insert order ${id} into DB`)
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
       }
     }
-
-    return {
-      statusCode: 201,
-      body: { hash: id },
+    try {
+      await this.kickoffOrderTrackingSfn(id, chainId, stateMachineArn, log)
+      return {
+        statusCode: 201,
+        body: { hash: id },
+      }
+    } catch (e) {
+      log?.error(e, `Failed to start state machine execution for order ${id}`)
+      return {
+        statusCode: 500,
+        ...(e instanceof Error && { errorCode: e.message }),
+      }
     }
   }
 
   private async kickoffOrderTrackingSfn(hash: string, chainId: number, stateMachineArn: string, log?: Logger) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const sfnClient = new SFNClient({ region: process.env['REGION']! })
+    const region = checkDefined(process.env['REGION'])
+    const sfnClient = new SFNClient({ region: region })
     const startExecutionCommand = new StartExecutionCommand({
       stateMachineArn: stateMachineArn,
       name: hash,
@@ -97,12 +102,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
         orderStatus: ORDER_STATUS.UNVERIFIED,
       }),
     })
-    try {
-      await sfnClient.send(startExecutionCommand)
-    } catch (e) {
-      log?.error(e, `Failed to start state machine execution for order ${hash}`)
-      throw e
-    }
+    log?.info(startExecutionCommand, 'Starting state machine execution')
+    await sfnClient.send(startExecutionCommand)
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {

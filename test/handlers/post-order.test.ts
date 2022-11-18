@@ -4,8 +4,22 @@ import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
 import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
 
+const MOCK_ARN = 'MOCK_ARN'
+const MOCK_HASH = '0xhash'
+const MOCK_START_EXECUTION_INPUT = JSON.stringify({
+  orderHash: MOCK_HASH,
+  chainId: 1,
+  orderStatus: ORDER_STATUS.UNVERIFIED,
+})
+
 const mockSfnClient = mockClient(SFNClient)
-mockSfnClient.on(StartExecutionCommand).resolves({})
+mockSfnClient
+  .on(StartExecutionCommand, {
+    stateMachineArn: MOCK_ARN,
+    name: MOCK_HASH,
+    input: MOCK_START_EXECUTION_INPUT,
+  })
+  .resolves({})
 
 const DECODED_ORDER = {
   info: {
@@ -29,8 +43,6 @@ const DECODED_ORDER = {
   },
   hash: () => '0x0000000000000000000000000000000000000000000000000000000000000006',
 }
-
-const MOCK_ARN = 'MOCK_ARN'
 
 jest.mock('gouda-sdk', () => ({
   parseOrder: () => DECODED_ORDER,
@@ -86,6 +98,7 @@ describe('Testing post order handler.', () => {
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN'] = MOCK_ARN
+    process.env['REGION'] = 'region'
   })
 
   afterEach(() => {
