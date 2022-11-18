@@ -1,6 +1,11 @@
+import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
+import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
 import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
+
+const mockSfnClient = mockClient(SFNClient)
+mockSfnClient.on(StartExecutionCommand).resolves({})
 
 const DECODED_ORDER = {
   info: {
@@ -74,13 +79,10 @@ describe('Testing post order handler.', () => {
         },
       }
     },
+    getRequestInjected: () => requestInjected,
   }
 
   const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
-
-  const kickoffSfnMock = jest
-    .spyOn(PostOrderHandler.prototype as any, 'kickoffOrderTrackingSfn')
-    .mockReturnValue(Promise.resolve())
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN'] = MOCK_ARN
@@ -90,8 +92,6 @@ describe('Testing post order handler.', () => {
     jest.clearAllMocks()
   })
 
-  injectorPromiseMock.getRequestInjected = () => requestInjected
-
   describe('Testing valid request and response', () => {
     it('Testing valid request and response.', async () => {
       validatorMock.mockReturnValue({ valid: true })
@@ -100,6 +100,9 @@ describe('Testing post order handler.', () => {
         queryStringParameters: {},
         body: JSON.stringify(postRequestBody),
       }
+      const kickoffSfnMock = jest
+        .spyOn(PostOrderHandler.prototype as any, 'kickoffOrderTrackingSfn')
+        .mockReturnValue(Promise.resolve())
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
@@ -156,7 +159,6 @@ describe('Testing post order handler.', () => {
       }
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
-      expect(kickoffSfnMock).not.toBeCalled()
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ errorCode: 'database unavailable', id: 'testRequest' }),
         statusCode: 500,
@@ -195,5 +197,40 @@ describe('Testing post order handler.', () => {
         },
       })
     })
+  })
+})
+
+describe('Testing kickoffOrderTrackingSfn method', () => {
+  const injectorPromiseMock: any = {
+    getContainerInjected: () => {
+      return jest.fn()
+    },
+    getRequestInjected: () => {
+      return {
+        log: { info: () => jest.fn(), error: () => jest.fn() },
+      }
+    },
+  }
+
+  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
+
+  beforeAll(() => {
+    jest.resetAllMocks()
+  })
+
+  it('should call StepFunctions.startExecution method with the correct params', async () => {
+    expect(await postOrderHandler['kickoffOrderTrackingSfn']('0xhash', 1, MOCK_ARN)).not.toThrow()
+    expect(mockSfnClient.calls()).toHaveLength(1)
+    expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
+      new StartExecutionCommand({
+        stateMachineArn: MOCK_ARN,
+        name: '0xhash',
+        input: JSON.stringify({
+          orderHash: '0xhash',
+          chainId: 1,
+          orderStatus: ORDER_STATUS.UNVERIFIED,
+        }),
+      })
+    )
   })
 })

@@ -78,6 +78,7 @@ export class LambdaStack extends cdk.NestedStack {
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
         STATE_MACHINE_ARN: sfnStack.statusTrackingStateMachine.attrArn,
+        REGION: this.region,
       },
     })
 

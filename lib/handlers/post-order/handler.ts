@@ -1,4 +1,4 @@
-import { StepFunctions } from 'aws-sdk'
+import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import Logger from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
@@ -86,27 +86,23 @@ export class PostOrderHandler extends APIGLambdaHandler<
   }
 
   private async kickoffOrderTrackingSfn(hash: string, chainId: number, stateMachineArn: string, log?: Logger) {
-    const sfn = new StepFunctions()
-    await sfn
-      .startExecution(
-        {
-          stateMachineArn: stateMachineArn,
-          name: hash,
-          input: JSON.stringify({
-            orderHash: hash,
-            chainId: chainId,
-            orderStatus: ORDER_STATUS.UNVERIFIED,
-          }),
-        },
-        (err, data) => {
-          if (err) {
-            log?.error(err, err.stack)
-          } else {
-            log?.info(data, 'Successfully started state machine')
-          }
-        }
-      )
-      .promise()
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const sfnClient = new SFNClient({ region: process.env['REGION']! })
+    const startExecutionCommand = new StartExecutionCommand({
+      stateMachineArn: stateMachineArn,
+      name: hash,
+      input: JSON.stringify({
+        orderHash: hash,
+        chainId: chainId,
+        orderStatus: ORDER_STATUS.UNVERIFIED,
+      }),
+    })
+    try {
+      await sfnClient.send(startExecutionCommand)
+    } catch (e) {
+      log?.error(e, `Failed to start state machine execution for order ${hash}`)
+      throw e
+    }
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {

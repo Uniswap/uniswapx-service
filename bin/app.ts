@@ -27,9 +27,10 @@ export class APIStage extends Stage {
     }
   ) {
     super(scope, id, props)
-    const { provisionedConcurrency, chatbotSNSArn, stage } = props
+    const { provisionedConcurrency, chatbotSNSArn, stage, env } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
+      env,
       provisionedConcurrency,
       chatbotSNSArn,
       stage,
