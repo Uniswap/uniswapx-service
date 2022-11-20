@@ -74,6 +74,10 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     } catch (e) {
       log.error(e, `failed to fetch open order count for ${order.offerer}`)
+      return {
+        statusCode: 500,
+        ...(e instanceof Error && { errorCode: e.message }),
+      }
     }
 
     const stateMachineArn = checkDefined(process.env['STATE_MACHINE_ARN'])
