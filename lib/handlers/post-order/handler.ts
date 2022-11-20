@@ -63,6 +63,19 @@ export class PostOrderHandler extends APIGLambdaHandler<
       deadline: decodedOrder.info.deadline,
     }
 
+    try {
+      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
+      if (orderCount > 50) {
+        log.info(orderCount, `${order.offerer} has too many open orders`)
+        return {
+          statusCode: 403,
+          errorCode: 'Too many open orders',
+        }
+      }
+    } catch (e) {
+      log.error(e, `failed to fetch open order count for ${order.offerer}`)
+    }
+
     const stateMachineArn = checkDefined(process.env['STATE_MACHINE_ARN'])
 
     try {
