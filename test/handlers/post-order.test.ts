@@ -147,6 +147,13 @@ describe('Testing post order handler.', () => {
       expect(countOrdersByOffererAndStatusMock).toBeCalled()
       expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
     })
+
+    it('should return 500 if DDB call throws', async () => {
+      countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
+      expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+        statusCode: 500,
+      })
+    })
   })
 
   describe('Testing invalid request validation.', () => {
