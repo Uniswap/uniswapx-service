@@ -69,7 +69,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
         log.info(orderCount, `${order.offerer} has too many open orders`)
         return {
           statusCode: 403,
-          errorCode: 'Too many open orders',
+          errorCode: 'TOO_MANY_OPEN_ORDERS',
         }
       }
     } catch (e) {
