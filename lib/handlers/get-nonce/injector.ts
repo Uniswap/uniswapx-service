@@ -16,11 +16,8 @@ export interface ContainerInjected {
 
 export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInjected, void, GetNonceQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    const documentClient = new DynamoDB.DocumentClient()
-    const dbInterface = new DynamoOrdersRepository()
-    DynamoOrdersRepository.initialize(documentClient)
     return {
-      dbInterface,
+      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
     }
   }
 
