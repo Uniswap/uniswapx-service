@@ -3,7 +3,7 @@ import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
 import { OrderEntity, ORDER_STATUS, SORT_FIELDS } from '../entities/Order'
-import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
+import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { checkDefined } from '../preconditions/preconditions'
 import { parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
@@ -12,6 +12,23 @@ import { getCurrentMonth, getCurrentTime } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
 export const MAX_ORDERS = 500
+
+type INDEX = {
+  name: string;
+  fields: string[]
+  // partitionKey: string;
+  // sortKey?: string
+}
+
+const OFFERRER_CREATED_AT_INDEX: INDEX = {
+  name: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`,
+  fields: [TABLE_KEY.OFFERER, TABLE_KEY.CREATED_AT]
+};
+
+const OFFERRER_DEADLINE_INDEX: INDEX = {
+  name: `${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}`,
+  fields: [TABLE_KEY.OFFERER, TABLE_KEY.DEADLINE]
+};
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   private static ordersTable: Table<'Orders', 'orderHash', null>
@@ -134,14 +151,26 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     } as const)
   }
 
+
+
   public async getByOfferer(
     offerer: string,
+    sortKey: SORT_FIELDS,
     limit: number,
     cursor?: string,
-    sortKey?: SORT_FIELDS,
     sort?: string
   ): Promise<QueryResult> {
-    return await this.queryOrderEntity(offerer, TABLE_KEY.OFFERER, limit, cursor, sortKey, sort)
+
+    let index;
+    if (sortKey == SORT_FIELDS.CREATED_AT) {
+      index = OFFERRER_CREATED_AT_INDEX;
+    } else if (sortKey == SORT_FIELDS.DEADLINE) {
+      index = OFFERRER_DEADLINE_INDEX;
+    } else {
+      throw new Error("asdf");
+    }
+
+    return await this.queryOrderEntity(offerer, index, limit, cursor, sortKey, sort)
   }
 
   public async getByOrderStatus(
@@ -151,7 +180,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     sortKey?: SORT_FIELDS,
     sort?: string
   ): Promise<QueryResult> {
-    return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort)
+    return null as any;
+    // return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort)
   }
 
   public async getBySellToken(
@@ -161,7 +191,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     sortKey?: SORT_FIELDS,
     sort?: string
   ): Promise<QueryResult> {
-    return await this.queryOrderEntity(sellToken, TABLE_KEY.SELL_TOKEN, limit, cursor, sortKey, sort)
+    return null as any;
+    // return await this.queryOrderEntity(sellToken, TABLE_KEY.SELL_TOKEN, limit, cursor, sortKey, sort)
   }
 
   public async getByHash(hash: string): Promise<OrderEntity | undefined> {
@@ -215,116 +246,126 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   }
 
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
-    const requestedParams = this.getRequestedParams(queryFilters)
+    limit = Math.min(limit, MAX_ORDERS)
 
-    // Query Orders table based on the requested params
-    switch (true) {
-      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
-        const order = await this.getByHash(queryFilters['orderHash'] as string)
-        return { orders: order ? [order] : [] }
-      }
+    if (queryFilters.orderHash !== null && queryFilters.orderHash !== undefined) {
+      const order = await this.getByHash(queryFilters.orderHash)
+      return { orders: order ? [order] : [] }
+    }
 
-      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
-        return await this.getByOfferer(
-          queryFilters['offerer'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
+    // if (
+    //   queryFilters.offerer != null &&
+    //   queryFilters.sellToken != null &&
+    //   queryFilters.orderStatus != null
+    // ) {
+    //   return await this.queryOrderEntity(
+    //     `${queryFilters.offerer}_${queryFilters.orderStatus}_${queryFilters.sellToken}`,
+    //     `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
+    //     limit,
+    //     cursor,
+    //     queryFilters.sortKey,
+    //     queryFilters.sort
+    //   )
+    // }
 
-      case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.getByOrderStatus(
-          queryFilters['orderStatus'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
+    // if (
+    //   queryFilters.offerer != null &&
 
-      case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
-        return await this.getBySellToken(
-          queryFilters['sellToken'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
+    //   queryFilters.orderStatus != null
 
-      case this.areParamsRequested(
-        [GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS],
-        requestedParams
-      ):
-        return await this.queryOrderEntity(
-          `${queryFilters['offerer']}_${queryFilters['orderStatus']}_${queryFilters['sellToken']}`,
-          `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
+    // ) {
+    //   return await this.queryOrderEntity(
+    //     `${queryFilters.offerer}_${queryFilters.orderStatus}`,
+    //     `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+    //     limit,
+    //     cursor,
+    //     queryFilters.sortKey,
+    //     queryFilters.sort
+    //   )
+    // }
 
-      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
+    // if (
+    //   queryFilters.offerer != null &&
 
-      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['offerer']}_${queryFilters['sellToken']}`,
-          `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
+    //   queryFilters.sellToken != null
 
-      case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['sellToken']}_${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
+    // ) {
+    //   return await this.queryOrderEntity(
+    //     `${queryFilters.offerer}_${queryFilters.sellToken}`,
+    //     `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
+    //     limit,
+    //     cursor,
+    //     queryFilters.sortKey,
+    //     queryFilters.sort
+    //   )
+    // }
 
-      case requestedParams.length == 0 && !!queryFilters['sortKey'] && !!queryFilters['sort']:
-        return await this.queryOrderEntity(
-          // TODO: This won't work well if it is the first of the month.
-          // We should make two queries so we can capture the last 30 days of orders.
-          getCurrentMonth(),
-          `${TABLE_KEY.CREATED_AT_MONTH}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
+    // if (
+    //   queryFilters.orderStatus != null &&
 
-      default: {
-        const scanResult = await DynamoOrdersRepository.ordersTable.scan({
-          limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
-          execute: true,
-          ...(cursor && { startKey: this.getStartKey(cursor) }),
-        })
+    //   queryFilters.sellToken != null
 
-        return {
-          orders: scanResult.Items as OrderEntity[],
-          ...(scanResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(scanResult.LastEvaluatedKey)) }),
-        }
-      }
+    // ) {
+    //   return await this.queryOrderEntity(
+    //     `${queryFilters.sellToken}_${queryFilters.orderStatus}`,
+    //     `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
+    //     limit,
+    //     cursor,
+    //     queryFilters.sortKey,
+    //     queryFilters.sort
+    //   )
+    // }
+
+    // if (queryFilters.offerer != null) {
+
+
+
+    //   return await this.getByOfferer(queryFilters.offerer, limit, cursor, queryFilters.sortKey, queryFilters.sort)
+    // }
+
+    // if (queryFilters.orderStatus != null) {
+    //   return await this.getByOrderStatus(
+    //     queryFilters.orderStatus,
+    //     limit,
+    //     cursor,
+    //     queryFilters.sortKey,
+    //     queryFilters.sort
+    //   )
+    // }
+
+    // if (queryFilters.sellToken != null) {
+    //   return await this.getBySellToken(queryFilters.sellToken, limit, cursor, queryFilters.sortKey, queryFilters.sort)
+    // }
+
+    // if (!!queryFilters.sortKey && !!queryFilters.sort) {
+    //   return await this.queryOrderEntity(
+    //     // TODO: This won't work well if it is the first of the month.
+    //     // We should make two queries so we can capture the last 30 days of orders.
+    //     getCurrentMonth(),
+    //     `${TABLE_KEY.CREATED_AT_MONTH}`,
+    //     limit,
+    //     cursor,
+    //     queryFilters.sortKey,
+    //     queryFilters.sort
+    //   )
+    // }
+
+    const scanResult = await DynamoOrdersRepository.ordersTable.scan({
+      limit,
+      execute: true,
+      ...(cursor && { startKey: this.getStartKey(cursor) }),
+    })
+
+    return {
+      orders: scanResult.Items as OrderEntity[],
+      ...(scanResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(scanResult.LastEvaluatedKey)) }),
     }
   }
 
   private async queryOrderEntity(
     partitionKey: string | number,
-    index: string,
-    limit: number | undefined,
+    index: INDEX,
+    limit: number,
     cursor?: string,
     sortKey?: SORT_FIELDS | undefined,
     sort?: string | undefined
@@ -333,35 +374,23 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     if (sortKey) {
       comparison = parseComparisonFilter(sort)
     }
-    const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}`
+    //const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}`
 
     const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
-      index: formattedIndex,
+      index: index.name,
       execute: true,
-      limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
+      limit,
       ...(sortKey &&
         comparison && {
-          [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],
-        }),
-      ...(cursor && { startKey: this.getStartKey(cursor, formattedIndex) }),
+        [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],
+      }),
+      ...(cursor && { startKey: this.getStartKey(cursor, index.name) }),
     })
 
     return {
       orders: queryResult.Items as OrderEntity[],
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
     }
-  }
-
-  private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
-    return (
-      requestedParams.length == queryParams.length && queryParams.every((filter) => requestedParams.includes(filter))
-    )
-  }
-
-  private getRequestedParams(queryFilters: GetOrdersQueryParams) {
-    return Object.keys(queryFilters).filter((requestedParam) => {
-      return ![GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT].includes(requestedParam as GET_QUERY_PARAMS)
-    })
   }
 
   private getStartKey(cursor: string, index?: string) {
