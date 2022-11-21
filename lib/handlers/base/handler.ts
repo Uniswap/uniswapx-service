@@ -137,15 +137,15 @@ export abstract class APIGLambdaHandler<
       const handler = this.buildHandler()
 
       const response = await handler(event, context)
+      const existingHeaders = response.headers ?? { 'Content-Type': 'application/json' }
 
       return {
         ...response,
         headers: {
-          ...response.headers,
+          ...existingHeaders,
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
           'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json',
         },
       }
     }

@@ -1,18 +1,12 @@
 import Joi from 'joi'
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
-import OPENAPI_SCHEMA from './schema'
+import SWAGGER_UI from './swagger-ui'
 
-export class GetApiDocsJsonHandler extends APIGLambdaHandler<
-  ContainerInjected,
-  RequestInjected,
-  void,
-  void,
-  { [key: string]: any }
-> {
+export class GetApiDocsHandler extends APIGLambdaHandler<ContainerInjected, RequestInjected, void, void, string> {
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, void>
-  ): Promise<ErrorResponse | Response<{ [key: string]: any }>> {
+  ): Promise<ErrorResponse | Response<string>> {
     const {
       requestInjected: { log },
     } = params
@@ -20,10 +14,10 @@ export class GetApiDocsJsonHandler extends APIGLambdaHandler<
     try {
       return {
         statusCode: 200,
-        body: OPENAPI_SCHEMA,
         headers: {
-          'Content-Type': 'text/plain',
+          'Content-Type': 'text/html',
         },
+        body: SWAGGER_UI,
       }
     } catch (e: unknown) {
       log.error({ e }, 'Error getting api docs json.')

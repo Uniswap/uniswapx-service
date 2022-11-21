@@ -20,10 +20,12 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getApiDocsJsonLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly getApiDocsLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getApiDocsJsonLambdaAlias: aws_lambda.Alias
+  public readonly getApiDocsLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -113,8 +115,22 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
-        STATE_MACHINE_ARN: sfnStack.statusTrackingStateMachine.attrArn,
-        REGION: this.region,
+      },
+    })
+
+    this.getApiDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetApiDocs${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'getApiDocsHandler',
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
       },
     })
 
@@ -141,6 +157,12 @@ export class LambdaStack extends cdk.NestedStack {
     this.getApiDocsJsonLambdaAlias = new aws_lambda.Alias(this, `GetApiDocsJsonAlias`, {
       aliasName: 'live',
       version: this.getApiDocsJsonLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
+    this.getApiDocsLambdaAlias = new aws_lambda.Alias(this, `GetApiDocsAlias`, {
+      aliasName: 'live',
+      version: this.getApiDocsLambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
@@ -200,6 +222,21 @@ export class LambdaStack extends cdk.NestedStack {
       getApisDocsJsonTarget.node.addDependency(this.getApiDocsJsonLambdaAlias)
 
       getApisDocsJsonTarget.scaleToTrackMetric(`GetApiDocsJson-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const getApisDocsTarget = new asg.ScalableTarget(this, `GetApiDocs-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 5,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.getApiDocsLambdaAlias.lambda.functionName}:${this.getApiDocsLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      getApisDocsTarget.node.addDependency(this.getApiDocsLambdaAlias)
+
+      getApisDocsTarget.scaleToTrackMetric(`GetApiDocs-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })

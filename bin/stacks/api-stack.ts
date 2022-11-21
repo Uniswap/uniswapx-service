@@ -30,12 +30,17 @@ export class APIStack extends cdk.Stack {
 
     const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
 
-    const { getOrdersLambdaAlias, getNonceLambdaAlias, postOrderLambdaAlias, getApiDocsJsonLambdaAlias } =
-      new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
-        provisionedConcurrency,
-        stage: stage as STAGE,
-        envVars: props.envVars,
-      })
+    const {
+      getOrdersLambdaAlias,
+      getNonceLambdaAlias,
+      postOrderLambdaAlias,
+      getApiDocsJsonLambdaAlias,
+      getApiDocsLambdaAlias,
+    } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
+      provisionedConcurrency,
+      stage: stage as STAGE,
+      envVars: props.envVars,
+    })
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
 
@@ -124,6 +129,7 @@ export class APIStack extends cdk.Stack {
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
     const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
+    const getApiDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getApiDocsLambdaAlias, {})
     const getApiDocsJsonLambdaIntegration = new aws_apigateway.LambdaIntegration(getApiDocsJsonLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
@@ -133,20 +139,10 @@ export class APIStack extends cdk.Stack {
       },
     })
 
-    const apiDocs = api.root.addResource('api-docs', {
-      defaultCorsPreflightOptions: {
-        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
-        allowMethods: aws_apigateway.Cors.ALL_METHODS,
-      },
-    })
+    const apiDocs = api.root.addResource('api-docs')
+    apiDocs.addMethod('GET', getApiDocsLambdaIntegration)
 
-    const apiDocsJson = apiDocs.addResource('json', {
-      defaultCorsPreflightOptions: {
-        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
-        allowMethods: aws_apigateway.Cors.ALL_METHODS,
-      },
-    })
-
+    const apiDocsJson = apiDocs.addResource('json')
     apiDocsJson.addMethod('GET', getApiDocsJsonLambdaIntegration)
 
     const order = dutchAuction.addResource('order')

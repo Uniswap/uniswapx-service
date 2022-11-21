@@ -1,9 +1,6 @@
-import Joi from 'joi'
 import j2s from 'joi-to-swagger'
 import { GetOrdersQueryParamsJoi, GetOrdersResponseJoi, OrderResponseEntryJoi } from '../../get-orders/schema'
 import { PostOrderRequestBodyJoi, PostOrderResponseJoi } from '../../post-order/schema'
-
-export const GetApiDocsJsonResponseJoi = Joi.object()
 
 const getOrderParamProperties = j2s(GetOrdersQueryParamsJoi).swagger.properties
 

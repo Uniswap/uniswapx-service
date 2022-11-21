@@ -2,6 +2,8 @@ import { CheckOrderStatusHandler } from './check-order-status/handler'
 import { CheckOrderStatusInjector } from './check-order-status/injector'
 import { GetApiDocsJsonHandler } from './get-api-docs-json/handler'
 import { GetApiDocsJsonInjector } from './get-api-docs-json/injector'
+import { GetApiDocsHandler } from './get-api-docs/handler'
+import { GetApiDocsInjector } from './get-api-docs/injector'
 import { GetNonceHandler } from './get-nonce/handler'
 import { GetNonceInjector } from './get-nonce/injector'
 import { GetOrdersHandler } from './get-orders/handler'
@@ -24,10 +26,14 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status'
 const getApiDocsJsonInjectorPromise = new GetApiDocsJsonInjector('getApiDocsJsonInjector').build()
 const getApiDocsJsonHandler = new GetApiDocsJsonHandler('get-api-docs-json', getApiDocsJsonInjectorPromise)
 
+const getApiDocsInjectorPromise = new GetApiDocsInjector('getApiDocsInjector').build()
+const getApiDocsHandler = new GetApiDocsHandler('get-api-docs-json', getApiDocsInjectorPromise)
+
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,
   postOrderHandler: postOrderHandler.handler,
   getNonceHandler: getNonceHandler.handler,
   checkOrderStatusHandler: checkOrderStatusHandler.handler,
   getApiDocsJsonHandler: getApiDocsJsonHandler.handler,
+  getApiDocsHandler: getApiDocsHandler.handler,
 }
