@@ -4,7 +4,7 @@ import { default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { OrderValidator } from '../../util/order-validator'
-import { ApiInjector, ApiRInj } from '../base/handler'
+import { ApiInjector, ApiRInj } from '../base/index'
 import { PostOrderRequestBody } from './schema'
 
 export interface ContainerInjected {

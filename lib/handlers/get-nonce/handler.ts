@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/handler'
+import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
 import { GetNonceQueryParams, GetNonceQueryParamsJoi, GetNonceResponse, GetNonceResponseJoi } from './schema/index'
 

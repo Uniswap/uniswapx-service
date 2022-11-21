@@ -4,7 +4,7 @@ import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'
-import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/handler'
+import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
 
@@ -61,6 +61,23 @@ export class PostOrderHandler extends APIGLambdaHandler<
       startTime: decodedOrder.info.startTime,
       endTime: decodedOrder.info.deadline,
       deadline: decodedOrder.info.deadline,
+    }
+
+    try {
+      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
+      if (orderCount > 50) {
+        log.info(orderCount, `${order.offerer} has too many open orders`)
+        return {
+          statusCode: 403,
+          errorCode: 'TOO_MANY_OPEN_ORDERS',
+        }
+      }
+    } catch (e) {
+      log.error(e, `failed to fetch open order count for ${order.offerer}`)
+      return {
+        statusCode: 500,
+        ...(e instanceof Error && { errorCode: e.message }),
+      }
     }
 
     const stateMachineArn = checkDefined(process.env['STATE_MACHINE_ARN'])

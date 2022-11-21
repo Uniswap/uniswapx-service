@@ -4,7 +4,7 @@ import Joi from 'joi'
 import { ORDER_STATUS } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { SfnLambdaHandler, SfnStateInputOutput } from '../base/handler'
+import { SfnLambdaHandler, SfnStateInputOutput } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
 import { CheckOrderStatusInputJoi } from './schema'
 
