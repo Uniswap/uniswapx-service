@@ -45,7 +45,7 @@ export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends Base
 
       const injector = await this.injectorPromise
 
-      const containerInjected = await injector.getContainerInjected()
+      const containerInjected = injector.getContainerInjected()
 
       let requestInjected: RInj
       try {

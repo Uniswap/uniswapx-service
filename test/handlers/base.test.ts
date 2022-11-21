@@ -19,8 +19,8 @@ describe('BaseInjector tests', () => {
 
   it('should throw if build() method is not called before getRequestInjected()', () => {
     const inj = new MockInjector('foo')
-    expect(async () => {
-      await inj.getContainerInjected()
-    }).rejects.toThrow('Container injected undefined. Must call build() before using.')
+    expect(() => {
+      inj.getContainerInjected()
+    }).toThrow('Container injected undefined. Must call build() before using.')
   })
 })

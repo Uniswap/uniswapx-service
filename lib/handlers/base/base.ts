@@ -13,7 +13,9 @@ export type BaseHandleRequestParams<CInj, Event = Record<string, string | number
 export abstract class BaseInjector<CInj> {
   protected containerInjected: CInj | undefined
 
-  public constructor(protected injectorName: string) {}
+  public constructor(protected injectorName: string) {
+    checkDefined(injectorName, 'Injector name must be defined')
+  }
 
   protected abstract buildContainerInjected(): Promise<CInj>
 
@@ -22,7 +24,7 @@ export abstract class BaseInjector<CInj> {
     return this
   }
 
-  public async getContainerInjected(): Promise<CInj> {
+  public getContainerInjected(): CInj {
     return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
   }
 }

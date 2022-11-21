@@ -129,7 +129,7 @@ export abstract class APIGLambdaHandler<
 
       const injector = await this.injectorPromise
 
-      const containerInjected = await injector.getContainerInjected()
+      const containerInjected = injector.getContainerInjected()
 
       let requestInjected: RInj
       try {
