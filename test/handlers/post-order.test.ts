@@ -49,7 +49,8 @@ jest.mock('gouda-sdk', () => ({
 }))
 
 describe('Testing post order handler.', () => {
-  const putOrderAndUpdateNonceTransaction = jest.fn()
+  const putOrderAndUpdateNonceTransactionMock = jest.fn()
+  const countOrdersByOffererAndStatusMock = jest.fn()
   const validatorMock = jest.fn()
   const encodedOrder = '0x01'
   const postRequestBody = {
@@ -57,6 +58,11 @@ describe('Testing post order handler.', () => {
     signature:
       '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
     chainId: 1,
+  }
+
+  const event = {
+    queryStringParameters: {},
+    body: JSON.stringify(postRequestBody),
   }
 
   const requestInjected = {
@@ -84,7 +90,8 @@ describe('Testing post order handler.', () => {
     getContainerInjected: () => {
       return {
         dbInterface: {
-          putOrderAndUpdateNonceTransaction,
+          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         },
         orderValidator: {
           validate: validatorMock,
@@ -110,12 +117,8 @@ describe('Testing post order handler.', () => {
     it('Testing valid request and response.', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBody),
-      }
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
@@ -126,6 +129,29 @@ describe('Testing post order handler.', () => {
           'Access-Control-Allow-Origin': '*',
           'Content-Type': 'application/json',
         },
+      })
+    })
+  })
+
+  describe('Test order submission blocking', () => {
+    it('should reject order submission for offerer when too many open orders exist', async () => {
+      countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
+      validatorMock.mockReturnValue({ valid: true })
+      expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+        body: JSON.stringify({
+          errorCode: 'TOO_MANY_OPEN_ORDERS',
+          id: 'testRequest',
+        }),
+        statusCode: 403,
+      })
+      expect(countOrdersByOffererAndStatusMock).toBeCalled()
+      expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
+    })
+
+    it('should return 500 if DDB call throws', async () => {
+      countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
+      expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+        statusCode: 500,
       })
     })
   })
@@ -148,7 +174,7 @@ describe('Testing post order handler.', () => {
       }
       const postOrderResponse = await postOrderHandler.handler(invalidEvent as any, {} as any)
       expect(validatorMock).not.toHaveBeenCalled()
-      expect(putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse.statusCode).toEqual(400)
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
@@ -173,7 +199,7 @@ describe('Testing post order handler.', () => {
 
   describe('Testing invalid response validation.', () => {
     it('Throws 500 when db interface errors out.', async () => {
-      putOrderAndUpdateNonceTransaction.mockImplementation(() => {
+      putOrderAndUpdateNonceTransactionMock.mockImplementation(() => {
         throw new Error('database unavailable')
       })
 
@@ -184,7 +210,7 @@ describe('Testing post order handler.', () => {
         body: JSON.stringify(postRequestBody),
       }
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(putOrderAndUpdateNonceTransaction).toBeCalledWith(ORDER)
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ errorCode: 'database unavailable', id: 'testRequest' }),
         statusCode: 500,
@@ -211,7 +237,7 @@ describe('Testing post order handler.', () => {
         body: JSON.stringify(postRequestBody),
       }
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ detail: errorString, errorCode, id: 'testRequest' }),
         statusCode: 400,
