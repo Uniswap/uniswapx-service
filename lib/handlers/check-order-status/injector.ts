@@ -5,7 +5,7 @@ import { EventWatcher, OrderValidator } from 'gouda-sdk'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/handler'
+import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
 
 export interface RequestInjected extends BaseRInj {
   chainId: number
