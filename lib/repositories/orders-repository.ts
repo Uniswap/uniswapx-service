@@ -8,6 +8,7 @@ import { checkDefined } from '../preconditions/preconditions'
 import { parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
+import { equal } from '../util/sets'
 import { getCurrentMonth, getCurrentTime } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
@@ -20,7 +21,7 @@ type INDEX = {
   // sortKey?: string
 }
 
-const OFFERRER_CREATED_AT_INDEX: INDEX = {
+const OFFERRER_CREATEDAT_INDEX: INDEX = {
   name: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`,
   fields: [TABLE_KEY.OFFERER, TABLE_KEY.CREATED_AT]
 };
@@ -29,6 +30,21 @@ const OFFERRER_DEADLINE_INDEX: INDEX = {
   name: `${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}`,
   fields: [TABLE_KEY.OFFERER, TABLE_KEY.DEADLINE]
 };
+
+const OFFERER_STATUS__SELLTOKEN_CREATEDAT_INDEX = = {
+  name: `${TABLE_KEY.OFFERER}-${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`,
+  fields: [TABLE_KEY.OFFERER, TABLE_KEY.ORDER_STATUS, TABLE_KEY.SELL_TOKEN, TABLE_KEY.CREATED_AT]
+};
+
+const OFFERER_STATUS__SELLTOKEN_DEADLINE_INDEX = = {
+  name: `${TABLE_KEY.OFFERER}-${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`,
+  fields: [TABLE_KEY.OFFERER, TABLE_KEY.ORDER_STATUS, TABLE_KEY.SELL_TOKEN, TABLE_KEY.CREATED_AT]
+};
+
+
+
+
+
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   private static ordersTable: Table<'Orders', 'orderHash', null>
@@ -163,7 +179,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
     let index;
     if (sortKey == SORT_FIELDS.CREATED_AT) {
-      index = OFFERRER_CREATED_AT_INDEX;
+      index = OFFERRER_CREATEDAT_INDEX;
     } else if (sortKey == SORT_FIELDS.DEADLINE) {
       index = OFFERRER_DEADLINE_INDEX;
     } else {
@@ -245,13 +261,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     })
   }
 
+  public async getOrdersByOffererStatusSellTokenByCreationgDate(offerer: string, orderStatus: ORDER_STATUS, sellToken: string, limit: number, cursor?: string) {
+    return await this.queryOrderEntity(`${offerer}_${orderStatus}_${sellToken}`, OFFERER_STATUS__SELLTOKEN_CREATEDAT_INDEX, limit, cursor);
+  }
+
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
     limit = Math.min(limit, MAX_ORDERS)
-
-    if (queryFilters.orderHash !== null && queryFilters.orderHash !== undefined) {
-      const order = await this.getByHash(queryFilters.orderHash)
-      return { orders: order ? [order] : [] }
-    }
 
     // if (
     //   queryFilters.offerer != null &&
@@ -367,24 +382,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     index: INDEX,
     limit: number,
     cursor?: string,
-    sortKey?: SORT_FIELDS | undefined,
-    sort?: string | undefined
   ): Promise<QueryResult> {
-    let comparison = undefined
-    if (sortKey) {
-      comparison = parseComparisonFilter(sort)
-    }
-    //const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}`
-
     const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
       index: index.name,
       execute: true,
       limit,
-      ...(sortKey &&
-        comparison && {
-        [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],
-      }),
-      ...(cursor && { startKey: this.getStartKey(cursor, index.name) }),
+      ...(cursor && { startKey: this.getStartKey(cursor, index) }),
     })
 
     return {
@@ -393,7 +396,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     }
   }
 
-  private getStartKey(cursor: string, index?: string) {
+  private getStartKey(cursor: string, index: INDEX) {
     let lastEvaluatedKey = []
     try {
       lastEvaluatedKey = JSON.parse(decode(cursor))
@@ -401,22 +404,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       throw new Error('Invalid cursor.')
     }
     const keys = Object.keys(lastEvaluatedKey)
-    const validKeys: string[] = [TABLE_KEY.ORDER_HASH]
 
-    index?.split('-').forEach((key: string) => {
-      if (key) {
-        validKeys.push(key)
-      }
-    })
-
-    const keysMatch = keys.every((key: string) => {
-      return validKeys.includes(key as TABLE_KEY)
-    })
-
-    if (keys.length != validKeys.length || !keysMatch) {
-      throw new Error('Invalid cursor.')
+    if (!equal(new Set(keys), new Set(index.fields))) {
+      throw new Error('Invalid/missing keys in cursor.');
     }
 
-    return lastEvaluatedKey
+    return lastEvaluatedKey;
   }
 }

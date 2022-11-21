@@ -1,4 +1,5 @@
 import Joi from 'joi'
+import { BaseOrdersRepository } from '../../repositories/base'
 
 import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
 import { ContainerInjected, RequestInjected } from './injector'
@@ -19,15 +20,24 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       containerInjected: { dbInterface },
     } = params
 
-    try {
-      // TODO: when the base handler is more generalized we should be able to include this logic in request validation
-      if ((queryFilters.sortKey || queryFilters.sort) && !(queryFilters.sortKey && queryFilters.sort)) {
-        return {
-          statusCode: 400,
-          detail: 'Need both a sortKey and sort for a sorted query.',
-          errorCode: 'VALIDATION_ERROR',
-        }
+    // TODO: when the base handler is more generalized we should be able to include this logic in request validation
+    if ((queryFilters.sortKey || queryFilters.sort) && !(queryFilters.sortKey && queryFilters.sort)) {
+      return {
+        statusCode: 400,
+        detail: 'Need both a sortKey and sort for a sorted query.',
+        errorCode: 'VALIDATION_ERROR',
       }
+    }
+
+
+    if (queryFilters.orderHash) {
+      return this.getByHash(dbInterface, queryFilters.orderHash);
+    }
+
+
+
+    try {
+
 
       const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
 
@@ -37,6 +47,28 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error
+      return {
+        statusCode: 500,
+        ...(e instanceof Error && { errorCode: e.message }),
+      }
+    }
+  }
+
+  private async getByHash(dbInterface: BaseOrdersRepository, orderHash: string) {
+    try {
+      const result = await dbInterface.getByHash(orderHash);
+
+      if (!result) {
+        return {
+          statusCode: 404,
+          detail: "Not found"
+        }
+      }
+      return {
+        statusCode: 200,
+        body: { orders: [result] },
+      }
+    } catch (e) {
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
