@@ -109,7 +109,7 @@ export class APIPipeline extends Stack {
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
-      provisionedConcurrency: 20,
+      provisionedConcurrency: 5,
       stage: STAGE.BETA,
     })
 
@@ -120,7 +120,7 @@ export class APIPipeline extends Stack {
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
       env: { account: '316116520258', region: 'us-east-2' },
-      provisionedConcurrency: 100,
+      provisionedConcurrency: 20,
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
     })
