@@ -28,6 +28,6 @@ describe('Testing get api docs json handler.', () => {
     })
     expect(getApiDocsJsonResponse.headers).not.toBeUndefined()
     const headerExpectation = new HeaderExpectation(getApiDocsJsonResponse.headers)
-    headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
+    headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType('text/plain')
   })
 })

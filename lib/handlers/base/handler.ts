@@ -202,6 +202,7 @@ export abstract class APIGLambdaHandler<
       ;({ log } = requestInjected)
 
       let statusCode: number
+      let headers: { [key: string]: string }
       let body: Res
 
       try {
@@ -226,14 +227,14 @@ export abstract class APIGLambdaHandler<
           }
         } else {
           log.info({ requestBody, requestQueryParams }, 'Handler returned 200')
-          ;({ body, statusCode } = handleRequestResult)
+          ;({ body, statusCode, headers } = handleRequestResult)
         }
       } catch (err) {
         log.error({ err }, 'Unexpected error in handler')
         return INTERNAL_ERROR(id)
       }
 
-      let response: Res
+      let response: string | Res
       try {
         const responseValidation = await this.parseAndValidateResponse(body, id, log)
 
@@ -247,10 +248,16 @@ export abstract class APIGLambdaHandler<
         return INTERNAL_ERROR(id)
       }
 
+      const responseBody =
+        headers && Object.keys(headers).includes('Content-Type') && headers['Content-Type'] == 'text/html'
+          ? (response as string)
+          : JSON.stringify(response)
+
       log.info({ statusCode, response }, `Request ended. ${statusCode}`)
       return {
         statusCode,
-        body: JSON.stringify(response),
+        headers,
+        body: responseBody,
       }
     }
   }
@@ -359,14 +366,14 @@ export abstract class APIGLambdaHandler<
   }
 
   private async parseAndValidateResponse(
-    body: Res,
+    body: Res | string,
     id: string,
     log: Logger
-  ): Promise<{ state: 'valid'; response: Res } | { state: 'invalid'; errorResponse: APIGatewayProxyResult }> {
+  ): Promise<{ state: 'valid'; response: Res | string } | { state: 'invalid'; errorResponse: APIGatewayProxyResult }> {
     const responseSchema = this.responseBodySchema()
 
     if (!responseSchema) {
-      return { state: 'valid', response: body as Res }
+      return { state: 'valid', response: body }
     }
 
     const res = responseSchema.validate(body, {
@@ -385,7 +392,7 @@ export abstract class APIGLambdaHandler<
       }
     }
 
-    return { state: 'valid', response: res.value as Res }
+    return { state: 'valid', response: res.value }
   }
 }
 

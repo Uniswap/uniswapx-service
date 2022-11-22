@@ -5,8 +5,8 @@ export class HeaderExpectation {
     this.headers = headers
   }
 
-  public toReturnJsonContentType() {
-    expect(this.headers).toHaveProperty('Content-Type', 'application/json')
+  public toReturnJsonContentType(contentType = 'application/json') {
+    expect(this.headers).toHaveProperty('Content-Type', contentType)
     return this
   }
 

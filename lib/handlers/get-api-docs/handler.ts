@@ -37,6 +37,6 @@ export class GetApiDocsHandler extends APIGLambdaHandler<ContainerInjected, Requ
   }
 
   protected responseBodySchema(): Joi.ObjectSchema | null {
-    return Joi.object()
+    return null
   }
 }

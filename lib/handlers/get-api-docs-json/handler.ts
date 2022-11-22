@@ -43,6 +43,6 @@ export class GetApiDocsJsonHandler extends APIGLambdaHandler<
   }
 
   protected responseBodySchema(): Joi.ObjectSchema | null {
-    return Joi.object()
+    return null
   }
 }
