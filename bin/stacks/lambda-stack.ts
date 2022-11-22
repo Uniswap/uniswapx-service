@@ -105,7 +105,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getApiDocsJsonHandler',
-      memorySize: 512,
+      memorySize: 256,
       bundling: {
         minify: true,
         sourceMap: true,
@@ -189,7 +189,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getApisDocsJsonTarget = new asg.ScalableTarget(this, `GetApiDocsJson-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getApiDocsJsonLambdaAlias.lambda.functionName}:${this.getApiDocsJsonLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',

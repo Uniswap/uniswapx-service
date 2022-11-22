@@ -1,18 +1,18 @@
 import Joi from 'joi'
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
-import OPENAPI_SCHEMA from './schema'
+import OPENAPI_SCHEMA, { GetJsonResponse } from './schema'
 
 export class GetApiDocsJsonHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
   void,
   void,
-  { [key: string]: any }
+  GetJsonResponse
 > {
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, void>
-  ): Promise<ErrorResponse | Response<{ [key: string]: any }>> {
+  ): Promise<ErrorResponse | Response<GetJsonResponse>> {
     const {
       requestInjected: { log },
     } = params
@@ -40,6 +40,6 @@ export class GetApiDocsJsonHandler extends APIGLambdaHandler<
   }
 
   protected responseBodySchema(): Joi.ObjectSchema | null {
-    return null
+    return Joi.object()
   }
 }

@@ -1,10 +1,15 @@
 import j2s from 'joi-to-swagger'
+import { GetNonceQueryParamsJoi, GetNonceResponseJoi } from '../../get-nonce/schema'
 import { GetOrdersQueryParamsJoi, GetOrdersResponseJoi, OrderResponseEntryJoi } from '../../get-orders/schema'
 import { PostOrderRequestBodyJoi, PostOrderResponseJoi } from '../../post-order/schema'
 
+export type GetJsonResponse = {
+  [x: string]: string | string[] | boolean | GetJsonResponse | GetJsonResponse[]
+}
+
 const getOrderParamProperties = j2s(GetOrdersQueryParamsJoi).swagger.properties
 
-const OPENAPI_SCHEMA: { [key: string]: any } = {
+const OPENAPI_SCHEMA: GetJsonResponse = {
   openapi: '3.0.3',
   info: {
     title: 'Trading API',
@@ -47,7 +52,7 @@ const OPENAPI_SCHEMA: { [key: string]: any } = {
       get: {
         tags: ['Dutch Auction'],
         summary: 'Retrieve orders filtered by query param(s).',
-        description: 'Each field on the order can be used as query param.',
+        description: 'Some fields on the order can be used as query param.',
         parameters: [
           {
             name: 'limit',
@@ -87,7 +92,7 @@ const OPENAPI_SCHEMA: { [key: string]: any } = {
           {
             name: 'cursor',
             in: 'query',
-            description: 'Cursor set to the next page of results for paginated queries.',
+            description: 'Cursor for paginated queries.',
             required: false,
             schema: getOrderParamProperties.cursor,
           },
@@ -98,6 +103,32 @@ const OPENAPI_SCHEMA: { [key: string]: any } = {
             content: {
               'application/json': {
                 schema: j2s(GetOrdersResponseJoi).swagger,
+              },
+            },
+          },
+        },
+      },
+    },
+    '/prod/dutch-auction/nonce': {
+      get: {
+        tags: ['Dutch Auction'],
+        summary: 'Get current nonce for dutch auction orders.',
+        description: 'Given an address this endpoint will return the next valid nonce to be used in order creation.',
+        parameters: [
+          {
+            name: 'address',
+            in: 'query',
+            description: 'Ethereum address.',
+            required: false,
+            schema: j2s(GetNonceQueryParamsJoi).swagger.properties.address,
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Request Successful',
+            content: {
+              'application/json': {
+                schema: j2s(GetNonceResponseJoi).swagger,
               },
             },
           },

@@ -1,11 +1,12 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { ApiInjector, ApiRInj } from '../base/handler'
+import { ApiInjector, ApiRInj } from '../base/index'
 
 export type RequestInjected = ApiRInj
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface ContainerInjected {}
+export interface ContainerInjected {
+  [n: string]: never
+}
 
 export class GetApiDocsJsonInjector extends ApiInjector<ContainerInjected, RequestInjected, void, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
