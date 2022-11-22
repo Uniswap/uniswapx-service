@@ -6,25 +6,22 @@ import {
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
-import { checkDefined } from '../../preconditions/preconditions'
-import { SfnInputValidationError } from '../../util/errors'
+import { BaseHandleRequestParams, BaseInjector, BaseLambdaHandler, BaseRInj } from './base'
+
+const INTERNAL_ERROR = (id?: string) => {
+  return {
+    statusCode: 500,
+    body: JSON.stringify({
+      errorCode: 'INTERNAL_ERROR',
+      detail: 'Unexpected error',
+      id,
+    }),
+  }
+}
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
-export type SfnStateInputOutput = Record<string, string | number>
-
-export type SfnHandler = (event: SfnStateInputOutput) => Promise<SfnStateInputOutput>
-
-export type BaseRInj = {
-  log: Logger
-}
-
 export type ApiRInj = BaseRInj & { requestId: string }
-
-export type BaseHandleRequestParams<CInj, Event = Record<string, string | number>> = {
-  event: Event
-  containerInjected: CInj
-}
 
 export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = BaseHandleRequestParams<
   CInj,
@@ -51,33 +48,6 @@ export type ErrorResponse = {
   detail?: string
 }
 
-export class InjectionError extends Error {}
-
-export abstract class BaseInjector<CInj> {
-  protected containerInjected: CInj | undefined
-
-  public constructor(protected injectorName: string) {}
-
-  protected abstract buildContainerInjected(): Promise<CInj>
-
-  public async build() {
-    this.containerInjected = await this.buildContainerInjected()
-    return this
-  }
-
-  public async getContainerInjected(): Promise<CInj> {
-    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
-  }
-}
-
-export abstract class SfnInjector<CInj, RInj extends BaseRInj> extends BaseInjector<CInj> {
-  public constructor(protected injectorName: string) {
-    super(injectorName)
-  }
-
-  public abstract getRequestInjected(containerInjected: CInj, event: SfnStateInputOutput, log: Logger): Promise<RInj>
-}
-
 export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> extends BaseInjector<CInj> {
   public constructor(protected injectorName: string) {
     super(injectorName)
@@ -91,27 +61,6 @@ export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryP
     context: Context,
     log: Logger
   ): Promise<RInj>
-}
-
-const INTERNAL_ERROR = (id?: string) => {
-  return {
-    statusCode: 500,
-    body: JSON.stringify({
-      errorCode: 'INTERNAL_ERROR',
-      detail: 'Unexpected error',
-      id,
-    }),
-  }
-}
-
-export abstract class BaseLambdaHandler<HandlerType, InputType, OutputType> {
-  constructor(protected readonly handlerName: string) {}
-
-  public abstract get handler(): HandlerType
-
-  protected abstract buildHandler(): HandlerType
-
-  protected abstract handleRequest(params: InputType): Promise<OutputType>
 }
 
 export abstract class APIGLambdaHandler<
@@ -180,7 +129,7 @@ export abstract class APIGLambdaHandler<
 
       const injector = await this.injectorPromise
 
-      const containerInjected = await injector.getContainerInjected()
+      const containerInjected = injector.getContainerInjected()
 
       let requestInjected: RInj
       try {
@@ -387,66 +336,4 @@ export abstract class APIGLambdaHandler<
 
     return { state: 'valid', response: res.value as Res }
   }
-}
-
-export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
-  SfnHandler,
-  { containerInjected: CInj; requestInjected: RInj },
-  SfnStateInputOutput
-> {
-  protected abstract inputSchema(): Joi.ObjectSchema | null
-
-  constructor(handlerName: string, private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>) {
-    super(handlerName)
-  }
-
-  get handler(): SfnHandler {
-    return async (event: SfnStateInputOutput): Promise<SfnStateInputOutput> => {
-      const handler = this.buildHandler()
-      return await handler(event)
-    }
-  }
-
-  protected buildHandler(): SfnHandler {
-    return async (sfnInput: SfnStateInputOutput): Promise<SfnStateInputOutput> => {
-      const log: Logger = bunyan.createLogger({
-        name: this.handlerName,
-        serializers: bunyan.stdSerializers,
-        level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
-      })
-
-      await this.validateInput(sfnInput, log)
-
-      const injector = await this.injectorPromise
-
-      const containerInjected = await injector.getContainerInjected()
-
-      let requestInjected: RInj
-      try {
-        requestInjected = await injector.getRequestInjected(containerInjected, sfnInput, log)
-      } catch (err) {
-        log.error({ err, sfnInput }, 'Unexpected error building request injected.')
-        throw new InjectionError(`Unexpected error building request injected:\n${err}`)
-      }
-
-      return await this.handleRequest({ containerInjected, requestInjected })
-    }
-  }
-
-  private async validateInput(input: SfnStateInputOutput, log: Logger): Promise<SfnStateInputOutput> {
-    const schema = this.inputSchema()
-
-    if (schema) {
-      const inputValidation = schema.validate(input, {
-        allowUnknown: true,
-      })
-      if (inputValidation.error) {
-        log.info({ inputValidation }, 'Input failed validation')
-        throw new SfnInputValidationError(inputValidation.error.message)
-      }
-    }
-    return input
-  }
-
-  public abstract handleRequest(input: { containerInjected: CInj; requestInjected: RInj }): Promise<SfnStateInputOutput>
 }

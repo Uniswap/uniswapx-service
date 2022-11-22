@@ -69,8 +69,7 @@ const MOCK_ORDER_5 = {
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
-const ordersRepository = new DynamoOrdersRepository()
-DynamoOrdersRepository.initialize(documentClient)
+const ordersRepository = DynamoOrdersRepository.create(documentClient)
 
 beforeAll(async () => {
   await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_1)

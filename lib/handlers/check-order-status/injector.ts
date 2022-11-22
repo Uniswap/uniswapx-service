@@ -5,7 +5,7 @@ import { EventWatcher, OrderValidator } from 'gouda-sdk'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/handler'
+import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
 
 export interface RequestInjected extends BaseRInj {
   chainId: number
@@ -24,12 +24,8 @@ export interface ContainerInjected {
 
 export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, RequestInjected> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    const documentClient = new DynamoDB.DocumentClient()
-    const dbInterface = new DynamoOrdersRepository()
-    DynamoOrdersRepository.initialize(documentClient)
-
     return {
-      dbInterface,
+      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
     }
   }
 

@@ -1,7 +1,7 @@
 import Joi from 'joi'
-import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/handler'
+import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
-import OPENAPI_SCHEMA, { GetApiDocsJsonResponseJoi } from './schema'
+import OPENAPI_SCHEMA from './schema'
 
 export class GetApiDocsJsonHandler extends APIGLambdaHandler<
   ContainerInjected,
@@ -40,6 +40,6 @@ export class GetApiDocsJsonHandler extends APIGLambdaHandler<
   }
 
   protected responseBodySchema(): Joi.ObjectSchema | null {
-    return GetApiDocsJsonResponseJoi
+    return null
   }
 }

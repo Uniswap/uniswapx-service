@@ -19,6 +19,7 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
 
 describe('Testing check order status handler', () => {
   const validateMock = jest.fn()
+  const getFillEventsMock = jest.fn()
 
   const getByHashMock = jest.fn().mockReturnValue(MOCK_ORDER_ENTITY)
   const updateOrderStatusMock = jest.fn().mockReturnValue(Promise<void>)
@@ -43,6 +44,9 @@ describe('Testing check order status handler', () => {
           log: { info: () => jest.fn(), error: () => jest.fn() },
           orderQuoter: {
             validate: validateMock,
+          },
+          orderWatcher: {
+            getFillEvents: getFillEventsMock,
           },
           provider: {
             getBlockNumber: providerMock,
@@ -98,15 +102,51 @@ describe('Testing check order status handler', () => {
   })
 
   describe('Test valid order', () => {
-    it('return latest on-chain status and increment retry count', async () => {
-      const injectorPromiseMock: any = buildInjectorPromiseMock(0, ORDER_STATUS.UNVERIFIED)
-      const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
-      validateMock.mockReturnValue(OrderValidation.OK)
-      const response = await checkOrderStatusHandler.handler({
-        orderHash: MOCK_ORDER_HASH,
-        orderStatus: ORDER_STATUS.UNVERIFIED as string,
-        chainId: 1,
+    const initialInjectorPromiseMock: any = buildInjectorPromiseMock(0, ORDER_STATUS.UNVERIFIED)
+    const handlerEventMock = {
+      orderHash: MOCK_ORDER_HASH,
+      orderStatus: ORDER_STATUS.UNVERIFIED as string,
+      chainId: 1,
+    }
+
+    beforeEach(() => {
+      jest.clearAllMocks()
+    })
+
+    it('should return expired order status', async () => {
+      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      validateMock.mockReturnValue(OrderValidation.Expired)
+      expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
+        orderStatus: ORDER_STATUS.EXPIRED,
       })
+    })
+
+    it('should return insufficient-funds order status', async () => {
+      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      validateMock.mockReturnValue(OrderValidation.InsufficientFunds)
+      expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+      })
+    })
+
+    it('should return error order status', async () => {
+      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      validateMock
+        .mockReturnValueOnce(OrderValidation.UnknownError)
+        .mockReturnValueOnce(OrderValidation.InvalidSignature)
+        .mockReturnValueOnce(OrderValidation.InvalidOrderFields)
+
+      for (let i = 0; i < 3; i++) {
+        expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
+          orderStatus: ORDER_STATUS.ERROR,
+        })
+      }
+    })
+
+    it('return latest on-chain status and increment retry count', async () => {
+      const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      validateMock.mockReturnValue(OrderValidation.OK)
+      const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
       expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN)
@@ -124,11 +164,7 @@ describe('Testing check order status handler', () => {
       const injectorPromiseMock: any = buildInjectorPromiseMock(301, ORDER_STATUS.UNVERIFIED)
       const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
       validateMock.mockReturnValue(OrderValidation.OK)
-      const response = await checkOrderStatusHandler.handler({
-        orderHash: MOCK_ORDER_HASH,
-        orderStatus: ORDER_STATUS.UNVERIFIED as string,
-        chainId: 1,
-      })
+      const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
       expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN)
@@ -146,11 +182,7 @@ describe('Testing check order status handler', () => {
       const injectorPromiseMock: any = buildInjectorPromiseMock(500, ORDER_STATUS.UNVERIFIED)
       const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
       validateMock.mockReturnValue(OrderValidation.OK)
-      const response = await checkOrderStatusHandler.handler({
-        orderHash: MOCK_ORDER_HASH,
-        orderStatus: ORDER_STATUS.UNVERIFIED as string,
-        chainId: 1,
-      })
+      const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
       expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN)
