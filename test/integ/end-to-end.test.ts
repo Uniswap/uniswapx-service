@@ -4,9 +4,16 @@
 // TODO: test on chain validation step function
 // TODO: test on chain execution
 
-import { BigNumber, ethers, Wallet } from 'ethers'
-import { DutchLimitOrderBuilder, PERMIT_POST_MAPPING, REACTOR_ADDRESS_MAPPING, parseOrder, NonceManager, DutchLimitOrder } from 'gouda-sdk'
 import axios from 'axios'
+import { BigNumber, ethers, Wallet } from 'ethers'
+import {
+  DutchLimitOrder,
+  DutchLimitOrderBuilder,
+  NonceManager,
+  parseOrder,
+  PERMIT_POST_MAPPING,
+  REACTOR_ADDRESS_MAPPING,
+} from 'gouda-sdk'
 import { ChainId } from '../../lib/util/chain'
 import FieldValidator from '../../lib/util/field-validator'
 
@@ -47,10 +54,12 @@ let wallet: Wallet
 let nonceMgr: NonceManager
 let submittedOrder: DutchLimitOrder
 describe('End to end test', () => {
-  beforeAll (async () => {
-    const provider = new ethers.providers.JsonRpcProvider('https://rpc.tenderly.co/fork/7efbd554-1297-4289-9ca9-017391889bb2')
+  beforeAll(async () => {
+    const provider = new ethers.providers.JsonRpcProvider(
+      'https://rpc.tenderly.co/fork/7efbd554-1297-4289-9ca9-017391889bb2'
+    )
     wallet = Wallet.createRandom()
-    nonceMgr = new NonceManager(provider, chainId);
+    nonceMgr = new NonceManager(provider, chainId)
   })
   describe('POST order', () => {
     it('should successfully make post request and get order hash as response', async () => {
@@ -75,9 +84,9 @@ describe('End to end test', () => {
         })
         .build()
       submittedOrder = order
-      // Sign the built order 
-      const { domain, types, values } = order.permitData();
-      const signature = await wallet._signTypedData(domain, types, values);
+      // Sign the built order
+      const { domain, types, values } = order.permitData()
+      const signature = await wallet._signTypedData(domain, types, values)
 
       const encodedOrder = order.serialize()
       const resp = await submitLimitOrder(encodedOrder, signature, chainId)
