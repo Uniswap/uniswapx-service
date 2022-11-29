@@ -3,7 +3,7 @@ import { DutchLimitOrder } from 'gouda-sdk'
 import { OrderValidator } from '../../lib/util/order-validator'
 
 const CURRENT_TIME = 10
-const validationProvider = new OrderValidator(() => CURRENT_TIME, 1)
+const validationProvider = new OrderValidator(() => CURRENT_TIME)
 const INPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000022'
 const OUTPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000033'
 const ONE_YEAR = 60 * 60 * 24 * 365
@@ -36,7 +36,7 @@ describe('Testing off chain validation', () => {
     it('Testing deadline < current time.', async () => {
       const order = newOrder({ deadline: 9 })
       const validationResp = validationProvider.validate(order)
-      expect(validationResp).toEqual({ errorString: 'Insufficient Deadline', valid: false })
+      expect(validationResp).toEqual({ errorString: 'Deadline must be in the future', valid: false })
     })
     it('Testing deadline longer than one year.', async () => {
       const order = newOrder({ deadline: CURRENT_TIME + ONE_YEAR + 1 })

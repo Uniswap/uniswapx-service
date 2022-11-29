@@ -14,13 +14,8 @@ import { BaseOrdersRepository, QueryResult } from './base'
 export const MAX_ORDERS = 500
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
-  private static ordersTable: Table<'Orders', 'orderHash', null>
-  private static nonceTable: Table<'Nonces', 'offerer', null>
-  private static orderEntity: Entity
-  private static nonceEntity: Entity
-
-  static initialize(documentClient: DocumentClient) {
-    this.ordersTable = new Table({
+  static create(documentClient: DocumentClient): BaseOrdersRepository {
+    const ordersTable = new Table({
       name: 'Orders',
       partitionKey: 'orderHash',
       DocumentClient: documentClient,
@@ -93,7 +88,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       },
     })
 
-    this.orderEntity = new Entity({
+    const orderEntity = new Entity({
       name: 'Order',
       attributes: {
         orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
@@ -115,24 +110,32 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         offerer_orderStatus_sellToken: { type: DYNAMODB_TYPES.STRING },
         createdAtMonth: { type: DYNAMODB_TYPES.NUMBER },
       },
-      table: this.ordersTable,
+      table: ordersTable,
     } as const)
 
-    this.nonceTable = new Table({
+    const nonceTable = new Table({
       name: 'Nonces',
       partitionKey: 'offerer',
       DocumentClient: documentClient,
     })
 
-    this.nonceEntity = new Entity({
+    const nonceEntity = new Entity({
       name: 'Nonce',
       attributes: {
         offerer: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
       },
-      table: this.nonceTable,
+      table: nonceTable,
     } as const)
+
+    return new DynamoOrdersRepository(ordersTable, orderEntity, nonceEntity)
   }
+
+  private constructor(
+    private readonly ordersTable: Table<'Orders', 'orderHash', null>,
+    private readonly orderEntity: Entity,
+    private readonly nonceEntity: Entity
+  ) {}
 
   public async getByOfferer(
     offerer: string,
@@ -165,12 +168,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   }
 
   public async getByHash(hash: string): Promise<OrderEntity | undefined> {
-    const res = await DynamoOrdersRepository.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
+    const res = await this.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
     return res.Item as OrderEntity
   }
 
   public async getNonceByAddress(address: string): Promise<string> {
-    const res = await DynamoOrdersRepository.nonceEntity.query(address, {
+    const res = await this.nonceEntity.query(address, {
       limit: 1,
       reverse: true,
       consistent: true,
@@ -179,10 +182,20 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return res.Items && res.Items.length > 0 ? res.Items[0].nonce : generateRandomNonce()
   }
 
+  public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
+    const res = await this.orderEntity.query(`${offerer}_${orderStatus}`, {
+      index: 'offerer_orderStatus-createdAt',
+      execute: true,
+      select: 'COUNT',
+    })
+
+    return res.Count || 0
+  }
+
   public async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
-    await DynamoOrdersRepository.ordersTable.transactWrite(
+    await this.ordersTable.transactWrite(
       [
-        DynamoOrdersRepository.orderEntity.putTransaction({
+        this.orderEntity.putTransaction({
           ...order,
           offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
           offerer_sellToken: `${order.offerer}_${order.sellToken}`,
@@ -191,7 +204,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           createdAtMonth: getCurrentMonth(),
           createdAt: getCurrentTime(),
         }),
-        DynamoOrdersRepository.nonceEntity.updateTransaction({
+        this.nonceEntity.updateTransaction({
           offerer: order.offerer,
           nonce: order.nonce,
         }),
@@ -205,7 +218,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   public async updateOrderStatus(orderHash: string, status: ORDER_STATUS): Promise<void> {
     const order = checkDefined(await this.getByHash(orderHash), 'cannot find order by hash when updating order status')
 
-    await DynamoOrdersRepository.orderEntity.update({
+    await this.orderEntity.update({
       [TABLE_KEY.ORDER_HASH]: orderHash,
       orderStatus: status,
       offerer_orderStatus: `${order.offerer}_${status}`,
@@ -307,7 +320,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         )
 
       default: {
-        const scanResult = await DynamoOrdersRepository.ordersTable.scan({
+        const scanResult = await this.ordersTable.scan({
           limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
           execute: true,
           ...(cursor && { startKey: this.getStartKey(cursor) }),
@@ -335,7 +348,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     }
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}`
 
-    const queryResult = await DynamoOrdersRepository.orderEntity.query(partitionKey, {
+    const queryResult = await this.orderEntity.query(partitionKey, {
       index: formattedIndex,
       execute: true,
       limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,

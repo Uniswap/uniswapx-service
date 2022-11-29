@@ -47,6 +47,16 @@ const MOCK_ORDER_3 = {
   sellToken: 'weth',
 }
 
+const MOCK_ORDER_4 = {
+  orderHash: '0x4',
+  offerer: 'hayden.eth',
+  encodedOrder: 'order4',
+  signature: 'sig4',
+  nonce: '4',
+  orderStatus: ORDER_STATUS.OPEN,
+  sellToken: 'weth',
+}
+
 const ADDITIONAL_FIELDS_ORDER_1 = {
   ...MOCK_ORDER_1,
   deadline: 1,
@@ -62,6 +72,11 @@ const ADDITIONAL_FIELDS_ORDER_3 = {
   deadline: 3,
 }
 
+const ADDITIONAL_FIELDS_ORDER_4 = {
+  ...MOCK_ORDER_4,
+  deadline: 3,
+}
+
 const mockedGetCurrentMonth = jest.mocked(getCurrentMonth)
 const mockedGetCurrentTime = jest.mocked(getCurrentTime)
 mockedGetCurrentMonth.mockImplementation(() => 1)
@@ -70,8 +85,7 @@ const mockTimeAndMonth = (time: number) => {
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
-const ordersRepository = new DynamoOrdersRepository()
-DynamoOrdersRepository.initialize(documentClient)
+const ordersRepository = DynamoOrdersRepository.create(documentClient)
 
 beforeAll(async () => {
   mockTimeAndMonth(1)
@@ -422,6 +436,18 @@ describe('OrdersRepository get nonce test', () => {
     const res = await ordersRepository.getNonceByAddress('random.eth')
     expect(res).not.toBeUndefined()
     expect(spy).toHaveBeenCalled()
+  })
+})
+
+describe('OrdersRepository get order count by offerer test', () => {
+  it('should successfully return order count by existing offerer', async () => {
+    mockTimeAndMonth(4)
+    await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_4)
+    expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_4.offerer, ORDER_STATUS.OPEN)).toEqual(2)
+  })
+
+  it('should return 0 for nonexistent offerer', async () => {
+    expect(await ordersRepository.countOrdersByOffererAndStatus('nonexistent', ORDER_STATUS.OPEN)).toEqual(0)
   })
 })
 

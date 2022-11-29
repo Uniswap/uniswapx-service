@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { APIGLambdaHandler, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
+import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
 import { GetNonceQueryParams, GetNonceQueryParamsJoi, GetNonceResponse, GetNonceResponseJoi } from './schema/index'
 
@@ -11,7 +11,7 @@ export class GetNonceHandler extends APIGLambdaHandler<
   GetNonceResponse
 > {
   public async handleRequest(
-    params: HandleRequestParams<ContainerInjected, RequestInjected, void, GetNonceQueryParams>
+    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, GetNonceQueryParams>
   ): Promise<ErrorResponse | Response<GetNonceResponse>> {
     const {
       requestInjected: { address, log },

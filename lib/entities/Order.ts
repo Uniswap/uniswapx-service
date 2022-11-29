@@ -5,6 +5,7 @@ export enum ORDER_STATUS {
   CANCELLED = 'cancelled',
   FILLED = 'filled',
   UNVERIFIED = 'unverified',
+  INSUFFICIENT_FUNDS = 'insufficient-funds',
 }
 
 export type OrderEntity = {

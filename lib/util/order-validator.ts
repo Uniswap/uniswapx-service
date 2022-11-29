@@ -10,7 +10,7 @@ export type OrderValidationResponse = {
 const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
 
 export class OrderValidator {
-  constructor(private readonly getCurrentTime: () => number, private readonly minOffset = 60) {}
+  constructor(private readonly getCurrentTime: () => number) {}
 
   validate(order: DutchLimitOrder): OrderValidationResponse {
     const deadlineValidation = this.validateDeadline(order.info.deadline)
@@ -63,10 +63,10 @@ export class OrderValidator {
   }
 
   private validateDeadline(deadline: number): OrderValidationResponse {
-    if (deadline < this.getCurrentTime() + this.minOffset) {
+    if (deadline < this.getCurrentTime()) {
       return {
         valid: false,
-        errorString: `Insufficient Deadline`,
+        errorString: 'Deadline must be in the future',
       }
     }
     /* 

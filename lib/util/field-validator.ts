@@ -29,7 +29,8 @@ export default class FieldValidator {
     ORDER_STATUS.CANCELLED,
     ORDER_STATUS.EXPIRED,
     ORDER_STATUS.ERROR,
-    ORDER_STATUS.UNVERIFIED
+    ORDER_STATUS.UNVERIFIED,
+    ORDER_STATUS.INSUFFICIENT_FUNDS
   )
   private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT, SORT_FIELDS.DEADLINE)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)

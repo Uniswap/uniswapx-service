@@ -1,22 +1,25 @@
+import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
+import Logger from 'bunyan'
 import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
-import { APIGLambdaHandler, BaseRInj, ErrorResponse, HandleRequestParams, Response } from '../base/handler'
+import { checkDefined } from '../../preconditions/preconditions'
+import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
 
 export class PostOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
-  BaseRInj,
+  ApiRInj,
   PostOrderRequestBody,
   void,
   PostOrderResponse
 > {
   public async handleRequest(
-    params: HandleRequestParams<ContainerInjected, BaseRInj, PostOrderRequestBody, void>
+    params: APIHandleRequestParams<ContainerInjected, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
-      requestBody: { encodedOrder, signature },
+      requestBody: { encodedOrder, signature, chainId },
       requestInjected: { log },
       containerInjected: { dbInterface, orderValidator },
     } = params
@@ -61,20 +64,55 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
 
     try {
-      await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`Successfully inserted Order with id ${id} into DynamoDb`)
-    } catch (e: unknown) {
-      log.error(e, `Failed to Order with id ${id} insert into DynamoDb`)
+      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
+      if (orderCount > 50) {
+        log.info(orderCount, `${order.offerer} has too many open orders`)
+        return {
+          statusCode: 403,
+          errorCode: 'TOO_MANY_OPEN_ORDERS',
+        }
+      }
+    } catch (e) {
+      log.error(e, `failed to fetch open order count for ${order.offerer}`)
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
       }
     }
 
+    const stateMachineArn = checkDefined(process.env['STATE_MACHINE_ARN'])
+
+    try {
+      await dbInterface.putOrderAndUpdateNonceTransaction(order)
+      log.info(`uccessfully inserted Order ${id} into DB`)
+    } catch (e: unknown) {
+      log.error(e, `Failed to insert order ${id} into DB`)
+      return {
+        statusCode: 500,
+        ...(e instanceof Error && { errorCode: e.message }),
+      }
+    }
+    await this.kickoffOrderTrackingSfn(id, chainId, stateMachineArn, log)
     return {
       statusCode: 201,
       body: { hash: id },
     }
+  }
+
+  private async kickoffOrderTrackingSfn(hash: string, chainId: number, stateMachineArn: string, log?: Logger) {
+    const region = checkDefined(process.env['REGION'])
+    const sfnClient = new SFNClient({ region: region })
+    const startExecutionCommand = new StartExecutionCommand({
+      stateMachineArn: stateMachineArn,
+      name: hash,
+      input: JSON.stringify({
+        orderHash: hash,
+        chainId: chainId,
+        orderStatus: ORDER_STATUS.UNVERIFIED,
+      }),
+    })
+    log?.info(startExecutionCommand, 'Starting state machine execution')
+    await sfnClient.send(startExecutionCommand)
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {
