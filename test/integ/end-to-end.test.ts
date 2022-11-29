@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // this currently tests:
 // POST order endpoint
 // GET orders endpoint
