@@ -1,9 +1,11 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { Entity, Table } from 'dynamodb-toolbox'
+import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
 import { getValidKeys, OrderEntity, ORDER_STATUS } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
+import { AmplitudeEventLogger } from '../logging'
 import { checkDefined } from '../preconditions/preconditions'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
@@ -67,13 +69,16 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       table: nonceTable,
     } as const)
 
-    return new DynamoOrdersRepository(ordersTable, orderEntity, nonceEntity)
+    const eventLogger = new AmplitudeEventLogger()
+
+    return new DynamoOrdersRepository(ordersTable, orderEntity, nonceEntity, eventLogger)
   }
 
   private constructor(
     private readonly ordersTable: Table<'Orders', 'orderHash', null>,
     private readonly orderEntity: Entity,
-    private readonly nonceEntity: Entity
+    private readonly nonceEntity: Entity,
+    private readonly eventLogger: AmplitudeEventLogger
   ) {}
 
   public async getByOfferer(offerer: string, limit: number, cursor?: string): Promise<QueryResult> {
@@ -131,6 +136,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         capacity: 'total',
       }
     )
+
+    const decodedOrder = parseOrder(order.encodedOrder) as DutchLimitOrder
+    await this.eventLogger.logNewOrder(decodedOrder)
   }
 
   public async updateOrderStatus(orderHash: string, status: ORDER_STATUS): Promise<void> {

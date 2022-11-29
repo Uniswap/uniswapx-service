@@ -65,7 +65,6 @@ export class APIPipeline extends Stack {
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        //'yarn add https://${GH_TOKEN}@github.com/Uniswap/gouda-sdk.git',
         'yarn install --network-concurrency 1 --skip-integrity-check --check-cache',
         'yarn build',
         'npx cdk synth',
@@ -192,6 +191,7 @@ envVars['WEB3_RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
 envVars['REACTOR_TENDERLY'] = process.env[`REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT_TENDERLY'] = process.env[`PERMIT_TENDERLY`] || ''
+envVars['AMPLITUDE_API_KEY'] = process.env[`AMPLITUDE_API_KEY`] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,

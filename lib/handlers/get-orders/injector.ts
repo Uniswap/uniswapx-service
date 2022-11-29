@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { AmplitudeEventLogger } from '../../logging'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
@@ -19,12 +20,14 @@ export interface RequestInjected extends ApiRInj {
 
 export interface ContainerInjected {
   dbInterface: BaseOrdersRepository
+  eventLogger: AmplitudeEventLogger
 }
 
 export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, GetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
       dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
+      eventLogger: new AmplitudeEventLogger(),
     }
   }
 
