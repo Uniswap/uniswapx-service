@@ -6,6 +6,6 @@ module.exports = {
   ...ts_preset,
   ...dynamo_preset,
   testEnvironment: 'node',
-  testPathIgnorePatterns: ['bin', 'dist'],
+  testPathIgnorePatterns: ['bin', 'dist', '/test/integ/'],
   collectCoverageFrom: ['**/*.ts', '!**/build/**', '!**/node_modules/**', '!**/dist/**', '!**/bin/**'],
 }
