@@ -10,7 +10,8 @@ import axios from 'axios'
 import { ChainId } from '../../lib/util/chain'
 import FieldValidator from '../../lib/util/field-validator'
 
-const BASE_URL = process.env.BASE_URL || 'https://6lmon76wp5.execute-api.us-east-1.amazonaws.com/prod'
+// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+const BASE_URL = process.env.BASE_URL!
 const chainId = 1
 const builder = new DutchLimitOrderBuilder(
   chainId,
@@ -40,7 +41,6 @@ const submitLimitOrder = async (serializedOrder: string, signature: string, chai
   }
 }
 
-//const provider = new ethers.providers.JsonRpcProvider('https://rpc.tenderly.co/fork/7efbd554-1297-4289-9ca9-017391889bb2')
 let orderId: string
 let nonce: BigNumber
 let wallet: Wallet
