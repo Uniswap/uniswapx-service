@@ -6,8 +6,7 @@
 // TODO: test on chain execution
 
 import { BigNumber, ethers, Wallet } from 'ethers'
-import { DutchLimitOrderBuilder, PERMIT_POST_MAPPING, REACTOR_ADDRESS_MAPPING,  } from 'gouda-sdk'
-//import { OrderValidator } from '../../lib/util/order-validator'
+import { DutchLimitOrderBuilder, NonceManager, PERMIT_POST_MAPPING, REACTOR_ADDRESS_MAPPING,  } from 'gouda-sdk'
 import axios from 'axios'
 import { ChainId } from '../../lib/util/chain'
 import FieldValidator from '../../lib/util/field-validator'
@@ -29,11 +28,9 @@ const submitLimitOrder = async (serializedOrder: string, signature: string, chai
       }),
       url,
     }
-    console.log(option.data)
     const response = await axios(option)
     return response
   } catch (error: any) {
-    console.log(error)
     throw new Error(error.message)
   }
 }
@@ -44,8 +41,8 @@ describe('End to end test', () => {
   describe('POST order', () => {
     it('should successfully make post request and get order hash as response', async () => {
       const chainId = 1
-      //const nonceMgr = new NonceManager(provider, 1);
-      //const nonce = await nonceMgr.useNonce(account);
+      const nonceMgr = new NonceManager(provider, chainId);
+      const nonce = await nonceMgr.useNonce(account);
 
       const deadline = Math.floor(new Date().getTime() / 1000) + 1000
       const builder = new DutchLimitOrderBuilder(
@@ -72,7 +69,7 @@ describe('End to end test', () => {
         .build()
       // Sign the built order 
       const { domain, types, values } = order.permitData();
-      const wallet = new Wallet('cc4bee5873842013064688b31fba277b09802c04ea98db54be1151d7eba5ff29', provider)
+      const wallet = new Wallet('', provider)
       const signature = await wallet._signTypedData(domain, types, values);
 
       const encodedOrder = order.serialize()
@@ -94,7 +91,6 @@ describe('End to end test', () => {
       expect(resp.data).toBeDefined()
       expect(resp.data.orders).toBeDefined()
       expect(resp.data.orders.length).toBeGreaterThan(0)
-      console.log(resp.data.orders)
     })
   })
 })
