@@ -5,11 +5,15 @@ import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 import * as path from 'path'
+import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { DynamoStack } from './dynamo-stack'
+import { StepFunctionStack } from './step-function-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
+  stage: STAGE
+  envVars?: { [key: string]: string }
 }
 export class LambdaStack extends cdk.NestedStack {
   private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
@@ -35,6 +39,14 @@ export class LambdaStack extends cdk.NestedStack {
     })
 
     new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
+
+    const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
+      stage: props.stage as STAGE,
+      envVars: {
+        ...props.envVars,
+      },
+      lambdaRole: lambdaRole,
+    })
 
     this.getOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetOrders${lambdaName}`, {
       role: lambdaRole,
@@ -65,6 +77,8 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
+        STATE_MACHINE_ARN: sfnStack.statusTrackingStateMachine.attrArn,
+        REGION: this.region,
       },
     })
 

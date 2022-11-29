@@ -23,6 +23,7 @@ export class APIStack extends cdk.Stack {
       throttlingOverride?: string
       chatbotSNSArn?: string
       stage: string
+      envVars?: { [key: string]: string }
     }
   ) {
     super(parent, name, props)
@@ -34,6 +35,8 @@ export class APIStack extends cdk.Stack {
       `${SERVICE_NAME}LambdaStack`,
       {
         provisionedConcurrency,
+        stage: stage as STAGE,
+        envVars: props.envVars,
       }
     )
 

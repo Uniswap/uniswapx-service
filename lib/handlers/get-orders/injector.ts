@@ -3,10 +3,10 @@ import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import { BaseRInj, Injector } from '../base/handler'
+import { ApiInjector, ApiRInj } from '../base/index'
 import { GetOrdersQueryParams } from './schema'
 
-export interface RequestInjected extends BaseRInj {
+export interface RequestInjected extends ApiRInj {
   limit: number
   queryFilters: {
     orderStatus?: string
@@ -21,13 +21,10 @@ export interface ContainerInjected {
   dbInterface: BaseOrdersRepository
 }
 
-export class GetOrdersInjector extends Injector<ContainerInjected, RequestInjected, void, GetOrdersQueryParams> {
+export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, GetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    const documentClient = new DynamoDB.DocumentClient()
-    const dbInterface = new DynamoOrdersRepository()
-    DynamoOrdersRepository.initialize(documentClient)
     return {
-      dbInterface,
+      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
     }
   }
 

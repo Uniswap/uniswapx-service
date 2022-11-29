@@ -1,13 +1,16 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
-import { BuildEnvironmentVariableType, BuildSpec } from 'aws-cdk-lib/aws-codebuild'
+import { BuildEnvironmentVariableType, BuildSpec, ComputeType } from 'aws-cdk-lib/aws-codebuild'
+import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
 import 'source-map-support/register'
+import { SUPPORTED_CHAINS } from '../lib/util/chain'
 import { STAGE } from '../lib/util/stage'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
+
 dotenv.config()
 
 export class APIStage extends Stage {
@@ -20,12 +23,14 @@ export class APIStage extends Stage {
       provisionedConcurrency: number
       chatbotSNSArn?: string
       stage: string
+      envVars?: { [key: string]: string }
     }
   ) {
     super(scope, id, props)
-    const { provisionedConcurrency, chatbotSNSArn, stage } = props
+    const { provisionedConcurrency, chatbotSNSArn, stage, env } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
+      env,
       provisionedConcurrency,
       chatbotSNSArn,
       stage,
@@ -83,10 +88,28 @@ export class APIPipeline extends Stack {
       synth: synthStep,
     })
 
+    // Secrets are stored in secrets manager in the pipeline account. Accounts we deploy to
+    // have been granted permissions to access secrets via resource policies.
+    const jsonRpcProvidersSecret = sm.Secret.fromSecretAttributes(this, 'RPCProviderUrls', {
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-service-rpc-urls-E4FbSb',
+    })
+
+    const rpcTenderly = sm.Secret.fromSecretAttributes(this, 'rpcTenderly', {
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-tenderly-Jh1BNl',
+    })
+
+    const jsonRpcUrls: { [chain: string]: string } = {}
+    Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
+      const key = `WEB3_RPC_${chainId}`
+      jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
+    })
+
+    jsonRpcUrls[`WEB3_RPC_TENDERLY`] = rpcTenderly.secretValueFromJson('RPC_TENDERLY').toString()
+
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
-      provisionedConcurrency: 20,
+      provisionedConcurrency: 5,
       stage: STAGE.BETA,
     })
 
@@ -97,7 +120,7 @@ export class APIPipeline extends Stack {
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
       env: { account: '316116520258', region: 'us-east-2' },
-      provisionedConcurrency: 100,
+      provisionedConcurrency: 20,
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
     })
@@ -120,6 +143,7 @@ export class APIPipeline extends Stack {
       },
       buildEnvironment: {
         buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_6_0,
+        computeType: ComputeType.MEDIUM,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -157,11 +181,24 @@ export class APIPipeline extends Stack {
 // Local Dev Stack
 const app = new cdk.App()
 
+// Local dev stack
+const envVars: { [key: string]: string } = {}
+
+Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
+  envVars[`WEB3_RPC_${chainId}`] = process.env[`RPC_${chainId}`] || ''
+})
+
+envVars['WEB3_RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
+envVars['REACTOR_TENDERLY'] = process.env[`REACTOR_TENDERLY`] || ''
+envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
+envVars['PERMIT_TENDERLY'] = process.env[`PERMIT_TENDERLY`] || ''
+
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
   stage: STAGE.LOCAL,
+  envVars: envVars,
 })
 
 new APIPipeline(app, `${SERVICE_NAME}PipelineStack`, {

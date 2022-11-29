@@ -6,16 +6,27 @@ import {
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
-import { checkDefined } from '../../preconditions/preconditions'
+import { BaseHandleRequestParams, BaseInjector, BaseLambdaHandler, BaseRInj } from './base'
+
+const INTERNAL_ERROR = (id?: string) => {
+  return {
+    statusCode: 500,
+    body: JSON.stringify({
+      errorCode: 'INTERNAL_ERROR',
+      detail: 'Unexpected error',
+      id,
+    }),
+  }
+}
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
-export type BaseRInj = {
-  log: Logger
-  requestId: string
-}
+export type ApiRInj = BaseRInj & { requestId: string }
 
-export type HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
+export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = BaseHandleRequestParams<
+  CInj,
+  APIGatewayProxyEvent
+> & {
   context: Context
   event: APIGatewayProxyEvent
   requestBody: ReqBody
@@ -37,13 +48,9 @@ export type ErrorResponse = {
   detail?: string
 }
 
-export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams> {
-  private containerInjected: CInj | undefined
-  public constructor(protected injectorName: string) {}
-
-  public async build() {
-    this.containerInjected = await this.buildContainerInjected()
-    return this
+export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> extends BaseInjector<CInj> {
+  public constructor(protected injectorName: string) {
+    super(injectorName)
   }
 
   public abstract getRequestInjected(
@@ -54,30 +61,25 @@ export abstract class Injector<CInj, RInj extends BaseRInj, ReqBody, ReqQueryPar
     context: Context,
     log: Logger
   ): Promise<RInj>
-
-  public abstract buildContainerInjected(): Promise<CInj>
-
-  public async getContainerInjected(): Promise<CInj> {
-    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
-  }
 }
 
-const INTERNAL_ERROR = (id?: string) => {
-  return {
-    statusCode: 500,
-    body: JSON.stringify({
-      errorCode: 'INTERNAL_ERROR',
-      detail: 'Unexpected error',
-      id,
-    }),
-  }
-}
-
-export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, ReqQueryParams, Res> {
+export abstract class APIGLambdaHandler<
+  CInj,
+  RInj extends ApiRInj,
+  ReqBody,
+  ReqQueryParams,
+  Res
+> extends BaseLambdaHandler<
+  APIGatewayProxyHandler,
+  APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams>,
+  Response<Res> | ErrorResponse
+> {
   constructor(
-    private readonly handlerName: string,
-    private readonly injectorPromise: Promise<Injector<CInj, RInj, ReqBody, ReqQueryParams>>
-  ) {}
+    handlerName: string,
+    private readonly injectorPromise: Promise<ApiInjector<CInj, RInj, ReqBody, ReqQueryParams>>
+  ) {
+    super(handlerName)
+  }
 
   get handler(): APIGatewayProxyHandler {
     return async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
@@ -98,7 +100,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
     }
   }
 
-  private buildHandler(): APIGatewayProxyHandler {
+  protected buildHandler(): APIGatewayProxyHandler {
     return async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
       let log: Logger = bunyan.createLogger({
         name: this.handlerName,
@@ -127,7 +129,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
 
       const injector = await this.injectorPromise
 
-      const containerInjected = await injector.getContainerInjected()
+      const containerInjected = injector.getContainerInjected()
 
       let requestInjected: RInj
       try {
@@ -203,7 +205,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends BaseRInj, ReqBody, Re
   }
 
   public abstract handleRequest(
-    params: HandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams>
+    params: APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams>
   ): Promise<Response<Res> | ErrorResponse>
 
   protected abstract requestBodySchema(): Joi.ObjectSchema | null

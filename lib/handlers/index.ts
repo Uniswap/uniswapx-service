@@ -1,3 +1,5 @@
+import { CheckOrderStatusHandler } from './check-order-status/handler'
+import { CheckOrderStatusInjector } from './check-order-status/injector'
 import { GetNonceHandler } from './get-nonce/handler'
 import { GetNonceInjector } from './get-nonce/injector'
 import { GetOrdersHandler } from './get-orders/handler'
@@ -14,8 +16,12 @@ const getOrdersHandler = new GetOrdersHandler('get-orders', getOrdersInjectorPro
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 const postOrderHandler = new PostOrderHandler('post-orders', postOrderInjectorPromise)
 
+const checkOrderStatusInjectorPromise = new CheckOrderStatusInjector('checkOrderStatusInjector').build()
+const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', checkOrderStatusInjectorPromise)
+
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,
   postOrderHandler: postOrderHandler.handler,
   getNonceHandler: getNonceHandler.handler,
+  checkOrderStatusHandler: checkOrderStatusHandler.handler,
 }

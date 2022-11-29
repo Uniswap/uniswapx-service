@@ -1,28 +1,22 @@
 import { APIGatewayEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
+import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { OrderValidator } from '../../util/order-validator'
-import { BaseRInj, Injector } from '../base/handler'
+import { ApiInjector, ApiRInj } from '../base/index'
 import { PostOrderRequestBody } from './schema'
 
 export interface ContainerInjected {
-  dbInterface: DynamoOrdersRepository
+  dbInterface: BaseOrdersRepository
   orderValidator: OrderValidator
 }
 
-export class PostOrderInjector extends Injector<ContainerInjected, BaseRInj, PostOrderRequestBody, void> {
+export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    const documentClient = new DynamoDB.DocumentClient()
-    const dbInterface = new DynamoOrdersRepository()
-    DynamoOrdersRepository.initialize(documentClient)
-
-    const getCurrentTime = () => new Date().getTime() / 1000
-    const orderValidator = new OrderValidator(getCurrentTime)
-
     return {
-      dbInterface,
-      orderValidator,
+      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
+      orderValidator: new OrderValidator(() => new Date().getTime() / 1000),
     }
   }
 
@@ -33,7 +27,7 @@ export class PostOrderInjector extends Injector<ContainerInjected, BaseRInj, Pos
     _event: APIGatewayEvent,
     context: Context,
     log: Logger
-  ): Promise<BaseRInj> {
+  ): Promise<ApiRInj> {
     return {
       requestId: context.awsRequestId,
       log,
