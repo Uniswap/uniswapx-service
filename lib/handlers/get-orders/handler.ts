@@ -20,6 +20,15 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     } = params
 
     try {
+      // TODO: when the base handler is more generalized we should be able to include this logic in request validation
+      if ((queryFilters.sortKey || queryFilters.sort) && !(queryFilters.sortKey && queryFilters.sort)) {
+        return {
+          statusCode: 400,
+          detail: 'Need both a sortKey and sort for a sorted query.',
+          errorCode: 'VALIDATION_ERROR',
+        }
+      }
+
       const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
 
       return {

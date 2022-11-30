@@ -8,14 +8,21 @@ module.exports = {
         { AttributeName: 'offerer', AttributeType: 'S' },
         { AttributeName: 'orderStatus', AttributeType: 'S' },
         { AttributeName: 'sellToken', AttributeType: 'S' },
-        { AttributeName: 'offererOrderStatus', AttributeType: 'S' },
-        { AttributeName: 'offererSellToken', AttributeType: 'S' },
-        { AttributeName: 'sellTokenOrderStatus', AttributeType: 'S' },
+        { AttributeName: 'offerer_orderStatus', AttributeType: 'S' },
+        { AttributeName: 'offerer_sellToken', AttributeType: 'S' },
+        { AttributeName: 'sellToken_orderStatus', AttributeType: 'S' },
+        { AttributeName: 'offerer_orderStatus_sellToken', AttributeType: 'S' },
+        { AttributeName: 'deadline', AttributeType: 'N' },
+        { AttributeName: 'createdAt', AttributeType: 'N' },
+        { AttributeName: 'createdAtMonth', AttributeType: 'N' },
       ],
       GlobalSecondaryIndexes: [
         {
-          IndexName: 'offererIndex',
-          KeySchema: [{ AttributeName: 'offerer', KeyType: 'HASH' }],
+          IndexName: 'offerer-createdAt',
+          KeySchema: [
+            { AttributeName: 'offerer', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
+          ],
           Projection: {
             NonKeyAttributes: ['signature', 'orderStatus', 'encodedOrder', 'nonce', 'orderHash', 'sellToken'],
             ProjectionType: 'INCLUDE',
@@ -23,8 +30,11 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'orderStatusIndex',
-          KeySchema: [{ AttributeName: 'orderStatus', KeyType: 'HASH' }],
+          IndexName: 'orderStatus-createdAt',
+          KeySchema: [
+            { AttributeName: 'orderStatus', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
+          ],
           Projection: {
             NonKeyAttributes: ['signature', 'offerer', 'encodedOrder', 'nonce', 'orderHash', 'sellToken'],
             ProjectionType: 'INCLUDE',
@@ -32,8 +42,11 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'sellTokenIndex',
-          KeySchema: [{ AttributeName: 'sellToken', KeyType: 'HASH' }],
+          IndexName: 'sellToken-createdAt',
+          KeySchema: [
+            { AttributeName: 'sellToken', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
+          ],
           Projection: {
             NonKeyAttributes: ['signature', 'offerer', 'encodedOrder', 'nonce', 'orderHash', 'orderStatus'],
             ProjectionType: 'INCLUDE',
@@ -41,10 +54,10 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offererOrderStatusIndex',
+          IndexName: 'offerer_orderStatus_sellToken-createdAt',
           KeySchema: [
-            { AttributeName: 'offererOrderStatus', KeyType: 'HASH' },
-            { AttributeName: 'sellToken', KeyType: 'RANGE' },
+            { AttributeName: 'offerer_orderStatus_sellToken', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
             NonKeyAttributes: [
@@ -61,8 +74,11 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offererSellTokenIndex',
-          KeySchema: [{ AttributeName: 'offererSellToken', KeyType: 'HASH' }],
+          IndexName: 'offerer_orderStatus-createdAt',
+          KeySchema: [
+            { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
+          ],
           Projection: {
             NonKeyAttributes: [
               'signature',
@@ -78,8 +94,11 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'sellTokenOrderStatusIndex',
-          KeySchema: [{ AttributeName: 'sellTokenOrderStatus', KeyType: 'HASH' }],
+          IndexName: 'offerer_sellToken-createdAt',
+          KeySchema: [
+            { AttributeName: 'offerer_sellToken', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
+          ],
           Projection: {
             NonKeyAttributes: [
               'signature',
@@ -90,6 +109,166 @@ module.exports = {
               'orderStatus',
               'sellToken',
             ],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'sellToken_orderStatus-createdAt',
+          KeySchema: [
+            { AttributeName: 'sellToken_orderStatus', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: [
+              'signature',
+              'encodedOrder',
+              'nonce',
+              'orderHash',
+              'offerer',
+              'orderStatus',
+              'sellToken',
+            ],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'createdAtMonth-createdAt',
+          KeySchema: [
+            { AttributeName: 'createdAtMonth', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: [
+              'signature',
+              'encodedOrder',
+              'nonce',
+              'orderHash',
+              'offerer',
+              'orderStatus',
+              'sellToken',
+            ],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'offerer-deadline',
+          KeySchema: [
+            { AttributeName: 'offerer', KeyType: 'HASH' },
+            { AttributeName: 'deadline', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: ['signature', 'orderStatus', 'encodedOrder', 'nonce', 'orderHash', 'sellToken'],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'orderStatus-deadline',
+          KeySchema: [
+            { AttributeName: 'orderStatus', KeyType: 'HASH' },
+            { AttributeName: 'deadline', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: ['signature', 'offerer', 'encodedOrder', 'nonce', 'orderHash', 'sellToken', 'createdAt'],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'sellToken-deadline',
+          KeySchema: [
+            { AttributeName: 'sellToken', KeyType: 'HASH' },
+            { AttributeName: 'deadline', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: ['signature', 'offerer', 'encodedOrder', 'nonce', 'orderHash', 'orderStatus'],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'offerer_orderStatus_sellToken-deadline',
+          KeySchema: [
+            { AttributeName: 'offerer_orderStatus_sellToken', KeyType: 'HASH' },
+            { AttributeName: 'deadline', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: [
+              'signature',
+              'encodedOrder',
+              'nonce',
+              'orderHash',
+              'offerer',
+              'orderStatus',
+              'sellToken',
+            ],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'offerer_orderStatus-deadline',
+          KeySchema: [
+            { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
+            { AttributeName: 'deadline', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: [
+              'signature',
+              'encodedOrder',
+              'nonce',
+              'orderHash',
+              'offerer',
+              'orderStatus',
+              'sellToken',
+            ],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'offerer_sellToken-deadline',
+          KeySchema: [
+            { AttributeName: 'offerer_sellToken', KeyType: 'HASH' },
+            { AttributeName: 'deadline', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: [
+              'signature',
+              'encodedOrder',
+              'nonce',
+              'orderHash',
+              'offerer',
+              'orderStatus',
+              'sellToken',
+            ],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'sellToken_orderStatus-deadline',
+          KeySchema: [
+            { AttributeName: 'sellToken_orderStatus', KeyType: 'HASH' },
+            { AttributeName: 'deadline', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: ['orderHash'],
+            ProjectionType: 'INCLUDE',
+          },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'createdAtMonth-deadline',
+          KeySchema: [
+            { AttributeName: 'createdAtMonth', KeyType: 'HASH' },
+            { AttributeName: 'deadline', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            NonKeyAttributes: ['orderHash'],
             ProjectionType: 'INCLUDE',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },

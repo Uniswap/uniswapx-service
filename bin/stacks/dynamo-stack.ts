@@ -4,7 +4,7 @@ import { Construct } from 'constructs'
 import { TABLE_KEY } from '../../lib/config/dynamodb'
 import { SERVICE_NAME } from '../constants'
 
-export interface DynamoStackProps extends cdk.NestedStackProps {}
+export type DynamoStackProps = cdk.NestedStackProps
 
 export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
@@ -23,8 +23,10 @@ export class DynamoStack extends cdk.NestedStack {
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
     })
 
+    // Create global secondary indexes with createdAt sort key
+
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER}Index`,
+      indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
         name: TABLE_KEY.OFFERER,
         type: aws_dynamo.AttributeType.STRING,
@@ -34,17 +36,11 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: [
-        TABLE_KEY.ORDER_HASH,
-        TABLE_KEY.ENCODED_ORDER,
-        TABLE_KEY.SIGNATURE,
-        TABLE_KEY.SELL_TOKEN,
-        TABLE_KEY.ORDER_STATUS,
-      ],
+      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.ORDER_STATUS],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.SELL_TOKEN}Index`,
+      indexName: `${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
         name: TABLE_KEY.SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
@@ -58,13 +54,14 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.ORDER_HASH,
         TABLE_KEY.ENCODED_ORDER,
         TABLE_KEY.SIGNATURE,
-        TABLE_KEY.OFFERER,
         TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.ORDER_STATUS}Index`,
+      indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
         name: TABLE_KEY.ORDER_STATUS,
         type: aws_dynamo.AttributeType.STRING,
@@ -79,29 +76,126 @@ export class DynamoStack extends cdk.NestedStack {
         TABLE_KEY.ENCODED_ORDER,
         TABLE_KEY.SIGNATURE,
         TABLE_KEY.OFFERER,
-        TABLE_KEY.SELL_TOKEN,
+        TABLE_KEY.CREATED_AT,
       ],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER_ORDER_STATUS}Index`,
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
-        name: TABLE_KEY.OFFERER_ORDER_STATUS,
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
         type: aws_dynamo.AttributeType.STRING,
       },
       sortKey: {
-        name: TABLE_KEY.SELL_TOKEN,
-        type: aws_dynamo.AttributeType.STRING,
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
-      nonKeyAttributes: [TABLE_KEY.ORDER_HASH, TABLE_KEY.ENCODED_ORDER, TABLE_KEY.SIGNATURE, TABLE_KEY.CREATED_AT],
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.OFFERER_SELL_TOKEN}Index`,
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`,
       partitionKey: {
-        name: TABLE_KEY.OFFERER_SELL_TOKEN,
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
         type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`,
+      partitionKey: {
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`,
+      partitionKey: {
+        name: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}`,
+      partitionKey: {
+        name: TABLE_KEY.CREATED_AT_MONTH,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    // Create global secondary indexes with deadline sort key
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}`,
+      partitionKey: {
+        name: TABLE_KEY.OFFERER,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
       nonKeyAttributes: [
@@ -114,16 +208,146 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.SELL_TOKEN_ORDER_STATUS}Index`,
+      indexName: `${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`,
       partitionKey: {
-        name: TABLE_KEY.SELL_TOKEN_ORDER_STATUS,
+        name: TABLE_KEY.SELL_TOKEN,
         type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.INCLUDE,
       nonKeyAttributes: [
         TABLE_KEY.ORDER_HASH,
         TABLE_KEY.ENCODED_ORDER,
         TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`,
+      partitionKey: {
+        name: TABLE_KEY.ORDER_STATUS,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`,
+      partitionKey: {
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`,
+      partitionKey: {
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`,
+      partitionKey: {
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`,
+      partitionKey: {
+        name: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
+        TABLE_KEY.OFFERER,
+        TABLE_KEY.CREATED_AT,
+      ],
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.DEADLINE}`,
+      partitionKey: {
+        name: TABLE_KEY.CREATED_AT_MONTH,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      sortKey: {
+        name: TABLE_KEY.DEADLINE,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        TABLE_KEY.ORDER_HASH,
+        TABLE_KEY.ENCODED_ORDER,
+        TABLE_KEY.SIGNATURE,
+        TABLE_KEY.ORDER_STATUS,
         TABLE_KEY.OFFERER,
         TABLE_KEY.CREATED_AT,
       ],
