@@ -176,6 +176,16 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return await this.queryOrderEntity(sellToken, TABLE_KEY.SELL_TOKEN, limit, cursor, sortKey, sort)
   }
 
+  public async getByFiller(
+    filler: string,
+    limit: number,
+    cursor?: string,
+    sortKey?: SORT_FIELDS,
+    sort?: string
+  ): Promise<QueryResult> {
+    return await this.queryOrderEntity(filler, TABLE_KEY.FILLER, limit, cursor, sortKey, sort)
+  }
+
   public async getByHash(hash: string): Promise<OrderEntity | undefined> {
     const res = await this.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
     return res.Item as OrderEntity
@@ -278,6 +288,97 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       case this.areParamsRequested([GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
         return await this.getBySellToken(
           queryFilters['sellToken'] as string,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER], requestedParams):
+        return await this.getByFiller(
+          queryFilters['filler'] as string,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
+        return await this.queryOrderEntity(
+          `${queryFilters['filler']}_${queryFilters['orderStatus']}`,
+          `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER], requestedParams):
+        return await this.queryOrderEntity(
+          `${queryFilters['filler']}_${queryFilters['offerer']}`,
+          `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.SELL_TOKEN], requestedParams):
+        return await this.queryOrderEntity(
+          `${queryFilters['filler']}_${queryFilters['sellToken']}`,
+          `${TABLE_KEY.FILLER}_${TABLE_KEY.SELL_TOKEN}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
+      case this.areParamsRequested(
+        [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS],
+        requestedParams
+      ):
+        return await this.queryOrderEntity(
+          `${queryFilters['filler']}_${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
+          `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
+      case this.areParamsRequested(
+        [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.SELL_TOKEN],
+        requestedParams
+      ):
+        return await this.queryOrderEntity(
+          `${queryFilters['filler']}_${queryFilters['offerer']}_${queryFilters['sellToken']}`,
+          `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
+      case this.areParamsRequested(
+        [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.ORDER_STATUS, GET_QUERY_PARAMS.SELL_TOKEN],
+        requestedParams
+      ):
+        return await this.queryOrderEntity(
+          `${queryFilters['filler']}_${queryFilters['orderStatus']}_${queryFilters['sellToken']}`,
+          `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
+
+      case this.areParamsRequested(
+        [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.ORDER_STATUS, GET_QUERY_PARAMS.SELL_TOKEN, GET_QUERY_PARAMS.OFFERER],
+        requestedParams
+      ):
+        return await this.queryOrderEntity(
+          `${queryFilters['filler']}_${queryFilters['orderStatus']}_${queryFilters['sellToken']}_${queryFilters['offerer']}`,
+          `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.OFFERER}`,
           limit,
           cursor,
           queryFilters['sortKey'],

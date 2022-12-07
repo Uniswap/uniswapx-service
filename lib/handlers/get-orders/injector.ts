@@ -16,6 +16,7 @@ export interface RequestInjected extends ApiRInj {
     sellToken?: string
     sortKey?: SORT_FIELDS
     sort?: string
+    filler?: string
   }
   cursor?: string
 }
@@ -55,6 +56,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const sellToken = requestQueryParams?.sellToken?.toLowerCase()
     const sortKey = requestQueryParams?.sortKey
     const sort = requestQueryParams?.sort
+    const filler = requestQueryParams?.filler
     const cursor = requestQueryParams?.cursor
 
     return {
@@ -65,6 +67,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
         ...(offerer && { offerer: offerer }),
         ...(sellToken && { sellToken: sellToken }),
         ...(sortKey && { sortKey: sortKey }),
+        ...(filler && { filler: filler }),
         ...(sort && { sort: sort }),
       },
       requestId,

@@ -61,6 +61,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       startTime: decodedOrder.info.startTime,
       endTime: decodedOrder.info.deadline,
       deadline: decodedOrder.info.deadline,
+      filler: '0x1325Ad66AD5fA02621D3aD52c9323C6c2BfF2681',
     }
 
     try {
