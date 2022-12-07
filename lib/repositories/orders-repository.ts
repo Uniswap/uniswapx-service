@@ -32,6 +32,39 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           partitionKey: TABLE_KEY.ORDER_STATUS,
           sortKey: TABLE_KEY.CREATED_AT,
         },
+        [`${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: TABLE_KEY.FILLER,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.SELL_TOKEN}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`]:
+          {
+            partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.OFFERER}`,
+            sortKey: TABLE_KEY.CREATED_AT,
+          },
         [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.CREATED_AT}`]: {
           partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
           sortKey: TABLE_KEY.CREATED_AT,
@@ -52,38 +85,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           partitionKey: TABLE_KEY.CREATED_AT_MONTH,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.OFFERER}-${TABLE_KEY.DEADLINE}`]: {
-          partitionKey: TABLE_KEY.OFFERER,
-          sortKey: TABLE_KEY.DEADLINE,
-        },
-        [`${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`]: {
-          partitionKey: TABLE_KEY.SELL_TOKEN,
-          sortKey: TABLE_KEY.DEADLINE,
-        },
-        [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`]: {
-          partitionKey: TABLE_KEY.ORDER_STATUS,
-          sortKey: TABLE_KEY.DEADLINE,
-        },
-        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`]: {
-          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.SELL_TOKEN}`,
-          sortKey: TABLE_KEY.DEADLINE,
-        },
-        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`]: {
-          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-          sortKey: TABLE_KEY.DEADLINE,
-        },
-        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}-${TABLE_KEY.DEADLINE}`]: {
-          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.SELL_TOKEN}`,
-          sortKey: TABLE_KEY.DEADLINE,
-        },
-        [`${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.DEADLINE}`]: {
-          partitionKey: `${TABLE_KEY.SELL_TOKEN}_${TABLE_KEY.ORDER_STATUS}`,
-          sortKey: TABLE_KEY.DEADLINE,
-        },
-        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.DEADLINE}`]: {
-          partitionKey: TABLE_KEY.CREATED_AT_MONTH,
-          sortKey: TABLE_KEY.DEADLINE,
-        },
         offererNonceIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.NONCE },
       },
     })
@@ -97,6 +98,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         orderStatus: { type: DYNAMODB_TYPES.STRING, required: true },
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
         offerer: { type: DYNAMODB_TYPES.STRING, required: true },
+        filler: { type: DYNAMODB_TYPES.STRING },
         startTime: { type: DYNAMODB_TYPES.NUMBER },
         endTime: { type: DYNAMODB_TYPES.NUMBER },
         deadline: { type: DYNAMODB_TYPES.NUMBER },
@@ -105,6 +107,13 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         sellToken: { type: DYNAMODB_TYPES.STRING },
         sellAmount: { type: DYNAMODB_TYPES.STRING },
         offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        filler_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        filler_offerer: { type: DYNAMODB_TYPES.STRING },
+        filler_sellToken: { type: DYNAMODB_TYPES.STRING },
+        filler_offerer_sellToken: { type: DYNAMODB_TYPES.STRING },
+        filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        filler_orderStatus_sellToken: { type: DYNAMODB_TYPES.STRING },
+        filler_orderStatus_sellToken_offerer: { type: DYNAMODB_TYPES.STRING },
         offerer_sellToken: { type: DYNAMODB_TYPES.STRING },
         sellToken_orderStatus: { type: DYNAMODB_TYPES.STRING },
         offerer_orderStatus_sellToken: { type: DYNAMODB_TYPES.STRING },
@@ -200,6 +209,13 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
           offerer_sellToken: `${order.offerer}_${order.sellToken}`,
           sellToken_orderStatus: `${order.sellToken}_${order.orderStatus}`,
+          filler_orderStatus: `${order.filler}_${order.orderStatus}`,
+          filler_sellToken: `${order.filler}_${order.sellToken}`,
+          filler_offerer: `${order.filler}_${order.offerer}`,
+          filler_offerer_sellToken: `${order.filler}_${order.offerer}_${order.sellToken}`,
+          filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
+          filler_orderStatus_sellToken: `${order.filler}_${order.orderStatus}_${order.sellToken}`,
+          filler_orderStatus_sellToken_offerer: `${order.filler}_${order.orderStatus}_${order.sellToken}_${order.offerer}`,
           offerer_orderStatus_sellToken: `${order.offerer}_${order.orderStatus}_${order.sellToken}`,
           createdAtMonth: getCurrentMonth(),
           createdAt: getCurrentTime(),
@@ -224,6 +240,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       offerer_orderStatus: `${order.offerer}_${status}`,
       sellToken_orderStatus: `${order.sellToken}_${status}`,
       offerer_orderStatus_sellToken: `${order.offerer}_${status}_${order.sellToken}`,
+      filler_orderStatus: `${order.filler}_${status}`,
+      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
+      filler_orderStatus_sellToken: `${order.filler}_${status}_${order.sellToken}`,
+      filler_orderStatus_sellToken_offerer: `${order.filler}_${status}_${order.sellToken}_${order.offerer}`,
     })
   }
 

@@ -59,22 +59,22 @@ const MOCK_ORDER_4 = {
 
 const ADDITIONAL_FIELDS_ORDER_1 = {
   ...MOCK_ORDER_1,
-  deadline: 1,
+  filler: '0x1',
 }
 
 const ADDITIONAL_FIELDS_ORDER_2 = {
   ...MOCK_ORDER_2,
-  deadline: 2,
+  filler: '0x2',
 }
 
 const ADDITIONAL_FIELDS_ORDER_3 = {
   ...MOCK_ORDER_3,
-  deadline: 3,
+  filler: '0x3',
 }
 
 const ADDITIONAL_FIELDS_ORDER_4 = {
   ...MOCK_ORDER_4,
-  deadline: 3,
+  filler: '0x4',
 }
 
 const mockedGetCurrentMonth = jest.mocked(getCurrentMonth)
@@ -337,7 +337,7 @@ describe('OrdersRepository getOrders test with sorting', () => {
   it('should successfully get orders given an orderStatus', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       orderStatus: ORDER_STATUS.OPEN,
-      sortKey: SORT_FIELDS.DEADLINE,
+      sortKey: SORT_FIELDS.CREATED_AT,
       sort: 'gte(2)',
     })
     expect(queryResult.orders.length).toEqual(1)
@@ -347,7 +347,7 @@ describe('OrdersRepository getOrders test with sorting', () => {
   it('should return no orders for orderStatus', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       orderStatus: ORDER_STATUS.OPEN,
-      sortKey: SORT_FIELDS.DEADLINE,
+      sortKey: SORT_FIELDS.CREATED_AT,
       sort: 'gt(2)',
     })
     expect(queryResult.orders).toEqual([])
@@ -381,16 +381,6 @@ describe('OrdersRepository getOrders test with sorting', () => {
     expect(queryResult.orders[0]?.orderHash).toEqual(MOCK_ORDER_1.orderHash)
     expect(queryResult.orders[1]?.orderHash).toEqual(MOCK_ORDER_2.orderHash)
     expect(queryResult.orders[2]?.orderHash).toEqual(MOCK_ORDER_3.orderHash)
-  })
-
-  it('should successfully get orders given only sort for deadline', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      sortKey: SORT_FIELDS.DEADLINE,
-      sort: 'lt(3)',
-    })
-    expect(queryResult.orders.length).toEqual(2)
-    expect(queryResult.orders[0]?.orderHash).toEqual(MOCK_ORDER_1.orderHash)
-    expect(queryResult.orders[1]?.orderHash).toEqual(MOCK_ORDER_2.orderHash)
   })
 })
 

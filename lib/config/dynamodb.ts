@@ -19,4 +19,5 @@ export enum TABLE_KEY {
   ORDER_STATUS = 'orderStatus',
   DEADLINE = 'deadline',
   CREATED_AT_MONTH = 'createdAtMonth',
+  FILLER = 'filler',
 }
