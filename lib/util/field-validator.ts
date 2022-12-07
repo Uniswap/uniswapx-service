@@ -32,7 +32,7 @@ export default class FieldValidator {
     ORDER_STATUS.UNVERIFIED,
     ORDER_STATUS.INSUFFICIENT_FUNDS
   )
-  private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT, SORT_FIELDS.DEADLINE)
+  private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
@@ -63,10 +63,6 @@ export default class FieldValidator {
   }
 
   public static isValidLimit(): NumberSchema {
-    return this.NUMBER_JOI
-  }
-
-  public static isValidDeadline(): NumberSchema {
     return this.NUMBER_JOI
   }
 

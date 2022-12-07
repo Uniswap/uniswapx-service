@@ -75,7 +75,7 @@ describe('Testing get orders handler.', () => {
       ],
       [{ sellToken: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
       [{ limit: 'bad_limit' }, 'must be a number'],
-      [{ sortKey: 'createdBy' }, 'must be one of [createdAt, deadline]'],
+      [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
@@ -90,7 +90,7 @@ describe('Testing get orders handler.', () => {
       expect(getOrdersResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
     })
 
-    it.each([[{ sortKey: 'deadline' }], [{ sort: 'gt(4)' }]])(
+    it.each([[{ sortKey: 'createdAt' }], [{ sort: 'gt(4)' }]])(
       'Throws 400 when only %p query param is present',
       async (queryFilters) => {
         const badInjectedMock = {

@@ -148,13 +148,12 @@ describe('Testing each field on the FieldValidator class.', () => {
   describe('Testing sortKey field.', () => {
     it('should validate field.', async () => {
       expect(FieldValidator.isValidSortKey().validate('createdAt')).toEqual({ value: 'createdAt' })
-      expect(FieldValidator.isValidSortKey().validate('deadline')).toEqual({ value: 'deadline' })
     })
 
     it('should invalidate non-numeric value.', async () => {
       const validatedField = FieldValidator.isValidSortKey().validate('createdBy')
       expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [createdAt, deadline]')
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be [createdAt]')
     })
   })
 

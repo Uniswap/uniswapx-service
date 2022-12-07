@@ -21,9 +21,9 @@ export type OrderEntity = {
   deadline?: number
   sellToken?: string
   sellAmount?: string
+  filler?: string
 }
 
 export enum SORT_FIELDS {
-  DEADLINE = 'deadline',
   CREATED_AT = 'createdAt',
 }
