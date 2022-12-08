@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
@@ -64,7 +66,7 @@ const ADDITIONAL_FIELDS_ORDER_1 = {
 
 const ADDITIONAL_FIELDS_ORDER_2 = {
   ...MOCK_ORDER_2,
-  filler: '0x2',
+  filler: '0x1',
 }
 
 const ADDITIONAL_FIELDS_ORDER_3 = {
@@ -151,6 +153,160 @@ describe('OrdersRepository getOrders test', () => {
   it('should return no orders for sellToken', async () => {
     const orders = await ordersRepository.getOrders(10, { sellToken: 'corn' })
     expect(orders.orders).toEqual([])
+  })
+
+  it('should successfully get orders given a filler', async () => {
+    const queryResult = await ordersRepository.getOrders(10, { filler: ADDITIONAL_FIELDS_ORDER_1.filler })
+    expect(queryResult.orders.length).toEqual(2)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+  })
+
+  it('should return no orders for filler', async () => {
+    const queryResult = await ordersRepository.getOrders(10, { filler: 'corn' })
+    expect(queryResult.orders).toEqual([])
+  })
+
+  it('should successfully get orders given a filler and orderStatus', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_1.filler,
+      orderStatus: ORDER_STATUS.OPEN,
+    })
+    expect(queryResult.orders.length).toEqual(2)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+  })
+
+  it('should return no orders for filler and orderStatus', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_1.filler,
+      orderStatus: ORDER_STATUS.UNVERIFIED,
+    })
+    expect(queryResult.orders).toEqual([])
+  })
+
+  it('should successfully get orders given a filler and sellToken', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_2.filler,
+      sellToken: MOCK_ORDER_2.sellToken,
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+  })
+
+  it('should return no orders for filler and sellToken', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
+      sellToken: MOCK_ORDER_2.sellToken,
+    })
+    expect(queryResult.orders).toEqual([])
+  })
+
+  it('should successfully get orders given a filler and offerer', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
+      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+  })
+
+  it('should return no orders for filler and offerer', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_4.filler,
+      offerer: MOCK_ORDER_2.offerer,
+    })
+    expect(queryResult.orders).toEqual([])
+  })
+
+  it('should successfully get orders given a filler, offerer, orderStatus', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
+      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
+      orderStatus: ADDITIONAL_FIELDS_ORDER_3.orderStatus,
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0].orderHash).toEqual(MOCK_ORDER_3.orderHash)
+    expect(queryResult.orders[0].filler_offerer_orderStatus).toEqual(
+      `${ADDITIONAL_FIELDS_ORDER_3.filler}_${MOCK_ORDER_3.offerer}_${MOCK_ORDER_3.orderStatus}`
+    )
+  })
+
+  it('should return no orders for filler, offerer, orderStatus', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
+      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
+      orderStatus: ADDITIONAL_FIELDS_ORDER_1.orderStatus,
+    })
+    expect(queryResult.orders).toEqual([])
+  })
+
+  it('should successfully get orders given a filler, offerer, sellToken', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_2.filler,
+      offerer: ADDITIONAL_FIELDS_ORDER_2.offerer,
+      sellToken: ADDITIONAL_FIELDS_ORDER_2.sellToken,
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0].orderHash).toEqual(MOCK_ORDER_2.orderHash)
+    expect(queryResult.orders[0].filler_offerer_sellToken).toEqual(
+      `${ADDITIONAL_FIELDS_ORDER_2.filler}_${MOCK_ORDER_2.offerer}_${MOCK_ORDER_2.sellToken}`
+    )
+  })
+
+  it('should return no orders for filler, offerer, sellToken', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
+      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
+      sellToken: ADDITIONAL_FIELDS_ORDER_2.sellToken,
+    })
+    expect(queryResult.orders).toEqual([])
+  })
+
+  it('should successfully get orders given a filler, orderStatus, sellToken', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_1.filler,
+      orderStatus: ADDITIONAL_FIELDS_ORDER_1.orderStatus,
+      sellToken: ADDITIONAL_FIELDS_ORDER_1.sellToken,
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0].orderHash).toEqual(MOCK_ORDER_1.orderHash)
+    expect(queryResult.orders[0].filler_orderStatus_sellToken).toEqual(
+      `${ADDITIONAL_FIELDS_ORDER_1.filler}_${MOCK_ORDER_1.orderStatus}_${MOCK_ORDER_1.sellToken}`
+    )
+  })
+
+  it('should return no orders for filler, orderStatus, sellToken', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
+      orderStatus: ADDITIONAL_FIELDS_ORDER_2.orderStatus,
+      sellToken: ADDITIONAL_FIELDS_ORDER_3.sellToken,
+    })
+    expect(queryResult.orders).toEqual([])
+  })
+
+  it('should successfully get orders given a filler, orderStatus, sellToken, offerer', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_1.filler,
+      orderStatus: ADDITIONAL_FIELDS_ORDER_1.orderStatus,
+      sellToken: ADDITIONAL_FIELDS_ORDER_1.sellToken,
+      offerer: ADDITIONAL_FIELDS_ORDER_1.offerer,
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0].orderHash).toEqual(MOCK_ORDER_1.orderHash)
+    expect(queryResult.orders[0].filler_orderStatus_sellToken_offerer).toEqual(
+      `${ADDITIONAL_FIELDS_ORDER_1.filler}_${MOCK_ORDER_1.orderStatus}_${MOCK_ORDER_1.sellToken}_${MOCK_ORDER_1.offerer}`
+    )
+  })
+
+  it('should return no orders for filler, orderStatus, sellToken, offerer', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
+      orderStatus: ADDITIONAL_FIELDS_ORDER_3.orderStatus,
+      sellToken: ADDITIONAL_FIELDS_ORDER_3.sellToken,
+      offerer: ADDITIONAL_FIELDS_ORDER_1.offerer,
+    })
+    expect(queryResult.orders).toEqual([])
   })
 
   it('should successfully get orders given a sellToken, offerer, and orderStatus', async () => {
