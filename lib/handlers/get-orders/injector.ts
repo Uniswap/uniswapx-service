@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { SORT_FIELDS } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
@@ -13,6 +14,8 @@ export interface RequestInjected extends ApiRInj {
     orderHash?: string
     offerer?: string
     sellToken?: string
+    sortKey?: SORT_FIELDS
+    sort?: string
   }
   cursor?: string
 }
@@ -50,6 +53,8 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const orderHash = requestQueryParams?.orderHash?.toLowerCase()
     const offerer = requestQueryParams?.offerer?.toLowerCase()
     const sellToken = requestQueryParams?.sellToken?.toLowerCase()
+    const sortKey = requestQueryParams?.sortKey
+    const sort = requestQueryParams?.sort
     const cursor = requestQueryParams?.cursor
 
     return {
@@ -59,6 +64,8 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
         ...(orderHash && { orderHash: orderHash }),
         ...(offerer && { offerer: offerer }),
         ...(sellToken && { sellToken: sellToken }),
+        ...(sortKey && { sortKey: sortKey }),
+        ...(sort && { sort: sort }),
       },
       requestId,
       log,
