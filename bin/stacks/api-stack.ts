@@ -41,7 +41,6 @@ export class APIStack extends cdk.Stack {
       stage: stage as STAGE,
       envVars: props.envVars,
     })
-
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
 
     const api = new aws_apigateway.RestApi(this, `${SERVICE_NAME}`, {

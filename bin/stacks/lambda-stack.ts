@@ -169,7 +169,7 @@ export class LambdaStack extends cdk.NestedStack {
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -183,7 +183,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getOrdersLambdaAlias.lambda.functionName}:${this.getOrdersLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -198,7 +198,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getNonceTarget = new asg.ScalableTarget(this, `GetNonce-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getNonceLambdaAlias.lambda.functionName}:${this.getNonceLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -213,7 +213,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getApisDocsJsonTarget = new asg.ScalableTarget(this, `GetApiDocsJson-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getApiDocsJsonLambdaAlias.lambda.functionName}:${this.getApiDocsJsonLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -228,7 +228,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getApisDocsTarget = new asg.ScalableTarget(this, `GetApiDocs-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getApiDocsLambdaAlias.lambda.functionName}:${this.getApiDocsLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',

@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { OrderEntity } from '../../../entities'
+import { OrderEntity, SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 
 export const GetOrdersQueryParamsJoi = Joi.object({
@@ -8,6 +8,9 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash(),
   offerer: FieldValidator.isValidEthAddress(),
   sellToken: FieldValidator.isValidEthAddress(),
+  sortKey: FieldValidator.isValidSortKey(),
+  sort: FieldValidator.isValidSort(),
+  filler: FieldValidator.isValidEthAddress(),
   cursor: FieldValidator.isValidCursor(),
 })
 
@@ -17,6 +20,9 @@ export type GetOrdersQueryParams = {
   orderHash?: string
   offerer?: string
   sellToken?: string
+  sortKey?: SORT_FIELDS
+  sort?: string
+  filler?: string
   cursor?: string
 }
 
@@ -45,4 +51,7 @@ export enum GET_QUERY_PARAMS {
   OFFERER = 'offerer',
   ORDER_STATUS = 'orderStatus',
   ORDER_HASH = 'orderHash',
+  SORT_KEY = 'sortKey',
+  SORT = 'sort',
+  FILLER = 'filler',
 }

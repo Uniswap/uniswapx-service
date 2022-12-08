@@ -1,4 +1,4 @@
-import { ORDER_STATUS } from '../../lib/entities'
+import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities'
 import { GetOrdersHandler } from '../../lib/handlers/get-orders/handler'
 import { HeaderExpectation } from '../utils'
 
@@ -18,7 +18,10 @@ describe('Testing get orders handler.', () => {
   const queryFiltersMock = {
     offerer: MOCK_ORDER.offerer,
     sellToken: '0x6B3595068778DD592e39A122f4f5a5cF09C90fE2',
+    filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     orderStatus: ORDER_STATUS.OPEN,
+    sortKey: SORT_FIELDS.CREATED_AT,
+    sort: `eq(${MOCK_ORDER.createdAt})`,
   }
   const requestInjectedMock = {
     limit: 10,
@@ -41,7 +44,7 @@ describe('Testing get orders handler.', () => {
     body: null,
   }
 
-  const getOrdersHandler = new GetOrdersHandler('get-orders', injectorPromiseMock)
+  const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
 
   beforeAll(async () => {
     getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' })
@@ -52,7 +55,7 @@ describe('Testing get orders handler.', () => {
   })
 
   it('Testing valid request and response.', async () => {
-    const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
+    const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
     expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
     expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' }),
@@ -73,18 +76,42 @@ describe('Testing get orders handler.', () => {
       ],
       [{ sellToken: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
       [{ limit: 'bad_limit' }, 'must be a number'],
+      [{ filler: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
+      [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
+      [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
         ...event,
         queryStringParameters: invalidQueryParam,
       }
-      const getOrdersResponse = await getOrdersHandler.handler(invalidEvent as any, {} as any)
+      const getOrdersResponse = await getOrdersHandler().handler(invalidEvent as any, {} as any)
       expect(getOrdersMock).not.toHaveBeenCalled()
       expect(getOrdersResponse.statusCode).toEqual(400)
       expect(getOrdersResponse.body).toEqual(expect.stringContaining(bodyMsg))
       expect(getOrdersResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
     })
+
+    it.each([[{ sortKey: 'createdAt' }], [{ sort: 'gt(4)' }]])(
+      'Throws 400 when only %p query param is present',
+      async (queryFilters) => {
+        const badInjectedMock = {
+          getContainerInjected: () => jest.mock,
+          getRequestInjected: () => {
+            return {
+              queryFilters: queryFilters,
+              log: { info: () => jest.fn(), error: () => jest.fn() },
+            }
+          },
+        }
+        const getOrdersResponse = await getOrdersHandler(badInjectedMock).handler(event as any, {} as any)
+        expect(getOrdersResponse.statusCode).toEqual(400)
+        expect(getOrdersResponse.body).toEqual(
+          expect.stringContaining('Need both a sortKey and sort for a sorted query.')
+        )
+        expect(getOrdersResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
+      }
+    )
   })
 
   describe('Testing invalid response validation.', () => {
@@ -97,7 +124,7 @@ describe('Testing get orders handler.', () => {
       [{ createdAt: 'bad_created_at' }],
     ])('Throws 500 with invalid field %p in the response', async (invalidResponseField) => {
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
-      const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
+      const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
       expect(getOrdersMock).toBeCalledWith(
         requestInjectedMock.limit,
         requestInjectedMock.queryFilters,
@@ -112,7 +139,7 @@ describe('Testing get orders handler.', () => {
       getOrdersMock.mockImplementation(() => {
         throw error
       })
-      const getOrdersResponse = await getOrdersHandler.handler(event as any, {} as any)
+      const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
       expect(getOrdersMock).toBeCalledWith(
         requestInjectedMock.limit,
         requestInjectedMock.queryFilters,

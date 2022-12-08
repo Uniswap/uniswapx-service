@@ -1,9 +1,10 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { SORT_FIELDS } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
-import { ApiInjector, ApiRInj } from '../base/handler'
+import { ApiInjector, ApiRInj } from '../base/index'
 import { GetOrdersQueryParams } from './schema'
 
 export interface RequestInjected extends ApiRInj {
@@ -13,6 +14,9 @@ export interface RequestInjected extends ApiRInj {
     orderHash?: string
     offerer?: string
     sellToken?: string
+    sortKey?: SORT_FIELDS
+    sort?: string
+    filler?: string
   }
   cursor?: string
 }
@@ -23,11 +27,8 @@ export interface ContainerInjected {
 
 export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, GetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    const documentClient = new DynamoDB.DocumentClient()
-    const dbInterface = new DynamoOrdersRepository()
-    DynamoOrdersRepository.initialize(documentClient)
     return {
-      dbInterface,
+      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
     }
   }
 
@@ -53,6 +54,9 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const orderHash = requestQueryParams?.orderHash?.toLowerCase()
     const offerer = requestQueryParams?.offerer?.toLowerCase()
     const sellToken = requestQueryParams?.sellToken?.toLowerCase()
+    const sortKey = requestQueryParams?.sortKey
+    const sort = requestQueryParams?.sort
+    const filler = requestQueryParams?.filler
     const cursor = requestQueryParams?.cursor
 
     return {
@@ -62,6 +66,9 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
         ...(orderHash && { orderHash: orderHash }),
         ...(offerer && { offerer: offerer }),
         ...(sellToken && { sellToken: sellToken }),
+        ...(sortKey && { sortKey: sortKey }),
+        ...(filler && { filler: filler }),
+        ...(sort && { sort: sort }),
       },
       requestId,
       log,

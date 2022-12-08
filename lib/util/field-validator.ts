@@ -1,8 +1,9 @@
 import { BigNumber, ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
-import { ORDER_STATUS } from '../entities'
+import { ORDER_STATUS, SORT_FIELDS } from '../entities'
 import { SUPPORTED_CHAINS } from './chain'
 
+export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
 
 export default class FieldValidator {
@@ -31,6 +32,8 @@ export default class FieldValidator {
     ORDER_STATUS.UNVERIFIED,
     ORDER_STATUS.INSUFFICIENT_FUNDS
   )
+  private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT)
+  private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.isAddress(value)) {
@@ -63,12 +66,16 @@ export default class FieldValidator {
     return this.NUMBER_JOI
   }
 
-  public static isValidDeadline(): NumberSchema {
+  public static isValidCreatedAt(): NumberSchema {
     return this.NUMBER_JOI
   }
 
-  public static isValidCreatedAt(): NumberSchema {
-    return this.NUMBER_JOI
+  public static isValidSortKey(): StringSchema {
+    return this.SORT_KEY_JOI
+  }
+
+  public static isValidSort(): StringSchema {
+    return this.SORT_JOI
   }
 
   public static isValidCursor(): StringSchema {

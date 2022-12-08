@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { ApiInjector, ApiRInj } from '../base/handler'
+import { ApiInjector, ApiRInj } from '../base/index'
 
 export type RequestInjected = ApiRInj
 

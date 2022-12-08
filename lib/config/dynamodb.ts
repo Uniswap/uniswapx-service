@@ -17,7 +17,7 @@ export enum TABLE_KEY {
   SIGNATURE = 'signature',
   SELL_TOKEN = 'sellToken',
   ORDER_STATUS = 'orderStatus',
-  OFFERER_ORDER_STATUS = 'offererOrderStatus',
-  OFFERER_SELL_TOKEN = 'offererSellToken',
-  SELL_TOKEN_ORDER_STATUS = 'sellTokenOrderStatus',
+  DEADLINE = 'deadline',
+  CREATED_AT_MONTH = 'createdAtMonth',
+  FILLER = 'filler',
 }

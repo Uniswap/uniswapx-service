@@ -4,7 +4,7 @@ import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'
-import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/handler'
+import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
 
@@ -61,6 +61,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
       startTime: decodedOrder.info.startTime,
       endTime: decodedOrder.info.deadline,
       deadline: decodedOrder.info.deadline,
+      // TODO: Replace this with the actual filler address once the gouda SDK supports this
+      filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     }
 
     try {
