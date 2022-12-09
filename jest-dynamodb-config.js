@@ -8,7 +8,6 @@ module.exports = {
         { AttributeName: 'offerer', AttributeType: 'S' },
         { AttributeName: 'filler', AttributeType: 'S' },
         { AttributeName: 'orderStatus', AttributeType: 'S' },
-        // { AttributeName: 'sellToken', AttributeType: 'S' },
         { AttributeName: 'offerer_orderStatus', AttributeType: 'S' },
         { AttributeName: 'filler_orderStatus', AttributeType: 'S' },
         { AttributeName: 'filler_offerer', AttributeType: 'S' },
