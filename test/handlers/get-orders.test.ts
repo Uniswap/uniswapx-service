@@ -17,7 +17,6 @@ describe('Testing get orders handler.', () => {
   const getOrdersMock = jest.fn()
   const queryFiltersMock = {
     offerer: MOCK_ORDER.offerer,
-    sellToken: '0x6B3595068778DD592e39A122f4f5a5cF09C90fE2',
     filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     orderStatus: ORDER_STATUS.OPEN,
     sortKey: SORT_FIELDS.CREATED_AT,
@@ -74,7 +73,6 @@ describe('Testing get orders handler.', () => {
         { orderStatus: 'bad_status' },
         'must be one of [open, filled, cancelled, expired, error, unverified, insufficient-funds]',
       ],
-      [{ sellToken: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
       [{ limit: 'bad_limit' }, 'must be a number'],
       [{ filler: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
