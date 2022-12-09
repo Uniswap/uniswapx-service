@@ -83,11 +83,11 @@ const OPENAPI_SCHEMA: GetJsonResponse = {
             schema: getOrderParamProperties.offerer,
           },
           {
-            name: 'sellToken',
+            name: 'filler',
             in: 'query',
-            description: 'Filter by sell token address.',
+            description: 'Filter by filler address.',
             required: false,
-            schema: getOrderParamProperties.sellToken,
+            schema: getOrderParamProperties.filler,
           },
           {
             name: 'cursor',

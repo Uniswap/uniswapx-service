@@ -7,7 +7,6 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   orderStatus: FieldValidator.isValidOrderStatus(),
   orderHash: FieldValidator.isValidOrderHash(),
   offerer: FieldValidator.isValidEthAddress(),
-  sellToken: FieldValidator.isValidEthAddress(),
   sortKey: FieldValidator.isValidSortKey(),
   sort: FieldValidator.isValidSort(),
   filler: FieldValidator.isValidEthAddress(),
@@ -19,7 +18,6 @@ export type GetOrdersQueryParams = {
   orderStatus?: string
   orderHash?: string
   offerer?: string
-  sellToken?: string
   sortKey?: SORT_FIELDS
   sort?: string
   filler?: string
@@ -47,7 +45,6 @@ export const GetOrdersResponseJoi = Joi.object({
 
 export enum GET_QUERY_PARAMS {
   LIMIT = 'limit',
-  SELL_TOKEN = 'sellToken',
   OFFERER = 'offerer',
   ORDER_STATUS = 'orderStatus',
   ORDER_HASH = 'orderHash',
