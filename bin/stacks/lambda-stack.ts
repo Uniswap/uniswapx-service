@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
+import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 import * as path from 'path'
@@ -19,11 +20,13 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly ordersStreamLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getApiDocsJsonLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getApiDocsJsonLambdaAlias: aws_lambda.Alias
+  private readonly databaseStack: DynamoStack
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -40,7 +43,7 @@ export class LambdaStack extends cdk.NestedStack {
       ],
     })
 
-    new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
+    this.databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
 
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
       stage: props.stage as STAGE,
@@ -115,6 +118,32 @@ export class LambdaStack extends cdk.NestedStack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
+
+    this.ordersStreamLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrdersStream${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'ordersStreamHandler',
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
+    const deadLetterQueue = new cdk.aws_sqs.Queue(this, 'deadLetterQueue')
+    this.ordersStreamLambda.addEventSource(
+      new DynamoEventSource(this.databaseStack.ordersTable, {
+        startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
+        batchSize: 5,
+        bisectBatchOnError: true,
+        onFailure: new SqsDlq(deadLetterQueue),
+        retryAttempts: 10,
+      })
+    )
 
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 
