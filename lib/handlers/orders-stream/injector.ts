@@ -20,6 +20,8 @@ export class OrdersStreamInjector extends DynamoStreamInjector<ContainerInjected
     event: DynamoStreamInputOutput,
     log: Logger
   ): Promise<RequestInjected> {
+    console.log('event in injector: ', event)
+
     log = log.child({
       serializers: bunyan.stdSerializers,
       containerInjected: containerInjected,

@@ -4,6 +4,8 @@ import { DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 
 export const ordersStreamLambda = (event: DynamoDBStreamEvent) => {
+  console.log('HELLO HELLO')
+
   event.Records.forEach((record) => {
     console.log(record)
   })
@@ -17,7 +19,7 @@ export class OrdersStreamLambda extends DynamoStreamLambdaHandler<ContainerInjec
   }): Promise<any> {
     try {
       const {
-        requestInjected: { log, event },
+        requestInjected: { event },
       } = input
       console.log('event: ', event)
 

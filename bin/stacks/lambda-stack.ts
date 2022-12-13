@@ -26,6 +26,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getApiDocsJsonLambdaAlias: aws_lambda.Alias
+  public readonly ordersStreamLambdaAlias: aws_lambda.Alias
   private readonly databaseStack: DynamoStack
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
@@ -171,6 +172,12 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
+    this.ordersStreamLambdaAlias = new aws_lambda.Alias(this, `OrdersStreamAlias`, {
+      aliasName: 'live',
+      version: this.ordersStreamLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
@@ -227,6 +234,21 @@ export class LambdaStack extends cdk.NestedStack {
       getApisDocsJsonTarget.node.addDependency(this.getApiDocsJsonLambdaAlias)
 
       getApisDocsJsonTarget.scaleToTrackMetric(`GetApiDocsJson-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const ordersStreamTarget = new asg.ScalableTarget(this, `OrdersStream-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.ordersStreamLambdaAlias.lambda.functionName}:${this.ordersStreamLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      ordersStreamTarget.node.addDependency(this.ordersStreamLambdaAlias)
+
+      ordersStreamTarget.scaleToTrackMetric(`OrdersStream-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })

@@ -32,6 +32,7 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
 
   get handler(): DynamoStreamHandler {
     return async (event: DynamoStreamInputOutput): Promise<DynamoStreamInputOutput> => {
+      console.log('base event handler: ', event)
       const handler = this.buildHandler()
       return await handler(event)
     }
@@ -39,6 +40,8 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
 
   protected buildHandler(): DynamoStreamHandler {
     return async (streamInput: DynamoStreamInputOutput): Promise<DynamoStreamInputOutput> => {
+      console.log('streamInput: ', streamInput)
+
       const log: Logger = bunyan.createLogger({
         name: this.handlerName,
         serializers: bunyan.stdSerializers,
