@@ -6,7 +6,8 @@ import { GetNonceHandler } from './get-nonce/handler'
 import { GetNonceInjector } from './get-nonce/injector'
 import { GetOrdersHandler } from './get-orders/handler'
 import { GetOrdersInjector } from './get-orders/injector'
-import { ordersStreamLambda } from './orders-stream/handler'
+import { OrderStreamHandler } from './order-stream/handler'
+import { OrderStreamInjector } from './order-stream/injector'
 import { PostOrderHandler } from './post-order/handler'
 import { PostOrderInjector } from './post-order/injector'
 
@@ -25,8 +26,8 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status'
 const getApiDocsJsonInjectorPromise = new GetApiDocsJsonInjector('getApiDocsJsonInjector').build()
 const getApiDocsJsonHandler = new GetApiDocsJsonHandler('get-api-docs-json', getApiDocsJsonInjectorPromise)
 
-// const ordersStreamInjectorPromise = new OrdersStreamInjector('ordersStreamInjector').build()
-// const ordersStreamHandler = new OrdersStreamLambda('orders-stream', ordersStreamInjectorPromise)
+const orderStreamInjectorPromise = new OrderStreamInjector('orderStreamInjector').build()
+const orderStreamHandler = new OrderStreamHandler('order-stream', orderStreamInjectorPromise)
 
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,
@@ -34,5 +35,5 @@ module.exports = {
   getNonceHandler: getNonceHandler.handler,
   checkOrderStatusHandler: checkOrderStatusHandler.handler,
   getApiDocsJsonHandler: getApiDocsJsonHandler.handler,
-  ordersStreamHandler: ordersStreamLambda,
+  orderStreamHandler: orderStreamHandler.handler,
 }

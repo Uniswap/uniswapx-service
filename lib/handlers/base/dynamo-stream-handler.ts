@@ -1,28 +1,23 @@
+import { DynamoDBStreamEvent } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { DynamoStreamInputValidationError, InjectionError } from '../../util/errors'
 import { BaseInjector, BaseLambdaHandler, BaseRInj } from './base'
 
-export type DynamoStreamInputOutput = Record<string, string | number | Array<any>>
-
-export type DynamoStreamHandler = (event: DynamoStreamInputOutput) => Promise<DynamoStreamInputOutput>
+export type DynamoStreamHandler = (event: DynamoDBStreamEvent) => Promise<void>
 
 export abstract class DynamoStreamInjector<CInj, RInj extends BaseRInj> extends BaseInjector<CInj> {
   public constructor(protected injectorName: string) {
     super(injectorName)
   }
 
-  public abstract getRequestInjected(
-    containerInjected: CInj,
-    event: DynamoStreamInputOutput,
-    log: Logger
-  ): Promise<RInj>
+  public abstract getRequestInjected(containerInjected: CInj, event: DynamoDBStreamEvent, log: Logger): Promise<RInj>
 }
 
 export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
   DynamoStreamHandler,
   { containerInjected: CInj; requestInjected: RInj },
-  DynamoStreamInputOutput
+  void
 > {
   protected abstract inputSchema(): Joi.ObjectSchema | null
 
@@ -31,17 +26,14 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
   }
 
   get handler(): DynamoStreamHandler {
-    return async (event: DynamoStreamInputOutput): Promise<DynamoStreamInputOutput> => {
-      console.log('base event handler: ', event)
+    return async (event: DynamoDBStreamEvent): Promise<void> => {
       const handler = this.buildHandler()
       return await handler(event)
     }
   }
 
   protected buildHandler(): DynamoStreamHandler {
-    return async (streamInput: DynamoStreamInputOutput): Promise<DynamoStreamInputOutput> => {
-      console.log('streamInput: ', streamInput)
-
+    return async (streamInput: DynamoDBStreamEvent): Promise<void> => {
       const log: Logger = bunyan.createLogger({
         name: this.handlerName,
         serializers: bunyan.stdSerializers,
@@ -66,7 +58,7 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
     }
   }
 
-  private async validateInput(input: DynamoStreamInputOutput, log: Logger): Promise<DynamoStreamInputOutput> {
+  private async validateInput(input: DynamoDBStreamEvent, log: Logger): Promise<DynamoDBStreamEvent> {
     const schema = this.inputSchema()
 
     if (schema) {
@@ -81,8 +73,5 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
     return input
   }
 
-  public abstract handleRequest(input: {
-    containerInjected: CInj
-    requestInjected: RInj
-  }): Promise<DynamoStreamInputOutput>
+  public abstract handleRequest(input: { containerInjected: CInj; requestInjected: RInj }): Promise<void>
 }

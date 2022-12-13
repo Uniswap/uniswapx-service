@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
+import { FilterCriteria, FilterRule } from 'aws-cdk-lib/aws-lambda'
 import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
@@ -20,13 +21,13 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
-  private readonly ordersStreamLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly orderStreamLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getApiDocsJsonLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getApiDocsJsonLambdaAlias: aws_lambda.Alias
-  public readonly ordersStreamLambdaAlias: aws_lambda.Alias
+  private readonly orderStreamLambdaAlias: aws_lambda.Alias
   private readonly databaseStack: DynamoStack
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
@@ -69,6 +70,38 @@ export class LambdaStack extends cdk.NestedStack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
+
+    this.orderStreamLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrderStream${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'orderStreamHandler',
+      memorySize: 256,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
+    const deadLetterQueue = new cdk.aws_sqs.Queue(this, 'deadLetterQueue')
+    this.orderStreamLambda.addEventSource(
+      new DynamoEventSource(this.databaseStack.ordersTable, {
+        startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
+        batchSize: 5,
+        bisectBatchOnError: true,
+        onFailure: new SqsDlq(deadLetterQueue),
+        retryAttempts: 10,
+        filters: [
+          FilterCriteria.filter({
+            eventName: FilterRule.isEqual('INSERT'),
+            dynamodb: { NewImage: { filler: { S: FilterRule.exists() } } },
+          }),
+        ],
+      })
+    )
 
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
@@ -120,32 +153,6 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
-    this.ordersStreamLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrdersStream${lambdaName}`, {
-      role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
-      handler: 'ordersStreamHandler',
-      memorySize: 512,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
-      environment: {
-        VERSION: '2',
-        NODE_OPTIONS: '--enable-source-maps',
-      },
-    })
-    const deadLetterQueue = new cdk.aws_sqs.Queue(this, 'deadLetterQueue')
-    this.ordersStreamLambda.addEventSource(
-      new DynamoEventSource(this.databaseStack.ordersTable, {
-        startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
-        batchSize: 5,
-        bisectBatchOnError: true,
-        onFailure: new SqsDlq(deadLetterQueue),
-        retryAttempts: 10,
-      })
-    )
-
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 
     this.getOrdersLambdaAlias = new aws_lambda.Alias(this, `GetOrdersLiveAlias`, {
@@ -172,16 +179,16 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
-    this.ordersStreamLambdaAlias = new aws_lambda.Alias(this, `OrdersStreamAlias`, {
+    this.orderStreamLambdaAlias = new aws_lambda.Alias(this, `OrderStreamAlias`, {
       aliasName: 'live',
-      version: this.ordersStreamLambda.currentVersion,
+      version: this.orderStreamLambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -195,7 +202,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getOrdersLambdaAlias.lambda.functionName}:${this.getOrdersLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -210,7 +217,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getNonceTarget = new asg.ScalableTarget(this, `GetNonce-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getNonceLambdaAlias.lambda.functionName}:${this.getNonceLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -238,17 +245,17 @@ export class LambdaStack extends cdk.NestedStack {
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
 
-      const ordersStreamTarget = new asg.ScalableTarget(this, `OrdersStream-ProvConcASG`, {
+      const orderStreamLambdaTarget = new asg.ScalableTarget(this, `OrderStreamLambda-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
         maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
-        resourceId: `function:${this.ordersStreamLambdaAlias.lambda.functionName}:${this.ordersStreamLambdaAlias.aliasName}`,
+        resourceId: `function:${this.orderStreamLambdaAlias.lambda.functionName}:${this.orderStreamLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
       })
 
-      ordersStreamTarget.node.addDependency(this.ordersStreamLambdaAlias)
+      orderStreamLambdaTarget.node.addDependency(this.orderStreamLambdaAlias)
 
-      ordersStreamTarget.scaleToTrackMetric(`OrdersStream-ProvConcTracking`, {
+      orderStreamLambdaTarget.scaleToTrackMetric(`OrderStreamLambda-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
