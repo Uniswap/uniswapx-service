@@ -3,7 +3,7 @@ import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import { FilterCriteria, FilterRule } from 'aws-cdk-lib/aws-lambda'
-import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
+import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 import * as path from 'path'
@@ -86,14 +86,14 @@ export class LambdaStack extends cdk.NestedStack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
-    const deadLetterQueue = new cdk.aws_sqs.Queue(this, 'deadLetterQueue')
+
     this.orderStreamLambda.addEventSource(
       new DynamoEventSource(this.databaseStack.ordersTable, {
         startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
         batchSize: 5,
         bisectBatchOnError: true,
-        onFailure: new SqsDlq(deadLetterQueue),
         retryAttempts: 10,
+        // TODO: add a filter for quoteId this will ensure only orders associated with a market maker quote will trigger this lambda
         filters: [
           FilterCriteria.filter({
             eventName: FilterRule.isEqual('INSERT'),
