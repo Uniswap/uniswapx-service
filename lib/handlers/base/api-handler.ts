@@ -183,7 +183,7 @@ export abstract class APIGLambdaHandler<
         return INTERNAL_ERROR(id)
       }
 
-      let response: string | Res
+      let response: Res
       try {
         const responseValidation = await this.parseAndValidateResponse(body, id, log)
 
@@ -197,14 +197,13 @@ export abstract class APIGLambdaHandler<
         return INTERNAL_ERROR(id)
       }
 
-      const responseBody =
-        headers && headers['Content-Type'] == 'text/html' ? (response as string) : JSON.stringify(response)
+      const responseBody = headers && headers['Content-Type'] == 'text/html' ? response : JSON.stringify(response)
 
       log.info({ statusCode, response }, `Request ended. ${statusCode}`)
       return {
         statusCode,
         headers,
-        body: responseBody,
+        body: responseBody as string,
       }
     }
   }
@@ -313,14 +312,14 @@ export abstract class APIGLambdaHandler<
   }
 
   private async parseAndValidateResponse(
-    body: Res | string,
+    body: Res,
     id: string,
     log: Logger
-  ): Promise<{ state: 'valid'; response: Res | string } | { state: 'invalid'; errorResponse: APIGatewayProxyResult }> {
+  ): Promise<{ state: 'valid'; response: Res } | { state: 'invalid'; errorResponse: APIGatewayProxyResult }> {
     const responseSchema = this.responseBodySchema()
 
     if (!responseSchema) {
-      return { state: 'valid', response: body }
+      return { state: 'valid', response: body as Res }
     }
 
     const res = responseSchema.validate(body, {
@@ -339,6 +338,6 @@ export abstract class APIGLambdaHandler<
       }
     }
 
-    return { state: 'valid', response: res.value }
+    return { state: 'valid', response: res.value as Res }
   }
 }

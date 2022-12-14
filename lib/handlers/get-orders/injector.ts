@@ -13,7 +13,6 @@ export interface RequestInjected extends ApiRInj {
     orderStatus?: string
     orderHash?: string
     offerer?: string
-    sellToken?: string
     sortKey?: SORT_FIELDS
     sort?: string
     filler?: string
@@ -53,7 +52,6 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const orderStatus = requestQueryParams?.orderStatus
     const orderHash = requestQueryParams?.orderHash?.toLowerCase()
     const offerer = requestQueryParams?.offerer?.toLowerCase()
-    const sellToken = requestQueryParams?.sellToken?.toLowerCase()
     const sortKey = requestQueryParams?.sortKey
     const sort = requestQueryParams?.sort
     const filler = requestQueryParams?.filler
@@ -65,7 +63,6 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
         ...(orderStatus && { orderStatus: orderStatus }),
         ...(orderHash && { orderHash: orderHash }),
         ...(offerer && { offerer: offerer }),
-        ...(sellToken && { sellToken: sellToken }),
         ...(sortKey && { sortKey: sortKey }),
         ...(filler && { filler: filler }),
         ...(sort && { sort: sort }),

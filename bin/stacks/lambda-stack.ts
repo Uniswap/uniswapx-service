@@ -107,7 +107,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getApiDocsJsonHandler',
-      memorySize: 512,
+      memorySize: 256,
       bundling: {
         minify: true,
         sourceMap: true,
@@ -123,7 +123,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getApiDocsHandler',
-      memorySize: 512,
+      memorySize: 256,
       bundling: {
         minify: true,
         sourceMap: true,
