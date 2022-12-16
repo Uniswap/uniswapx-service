@@ -5,9 +5,9 @@ import { rejectAfterDelay } from '../../util/errors'
 import { callWithRetry } from '../../util/network-requests'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
-import { OrderStreamInputJoi } from './schema'
+import { OrderNotificationInputJoi } from './schema'
 
-export class OrderStreamHandler extends DynamoStreamLambdaHandler<ContainerInjected, RequestInjected> {
+export class OrderNotificationHandler extends DynamoStreamLambdaHandler<ContainerInjected, RequestInjected> {
   public async handleRequest(input: {
     containerInjected: ContainerInjected
     requestInjected: RequestInjected
@@ -32,6 +32,7 @@ export class OrderStreamHandler extends DynamoStreamLambdaHandler<ContainerInjec
           sellToken: newOrder.sellToken.S as string,
         })
 
+        // build webhook requests with retries and timeouts
         const requests: Promise<AxiosResponse>[] = []
         for (const endpoint of registeredEndpoints) {
           requests.push(
@@ -51,10 +52,11 @@ export class OrderStreamHandler extends DynamoStreamLambdaHandler<ContainerInjec
           )
         }
 
+        // send all notifications and track the failed requests
         const failedRequests: PromiseSettledResult<AxiosResponse>[] = []
         await Promise.allSettled(requests).then((results) => {
           for (const result of results) {
-            if (result.status == 'fulfilled' && (result?.value?.status >= 200 || result?.value?.status <= 202)) {
+            if (result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202) {
               log.info({ result: result.value }, 'Success: New order sent to registered webhook.')
             } else {
               failedRequests.push(result)
@@ -72,10 +74,11 @@ export class OrderStreamHandler extends DynamoStreamLambdaHandler<ContainerInjec
       }
     }
 
+    // this lambda will be invoked again with the failed records
     return { batchItemFailures: failedRecords }
   }
 
   protected inputSchema(): Joi.ObjectSchema | null {
-    return OrderStreamInputJoi
+    return OrderNotificationInputJoi
   }
 }

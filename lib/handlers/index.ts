@@ -6,8 +6,8 @@ import { GetNonceHandler } from './get-nonce/handler'
 import { GetNonceInjector } from './get-nonce/injector'
 import { GetOrdersHandler } from './get-orders/handler'
 import { GetOrdersInjector } from './get-orders/injector'
-import { OrderStreamHandler } from './order-stream/handler'
-import { OrderStreamInjector } from './order-stream/injector'
+import { OrderNotificationHandler } from './order-notification/handler'
+import { OrderNotificationInjector } from './order-notification/injector'
 import { PostOrderHandler } from './post-order/handler'
 import { PostOrderInjector } from './post-order/injector'
 
@@ -26,8 +26,11 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler('checkOrderStatusHan
 const getApiDocsJsonInjectorPromise = new GetApiDocsJsonInjector('getApiDocsJsonInjector').build()
 const getApiDocsJsonHandler = new GetApiDocsJsonHandler('getApiDocsJsonHandler', getApiDocsJsonInjectorPromise)
 
-const orderStreamInjectorPromise = new OrderStreamInjector('orderStreamInjector').build()
-const orderStreamHandler = new OrderStreamHandler('orderStreamHandler', orderStreamInjectorPromise)
+const orderNotificationInjectorPromise = new OrderNotificationInjector('orderNotificationInjector').build()
+const orderNotificationHandler = new OrderNotificationHandler(
+  'orderNotificationHandler',
+  orderNotificationInjectorPromise
+)
 
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,
@@ -35,5 +38,5 @@ module.exports = {
   getNonceHandler: getNonceHandler.handler,
   checkOrderStatusHandler: checkOrderStatusHandler.handler,
   getApiDocsJsonHandler: getApiDocsJsonHandler.handler,
-  orderStreamHandler: orderStreamHandler.handler,
+  orderNotificationHandler: orderNotificationHandler.handler,
 }

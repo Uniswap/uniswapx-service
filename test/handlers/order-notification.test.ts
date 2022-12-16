@@ -1,9 +1,9 @@
 import axios from 'axios'
-import { OrderStreamHandler } from '../../lib/handlers/order-stream/handler'
+import { OrderNotificationHandler } from '../../lib/handlers/order-notification/handler'
 
 jest.mock('axios')
 
-describe('Testing new order stream handler.', () => {
+describe('Testing new order Notification handler.', () => {
   // Creating mocks for all the handler dependencies.
   const mockedAxios = axios as jest.Mocked<typeof axios>
   mockedAxios.post.mockReturnValue(Promise.resolve({ status: 201 }))
@@ -68,8 +68,11 @@ describe('Testing new order stream handler.', () => {
   })
 
   it('Testing valid order.', async () => {
-    const orderStreamHandler = new OrderStreamHandler('order-stream', getInjectorPromiseMock(MOCK_ORDER) as any)
-    await orderStreamHandler.handler({
+    const orderNotificationHandler = new OrderNotificationHandler(
+      'orderNotification',
+      getInjectorPromiseMock(MOCK_ORDER) as any
+    )
+    await orderNotificationHandler.handler({
       Records: [getMockRecord(MOCK_ORDER)],
     } as any)
     expect(mockedAxios.post).toBeCalledWith('https://jsonplaceholder.typicode.com/posts', {
@@ -86,11 +89,11 @@ describe('Testing new order stream handler.', () => {
   })
 
   it('Testing invalid order with no whitelisted filler.', async () => {
-    const orderStreamHandler = new OrderStreamHandler(
-      'order-stream',
+    const orderNotificationHandler = new OrderNotificationHandler(
+      'orderNotification',
       getInjectorPromiseMock({ ...MOCK_ORDER, filler: undefined }) as any
     )
-    await orderStreamHandler.handler({
+    await orderNotificationHandler.handler({
       Records: [getMockRecord(MOCK_ORDER)],
     } as any)
     // expect(errorSpy).toBeCalledWith(
@@ -103,11 +106,11 @@ describe('Testing new order stream handler.', () => {
   })
 
   it('Testing invalid order with no orderHash.', async () => {
-    const orderStreamHandler = new OrderStreamHandler(
-      'order-stream',
+    const orderNotificationHandler = new OrderNotificationHandler(
+      'orderNotification',
       getInjectorPromiseMock({ ...MOCK_ORDER, orderHash: undefined }) as any
     )
-    await orderStreamHandler.handler({
+    await orderNotificationHandler.handler({
       Records: [getMockRecord(MOCK_ORDER)],
     } as any)
     // expect(errorSpy).toBeCalledWith(
@@ -120,7 +123,7 @@ describe('Testing new order stream handler.', () => {
   })
 
   it('Testing udefined Records.', async () => {
-    const orderStreamHandler = new OrderStreamHandler('order-stream', {
+    const orderNotificationHandler = new OrderNotificationHandler('orderNotification', {
       getContainerInjected: () => {
         return {}
       },
@@ -131,7 +134,7 @@ describe('Testing new order stream handler.', () => {
         }
       },
     } as any)
-    await orderStreamHandler.handler({
+    await orderNotificationHandler.handler({
       Records: [getMockRecord(MOCK_ORDER)],
     } as any)
     // expect(errorSpy).toBeCalledWith(
@@ -144,16 +147,19 @@ describe('Testing new order stream handler.', () => {
   })
 
   it('Testing no records validation error.', async () => {
-    new OrderStreamHandler('order-stream', getInjectorPromiseMock(MOCK_ORDER) as any)
-    // expect(async () => await orderStreamHandler.handler({} as any)).rejects.toThrow(
-    //   errorUtil.DynamoStreamInputValidationError
+    new OrderNotificationHandler('orderNotification', getInjectorPromiseMock(MOCK_ORDER) as any)
+    // expect(async () => await orderNotificationHandler.handler({} as any)).rejects.toThrow(
+    //   errorUtil.DynamoNotificationInputValidationError
     // )
   })
 
   it('Testing network error from market maker.', async () => {
     mockedAxios.post.mockReturnValue(Promise.resolve({ status: 500 }))
-    const orderStreamHandler = new OrderStreamHandler('order-stream', getInjectorPromiseMock(MOCK_ORDER) as any)
-    await orderStreamHandler.handler({
+    const orderNotificationHandler = new OrderNotificationHandler(
+      'orderNotification',
+      getInjectorPromiseMock(MOCK_ORDER) as any
+    )
+    await orderNotificationHandler.handler({
       Records: [getMockRecord(MOCK_ORDER)],
     } as any)
     // expect(errorSpy).toBeCalledWith(

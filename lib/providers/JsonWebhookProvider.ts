@@ -1,15 +1,5 @@
 import { FILTER_FIELD, WebhookDefinition } from '../entities/Webhook'
-
-export type OrderFilter = {
-  [FILTER_FIELD.OFFERER]: string
-  [FILTER_FIELD.FILLER]: string
-  [FILTER_FIELD.ORDER_STATUS]: string
-  [FILTER_FIELD.SELL_TOKEN]: string
-}
-
-export interface WebhookProvider {
-  getEndpoints(filter: OrderFilter): Set<string>
-}
+import { OrderFilter, WebhookProvider } from './base'
 
 export class JsonWebhookProvider implements WebhookProvider {
   static create(jsonDocument: WebhookDefinition): JsonWebhookProvider {
@@ -25,8 +15,10 @@ export class JsonWebhookProvider implements WebhookProvider {
     const filterMapping = this.jsonDocument.filter
 
     for (const filterKey of filterKeys) {
-      if (Object.keys(filterMapping[filterKey]).includes(filter[filterKey])) {
-        endpoints = endpoints.concat(filterMapping[filterKey][filter[filterKey]])
+      const filterValue = filter[filterKey]
+      if (Object.keys(filterMapping[filterKey]).includes(filterValue)) {
+        const registeredEndpoints = filterMapping[filterKey][filterValue]
+        endpoints = endpoints.concat(registeredEndpoints)
       }
     }
 

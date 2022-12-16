@@ -1,7 +1,7 @@
 import Joi from 'joi'
 import FieldValidator from '../../../util/field-validator'
 
-export const OrderStreamInputJoi = Joi.object({
+export const OrderNotificationInputJoi = Joi.object({
   Records: Joi.array()
     .items(
       Joi.object({
