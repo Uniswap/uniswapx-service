@@ -1,10 +1,12 @@
 import * as cdk from 'aws-cdk-lib'
+import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import { FilterCriteria, FilterRule } from 'aws-cdk-lib/aws-lambda'
-import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources'
+import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
+import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
 import { STAGE } from '../../lib/util/stage'
@@ -28,7 +30,6 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getApiDocsJsonLambdaAlias: aws_lambda.Alias
   private readonly orderStreamLambdaAlias: aws_lambda.Alias
-  private readonly databaseStack: DynamoStack
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -45,7 +46,7 @@ export class LambdaStack extends cdk.NestedStack {
       ],
     })
 
-    this.databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
+    const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
 
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
       stage: props.stage as STAGE,
@@ -77,6 +78,7 @@ export class LambdaStack extends cdk.NestedStack {
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'orderStreamHandler',
       memorySize: 256,
+      timeout: Duration.seconds(30),
       bundling: {
         minify: true,
         sourceMap: true,
@@ -87,13 +89,16 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    const deadLetterQueue = new Queue(this, 'deadLetterQueue')
+
     this.orderStreamLambda.addEventSource(
-      new DynamoEventSource(this.databaseStack.ordersTable, {
+      new DynamoEventSource(databaseStack.ordersTable, {
         startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
-        batchSize: 5,
+        batchSize: 1,
+        retryAttempts: 3,
         bisectBatchOnError: true,
-        retryAttempts: 10,
-        // TODO: add a filter for quoteId this will ensure only orders associated with a market maker quote will trigger this lambda
+        reportBatchItemFailures: true,
+        onFailure: new SqsDlq(deadLetterQueue),
         filters: [
           FilterCriteria.filter({
             eventName: FilterRule.isEqual('INSERT'),

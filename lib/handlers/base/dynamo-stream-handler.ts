@@ -4,7 +4,13 @@ import Joi from 'joi'
 import { DynamoStreamInputValidationError, InjectionError } from '../../util/errors'
 import { BaseInjector, BaseLambdaHandler, BaseRInj } from './base'
 
-export type DynamoStreamHandler = (event: DynamoDBStreamEvent) => Promise<void>
+export type BatchFailureResponse = {
+  batchItemFailures: {
+    itemIdentifier: string | undefined
+  }[]
+}
+
+export type DynamoStreamHandler = (event: DynamoDBStreamEvent) => Promise<BatchFailureResponse>
 
 export abstract class DynamoStreamInjector<CInj, RInj extends BaseRInj> extends BaseInjector<CInj> {
   public constructor(protected injectorName: string) {
@@ -17,7 +23,7 @@ export abstract class DynamoStreamInjector<CInj, RInj extends BaseRInj> extends 
 export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
   DynamoStreamHandler,
   { containerInjected: CInj; requestInjected: RInj },
-  void
+  BatchFailureResponse
 > {
   protected abstract inputSchema(): Joi.ObjectSchema | null
 
@@ -26,14 +32,14 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
   }
 
   get handler(): DynamoStreamHandler {
-    return async (event: DynamoDBStreamEvent): Promise<void> => {
+    return async (event: DynamoDBStreamEvent): Promise<BatchFailureResponse> => {
       const handler = this.buildHandler()
       return await handler(event)
     }
   }
 
   protected buildHandler(): DynamoStreamHandler {
-    return async (streamInput: DynamoDBStreamEvent): Promise<void> => {
+    return async (streamInput: DynamoDBStreamEvent): Promise<BatchFailureResponse> => {
       const log: Logger = bunyan.createLogger({
         name: this.handlerName,
         serializers: bunyan.stdSerializers,
@@ -73,5 +79,8 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
     return input
   }
 
-  public abstract handleRequest(input: { containerInjected: CInj; requestInjected: RInj }): Promise<void>
+  public abstract handleRequest(input: {
+    containerInjected: CInj
+    requestInjected: RInj
+  }): Promise<BatchFailureResponse>
 }

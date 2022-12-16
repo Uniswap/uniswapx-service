@@ -1,11 +1,11 @@
-import { logAndThrowError } from '../../lib/util/errors'
+import { rejectAfterDelay } from '../../lib/util/errors'
 
-describe('logAndThrowError test', () => {
-  it('should log error message and throw error', () => {
-    const mockLog = { error: jest.fn() }
-    expect(() => {
-      logAndThrowError({ mock: 'mock' }, 'Error is happening', mockLog as any)
-    }).toThrowError('Error is happening')
-    expect(mockLog.error).toBeCalledWith({ mock: 'mock' }, 'Error is happening')
+describe('rejectAfterDelay test', () => {
+  it('should return promise with delay', async () => {
+    try {
+      await Promise.resolve(rejectAfterDelay(100))
+    } catch (e) {
+      expect(e).toEqual(Error('Request timed out.'))
+    }
   })
 })

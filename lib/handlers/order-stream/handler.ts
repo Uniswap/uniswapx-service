@@ -1,10 +1,9 @@
-import { DynamoDBRecord } from 'aws-lambda'
-import axios from 'axios'
-import Logger from 'bunyan'
+import axios, { AxiosResponse } from 'axios'
 import Joi from 'joi'
-import { logAndThrowError } from '../../util/errors'
-import * as fillerWebhooks from '../../util/filler-webhook-urls.json'
-import { DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
+import { ORDER_STATUS } from '../../entities'
+import { rejectAfterDelay } from '../../util/errors'
+import { callWithRetry } from '../../util/network-requests'
+import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderStreamInputJoi } from './schema'
 
@@ -12,47 +11,68 @@ export class OrderStreamHandler extends DynamoStreamLambdaHandler<ContainerInjec
   public async handleRequest(input: {
     containerInjected: ContainerInjected
     requestInjected: RequestInjected
-  }): Promise<void> {
+  }): Promise<BatchFailureResponse> {
     const {
       requestInjected: { log, event },
+      containerInjected: { webhookProvider },
     } = input
 
-    try {
-      for (const record of event.Records) {
-        await this.handleRecord(record, log)
+    const failedRecords = []
+    for (const record of event.Records) {
+      try {
+        const newOrder = record?.dynamodb?.NewImage
+        if (!newOrder) {
+          throw new Error('There is no new order.')
+        }
+
+        const registeredEndpoints = webhookProvider.getEndpoints({
+          offerer: newOrder.offerer.S as string,
+          orderStatus: newOrder.orderStatus.S as ORDER_STATUS,
+          filler: newOrder.filler.S as string,
+          sellToken: newOrder.sellToken.S as string,
+        })
+
+        const requests: Promise<AxiosResponse>[] = []
+        for (const endpoint of registeredEndpoints) {
+          requests.push(
+            callWithRetry(() => {
+              return Promise.race([
+                axios.post(endpoint, {
+                  orderHash: newOrder.orderHash.S,
+                  createdAt: newOrder.createdAt.N,
+                  signature: newOrder.signature.S,
+                  offerer: newOrder.offerer.S,
+                  orderStatus: newOrder.orderStatus.S,
+                  encodedOrder: newOrder.encodedOrder.S,
+                }),
+                rejectAfterDelay(5000),
+              ])
+            })
+          )
+        }
+
+        const failedRequests: PromiseSettledResult<AxiosResponse>[] = []
+        await Promise.allSettled(requests).then((results) => {
+          for (const result of results) {
+            if (result.status == 'fulfilled' && (result?.value?.status >= 200 || result?.value?.status <= 202)) {
+              log.info({ result: result.value }, 'Success: New order sent to registered webhook.')
+            } else {
+              failedRequests.push(result)
+            }
+          }
+        })
+
+        if (failedRequests.length > 0) {
+          log.error({ failedRequests: failedRequests }, 'Error: Failed to notify registered webhooks.')
+          failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
+        }
+      } catch (e: unknown) {
+        log.error({ e }, 'Unexpected failure in handler.')
+        failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
       }
-    } catch (e: unknown) {
-      logAndThrowError(e instanceof Error ? { errorCode: e.message } : {}, 'Unexpected error in handler.', log)
     }
-  }
 
-  private async handleRecord(record: DynamoDBRecord, log: Logger): Promise<void> {
-    try {
-      const newOrder = record?.dynamodb?.NewImage
-      const fillerAddress = newOrder?.filler?.S
-
-      if (!fillerAddress || !Object.keys(fillerWebhooks).includes(fillerAddress)) {
-        throw new Error('There is no valid filler address for this new record.')
-      }
-
-      const url = (fillerWebhooks as any)[fillerAddress].url
-
-      const response = await axios.post(url, {
-        orderHash: newOrder.orderHash.S,
-        createdAt: newOrder.createdAt.N,
-        signature: newOrder.signature.S,
-        offerer: newOrder.offerer.S,
-        orderStatus: newOrder.orderStatus.S,
-        encodedOrder: newOrder.encodedOrder.S,
-      })
-
-      if (!response || response.status < 200 || response.status > 202) {
-        throw new Error('Order recipient did not return an OK status.')
-      }
-      log.info({ record, response }, 'Success: New order sent to filler webhook.')
-    } catch (e: unknown) {
-      logAndThrowError(e instanceof Error ? { errorCode: e.message } : {}, 'Error sending new order to filler.', log)
-    }
+    return { batchItemFailures: failedRecords }
   }
 
   protected inputSchema(): Joi.ObjectSchema | null {
