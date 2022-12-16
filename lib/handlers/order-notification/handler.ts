@@ -35,21 +35,18 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         // build webhook requests with retries and timeouts
         const requests: Promise<AxiosResponse>[] = []
         for (const endpoint of registeredEndpoints) {
-          requests.push(
-            callWithRetry(() => {
-              return Promise.race([
-                axios.post(endpoint, {
-                  orderHash: newOrder.orderHash.S,
-                  createdAt: newOrder.createdAt.N,
-                  signature: newOrder.signature.S,
-                  offerer: newOrder.offerer.S,
-                  orderStatus: newOrder.orderStatus.S,
-                  encodedOrder: newOrder.encodedOrder.S,
-                }),
-                rejectAfterDelay(5000),
-              ])
-            })
-          )
+          const requestWithTimeout = Promise.race([
+            axios.post(endpoint, {
+              orderHash: newOrder.orderHash.S,
+              createdAt: newOrder.createdAt.N,
+              signature: newOrder.signature.S,
+              offerer: newOrder.offerer.S,
+              orderStatus: newOrder.orderStatus.S,
+              encodedOrder: newOrder.encodedOrder.S,
+            }),
+            rejectAfterDelay(5000),
+          ])
+          requests.push(callWithRetry(() => requestWithTimeout))
         }
 
         // send all notifications and track the failed requests

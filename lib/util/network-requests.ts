@@ -4,7 +4,7 @@ const delay = (ms: number) => {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export const callWithRetry = async (fn: () => any, depth = 0, maxdepth = 2): Promise<AxiosResponse> => {
+export const callWithRetry = async (fn: () => any, maxdepth = 2, depth = 0): Promise<AxiosResponse> => {
   try {
     return await fn()
   } catch (e: unknown) {
@@ -13,6 +13,6 @@ export const callWithRetry = async (fn: () => any, depth = 0, maxdepth = 2): Pro
     }
     await delay(2 ** depth * 1000)
 
-    return callWithRetry(fn, depth + 1, maxdepth)
+    return callWithRetry(fn, maxdepth, depth + 1)
   }
 }

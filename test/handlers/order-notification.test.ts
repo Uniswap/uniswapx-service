@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { OrderNotificationHandler } from '../../lib/handlers/order-notification/handler'
+import * as networkUtil from '../../lib/util/network-requests'
 
 jest.mock('axios')
 
@@ -8,8 +9,16 @@ describe('Testing new order Notification handler.', () => {
   const mockedAxios = axios as jest.Mocked<typeof axios>
   mockedAxios.post.mockReturnValue(Promise.resolve({ status: 201 }))
 
+  const getEndpointsMock = jest.fn()
+  getEndpointsMock.mockImplementation(() => mockWebhooks)
+
+  const callWithRetrySpy = jest.spyOn(networkUtil, 'callWithRetry')
+
   const logInfoMock = jest.fn()
   const logErrorMock = jest.fn()
+
+  const mockWebhooks = ['webhook.com/1', 'webhook.com/2']
+
   const MOCK_ORDER = {
     signature: {
       S: '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
@@ -24,7 +33,7 @@ describe('Testing new order Notification handler.', () => {
       S: '0x00000000001325ad66ad5fa02621d3ad52c9323c6c2bff26820000000',
     },
     createdAt: {
-      N: '1670976836865',
+      N: 1670976836865,
     },
     filler: {
       S: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
@@ -32,11 +41,15 @@ describe('Testing new order Notification handler.', () => {
     orderHash: {
       S: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3',
     },
+    sellToken: {
+      S: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+    },
   }
   const getMockRecord = (order: any) => {
     return {
       eventName: 'INSERT',
       dynamodb: {
+        SequenceNumber: 1,
         Keys: {
           orderHash: {
             S: '0x1',
@@ -47,10 +60,15 @@ describe('Testing new order Notification handler.', () => {
     }
   }
 
-  const getInjectorPromiseMock = (order: any) => {
-    return {
+  const orderNotificationHandler = async (
+    order: any = MOCK_ORDER,
+    event: any = {
+      Records: [getMockRecord(MOCK_ORDER)],
+    }
+  ) => {
+    const injectedMock = {
       getContainerInjected: () => {
-        return { webhookProvider: { getEndpoints: jest.fn() } }
+        return { webhookProvider: { getEndpoints: getEndpointsMock } }
       },
       getRequestInjected: () => {
         return {
@@ -61,6 +79,8 @@ describe('Testing new order Notification handler.', () => {
         }
       },
     }
+    const orderNotificationHandler = new OrderNotificationHandler('orderNotification', injectedMock as any)
+    return await orderNotificationHandler.handler(event as any)
   }
 
   afterEach(() => {
@@ -68,106 +88,59 @@ describe('Testing new order Notification handler.', () => {
   })
 
   it('Testing valid order.', async () => {
-    const orderNotificationHandler = new OrderNotificationHandler(
-      'orderNotification',
-      getInjectorPromiseMock(MOCK_ORDER) as any
-    )
-    await orderNotificationHandler.handler({
-      Records: [getMockRecord(MOCK_ORDER)],
-    } as any)
-    expect(mockedAxios.post).toBeCalledWith('https://jsonplaceholder.typicode.com/posts', {
-      orderHash: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3',
-      createdAt: '1670976836865',
-      signature:
-        '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
-      offerer: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-      orderStatus: 'unverified',
-      encodedOrder: '0x00000000001325ad66ad5fa02621d3ad52c9323c6c2bff26820000000',
+    callWithRetrySpy.mockImplementation(() => Promise.resolve({ status: 200 }) as any)
+    const response = await orderNotificationHandler()
+    expect(getEndpointsMock).toBeCalledWith({
+      offerer: MOCK_ORDER.offerer.S,
+      orderStatus: MOCK_ORDER.orderStatus.S,
+      filler: MOCK_ORDER.filler.S,
+      sellToken: MOCK_ORDER.sellToken.S,
     })
-    expect(logInfoMock.mock.calls[0][0].record).toMatchObject(expect.objectContaining(getMockRecord(MOCK_ORDER)))
-    expect(logInfoMock.mock.calls[0][1]).toEqual('Success: New order sent to filler webhook.')
+    expect(logInfoMock).toBeCalledTimes(2)
+    expect(logInfoMock).toBeCalledWith({ result: { status: 200 } }, 'Success: New order sent to registered webhook.')
+    expect(response).toMatchObject({ batchItemFailures: [] })
   })
 
   it('Testing invalid order with no whitelisted filler.', async () => {
-    const orderNotificationHandler = new OrderNotificationHandler(
-      'orderNotification',
-      getInjectorPromiseMock({ ...MOCK_ORDER, filler: undefined }) as any
+    const response = await orderNotificationHandler({ ...MOCK_ORDER, filler: undefined })
+    expect(logErrorMock).toBeCalledWith(
+      {
+        e: TypeError("Cannot read properties of undefined (reading 'S')"),
+      },
+      'Unexpected failure in handler.'
     )
-    await orderNotificationHandler.handler({
-      Records: [getMockRecord(MOCK_ORDER)],
-    } as any)
-    // expect(errorSpy).toBeCalledWith(
-    //   {
-    //     errorCode: 'There is no valid filler address for this new record.',
-    //   },
-    //   'Error sending new order to filler.',
-    //   { info: logInfoMock, error: logErrorMock }
-    // )
+    expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
   })
 
-  it('Testing invalid order with no orderHash.', async () => {
-    const orderNotificationHandler = new OrderNotificationHandler(
-      'orderNotification',
-      getInjectorPromiseMock({ ...MOCK_ORDER, orderHash: undefined }) as any
+  it('Testing failed webhook notification.', async () => {
+    const failedResponse = { status: 500 }
+    callWithRetrySpy.mockImplementation(() => Promise.resolve(failedResponse) as any)
+    const response = await orderNotificationHandler()
+    expect(getEndpointsMock).toBeCalledWith({
+      offerer: MOCK_ORDER.offerer.S,
+      orderStatus: MOCK_ORDER.orderStatus.S,
+      filler: MOCK_ORDER.filler.S,
+      sellToken: MOCK_ORDER.sellToken.S,
+    })
+    expect(logErrorMock).toBeCalledWith(
+      {
+        failedRequests: [
+          { status: 'fulfilled', value: failedResponse },
+          { status: 'fulfilled', value: failedResponse },
+        ],
+      },
+      'Error: Failed to notify registered webhooks.'
     )
-    await orderNotificationHandler.handler({
-      Records: [getMockRecord(MOCK_ORDER)],
-    } as any)
-    // expect(errorSpy).toBeCalledWith(
-    //   {
-    //     errorCode: "Cannot read properties of undefined (reading 'S')",
-    //   },
-    //   'Error sending new order to filler.',
-    //   { info: logInfoMock, error: logErrorMock }
-    // )
+    expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
   })
 
-  it('Testing udefined Records.', async () => {
-    const orderNotificationHandler = new OrderNotificationHandler('orderNotification', {
-      getContainerInjected: () => {
-        return {}
-      },
-      getRequestInjected: () => {
-        return {
-          log: { info: logInfoMock, error: logErrorMock },
-          event: undefined,
-        }
-      },
-    } as any)
-    await orderNotificationHandler.handler({
-      Records: [getMockRecord(MOCK_ORDER)],
-    } as any)
-    // expect(errorSpy).toBeCalledWith(
-    //   {
-    //     errorCode: "Cannot read properties of undefined (reading 'Records')",
-    //   },
-    //   'Unexpected error in handler.',
-    //   { info: logInfoMock, error: logErrorMock }
-    // )
+  it('Testing no new order check.', async () => {
+    const response = await orderNotificationHandler(null)
+    expect(logErrorMock).toBeCalledWith({ e: new Error('There is no new order.') }, 'Unexpected failure in handler.')
+    expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
   })
 
   it('Testing no records validation error.', async () => {
-    new OrderNotificationHandler('orderNotification', getInjectorPromiseMock(MOCK_ORDER) as any)
-    // expect(async () => await orderNotificationHandler.handler({} as any)).rejects.toThrow(
-    //   errorUtil.DynamoNotificationInputValidationError
-    // )
-  })
-
-  it('Testing network error from market maker.', async () => {
-    mockedAxios.post.mockReturnValue(Promise.resolve({ status: 500 }))
-    const orderNotificationHandler = new OrderNotificationHandler(
-      'orderNotification',
-      getInjectorPromiseMock(MOCK_ORDER) as any
-    )
-    await orderNotificationHandler.handler({
-      Records: [getMockRecord(MOCK_ORDER)],
-    } as any)
-    // expect(errorSpy).toBeCalledWith(
-    //   {
-    //     errorCode: 'Order recipient did not return an OK status.',
-    //   },
-    //   'Error sending new order to filler.',
-    //   { info: logInfoMock, error: logErrorMock }
-    // )
+    expect(async () => await orderNotificationHandler(MOCK_ORDER, {})).rejects.toThrow(Error)
   })
 })

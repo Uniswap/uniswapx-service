@@ -1,4 +1,4 @@
-import { FILTER_FIELD } from '../entities/Webhook'
+import { FILTER_FIELD } from './types'
 
 export type OrderFilter = {
   [FILTER_FIELD.OFFERER]: string

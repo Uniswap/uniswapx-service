@@ -1,5 +1,5 @@
-import { FILTER_FIELD, WebhookDefinition } from '../entities/Webhook'
 import { OrderFilter, WebhookProvider } from './base'
+import { FILTER_FIELD, WebhookDefinition } from './types'
 
 export class JsonWebhookProvider implements WebhookProvider {
   static create(jsonDocument: WebhookDefinition): JsonWebhookProvider {
