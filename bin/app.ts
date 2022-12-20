@@ -193,6 +193,8 @@ envVars['REACTOR_TENDERLY'] = process.env[`REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT_TENDERLY'] = process.env[`PERMIT_TENDERLY`] || ''
 
+envVars['FIREHOSE_ARN_LOCAL'] = process.env['FIREHOSE_ARN_LOCAL'] || ''
+
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,

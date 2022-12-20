@@ -67,8 +67,25 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         )
       case OrderValidation.NonceUsed: {
         const fromBlock = lastBlockNumber === 0 ? blockNumber - 5 : lastBlockNumber
-        const events = await orderWatcher.getFillEvents(fromBlock, blockNumber)
-        if (events.find((e) => e.orderHash === orderHash)) {
+        const fillEvent = (await orderWatcher.getFillInfo(fromBlock, blockNumber)).find(
+          (e) => e.orderHash === orderHash
+        )
+        if (fillEvent) {
+          fillEvent.outputs.forEach((output) => {
+            log.info({
+              orderInfo: {
+                status: ORDER_STATUS.FILLED,
+                orderHash: fillEvent.orderHash,
+                filler: fillEvent.filler,
+                nonce: fillEvent.nonce.toString(),
+                offerer: fillEvent.offerer,
+                tokenOut: output.token,
+                amountOut: output.amount.toString(),
+                blockNumber: fillEvent.blockNumber,
+              },
+            })
+          })
+
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -81,6 +98,12 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             log
           )
         } else {
+          log.info({
+            orderInfo: {
+              status: ORDER_STATUS.CANCELLED,
+              orderHash: orderHash,
+            },
+          })
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -122,7 +145,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
   ): Promise<SfnStateInputOutput> {
     const { dbInterface, orderHash, retryCount, lastBlockNumber, chainId, orderStatus } = params
 
-    log?.info(params, 'updating order status')
+    log?.info({ orderHash, retryCount, lastBlockNumber, chainId, orderStatus }, 'updating order status')
     await dbInterface.updateOrderStatus(orderHash, orderStatus)
     return {
       orderHash: orderHash,
