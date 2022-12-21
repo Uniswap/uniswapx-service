@@ -12,6 +12,13 @@ export type BatchFailureResponse = {
 
 export type DynamoStreamHandler = (event: DynamoDBStreamEvent) => Promise<BatchFailureResponse>
 
+/*
+ * Injector base class for DynamoDB streams.
+ *
+ * All external dependencies needed in the lambda should be fetched
+ * in this class and then will get injected into the handler. This
+ * includes stuff like logging, db interfaces, etc.
+ */
 export abstract class DynamoStreamInjector<CInj, RInj extends BaseRInj> extends BaseInjector<CInj> {
   public constructor(protected injectorName: string) {
     super(injectorName)
@@ -20,6 +27,14 @@ export abstract class DynamoStreamInjector<CInj, RInj extends BaseRInj> extends 
   public abstract getRequestInjected(containerInjected: CInj, event: DynamoDBStreamEvent, log: Logger): Promise<RInj>
 }
 
+/*
+ * Handler base class for DynamoDB streams.
+ *
+ * DynamoDB streams will trigger this handler for new stream events
+ * that fit the filter pattern in the lambda stack. The handler will
+ * receieve a stream event and then parse the batched records to
+ * perform some action.
+ */
 export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
   DynamoStreamHandler,
   { containerInjected: CInj; requestInjected: RInj },
@@ -38,6 +53,11 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
     }
   }
 
+  /*
+   * This function instantiates the logger, validates the stream event and
+   * fetches the injected data. Once it has passed all these steps it will
+   * call the handler with this data.
+   */
   protected buildHandler(): DynamoStreamHandler {
     return async (streamInput: DynamoDBStreamEvent): Promise<BatchFailureResponse> => {
       const log: Logger = bunyan.createLogger({

@@ -1,8 +1,7 @@
 import axios, { AxiosResponse } from 'axios'
 import Joi from 'joi'
-import { ORDER_STATUS } from '../../entities'
-import { rejectAfterDelay } from '../../util/errors'
 import { callWithRetry } from '../../util/network-requests'
+import { eventRecordToOrder } from '../../util/order'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
@@ -20,46 +19,42 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
     const failedRecords = []
     for (const record of event.Records) {
       try {
-        const newOrder = record?.dynamodb?.NewImage
-        if (!newOrder) {
-          throw new Error('There is no new order.')
-        }
+        const newOrder = eventRecordToOrder(record)
 
         const registeredEndpoints = webhookProvider.getEndpoints({
-          offerer: newOrder.offerer.S as string,
-          orderStatus: newOrder.orderStatus.S as ORDER_STATUS,
-          filler: newOrder.filler.S as string,
-          sellToken: newOrder.sellToken.S as string,
+          offerer: newOrder.offerer,
+          orderStatus: newOrder.orderStatus,
+          filler: newOrder.filler,
+          sellToken: newOrder.sellToken,
         })
 
         // build webhook requests with retries and timeouts
         const requests: Promise<AxiosResponse>[] = []
         for (const endpoint of registeredEndpoints) {
-          const requestWithTimeout = Promise.race([
-            axios.post(endpoint, {
-              orderHash: newOrder.orderHash.S,
-              createdAt: newOrder.createdAt.N,
-              signature: newOrder.signature.S,
-              offerer: newOrder.offerer.S,
-              orderStatus: newOrder.orderStatus.S,
-              encodedOrder: newOrder.encodedOrder.S,
-            }),
-            rejectAfterDelay(5000),
-          ])
-          requests.push(callWithRetry(() => requestWithTimeout))
+          const requestWithTimeout = async () =>
+            await axios.post(
+              endpoint,
+              {
+                orderHash: newOrder.orderHash,
+                createdAt: newOrder.createdAt,
+                signature: newOrder.signature,
+                offerer: newOrder.offerer,
+                orderStatus: newOrder.orderStatus,
+                encodedOrder: newOrder.encodedOrder,
+              },
+              { timeout: 5000 }
+            )
+          requests.push(callWithRetry(requestWithTimeout))
         }
 
         // send all notifications and track the failed requests
         const failedRequests: PromiseSettledResult<AxiosResponse>[] = []
-        await Promise.allSettled(requests).then((results) => {
-          for (const result of results) {
-            if (result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202) {
-              log.info({ result: result.value }, 'Success: New order sent to registered webhook.')
-            } else {
-              failedRequests.push(result)
-            }
-          }
-        })
+        const results = await Promise.allSettled(requests)
+        results.forEach((result) =>
+          result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202
+            ? log.info({ result: result.value }, 'Success: New order sent to registered webhook.')
+            : failedRequests.push(result)
+        )
 
         if (failedRequests.length > 0) {
           log.error({ failedRequests: failedRequests }, 'Error: Failed to notify registered webhooks.')

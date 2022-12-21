@@ -3,12 +3,18 @@
     "filler": {
       "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045": ["https://webhook.site/2ed9773a-58e8-4da6-85b3-1fddc7469fa8"]
     },
-    "orderStatus": { "unverified": ["https://webhook.site/2ed9773a-58e8-4da6-85b3-1fddc7469fa8"] },
+    "orderStatus": {
+      "unverified": [
+        "https://webhook.site/683d1912-fe8b-4469-8056-871cd59afb05",
+        "https://webhook.site/a7fb519b-ef33-46cf-9a70-5b6d02475b3a"
+      ]
+    },
     "sellToken": {},
     "offerer": {}
   },
   "registeredWebhook": {
     "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045": "https://webhook.site/2ed9773a-58e8-4da6-85b3-1fddc7469fa8",
-    "0x76e4de46c21603545eaaf7daf25e54c0d06bafa9": "https://webhook.site/683d1912-fe8b-4469-8056-871cd59afb05"
+    "0x76e4de46c21603545eaaf7daf25e54c0d06bafa9": "https://webhook.site/683d1912-fe8b-4469-8056-871cd59afb05",
+    "0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa": "https://webhook.site/a7fb519b-ef33-46cf-9a70-5b6d02475b3a"
   }
 }
