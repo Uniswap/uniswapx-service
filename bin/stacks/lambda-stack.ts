@@ -1,8 +1,12 @@
 import * as cdk from 'aws-cdk-lib'
+import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
+import { FilterCriteria, FilterRule } from 'aws-cdk-lib/aws-lambda'
+import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
+import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
 import { STAGE } from '../../lib/util/stage'
@@ -19,11 +23,13 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getApiDocsJsonLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getApiDocsJsonLambdaAlias: aws_lambda.Alias
+  private readonly orderNotificationLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -40,7 +46,7 @@ export class LambdaStack extends cdk.NestedStack {
       ],
     })
 
-    new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
+    const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {})
 
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
       stage: props.stage as STAGE,
@@ -65,6 +71,43 @@ export class LambdaStack extends cdk.NestedStack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
+
+    this.orderNotificationLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrderNotification${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'orderNotificationHandler',
+      memorySize: 256,
+      timeout: Duration.seconds(30),
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
+
+    // TODO: add alarms on the size of this dead letter queue
+    const orderNotificationDlq = new Queue(this, 'orderNotificationDlq')
+
+    this.orderNotificationLambda.addEventSource(
+      new DynamoEventSource(databaseStack.ordersTable, {
+        startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
+        batchSize: 1,
+        retryAttempts: 3,
+        bisectBatchOnError: true,
+        reportBatchItemFailures: true,
+        onFailure: new SqsDlq(orderNotificationDlq),
+        filters: [
+          FilterCriteria.filter({
+            eventName: FilterRule.isEqual('INSERT'),
+            dynamodb: { NewImage: { filler: { S: FilterRule.exists() } } },
+          }),
+        ],
+      })
+    )
 
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
@@ -142,10 +185,16 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
+    this.orderNotificationLambdaAlias = new aws_lambda.Alias(this, `OrderNotificationAlias`, {
+      aliasName: 'live',
+      version: this.orderNotificationLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -159,7 +208,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getOrdersLambdaAlias.lambda.functionName}:${this.getOrdersLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -174,7 +223,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getNonceTarget = new asg.ScalableTarget(this, `GetNonce-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 5,
+        maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getNonceLambdaAlias.lambda.functionName}:${this.getNonceLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -198,6 +247,21 @@ export class LambdaStack extends cdk.NestedStack {
       getApisDocsJsonTarget.node.addDependency(this.getApiDocsJsonLambdaAlias)
 
       getApisDocsJsonTarget.scaleToTrackMetric(`GetApiDocsJson-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const orderNotificationLambdaTarget = new asg.ScalableTarget(this, `OrderNotificationLambda-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.orderNotificationLambdaAlias.lambda.functionName}:${this.orderNotificationLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      orderNotificationLambdaTarget.node.addDependency(this.orderNotificationLambdaAlias)
+
+      orderNotificationLambdaTarget.scaleToTrackMetric(`OrderNotificationLambda-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })

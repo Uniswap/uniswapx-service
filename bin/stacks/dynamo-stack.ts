@@ -20,6 +20,7 @@ export class DynamoStack extends cdk.NestedStack {
         name: TABLE_KEY.ORDER_HASH,
         type: aws_dynamo.AttributeType.STRING,
       },
+      stream: aws_dynamo.StreamViewType.NEW_IMAGE,
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
     })
 
