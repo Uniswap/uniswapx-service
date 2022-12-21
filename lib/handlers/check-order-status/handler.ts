@@ -72,6 +72,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         )
         if (fillEvent) {
           fillEvent.outputs.forEach((output) => {
+            // TODO: add quoteId to the log so we can link quotes from parameterization api
             log.info({
               orderInfo: {
                 status: ORDER_STATUS.FILLED,
