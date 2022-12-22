@@ -6,23 +6,31 @@ import { GetNonceHandler } from './get-nonce/handler'
 import { GetNonceInjector } from './get-nonce/injector'
 import { GetOrdersHandler } from './get-orders/handler'
 import { GetOrdersInjector } from './get-orders/injector'
+import { OrderNotificationHandler } from './order-notification/handler'
+import { OrderNotificationInjector } from './order-notification/injector'
 import { PostOrderHandler } from './post-order/handler'
 import { PostOrderInjector } from './post-order/injector'
 
 const getNonceInjectorPromsise = new GetNonceInjector('getNonceInjector').build()
-const getNonceHandler = new GetNonceHandler('get-nonce', getNonceInjectorPromsise)
+const getNonceHandler = new GetNonceHandler('getNonceHandler', getNonceInjectorPromsise)
 
 const getOrdersInjectorPromise = new GetOrdersInjector('getOrdersInjector').build()
-const getOrdersHandler = new GetOrdersHandler('get-orders', getOrdersInjectorPromise)
+const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', getOrdersInjectorPromise)
 
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
-const postOrderHandler = new PostOrderHandler('post-orders', postOrderInjectorPromise)
+const postOrderHandler = new PostOrderHandler('postOrdersHandler', postOrderInjectorPromise)
 
 const checkOrderStatusInjectorPromise = new CheckOrderStatusInjector('checkOrderStatusInjector').build()
-const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', checkOrderStatusInjectorPromise)
+const checkOrderStatusHandler = new CheckOrderStatusHandler('checkOrderStatusHandler', checkOrderStatusInjectorPromise)
 
 const getApiDocsJsonInjectorPromise = new GetApiDocsJsonInjector('getApiDocsJsonInjector').build()
-const getApiDocsJsonHandler = new GetApiDocsJsonHandler('get-api-docs-json', getApiDocsJsonInjectorPromise)
+const getApiDocsJsonHandler = new GetApiDocsJsonHandler('getApiDocsJsonHandler', getApiDocsJsonInjectorPromise)
+
+const orderNotificationInjectorPromise = new OrderNotificationInjector('orderNotificationInjector').build()
+const orderNotificationHandler = new OrderNotificationHandler(
+  'orderNotificationHandler',
+  orderNotificationInjectorPromise
+)
 
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,
@@ -30,4 +38,5 @@ module.exports = {
   getNonceHandler: getNonceHandler.handler,
   checkOrderStatusHandler: checkOrderStatusHandler.handler,
   getApiDocsJsonHandler: getApiDocsJsonHandler.handler,
+  orderNotificationHandler: orderNotificationHandler.handler,
 }
