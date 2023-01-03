@@ -22,53 +22,13 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       'cannot find order by hash when updating order status'
     )
 
-    const parsedOrder = DutchLimitOrder.parse(order.encodedOrder, chainId)
-    const blockNumber = await provider.getBlockNumber()
+    try {
+      const blockNumber = await provider.getBlockNumber()
+      const parsedOrder = DutchLimitOrder.parse(order.encodedOrder, chainId)
 
-    const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
-    switch (validation) {
-      case OrderValidation.Expired:
-        return this.updateStatusAndReturn(
-          {
-            dbInterface,
-            orderHash,
-            retryCount,
-            lastBlockNumber: blockNumber,
-            chainId,
-            orderStatus: ORDER_STATUS.EXPIRED,
-          },
-          log
-        )
-      case OrderValidation.InsufficientFunds:
-        return this.updateStatusAndReturn(
-          {
-            dbInterface,
-            orderHash,
-            retryCount,
-            lastBlockNumber: blockNumber,
-            chainId,
-            orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
-          },
-          log
-        )
-      case OrderValidation.InvalidSignature:
-      case OrderValidation.InvalidOrderFields:
-      case OrderValidation.UnknownError:
-        return this.updateStatusAndReturn(
-          {
-            dbInterface,
-            orderHash,
-            retryCount,
-            lastBlockNumber: blockNumber,
-            chainId,
-            orderStatus: ORDER_STATUS.ERROR,
-          },
-          log
-        )
-      case OrderValidation.NonceUsed: {
-        const fromBlock = lastBlockNumber === 0 ? blockNumber - 5 : lastBlockNumber
-        const events = await orderWatcher.getFillEvents(fromBlock, blockNumber)
-        if (events.find((e) => e.orderHash === orderHash)) {
+      const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
+      switch (validation) {
+        case OrderValidation.Expired:
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -76,11 +36,11 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               lastBlockNumber: blockNumber,
               chainId,
-              orderStatus: ORDER_STATUS.FILLED,
+              orderStatus: ORDER_STATUS.EXPIRED,
             },
             log
           )
-        } else {
+        case OrderValidation.InsufficientFunds:
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -88,24 +48,76 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               lastBlockNumber: blockNumber,
               chainId,
-              orderStatus: ORDER_STATUS.CANCELLED,
+              orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
             },
             log
           )
+        case OrderValidation.InvalidSignature:
+        case OrderValidation.InvalidOrderFields:
+        case OrderValidation.UnknownError:
+          return this.updateStatusAndReturn(
+            {
+              dbInterface,
+              orderHash,
+              retryCount,
+              lastBlockNumber: blockNumber,
+              chainId,
+              orderStatus: ORDER_STATUS.ERROR,
+            },
+            log
+          )
+        case OrderValidation.NonceUsed: {
+          const fromBlock = lastBlockNumber === 0 ? blockNumber - 5 : lastBlockNumber
+          const events = await orderWatcher.getFillEvents(fromBlock, blockNumber)
+          if (events.find((e) => e.orderHash === orderHash)) {
+            return this.updateStatusAndReturn(
+              {
+                dbInterface,
+                orderHash,
+                retryCount,
+                lastBlockNumber: blockNumber,
+                chainId,
+                orderStatus: ORDER_STATUS.FILLED,
+              },
+              log
+            )
+          } else {
+            return this.updateStatusAndReturn(
+              {
+                dbInterface,
+                orderHash,
+                retryCount,
+                lastBlockNumber: blockNumber,
+                chainId,
+                orderStatus: ORDER_STATUS.CANCELLED,
+              },
+              log
+            )
+          }
         }
+        default:
+          return this.updateStatusAndReturn(
+            {
+              dbInterface,
+              orderHash,
+              retryCount,
+              lastBlockNumber: blockNumber,
+              chainId,
+              orderStatus: ORDER_STATUS.OPEN,
+            },
+            log
+          )
       }
-      default:
-        return this.updateStatusAndReturn(
-          {
-            dbInterface,
-            orderHash,
-            retryCount,
-            lastBlockNumber: blockNumber,
-            chainId,
-            orderStatus: ORDER_STATUS.OPEN,
-          },
-          log
-        )
+    } catch (e: unknown) {
+      log.error(e, `Failed to update order status.`)
+      return {
+        orderHash: orderHash,
+        orderStatus: order.orderStatus,
+        retryCount: retryCount + 1,
+        retryWaitSeconds: this.calculateRetryWaitSeconds(retryCount),
+        lastBlockNumber: lastBlockNumber,
+        chainId: chainId,
+      }
     }
   }
 
@@ -140,8 +152,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
 
   /*
    * In the first hour of order submission, we check the order status roughly every block.
-   * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
-   * All subsequent retries are at 6 hour intervals.
+   * We then do exponential backoff on the wait time until the interval reaches roughly 5 hours.
+   * All subsequent retries are at 5 hour intervals.
    */
   private calculateRetryWaitSeconds(retryCount: number): number {
     return retryCount <= 300 ? 12 : retryCount <= 450 ? Math.ceil(12 * Math.pow(1.05, retryCount - 300)) : 18000
