@@ -19,7 +19,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     params: APIHandleRequestParams<ContainerInjected, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
-      requestBody: { encodedOrder, signature, chainId },
+      requestBody: { encodedOrder, signature, chainId, quoteId },
       requestInjected: { log },
       containerInjected: { dbInterface, orderValidator },
     } = params
@@ -63,6 +63,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       deadline: decodedOrder.info.deadline,
       // TODO: Replace this with the actual filler address once the gouda SDK supports this
       filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+      ...(quoteId && { quoteId: quoteId }),
     }
 
     try {

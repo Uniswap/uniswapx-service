@@ -22,6 +22,7 @@ export type OrderEntity = {
   sellToken?: string
   sellAmount?: string
   filler?: string
+  quoteId?: string
 }
 
 export enum SORT_FIELDS {
