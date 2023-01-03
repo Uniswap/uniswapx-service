@@ -58,6 +58,7 @@ describe('Testing post order handler.', () => {
     signature:
       '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
     chainId: 1,
+    quoteId: 'test_quote_id',
   }
 
   const event = {
@@ -85,6 +86,7 @@ describe('Testing post order handler.', () => {
     startTime: 20,
     endTime: 10,
     deadline: 10,
+    quoteId: 'test_quote_id',
   }
 
   const injectorPromiseMock: any = {
@@ -168,6 +170,7 @@ describe('Testing post order handler.', () => {
         '{"detail":"\\"signature\\" with value \\"0xbad_signature\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/","errorCode":"VALIDATION_ERROR"}',
       ],
       [{ chainId: 0 }, '{"detail":"\\"chainId\\" must be one of [1, 5]","errorCode":"VALIDATION_ERROR"}'],
+      [{ quoteId: 137 }, '{"detail":"\\"quoteId\\" must be a string","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
       const invalidEvent = {
         body: JSON.stringify({ ...postRequestBody, ...invalidBodyField }),

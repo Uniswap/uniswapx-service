@@ -78,6 +78,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         filler_offerer: { type: DYNAMODB_TYPES.STRING },
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         createdAtMonth: { type: DYNAMODB_TYPES.NUMBER },
+        quoteId: { type: DYNAMODB_TYPES.STRING },
       },
       table: ordersTable,
     } as const)

@@ -87,7 +87,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     try {
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`uccessfully inserted Order ${id} into DB`)
+      log.info(`Successfully inserted Order ${id} into DB`)
     } catch (e: unknown) {
       log.error(e, `Failed to insert order ${id} into DB`)
       return {
