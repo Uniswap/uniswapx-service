@@ -203,4 +203,17 @@ describe('Testing each field on the FieldValidator class.', () => {
       )
     })
   })
+
+  describe('Testing quoteId field.', () => {
+    it('should validate field.', async () => {
+      const quoteId = 'test_quote_id'
+      expect(FieldValidator.isValidQuoteId().validate(quoteId)).toEqual({ value: quoteId })
+    })
+
+    it('should invalidate field.', async () => {
+      const validatedField = FieldValidator.isValidQuoteId().validate(1)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(`"value" must be a string`)
+    })
+  })
 })
