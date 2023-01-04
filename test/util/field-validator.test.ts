@@ -206,14 +206,20 @@ describe('Testing each field on the FieldValidator class.', () => {
 
   describe('Testing quoteId field.', () => {
     it('should validate field.', async () => {
-      const quoteId = 'test_quote_id'
+      const quoteId = '55e2cfca-5521-4a0a-b597-7bfb569032d7'
       expect(FieldValidator.isValidQuoteId().validate(quoteId)).toEqual({ value: quoteId })
     })
 
-    it('should invalidate field.', async () => {
+    it('should invalidate field with a number.', async () => {
       const validatedField = FieldValidator.isValidQuoteId().validate(1)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(`"value" must be a string`)
+    })
+
+    it('should invalidate field with a string.', async () => {
+      const validatedField = FieldValidator.isValidQuoteId().validate('not_uuid')
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be a valid GUID')
     })
   })
 })
