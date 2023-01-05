@@ -42,7 +42,11 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     const chainId = process.env['stage'] == 'local' ? 'TENDERLY' : event.chainId
 
     const provider = new ethers.providers.JsonRpcProvider(process.env[`WEB3_RPC_${chainId}`])
-    const quoter = new OrderValidator(provider, parseInt(event.chainId as string), process.env[`QUOTER_${chainId}`])
+    const quoter = new OrderValidator(
+      provider,
+      parseInt(event.chainId as string),
+      checkDefined(process.env[`QUOTER_${chainId}`])
+    )
     const watcher = new EventWatcher(provider, checkDefined(process.env[`REACTOR_${chainId}`]))
 
     return {
