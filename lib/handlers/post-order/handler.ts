@@ -1,6 +1,6 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import Logger from 'bunyan'
-import { DutchLimitOrder, parseOrder } from 'gouda-sdk'
+import { DutchLimitOrder } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -28,7 +28,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     let decodedOrder: DutchLimitOrder
 
     try {
-      decodedOrder = parseOrder(encodedOrder) as DutchLimitOrder
+      decodedOrder = DutchLimitOrder.parse(encodedOrder, chainId) as DutchLimitOrder
     } catch (e: unknown) {
       log.error(e, 'Failed to parse order')
       return {
@@ -56,7 +56,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       orderStatus: ORDER_STATUS.UNVERIFIED,
       offerer: decodedOrder.info.offerer.toLowerCase(),
       sellToken: decodedOrder.info.input.token.toLowerCase(),
-      sellAmount: decodedOrder.info.input.amount.toString(),
+      sellAmount: decodedOrder.info.input.startAmount.toString(),
       reactor: decodedOrder.info.reactor.toLowerCase(),
       startTime: decodedOrder.info.startTime,
       endTime: decodedOrder.info.deadline,

@@ -43,7 +43,7 @@ export class OrderValidator {
       return inputTokenValidation
     }
 
-    const inputAmountValidation = this.validateInputAmount(order.info.input.amount)
+    const inputAmountValidation = this.validateInputAmount(order.info.input.startAmount)
     if (!inputAmountValidation.valid) {
       return inputAmountValidation
     }

@@ -29,7 +29,8 @@ const DECODED_ORDER = {
     startTime: 20,
     input: {
       token: '0x0000000000000000000000000000000000000003',
-      amount: BigNumber.from('30'),
+      endAmount: BigNumber.from(30),
+      startAmount: BigNumber.from(30),
     },
     nonce: BigNumber.from('40'),
     outputs: [
@@ -38,6 +39,7 @@ const DECODED_ORDER = {
         startAmount: BigNumber.from(60),
         recipient: '0x0000000000000000000000000000000000000004',
         token: '0x0000000000000000000000000000000000000005',
+        isFeeOutput: false,
       },
     ],
   },
@@ -45,7 +47,7 @@ const DECODED_ORDER = {
 }
 
 jest.mock('gouda-sdk', () => ({
-  parseOrder: () => DECODED_ORDER,
+  DutchLimitOrder: { parse: () => DECODED_ORDER },
 }))
 
 describe('Testing post order handler.', () => {
