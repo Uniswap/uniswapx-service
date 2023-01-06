@@ -43,9 +43,14 @@ export class OrderValidator {
       return inputTokenValidation
     }
 
-    const inputAmountValidation = this.validateInputAmount(order.info.input.startAmount)
-    if (!inputAmountValidation.valid) {
-      return inputAmountValidation
+    const inputStartAmountValidation = this.validateInputAmount(order.info.input.startAmount)
+    if (!inputStartAmountValidation.valid) {
+      return inputStartAmountValidation
+    }
+
+    const inputEndAmountValidation = this.validateInputAmount(order.info.input.endAmount)
+    if (!inputEndAmountValidation.valid) {
+      return inputStartAmountValidation
     }
 
     const outputsValidation = this.validateOutputs(order.info.outputs)
