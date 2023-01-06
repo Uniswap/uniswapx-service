@@ -54,27 +54,26 @@ export class StepFunctionStack extends cdk.NestedStack {
 
     /* Subscription Filter Initialization */
     // TODO: remove the if block after accounts are set up for parameterization-api
-    if (stage === STAGE.LOCAL) {
-      const firehoseArn = stage === STAGE.LOCAL ? props.envVars['FIREHOSE_ARN_LOCAL'] : ''
 
-      const subscriptionRole = new aws_iam.Role(this, 'SubscriptionRole', {
-        assumedBy: new aws_iam.ServicePrincipal('logs.amazonaws.com'),
-      })
+    const firehoseArn = props.envVars['FILL_EVENT_FIREHOSE']
 
-      subscriptionRole.addToPolicy(
-        new aws_iam.PolicyStatement({
-          effect: aws_iam.Effect.ALLOW,
-          actions: ['firehose:PutRecord', 'firehose:PutRecordBatch'],
-          resources: [firehoseArn],
-        })
-      )
-      new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
-        destinationArn: firehoseArn,
-        filterPattern: '{ $.orderInfo.status = "filled" }',
-        logGroupName: checkStatusFunction.logGroup.logGroupName,
-        roleArn: subscriptionRole.roleArn,
+    const subscriptionRole = new aws_iam.Role(this, 'SubscriptionRole', {
+      assumedBy: new aws_iam.ServicePrincipal('logs.amazonaws.com'),
+    })
+
+    subscriptionRole.addToPolicy(
+      new aws_iam.PolicyStatement({
+        effect: aws_iam.Effect.ALLOW,
+        actions: ['firehose:PutRecord', 'firehose:PutRecordBatch'],
+        resources: [firehoseArn],
       })
-    }
+    )
+    new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
+      destinationArn: firehoseArn,
+      filterPattern: '{ $.orderInfo.status = "filled" }',
+      logGroupName: checkStatusFunction.logGroup.logGroupName,
+      roleArn: subscriptionRole.roleArn,
+    })
 
     this.statusTrackingStateMachine = new CfnStateMachine(this, `${SERVICE_NAME}-${stage}-OrderStatusTracking`, {
       roleArn: stateMachineRole.roleArn,

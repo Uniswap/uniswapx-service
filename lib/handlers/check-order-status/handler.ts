@@ -23,7 +23,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     )
 
     const parsedOrder = DutchLimitOrder.parse(order.encodedOrder, chainId)
+    log.info(parsedOrder, 'parsed order')
+    log.info(orderQuoter, 'orderQuoter')
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
+    log.info(validation, 'validation result')
     const curBlockNumber = await provider.getBlockNumber()
 
     switch (validation) {

@@ -23,7 +23,6 @@ const VALIDATION_DATA = '0x'
 
 function newOrder({
   startTime = 5,
-  endTime = 20,
   deadline = 20,
   nonce = BigNumber.from(30),
   offerer = OFFERER,
