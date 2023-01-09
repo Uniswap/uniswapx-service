@@ -28,11 +28,6 @@ export class StepFunctionStack extends cdk.NestedStack {
       managedPolicies: [cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaRole')],
     })
 
-    if (stage === STAGE.LOCAL) {
-      props.envVars['RPC_1'] = props.envVars['PRC_TENDERLY']
-      props.envVars['REACTOR_1'] = props.envVars['PRC_TENDERLY']
-    }
-
     const checkStatusFunction = new NodejsFunction(this, `${SERVICE_NAME}-${stage}-CheckOrderStatusLambda`, {
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       role: props.lambdaRole,
