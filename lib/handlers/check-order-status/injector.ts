@@ -35,24 +35,23 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       serializers: bunyan.stdSerializers,
     })
 
-    // for dev environment, always use Tenderly
     // for beta environment, override mainnnet (chainId = 1) to Tenderly
-    let chainId
-    if (process.env['stage'] == 'local') {
+    let chainId, quoter, watcher, provider
+    if (process.env['stage'] == 'local' || (chainId == 1 && process.env['stage'] == 'beta')) {
       chainId = 'TENDERLY'
-    } else if (chainId == 1 && process.env['stage'] == 'beta') {
-      chainId = 'TENDERLY'
+      provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
+      quoter = new OrderValidator(
+        provider,
+        parseInt(event.chainId as string),
+        checkDefined(process.env[`QUOTER_${chainId}`])
+      )
+      watcher = new EventWatcher(provider, checkDefined(process.env[`DL_REACTOR_${chainId}`]))
     } else {
       chainId = event.chainId
+      provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
+      quoter = new OrderValidator(provider, parseInt(event.chainId as string))
+      watcher = new EventWatcher(provider)
     }
-
-    const provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
-    const quoter = new OrderValidator(
-      provider,
-      parseInt(event.chainId as string),
-      checkDefined(process.env[`QUOTER_${chainId}`])
-    )
-    const watcher = new EventWatcher(provider, checkDefined(process.env[`DL_REACTOR_${chainId}`]))
 
     return {
       log,
