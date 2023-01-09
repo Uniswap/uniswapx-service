@@ -94,7 +94,7 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-service-rpc-urls-E4FbSb',
     })
 
-    const rpcTenderly = sm.Secret.fromSecretAttributes(this, 'rpcTenderly', {
+    const tenderlySecrets = sm.Secret.fromSecretAttributes(this, 'rpcTenderly', {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-tenderly-Jh1BNl',
     })
 
@@ -108,7 +108,9 @@ export class APIPipeline extends Stack {
       jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
     })
 
-    jsonRpcUrls[`WEB3_RPC_TENDERLY`] = rpcTenderly.secretValueFromJson('RPC_TENDERLY').toString()
+    new CfnOutput(this, 'jsonRpcUrls', {
+      value: JSON.stringify(jsonRpcUrls),
+    })
 
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
@@ -117,6 +119,10 @@ export class APIPipeline extends Stack {
       stage: STAGE.BETA,
       envVars: {
         ...jsonRpcUrls,
+        QUOTER_TENDERLY: tenderlySecrets.secretValueFromJson('QUOTER_TENDERLY').toString(),
+        DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
+        V3_EXECUTOR_TENDERLY: tenderlySecrets.secretValueFromJson('V3_EXECUTOR_TENDERLY').toString(),
+        PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
         QUOTE_REQUEST_FIREHOSE: resourceArnSecret.secretValueFromJson('QUOTE_REQUEST_FIREHOSE_BETA').toString(),
         FILL_EVENT_FIREHOSE: resourceArnSecret.secretValueFromJson('FILL_EVENT_FIREHOSE_BETA').toString(),
       },
@@ -203,9 +209,9 @@ Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
 })
 
 envVars['WEB3_RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
-envVars['REACTOR_TENDERLY'] = process.env[`REACTOR_TENDERLY`] || ''
+envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
-envVars['PERMIT_TENDERLY'] = process.env[`PERMIT_TENDERLY`] || ''
+envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
 envVars['FILL_EVENT_FIREHOSE'] = process.env['FIREHOSE_ARN_LOCAL'] || ''
 
