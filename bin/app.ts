@@ -104,7 +104,7 @@ export class APIPipeline extends Stack {
 
     const jsonRpcUrls: { [chain: string]: string } = {}
     Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
-      const key = `WEB3_RPC_${chainId}`
+      const key = `RPC_${chainId}`
       jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
     })
 
@@ -208,7 +208,7 @@ Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
   envVars[`WEB3_RPC_${chainId}`] = process.env[`RPC_${chainId}`] || ''
 })
 
-envVars['WEB3_RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
+envVars['RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
 envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
