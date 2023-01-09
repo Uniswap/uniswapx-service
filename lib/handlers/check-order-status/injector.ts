@@ -9,6 +9,7 @@ import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
 
 export interface RequestInjected extends BaseRInj {
   chainId: number
+  quoteId: string
   orderHash: string
   lastBlockNumber: number
   orderStatus: string
@@ -29,14 +30,9 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     }
   }
 
-  public async getRequestInjected(
-    containerInjected: ContainerInjected,
-    event: SfnStateInputOutput,
-    log: Logger
-  ): Promise<RequestInjected> {
+  public async getRequestInjected(event: SfnStateInputOutput, log: Logger): Promise<RequestInjected> {
     log = log.child({
       serializers: bunyan.stdSerializers,
-      containerInjected: containerInjected,
     })
 
     const chainId = process.env['stage'] == 'local' ? 'TENDERLY' : event.chainId
@@ -53,6 +49,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       log,
       chainId: event.chainId as number,
       orderHash: event.orderHash as string,
+      quoteId: event.quoteId as string,
       lastBlockNumber: event.lastBlockNumber ? (event.lastBlockNumber as number) : 0,
       orderStatus: event.orderStatus as string,
       retryCount: event.retryCount ? (event.retryCount as number) : 0,

@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib'
-import { aws_lambda, Duration } from 'aws-cdk-lib'
+import { aws_iam, aws_lambda, aws_logs, Duration } from 'aws-cdk-lib'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { CfnStateMachine } from 'aws-cdk-lib/aws-stepfunctions'
 import { Construct } from 'constructs'
@@ -33,7 +33,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       props.envVars['REACTOR_1'] = props.envVars['PRC_TENDERLY']
     }
 
-    const arn = new NodejsFunction(this, `${SERVICE_NAME}-${stage}-CheckOrderStatusLambda`, {
+    const checkStatusFunction = new NodejsFunction(this, `${SERVICE_NAME}-${stage}-CheckOrderStatusLambda`, {
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       role: props.lambdaRole,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
@@ -50,13 +50,36 @@ export class StepFunctionStack extends cdk.NestedStack {
         ...props.envVars,
         stage: stage,
       },
-    }).functionArn
+    })
+
+    /* Subscription Filter Initialization */
+    // TODO: remove the if block after accounts are set up for parameterization-api
+
+    const firehoseArn = props.envVars['FILL_EVENT_FIREHOSE']
+
+    const subscriptionRole = new aws_iam.Role(this, 'SubscriptionRole', {
+      assumedBy: new aws_iam.ServicePrincipal('logs.amazonaws.com'),
+    })
+
+    subscriptionRole.addToPolicy(
+      new aws_iam.PolicyStatement({
+        effect: aws_iam.Effect.ALLOW,
+        actions: ['firehose:PutRecord', 'firehose:PutRecordBatch'],
+        resources: [firehoseArn],
+      })
+    )
+    new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
+      destinationArn: firehoseArn,
+      filterPattern: '{ $.orderInfo.orderStatus = "filled" }',
+      logGroupName: checkStatusFunction.logGroup.logGroupName,
+      roleArn: subscriptionRole.roleArn,
+    })
 
     this.statusTrackingStateMachine = new CfnStateMachine(this, `${SERVICE_NAME}-${stage}-OrderStatusTracking`, {
       roleArn: stateMachineRole.roleArn,
       definition: orderStatusTrackingStateMachine,
       definitionSubstitutions: {
-        checkOrderStatusLambdaArn: arn,
+        checkOrderStatusLambdaArn: checkStatusFunction.functionArn,
       },
     })
   }

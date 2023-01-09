@@ -27,13 +27,14 @@ export class APIStage extends Stage {
     }
   ) {
     super(scope, id, props)
-    const { provisionedConcurrency, chatbotSNSArn, stage, env } = props
+    const { provisionedConcurrency, chatbotSNSArn, stage, env, envVars } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
       env,
       provisionedConcurrency,
       chatbotSNSArn,
       stage,
+      envVars,
     })
     this.url = url
   }
@@ -97,6 +98,10 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-tenderly-Jh1BNl',
     })
 
+    const resourceArnSecret = sm.Secret.fromSecretAttributes(this, 'firehoseArn', {
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-resource-arns-wF51FW',
+    })
+
     const jsonRpcUrls: { [chain: string]: string } = {}
     Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
       const key = `WEB3_RPC_${chainId}`
@@ -110,6 +115,11 @@ export class APIPipeline extends Stack {
       env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 2,
       stage: STAGE.BETA,
+      envVars: {
+        ...jsonRpcUrls,
+        QUOTE_REQUEST_FIREHOSE: resourceArnSecret.secretValueFromJson('QUOTE_REQUEST_FIREHOSE_BETA').toString(),
+        FILL_EVENT_FIREHOSE: resourceArnSecret.secretValueFromJson('FILL_EVENT_FIREHOSE_BETA').toString(),
+      },
     })
 
     const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
@@ -122,6 +132,11 @@ export class APIPipeline extends Stack {
       provisionedConcurrency: 5,
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
+      envVars: {
+        ...jsonRpcUrls,
+        QUOTE_REQUEST_FIREHOSE: resourceArnSecret.secretValueFromJson('QUOTE_REQUEST_FIREHOSE_PROD').toString(),
+        FILL_EVENT_FIREHOSE: resourceArnSecret.secretValueFromJson('FILL_EVENT_FIREHOSE_PROD').toString(),
+      },
     })
 
     const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
@@ -191,6 +206,8 @@ envVars['WEB3_RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
 envVars['REACTOR_TENDERLY'] = process.env[`REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT_TENDERLY'] = process.env[`PERMIT_TENDERLY`] || ''
+
+envVars['FILL_EVENT_FIREHOSE'] = process.env['FIREHOSE_ARN_LOCAL'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
