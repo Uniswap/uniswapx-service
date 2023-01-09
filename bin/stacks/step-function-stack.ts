@@ -70,7 +70,7 @@ export class StepFunctionStack extends cdk.NestedStack {
     )
     new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
       destinationArn: firehoseArn,
-      filterPattern: '{ $.orderInfo.status = "filled" }',
+      filterPattern: '{ $.orderInfo.orderStatus = "filled" }',
       logGroupName: checkStatusFunction.logGroup.logGroupName,
       roleArn: subscriptionRole.roleArn,
     })

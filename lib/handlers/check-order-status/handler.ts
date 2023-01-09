@@ -14,7 +14,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     requestInjected: RequestInjected
   }): Promise<SfnStateInputOutput> {
     const { dbInterface } = input.containerInjected
-    const { log, chainId, orderHash, lastBlockNumber, retryCount, provider, orderWatcher, orderQuoter } =
+    const { log, chainId, quoteId, orderHash, lastBlockNumber, retryCount, provider, orderWatcher, orderQuoter } =
       input.requestInjected
 
     const order = checkDefined(
@@ -23,10 +23,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     )
 
     const parsedOrder = DutchLimitOrder.parse(order.encodedOrder, chainId)
-    log.info(parsedOrder, 'parsed order')
-    log.info(orderQuoter, 'orderQuoter')
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
-    log.info(validation, 'validation result')
     const curBlockNumber = await provider.getBlockNumber()
 
     switch (validation) {
@@ -35,6 +32,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           {
             dbInterface,
             orderHash,
+            quoteId,
             retryCount,
             lastBlockNumber: curBlockNumber,
             chainId,
@@ -47,6 +45,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           {
             dbInterface,
             orderHash,
+            quoteId,
             retryCount,
             lastBlockNumber: curBlockNumber,
             chainId,
@@ -61,6 +60,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           {
             dbInterface,
             orderHash,
+            quoteId,
             retryCount,
             lastBlockNumber: curBlockNumber,
             chainId,
@@ -80,12 +80,14 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               orderInfo: {
                 orderStatus: ORDER_STATUS.FILLED,
                 orderHash: fillEvent.orderHash,
+                quoteId: quoteId,
                 filler: fillEvent.filler,
                 nonce: fillEvent.nonce.toString(),
                 offerer: fillEvent.offerer,
                 tokenOut: output.token,
                 amountOut: output.amount.toString(),
                 blockNumber: fillEvent.blockNumber,
+                txHash: fillEvent.txHash,
               },
             })
           })
@@ -94,6 +96,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             {
               dbInterface,
               orderHash,
+              quoteId,
               retryCount,
               lastBlockNumber: curBlockNumber,
               chainId,
@@ -112,6 +115,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             {
               dbInterface,
               orderHash,
+              quoteId,
               retryCount,
               lastBlockNumber: curBlockNumber,
               chainId,
@@ -126,6 +130,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           {
             dbInterface,
             orderHash,
+            quoteId,
             retryCount,
             lastBlockNumber: curBlockNumber,
             chainId,
@@ -140,6 +145,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     params: {
       dbInterface: BaseOrdersRepository
       orderHash: string
+      quoteId: string
       retryCount: number
       lastBlockNumber: number
       chainId: number
@@ -147,13 +153,14 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     },
     log: Logger
   ): Promise<SfnStateInputOutput> {
-    const { dbInterface, orderHash, retryCount, lastBlockNumber, chainId, orderStatus } = params
+    const { dbInterface, orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus } = params
 
-    log.info({ orderHash, retryCount, lastBlockNumber, chainId, orderStatus }, 'updating order status')
+    log.info({ orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus }, 'updating order status')
     await dbInterface.updateOrderStatus(orderHash, orderStatus)
     return {
       orderHash: orderHash,
       orderStatus: orderStatus,
+      quoteId: quoteId,
       retryCount: retryCount + 1,
       retryWaitSeconds: this.calculateRetryWaitSeconds(retryCount),
       lastBlockNumber: lastBlockNumber,
