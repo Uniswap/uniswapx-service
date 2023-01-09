@@ -36,6 +36,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     })
 
     // for beta environment, override mainnnet (chainId = 1) to Tenderly
+    // otherwise, inheret contract addrs from SDK
     let chainId, quoter, watcher, provider
     if (process.env['stage'] == 'local' || (chainId == 1 && process.env['stage'] == 'beta')) {
       chainId = 'TENDERLY'
@@ -50,6 +51,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       chainId = event.chainId
       provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
       quoter = new OrderValidator(provider, parseInt(event.chainId as string))
+      // TODO: use different reactor address for different order type
       watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.DutchLimit])
     }
 
