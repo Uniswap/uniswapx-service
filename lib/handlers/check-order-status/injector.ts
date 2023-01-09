@@ -46,7 +46,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       chainId = event.chainId
     }
 
-    const provider = new ethers.providers.JsonRpcProvider(process.env[`WEB3_RPC_${chainId}`])
+    const provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
     const quoter = new OrderValidator(
       provider,
       parseInt(event.chainId as string),
