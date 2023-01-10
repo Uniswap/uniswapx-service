@@ -125,6 +125,7 @@ export class APIPipeline extends Stack {
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
         QUOTE_REQUEST_FIREHOSE: resourceArnSecret.secretValueFromJson('QUOTE_REQUEST_FIREHOSE_BETA').toString(),
         FILL_EVENT_FIREHOSE: resourceArnSecret.secretValueFromJson('FILL_EVENT_FIREHOSE_BETA').toString(),
+        SUBSCRIPTION_ROLE_ARN: resourceArnSecret.secretValueFromJson('CW_LOG_SUBSCRIPTION_ROLE_BETA').toString(),
       },
     })
 
@@ -142,6 +143,7 @@ export class APIPipeline extends Stack {
         ...jsonRpcUrls,
         QUOTE_REQUEST_FIREHOSE: resourceArnSecret.secretValueFromJson('QUOTE_REQUEST_FIREHOSE_PROD').toString(),
         FILL_EVENT_FIREHOSE: resourceArnSecret.secretValueFromJson('FILL_EVENT_FIREHOSE_PROD').toString(),
+        SUBSCRIPTION_ROLE_ARN: resourceArnSecret.secretValueFromJson('CW_LOG_SUBSCRIPTION_ROLE_PROD').toString(),
       },
     })
 
@@ -205,7 +207,7 @@ const app = new cdk.App()
 const envVars: { [key: string]: string } = {}
 
 Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
-  envVars[`WEB3_RPC_${chainId}`] = process.env[`RPC_${chainId}`] || ''
+  envVars[`RPC_${chainId}`] = process.env[`RPC_${chainId}`] || ''
 })
 
 envVars['RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
@@ -214,6 +216,7 @@ envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
 envVars['FILL_EVENT_FIREHOSE'] = process.env['FIREHOSE_ARN_LOCAL'] || ''
+envVars['SUBSCRIPTION_ROLE_ARN'] = process.env['SUBSCRIPTION_ROLE_ARN'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,

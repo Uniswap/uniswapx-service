@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib'
-import { aws_iam, aws_lambda, aws_logs, Duration } from 'aws-cdk-lib'
+import { aws_lambda, aws_logs, Duration } from 'aws-cdk-lib'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { CfnStateMachine } from 'aws-cdk-lib/aws-stepfunctions'
 import { Construct } from 'constructs'
@@ -52,22 +52,11 @@ export class StepFunctionStack extends cdk.NestedStack {
 
     const firehoseArn = props.envVars['FILL_EVENT_FIREHOSE']
 
-    const subscriptionRole = new aws_iam.Role(this, 'SubscriptionRole', {
-      assumedBy: new aws_iam.ServicePrincipal('logs.amazonaws.com'),
-    })
-
-    subscriptionRole.addToPolicy(
-      new aws_iam.PolicyStatement({
-        effect: aws_iam.Effect.ALLOW,
-        actions: ['firehose:PutRecord', 'firehose:PutRecordBatch'],
-        resources: [firehoseArn],
-      })
-    )
     new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
       destinationArn: firehoseArn,
       filterPattern: '{ $.orderInfo.orderStatus = "filled" }',
       logGroupName: checkStatusFunction.logGroup.logGroupName,
-      roleArn: subscriptionRole.roleArn,
+      roleArn: props.envVars['SUBSCRIPTION_ROLE_ARN'],
     })
 
     this.statusTrackingStateMachine = new CfnStateMachine(this, `${SERVICE_NAME}-${stage}-OrderStatusTracking`, {
