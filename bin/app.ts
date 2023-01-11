@@ -121,12 +121,8 @@ export class APIPipeline extends Stack {
         ...jsonRpcUrls,
         QUOTER_TENDERLY: tenderlySecrets.secretValueFromJson('QUOTER_TENDERLY').toString(),
         DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
-        V3_EXECUTOR_TENDERLY: tenderlySecrets.secretValueFromJson('V3_EXECUTOR_TENDERLY').toString(),
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
-        QUOTE_REQUEST_FIREHOSE: resourceArnSecret.secretValueFromJson('QUOTE_REQUEST_FIREHOSE_BETA').toString(),
-        FILL_EVENT_FIREHOSE: resourceArnSecret.secretValueFromJson('FILL_EVENT_FIREHOSE_BETA').toString(),
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
-        SUBSCRIPTION_ROLE_ARN: resourceArnSecret.secretValueFromJson('CW_LOG_SUBSCRIPTION_ROLE_BETA').toString(),
       },
     })
 
@@ -142,10 +138,7 @@ export class APIPipeline extends Stack {
       stage: STAGE.PROD,
       envVars: {
         ...jsonRpcUrls,
-        QUOTE_REQUEST_FIREHOSE: resourceArnSecret.secretValueFromJson('QUOTE_REQUEST_FIREHOSE_PROD').toString(),
-        FILL_EVENT_FIREHOSE: resourceArnSecret.secretValueFromJson('FILL_EVENT_FIREHOSE_PROD').toString(),
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
-        SUBSCRIPTION_ROLE_ARN: resourceArnSecret.secretValueFromJson('CW_LOG_SUBSCRIPTION_ROLE_PROD').toString(),
       },
     })
 
