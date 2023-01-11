@@ -41,8 +41,6 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     let quoter, watcher, provider
     if (process.env['stage'] == 'local' || (chainId == 1 && process.env['stage'] == 'beta')) {
       chainId = 'TENDERLY'
-      log.info(process.env[`RPC_${chainId}`], 'overwriting rpc url to tenderly')
-      log.info(process.env[`QUOTER_${chainId}`], 'overwriting quoter address to ')
       provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
       quoter = new OrderValidator(
         provider,
@@ -50,15 +48,22 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
         checkDefined(process.env[`QUOTER_${chainId}`])
       )
       watcher = new EventWatcher(provider, checkDefined(process.env[`DL_REACTOR_${chainId}`]))
-      log.info(process.env[`DL_REACTOR_{chainId}`], 'overwriting reactor addr')
+
+      log.info(
+        {
+          chainId: chainId,
+          rpc: process.env[`RPC_${chainId}`],
+          quoterAddr: process.env[`QUOTER_${chainId}`],
+          reactorAddr: process.env[`DL_REACTOR_${chainId}`],
+        },
+        'using tenderly'
+      )
     } else {
       provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
       quoter = new OrderValidator(provider, parseInt(event.chainId as string))
       // TODO: use different reactor address for different order type
       watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.DutchLimit])
     }
-
-    log.info(quoter, 'quoter')
 
     return {
       log,
