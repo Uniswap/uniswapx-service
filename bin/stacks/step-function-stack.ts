@@ -4,6 +4,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { CfnStateMachine } from 'aws-cdk-lib/aws-stepfunctions'
 import { Construct } from 'constructs'
 import path from 'path'
+import { checkDefined } from '../../lib/preconditions/preconditions'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.json'
@@ -50,13 +51,10 @@ export class StepFunctionStack extends cdk.NestedStack {
     /* Subscription Filter Initialization */
     // TODO: remove the if block after accounts are set up for parameterization-api
 
-    const firehoseArn = props.envVars['FILL_EVENT_FIREHOSE']
-
     new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
-      destinationArn: firehoseArn,
+      destinationArn: checkDefined(props.envVars['FILL_EVENT_DESTINATION_ARN']),
       filterPattern: '{ $.orderInfo.orderStatus = "filled" }',
       logGroupName: checkStatusFunction.logGroup.logGroupName,
-      roleArn: props.envVars['SUBSCRIPTION_ROLE_ARN'],
     })
 
     this.statusTrackingStateMachine = new CfnStateMachine(this, `${SERVICE_NAME}-${stage}-OrderStatusTracking`, {
