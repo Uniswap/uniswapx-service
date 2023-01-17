@@ -21,10 +21,10 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
     try {
       // TODO: when the base handler is more generalized we should be able to include this logic in request validation
-      if ((queryFilters.sortKey && !queryFilters.sort) || (!queryFilters.sortKey && queryFilters.sort)) {
+      if (!queryFilters.sortKey && queryFilters.sort) {
         return {
           statusCode: 400,
-          detail: 'Need both a sortKey and sort for a sorted query.',
+          detail: 'Need a sortKey if the sort parameter is included in the request.',
           errorCode: 'VALIDATION_ERROR',
         }
       }

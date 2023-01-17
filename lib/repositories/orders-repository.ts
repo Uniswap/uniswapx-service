@@ -325,6 +325,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       ...(sortKey &&
         comparison && {
           [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],
+          reverse: true,
         }),
       ...(cursor && { startKey: this.getStartKey(cursor, formattedIndex) }),
     })

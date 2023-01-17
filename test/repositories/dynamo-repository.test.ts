@@ -336,9 +336,9 @@ describe('OrdersRepository getOrders test with sorting', () => {
       sort: 'between(1,3)',
     })
     expect(queryResult.orders.length).toEqual(3)
-    expect(queryResult.orders[0]?.orderHash).toEqual(MOCK_ORDER_1.orderHash)
+    expect(queryResult.orders[0]?.orderHash).toEqual(MOCK_ORDER_3.orderHash)
     expect(queryResult.orders[1]?.orderHash).toEqual(MOCK_ORDER_2.orderHash)
-    expect(queryResult.orders[2]?.orderHash).toEqual(MOCK_ORDER_3.orderHash)
+    expect(queryResult.orders[2]?.orderHash).toEqual(MOCK_ORDER_1.orderHash)
   })
 })
 
