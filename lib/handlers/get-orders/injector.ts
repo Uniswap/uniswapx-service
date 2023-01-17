@@ -53,7 +53,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const orderHash = requestQueryParams?.orderHash?.toLowerCase()
     const offerer = requestQueryParams?.offerer?.toLowerCase()
     const sortKey = requestQueryParams?.sortKey
-    const sort = requestQueryParams?.sort ?? sortKey ? `lt(${Number.MAX_SAFE_INTEGER})` : undefined
+    const sort = requestQueryParams?.sort ?? sortKey ? 'gt(0)' : undefined
     const filler = requestQueryParams?.filler
     const cursor = requestQueryParams?.cursor
 

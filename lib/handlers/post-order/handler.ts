@@ -8,6 +8,13 @@ import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Resp
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
 
+type OrderTrackingSfnInput = {
+  orderHash: string
+  chainId: number
+  orderStatus: ORDER_STATUS
+  quoteId: string
+}
+
 export class PostOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
   ApiRInj,
@@ -95,24 +102,23 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { errorCode: e.message }),
       }
     }
-    await this.kickoffOrderTrackingSfn(id, chainId, stateMachineArn, log)
+    await this.kickoffOrderTrackingSfn(
+      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.UNVERIFIED, quoteId: quoteId ?? '' },
+      stateMachineArn,
+      log
+    )
     return {
       statusCode: 201,
       body: { hash: id },
     }
   }
 
-  private async kickoffOrderTrackingSfn(hash: string, chainId: number, stateMachineArn: string, log?: Logger) {
+  private async kickoffOrderTrackingSfn(sfnInput: OrderTrackingSfnInput, stateMachineArn: string, log?: Logger) {
     const region = checkDefined(process.env['REGION'])
     const sfnClient = new SFNClient({ region: region })
     const startExecutionCommand = new StartExecutionCommand({
       stateMachineArn: stateMachineArn,
-      name: hash,
-      input: JSON.stringify({
-        orderHash: hash,
-        chainId: chainId,
-        orderStatus: ORDER_STATUS.UNVERIFIED,
-      }),
+      input: JSON.stringify(sfnInput),
     })
     log?.info(startExecutionCommand, 'Starting state machine execution')
     await sfnClient.send(startExecutionCommand)

@@ -1,9 +1,10 @@
 import * as cdk from 'aws-cdk-lib'
-import { aws_lambda, Duration } from 'aws-cdk-lib'
+import { aws_lambda, aws_logs, Duration } from 'aws-cdk-lib'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { CfnStateMachine } from 'aws-cdk-lib/aws-stepfunctions'
 import { Construct } from 'constructs'
 import path from 'path'
+import { checkDefined } from '../../lib/preconditions/preconditions'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.json'
@@ -28,12 +29,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       managedPolicies: [cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaRole')],
     })
 
-    if (stage === STAGE.LOCAL) {
-      props.envVars['RPC_1'] = props.envVars['PRC_TENDERLY']
-      props.envVars['REACTOR_1'] = props.envVars['PRC_TENDERLY']
-    }
-
-    const arn = new NodejsFunction(this, `${SERVICE_NAME}-${stage}-CheckOrderStatusLambda`, {
+    const checkStatusFunction = new NodejsFunction(this, `${SERVICE_NAME}-${stage}-CheckOrderStatusLambda`, {
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       role: props.lambdaRole,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
@@ -50,13 +46,22 @@ export class StepFunctionStack extends cdk.NestedStack {
         ...props.envVars,
         stage: stage,
       },
-    }).functionArn
+    })
+
+    /* Subscription Filter Initialization */
+    // TODO: remove the if block after accounts are set up for parameterization-api
+
+    new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
+      destinationArn: checkDefined(props.envVars['FILL_EVENT_DESTINATION_ARN']),
+      filterPattern: '{ $.orderInfo.orderStatus = "filled" }',
+      logGroupName: checkStatusFunction.logGroup.logGroupName,
+    })
 
     this.statusTrackingStateMachine = new CfnStateMachine(this, `${SERVICE_NAME}-${stage}-OrderStatusTracking`, {
       roleArn: stateMachineRole.roleArn,
       definition: orderStatusTrackingStateMachine,
       definitionSubstitutions: {
-        checkOrderStatusLambdaArn: arn,
+        checkOrderStatusLambdaArn: checkStatusFunction.functionArn,
       },
     })
   }

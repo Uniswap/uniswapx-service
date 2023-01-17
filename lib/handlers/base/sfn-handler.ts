@@ -12,7 +12,7 @@ export abstract class SfnInjector<CInj, RInj extends BaseRInj> extends BaseInjec
     super(injectorName)
   }
 
-  public abstract getRequestInjected(containerInjected: CInj, event: SfnStateInputOutput, log: Logger): Promise<RInj>
+  public abstract getRequestInjected(event: SfnStateInputOutput, log: Logger): Promise<RInj>
 }
 
 export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
@@ -49,7 +49,7 @@ export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends Base
 
       let requestInjected: RInj
       try {
-        requestInjected = await injector.getRequestInjected(containerInjected, sfnInput, log)
+        requestInjected = await injector.getRequestInjected(sfnInput, log)
       } catch (err) {
         log.error({ err, sfnInput }, 'Unexpected error building request injected.')
         throw new InjectionError(`Unexpected error building request injected:\n${err}`)

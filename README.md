@@ -43,7 +43,15 @@
 
 To test your changes you must redeploy your service. The dev cycle is thus:
 
-1. Make code changes
+1. Make code changes. Make sure all env variables are present in the .env file:
+
+```
+WEB3_RPC_TENDERLY=<>
+REACTOR_TENDERLY=<>
+QUOTER_TENDERLY=<>
+PERMIT_TENDERLY=<>
+FIREHOSE_ARN_LOCAL=<>
+```
 
 1. `yarn build && cdk deploy GoudaServiceStack`
 
