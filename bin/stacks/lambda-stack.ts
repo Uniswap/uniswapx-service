@@ -3,7 +3,6 @@ import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
-import { FilterCriteria, FilterRule } from 'aws-cdk-lib/aws-lambda'
 import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Queue } from 'aws-cdk-lib/aws-sqs'
@@ -100,12 +99,6 @@ export class LambdaStack extends cdk.NestedStack {
         bisectBatchOnError: true,
         reportBatchItemFailures: true,
         onFailure: new SqsDlq(orderNotificationDlq),
-        filters: [
-          FilterCriteria.filter({
-            eventName: FilterRule.isEqual('INSERT'),
-            dynamodb: { NewImage: { filler: { S: FilterRule.exists() } } },
-          }),
-        ],
       })
     )
 
