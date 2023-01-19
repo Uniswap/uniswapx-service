@@ -86,15 +86,15 @@ export abstract class APIGLambdaHandler<
       const handler = this.buildHandler()
 
       const response = await handler(event, context)
+      const existingHeaders = response.headers ?? { 'Content-Type': 'application/json' }
 
       return {
         ...response,
         headers: {
-          ...response.headers,
+          ...existingHeaders,
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
           'Access-Control-Allow-Credentials': true,
-          'Content-Type': 'application/json',
         },
       }
     }
@@ -150,6 +150,7 @@ export abstract class APIGLambdaHandler<
 
       ;({ log } = requestInjected)
 
+      let headers: { [key: string]: string }
       let statusCode: number
       let body: Res
 
@@ -175,7 +176,7 @@ export abstract class APIGLambdaHandler<
           }
         } else {
           log.info({ requestBody, requestQueryParams }, 'Handler returned 200')
-          ;({ body, statusCode } = handleRequestResult)
+          ;({ headers, body, statusCode } = handleRequestResult)
         }
       } catch (err) {
         log.error({ err }, 'Unexpected error in handler')
@@ -197,9 +198,14 @@ export abstract class APIGLambdaHandler<
       }
 
       log.info({ statusCode, response }, `Request ended. ${statusCode}`)
+      const responseBody =
+        headers && Object.keys(headers).includes('Content-Type') && headers['Content-Type'] == 'text/html'
+          ? (response as string)
+          : JSON.stringify(response)
       return {
         statusCode,
-        body: JSON.stringify(response),
+        headers,
+        body: responseBody,
       }
     }
   }
