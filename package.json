@@ -57,7 +57,7 @@
     "dynamodb-toolbox": "^0.5.0",
     "env-cmd": "^10.1.0",
     "esm": "^3.2.25",
-    "gouda-sdk": "github:Uniswap/gouda-sdk",
+    "gouda-sdk": "github:Uniswap/gouda-sdk#main",
     "joi": "^17.7.0",
     "joi-to-swagger": "^6.1.1",
     "source-map-support": "^0.5.21",
