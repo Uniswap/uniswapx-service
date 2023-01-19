@@ -31,5 +31,5 @@ const SWAGGER_UI = `
   </script>
   </body>
 </html>
-`;
-export default SWAGGER_UI;
+`
+export default SWAGGER_UI
