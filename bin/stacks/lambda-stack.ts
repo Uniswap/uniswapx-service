@@ -23,10 +23,12 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly getApiDocsLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getApiDocsJsonLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
+  public readonly getApiDocsLambdaAlias: aws_lambda.Alias
   public readonly getApiDocsJsonLambdaAlias: aws_lambda.Alias
   private readonly orderNotificationLambdaAlias: aws_lambda.Alias
 
@@ -152,6 +154,27 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    this.getApiDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetApiDocs${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_14_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'getApiDocsHandler',
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        // pg-native is not available and won't be used. This is letting he
+        // bundler (esbuild) know pg-native won't be included in the bundled JS
+        // file.
+        externalModules: ['pg-native'],
+      },
+      environment: {
+        ...props.envVars,
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
+
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 
     this.getOrdersLambdaAlias = new aws_lambda.Alias(this, `GetOrdersLiveAlias`, {
@@ -169,6 +192,12 @@ export class LambdaStack extends cdk.NestedStack {
     this.getNonceLambdaAlias = new aws_lambda.Alias(this, `GetNonceLiveAlias`, {
       aliasName: 'live',
       version: this.getNonceLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
+    this.getApiDocsLambdaAlias = new aws_lambda.Alias(this, `GetApiOrdersLiveAlias`, {
+      aliasName: 'live',
+      version: this.getApiDocsLambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 

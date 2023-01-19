@@ -211,7 +211,7 @@ envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
 envVars['FILL_EVENT_FIREHOSE'] = process.env['FIREHOSE_ARN_LOCAL'] || ''
-envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
+envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN_LOCAL'] || ''
 envVars['SUBSCRIPTION_ROLE_ARN'] = process.env['SUBSCRIPTION_ROLE_ARN'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
