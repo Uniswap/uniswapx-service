@@ -36,6 +36,7 @@ export const OrderResponseEntryJoi = Joi.object({
   orderStatus: FieldValidator.isValidOrderStatus(),
   orderHash: FieldValidator.isValidOrderHash(),
   offerer: FieldValidator.isValidEthAddress(),
+  txHash: FieldValidator.isValidTxHash(),
 })
 
 export const GetOrdersResponseJoi = Joi.object({
