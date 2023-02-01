@@ -100,6 +100,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               lastBlockNumber: curBlockNumber,
               chainId,
               orderStatus: ORDER_STATUS.FILLED,
+              txHash: fillEvent.txHash,
             },
             log
           )
@@ -149,13 +150,14 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       lastBlockNumber: number
       chainId: number
       orderStatus: ORDER_STATUS
+      txHash?: string
     },
     log: Logger
   ): Promise<SfnStateInputOutput> {
-    const { dbInterface, orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus } = params
+    const { dbInterface, orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus, txHash } = params
 
-    log.info({ orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus }, 'updating order status')
-    await dbInterface.updateOrderStatus(orderHash, orderStatus)
+    log.info({ orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus, txHash }, 'updating order status')
+    await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash)
     return {
       orderHash: orderHash,
       orderStatus: orderStatus,
@@ -164,6 +166,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       retryWaitSeconds: this.calculateRetryWaitSeconds(retryCount),
       lastBlockNumber: lastBlockNumber,
       chainId: chainId,
+      ...(txHash && { txHash }),
     }
   }
 

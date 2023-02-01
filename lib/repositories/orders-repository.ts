@@ -79,6 +79,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         createdAtMonth: { type: DYNAMODB_TYPES.NUMBER },
         quoteId: { type: DYNAMODB_TYPES.STRING },
+        txHash: { type: DYNAMODB_TYPES.STRING },
       },
       table: ordersTable,
     } as const)
@@ -185,7 +186,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     )
   }
 
-  public async updateOrderStatus(orderHash: string, status: ORDER_STATUS): Promise<void> {
+  public async updateOrderStatus(orderHash: string, status: ORDER_STATUS, txHash?: string): Promise<void> {
     const order = checkDefined(await this.getByHash(orderHash), 'cannot find order by hash when updating order status')
 
     await this.orderEntity.update({
@@ -194,6 +195,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       offerer_orderStatus: `${order.offerer}_${status}`,
       filler_orderStatus: `${order.filler}_${status}`,
       filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
+      ...(txHash && { txHash }),
     })
   }
 
