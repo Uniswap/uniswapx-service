@@ -4,7 +4,7 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
 import * as nonceUtil from '../../lib/util/nonce'
-import { getCurrentMonth, getCurrentTime } from '../../lib/util/time'
+import { getCurrentTime } from '../../lib/util/time'
 
 jest.mock('../../lib/util/time')
 
@@ -75,10 +75,8 @@ const ADDITIONAL_FIELDS_ORDER_4 = {
   filler: '0x4',
 }
 
-const mockedGetCurrentMonth = jest.mocked(getCurrentMonth)
 const mockedGetCurrentTime = jest.mocked(getCurrentTime)
-mockedGetCurrentMonth.mockImplementation(() => 1)
-const mockTimeAndMonth = (time: number) => {
+const mockTime = (time: number) => {
   mockedGetCurrentTime.mockImplementation(() => time)
 }
 
@@ -86,18 +84,18 @@ const documentClient = new DocumentClient(dynamoConfig)
 const ordersRepository = DynamoOrdersRepository.create(documentClient)
 
 beforeAll(async () => {
-  mockTimeAndMonth(1)
+  mockTime(1)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1)
-  mockTimeAndMonth(2)
+  mockTime(2)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_2)
-  mockTimeAndMonth(3)
+  mockTime(3)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_3)
 })
 
 describe('OrdersRepository put item test', () => {
   it('should successfully put an item in table', async () => {
     expect(() => {
-      mockTimeAndMonth(1)
+      mockTime(1)
       ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1)
     }).not.toThrow()
   })
@@ -329,17 +327,6 @@ describe('OrdersRepository getOrders test with sorting', () => {
     })
     expect(queryResult.orders).toEqual([])
   })
-
-  it('should successfully get orders given only sort for createdAt', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: 'between(1,3)',
-    })
-    expect(queryResult.orders.length).toEqual(3)
-    expect(queryResult.orders[0]?.orderHash).toEqual(MOCK_ORDER_3.orderHash)
-    expect(queryResult.orders[1]?.orderHash).toEqual(MOCK_ORDER_2.orderHash)
-    expect(queryResult.orders[2]?.orderHash).toEqual(MOCK_ORDER_1.orderHash)
-  })
 })
 
 describe('OrdersRepository getByHash test', () => {
@@ -389,7 +376,7 @@ describe('OrdersRepository get nonce test', () => {
 
 describe('OrdersRepository get order count by offerer test', () => {
   it('should successfully return order count by existing offerer', async () => {
-    mockTimeAndMonth(4)
+    mockTime(4)
     await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_4)
     expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_4.offerer, ORDER_STATUS.OPEN)).toEqual(2)
   })
