@@ -327,6 +327,17 @@ describe('OrdersRepository getOrders test with sorting', () => {
     })
     expect(queryResult.orders).toEqual([])
   })
+
+  it('should return all orders for OPEN status and between 1,3 time', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      orderStatus: ORDER_STATUS.OPEN,
+      sortKey: SORT_FIELDS.CREATED_AT,
+      sort: 'between(1,3)',
+    })
+    expect(queryResult.orders.length).toEqual(2)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+  })
 })
 
 describe('OrdersRepository getByHash test', () => {
