@@ -17,7 +17,7 @@ module.exports = {
       ],
       GlobalSecondaryIndexes: [
         {
-          IndexName: 'offerer-createdAt',
+          IndexName: 'offerer-createdAt-all',
           KeySchema: [
             { AttributeName: 'offerer', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -28,7 +28,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'orderStatus-createdAt',
+          IndexName: 'orderStatus-createdAt-all',
           KeySchema: [
             { AttributeName: 'orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -39,7 +39,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'filler-createdAt',
+          IndexName: 'filler-createdAt-all',
           KeySchema: [
             { AttributeName: 'filler', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -50,7 +50,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offerer_orderStatus-createdAt',
+          IndexName: 'offerer_orderStatus-createdAt-all',
           KeySchema: [
             { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -61,7 +61,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'createdAtMonth-createdAt',
+          IndexName: 'createdAtMonth-createdAt-all',
           KeySchema: [
             { AttributeName: 'createdAtMonth', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -72,7 +72,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'filler_orderStatus-createdAt',
+          IndexName: 'filler_orderStatus-createdAt-all',
           KeySchema: [
             { AttributeName: 'filler_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -83,7 +83,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'filler_offerer-createdAt',
+          IndexName: 'filler_offerer-createdAt-all',
           KeySchema: [
             { AttributeName: 'filler_offerer', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
@@ -94,7 +94,7 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'filler_offerer_orderStatus-createdAt',
+          IndexName: 'filler_offerer_orderStatus-createdAt-all',
           KeySchema: [
             { AttributeName: 'filler_offerer_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },

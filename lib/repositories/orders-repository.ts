@@ -20,35 +20,35 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       partitionKey: 'orderHash',
       DocumentClient: documentClient,
       indexes: {
-        [`${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`]: {
+        [`${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: TABLE_KEY.OFFERER,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
+        [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: TABLE_KEY.ORDER_STATUS,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}`]: {
+        [`${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: TABLE_KEY.FILLER,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}`]: {
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}`]: {
+        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}`]: {
+        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: TABLE_KEY.CREATED_AT_MONTH,
           sortKey: TABLE_KEY.CREATED_AT,
         },
@@ -155,7 +155,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
   public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
     const res = await this.orderEntity.query(`${offerer}_${orderStatus}`, {
-      index: 'offerer_orderStatus-createdAt',
+      index: 'offerer_orderStatus-createdAt-all',
       execute: true,
       select: 'COUNT',
     })
@@ -318,7 +318,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     if (sortKey) {
       comparison = parseComparisonFilter(sort)
     }
-    const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}`
+    const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
 
     const queryResult = await this.orderEntity.query(partitionKey, {
       index: formattedIndex,
@@ -360,11 +360,14 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     const keys = Object.keys(lastEvaluatedKey)
     const validKeys: string[] = [TABLE_KEY.ORDER_HASH]
 
-    index?.split('-').forEach((key: string) => {
-      if (key) {
-        validKeys.push(key)
-      }
-    })
+    index
+      ?.split('-')
+      .filter((key) => Object.values<string>(TABLE_KEY).includes(key))
+      .forEach((key: string) => {
+        if (key) {
+          validKeys.push(key)
+        }
+      })
 
     const keysMatch = keys.every((key: string) => {
       return validKeys.includes(key as TABLE_KEY)
