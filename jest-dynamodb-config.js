@@ -23,8 +23,7 @@ module.exports = {
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
-            NonKeyAttributes: ['signature', 'orderStatus', 'encodedOrder', 'nonce', 'orderHash', 'filler'],
-            ProjectionType: 'INCLUDE',
+            ProjectionType: 'ALL',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
@@ -35,8 +34,7 @@ module.exports = {
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
-            NonKeyAttributes: ['signature', 'offerer', 'encodedOrder', 'nonce', 'orderHash', 'filler'],
-            ProjectionType: 'INCLUDE',
+            ProjectionType: 'ALL',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
@@ -47,8 +45,7 @@ module.exports = {
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
-            NonKeyAttributes: ['signature', 'orderStatus', 'encodedOrder', 'nonce', 'orderHash', 'offerer'],
-            ProjectionType: 'INCLUDE',
+            ProjectionType: 'ALL',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
@@ -59,8 +56,7 @@ module.exports = {
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
-            NonKeyAttributes: ['signature', 'encodedOrder', 'nonce', 'orderHash', 'offerer', 'orderStatus', 'filler'],
-            ProjectionType: 'INCLUDE',
+            ProjectionType: 'ALL',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
@@ -71,8 +67,7 @@ module.exports = {
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
-            NonKeyAttributes: ['signature', 'encodedOrder', 'nonce', 'orderHash', 'offerer', 'orderStatus', 'filler'],
-            ProjectionType: 'INCLUDE',
+            ProjectionType: 'ALL',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
@@ -83,8 +78,7 @@ module.exports = {
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
-            NonKeyAttributes: ['signature', 'encodedOrder', 'nonce', 'orderHash', 'offerer', 'orderStatus', 'filler'],
-            ProjectionType: 'INCLUDE',
+            ProjectionType: 'ALL',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
@@ -95,8 +89,7 @@ module.exports = {
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
-            NonKeyAttributes: ['signature', 'encodedOrder', 'nonce', 'orderHash', 'offerer', 'orderStatus', 'filler'],
-            ProjectionType: 'INCLUDE',
+            ProjectionType: 'ALL',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
@@ -107,8 +100,7 @@ module.exports = {
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
-            NonKeyAttributes: ['signature', 'encodedOrder', 'nonce', 'orderHash', 'offerer', 'orderStatus', 'filler'],
-            ProjectionType: 'INCLUDE',
+            ProjectionType: 'ALL',
           },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
