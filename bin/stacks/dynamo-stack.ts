@@ -192,6 +192,19 @@ export class DynamoStack extends cdk.NestedStack {
       ],
     })
 
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: TABLE_KEY.FILLER,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+    })
+
     /* Nonces Table
      * This is needed because we want to do strongly-consistent reads on the nonce value,
      *  which is not possible to do on secondary indexes (if we work with only the Orders table).
