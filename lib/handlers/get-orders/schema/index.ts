@@ -8,7 +8,10 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash(),
   offerer: FieldValidator.isValidEthAddress(),
   sortKey: FieldValidator.isValidSortKey(),
-  sort: FieldValidator.isValidSort(),
+  sort: FieldValidator.isValidSort().when('sortKey', {
+    is: Joi.exist(),
+    then: FieldValidator.isValidSort().required(),
+  }),
   filler: FieldValidator.isValidEthAddress(),
   cursor: FieldValidator.isValidCursor(),
 })
