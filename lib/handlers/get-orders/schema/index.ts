@@ -7,14 +7,15 @@ const indexKeyJoi = Joi.object({
   offerer: FieldValidator.isValidEthAddress(),
   filler: FieldValidator.isValidEthAddress(),
 })
+const sortKeyJoi = FieldValidator.isValidSortKey()
 
 export const GetOrdersQueryParamsJoi = Joi.object({
   limit: FieldValidator.isValidLimit(),
   orderHash: FieldValidator.isValidOrderHash(),
   sortKey: FieldValidator.isValidSortKey().when('sort', {
     is: Joi.exist(),
-    then: FieldValidator.isValidSortKey().required(),
-    otherwise: FieldValidator.isValidSortKey(),
+    then: sortKeyJoi.required(),
+    otherwise: sortKeyJoi,
   }),
   sort: FieldValidator.isValidSort(),
   cursor: FieldValidator.isValidCursor(),
