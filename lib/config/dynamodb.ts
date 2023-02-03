@@ -20,4 +20,5 @@ export enum TABLE_KEY {
   DEADLINE = 'deadline',
   CREATED_AT_MONTH = 'createdAtMonth',
   FILLER = 'filler',
+  TX_HASH = 'txHash',
 }
