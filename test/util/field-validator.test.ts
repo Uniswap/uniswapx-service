@@ -222,4 +222,20 @@ describe('Testing each field on the FieldValidator class.', () => {
       expect(validatedField.error?.details[0].message).toEqual('"value" must be a valid GUID')
     })
   })
+
+  describe('Testing txHash field.', () => {
+    it('should validate field.', async () => {
+      const txHash = '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3'
+      expect(FieldValidator.isValidTxHash().validate(txHash)).toEqual({ value: txHash })
+    })
+
+    it('should invalidate field.', async () => {
+      const invalidTxHash = '0xdeadbeef'
+      const validatedField = FieldValidator.isValidTxHash().validate(invalidTxHash)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        `"value" with value "${invalidTxHash}" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{64}$/`
+      )
+    })
+  })
 })
