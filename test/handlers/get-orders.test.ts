@@ -104,6 +104,7 @@ describe('Testing get orders handler.', () => {
       [{ signature: '0xbad_sig' }],
       [{ encodedOrder: '0xencoded$$$order' }],
       [{ createdAt: 'bad_created_at' }],
+      [{ txHash: '0xbadTxHash' }],
     ])('Throws 500 with invalid field %p in the response', async (invalidResponseField) => {
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
