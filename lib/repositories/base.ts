@@ -14,5 +14,5 @@ export interface BaseOrdersRepository {
   getByOfferer: (offerer: string, limit: number) => Promise<QueryResult>
   getByOrderStatus: (orderStatus: string, limit: number) => Promise<QueryResult>
   getNonceByAddress: (address: string) => Promise<string>
-  updateOrderStatus: (orderHash: string, status: ORDER_STATUS) => Promise<void>
+  updateOrderStatus: (orderHash: string, status: ORDER_STATUS, txHash?: string) => Promise<void>
 }
