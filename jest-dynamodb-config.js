@@ -13,7 +13,6 @@ module.exports = {
         { AttributeName: 'filler_offerer', AttributeType: 'S' },
         { AttributeName: 'filler_offerer_orderStatus', AttributeType: 'S' },
         { AttributeName: 'createdAt', AttributeType: 'N' },
-        { AttributeName: 'createdAtMonth', AttributeType: 'N' },
       ],
       GlobalSecondaryIndexes: [
         {
@@ -56,18 +55,6 @@ module.exports = {
           IndexName: 'offerer_orderStatus-createdAt',
           KeySchema: [
             { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            NonKeyAttributes: ['signature', 'encodedOrder', 'nonce', 'orderHash', 'offerer', 'orderStatus', 'filler'],
-            ProjectionType: 'INCLUDE',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'createdAtMonth-createdAt',
-          KeySchema: [
-            { AttributeName: 'createdAtMonth', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
