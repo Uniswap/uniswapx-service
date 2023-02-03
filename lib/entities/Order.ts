@@ -23,6 +23,7 @@ export type OrderEntity = {
   sellAmount?: string
   filler?: string
   quoteId?: string
+  txHash?: string
 }
 
 export enum SORT_FIELDS {
