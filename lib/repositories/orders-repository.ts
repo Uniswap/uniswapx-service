@@ -8,7 +8,7 @@ import { checkDefined } from '../preconditions/preconditions'
 import { parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
-import { getCurrentMonth, getCurrentTime } from '../util/time'
+import { getCurrentTime } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
 export const MAX_ORDERS = 500
@@ -48,10 +48,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        [`${TABLE_KEY.CREATED_AT_MONTH}-${TABLE_KEY.CREATED_AT}-all`]: {
-          partitionKey: TABLE_KEY.CREATED_AT_MONTH,
-          sortKey: TABLE_KEY.CREATED_AT,
-        },
         offererNonceIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.NONCE },
       },
     })
@@ -77,7 +73,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         filler_orderStatus: { type: DYNAMODB_TYPES.STRING },
         filler_offerer: { type: DYNAMODB_TYPES.STRING },
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
-        createdAtMonth: { type: DYNAMODB_TYPES.NUMBER },
         quoteId: { type: DYNAMODB_TYPES.STRING },
         txHash: { type: DYNAMODB_TYPES.STRING },
       },
@@ -172,7 +167,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           filler_orderStatus: `${order.filler}_${order.orderStatus}`,
           filler_offerer: `${order.filler}_${order.offerer}`,
           filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
-          createdAtMonth: getCurrentMonth(),
           createdAt: getCurrentTime(),
         }),
         this.nonceEntity.updateTransaction({
@@ -273,18 +267,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         return await this.queryOrderEntity(
           `${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
           `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort']
-        )
-
-      case requestedParams.length == 0 && !!queryFilters['sortKey'] && !!queryFilters['sort']:
-        return await this.queryOrderEntity(
-          // TODO: This won't work well if it is the first of the month.
-          // We should make two queries so we can capture the last 30 days of orders.
-          getCurrentMonth(),
-          `${TABLE_KEY.CREATED_AT_MONTH}`,
           limit,
           cursor,
           queryFilters['sortKey'],

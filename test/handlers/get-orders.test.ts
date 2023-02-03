@@ -76,8 +76,13 @@ describe('Testing get orders handler.', () => {
       [{ limit: 'bad_limit' }, 'must be a number'],
       [{ filler: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
+      [
+        { sortKey: 'createdAt' },
+        '{"detail":"\\"value\\" must contain at least one of [orderStatus, offerer, filler]","errorCode":"VALIDATION_ERROR"}',
+      ],
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
+      [{ sort: 'gt(4)' }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
         ...event,
@@ -87,23 +92,6 @@ describe('Testing get orders handler.', () => {
       expect(getOrdersMock).not.toHaveBeenCalled()
       expect(getOrdersResponse.statusCode).toEqual(400)
       expect(getOrdersResponse.body).toEqual(expect.stringContaining(bodyMsg))
-      expect(getOrdersResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
-    })
-    it('Throws 400 when only sort query param is present.', async () => {
-      const badInjectedMock = {
-        getContainerInjected: () => jest.mock,
-        getRequestInjected: () => {
-          return {
-            queryFilters: { sort: 'gt(4)' },
-            log: { info: () => jest.fn(), error: () => jest.fn() },
-          }
-        },
-      }
-      const getOrdersResponse = await getOrdersHandler(badInjectedMock).handler(event as any, {} as any)
-      expect(getOrdersResponse.statusCode).toEqual(400)
-      expect(getOrdersResponse.body).toEqual(
-        expect.stringContaining('Need a sortKey if the sort parameter is included in the request.')
-      )
       expect(getOrdersResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
     })
   })

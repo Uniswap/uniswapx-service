@@ -2,15 +2,27 @@ import Joi from 'joi'
 import { OrderEntity, SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 
+const indexKeyJoi = Joi.object({
+  orderStatus: FieldValidator.isValidOrderStatus(),
+  offerer: FieldValidator.isValidEthAddress(),
+  filler: FieldValidator.isValidEthAddress(),
+})
+const sortKeyJoi = FieldValidator.isValidSortKey()
+
 export const GetOrdersQueryParamsJoi = Joi.object({
   limit: FieldValidator.isValidLimit(),
-  orderStatus: FieldValidator.isValidOrderStatus(),
   orderHash: FieldValidator.isValidOrderHash(),
-  offerer: FieldValidator.isValidEthAddress(),
-  sortKey: FieldValidator.isValidSortKey(),
+  sortKey: FieldValidator.isValidSortKey().when('sort', {
+    is: Joi.exist(),
+    then: sortKeyJoi.required(),
+    otherwise: sortKeyJoi,
+  }),
   sort: FieldValidator.isValidSort(),
-  filler: FieldValidator.isValidEthAddress(),
   cursor: FieldValidator.isValidCursor(),
+}).when('.sortKey', {
+  is: Joi.exist(),
+  then: indexKeyJoi.or('orderStatus', 'offerer', 'filler'),
+  otherwise: indexKeyJoi,
 })
 
 export type GetOrdersQueryParams = {
