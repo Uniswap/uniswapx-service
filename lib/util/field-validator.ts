@@ -10,6 +10,7 @@ export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
   private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
+  private static readonly TX_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
   private static readonly UUIDV4_JOI = Joi.string().guid({
     version: ['uuidv4'],
   })
@@ -95,6 +96,10 @@ export default class FieldValidator {
 
   public static isValidQuoteId(): StringSchema {
     return this.UUIDV4_JOI
+  }
+
+  public static isValidTxHash(): StringSchema {
+    return this.TX_HASH_JOI
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {
