@@ -1,7 +1,6 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
-import { OrderType } from 'gouda-sdk'
 import { ORDER_STATUS } from '../../lib/entities'
 import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
 
@@ -51,7 +50,7 @@ const DECODED_ORDER = {
 
 jest.mock('gouda-sdk', () => ({
   DutchLimitOrder: { parse: () => DECODED_ORDER },
-  OrderType: { DutchLimit: OrderType.DutchLimit },
+  OrderType: { DutchLimit: 'DutchLimit' },
 }))
 
 describe('Testing post order handler.', () => {
