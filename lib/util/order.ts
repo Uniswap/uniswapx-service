@@ -1,5 +1,6 @@
 import { DynamoDBRecord } from 'aws-lambda'
-import { ORDER_STATUS } from '../entities'
+import { DutchLimitOrder, OrderType } from 'gouda-sdk'
+import { OrderEntity, ORDER_STATUS } from '../entities'
 
 type ParsedOrder = {
   encodedOrder: string
@@ -28,4 +29,42 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
     createdAt: parseInt(newOrder.createdAt.N as string),
     orderHash: newOrder.orderHash.S as string,
   }
+}
+
+export const formatOrderEntity = (
+  decodedOrder: DutchLimitOrder,
+  signature: string,
+  orderType: OrderType,
+  orderStatus: ORDER_STATUS,
+  quoteId?: string
+): OrderEntity => {
+  const { input, outputs } = decodedOrder.info
+  const order: OrderEntity = {
+    type: orderType,
+    encodedOrder: decodedOrder.serialize(),
+    signature,
+    nonce: decodedOrder.info.nonce.toString(),
+    orderHash: decodedOrder.hash().toLowerCase(),
+    chainId: decodedOrder.chainId,
+    orderStatus: orderStatus,
+    offerer: decodedOrder.info.offerer.toLowerCase(),
+    input: {
+      token: input.token,
+      startAmount: input.startAmount.toString(),
+      endAmount: input.endAmount.toString(),
+    },
+    outputs: outputs.map((output) => ({
+      token: output.token,
+      startAmount: output.startAmount.toString(),
+      endAmount: output.endAmount.toString(),
+    })),
+    reactor: decodedOrder.info.reactor.toLowerCase(),
+    startTime: decodedOrder.info.startTime,
+    endTime: decodedOrder.info.deadline,
+    deadline: decodedOrder.info.deadline,
+    filler: decodedOrder.validation?.data?.filler?.toLowerCase(),
+    ...(quoteId && { quoteId: quoteId }),
+  }
+
+  return order
 }

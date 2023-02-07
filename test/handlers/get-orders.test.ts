@@ -1,3 +1,4 @@
+import { OrderType } from 'gouda-sdk'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities'
 import { GetOrdersHandler } from '../../lib/handlers/get-orders/handler'
 import { HeaderExpectation } from '../utils'
@@ -11,6 +12,21 @@ describe('Testing get orders handler.', () => {
     offerer: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
     createdAt: 1667276283251,
     encodedOrder: '0xencoded000order',
+    type: OrderType.DutchLimit,
+    input: {
+      token: '0x0000000000000000000000000000000000000000',
+      startAmount: '1000000000000000000',
+      endAmount: '1000000000000000000',
+    },
+    outputs: [
+      {
+        token: '0x0000000000000000000000000000000000000001',
+        startAmount: '3000000000000000000',
+        endAmount: '2000000000000000000',
+        isFeeOutput: false,
+        recipient: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
+      },
+    ],
   }
 
   // Creating mocks for all the handler dependencies.
@@ -105,6 +121,9 @@ describe('Testing get orders handler.', () => {
       [{ encodedOrder: '0xencoded$$$order' }],
       [{ createdAt: 'bad_created_at' }],
       [{ txHash: '0xbadTxHash' }],
+      [{ type: 'BadOrderType' }],
+      [{ input: { token: 'bad token' } }],
+      [{ outputs: [{ startAmount: 'bad start' }] }],
     ])('Throws 500 with invalid field %p in the response', async (invalidResponseField) => {
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
