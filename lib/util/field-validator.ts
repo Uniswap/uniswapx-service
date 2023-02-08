@@ -1,4 +1,5 @@
 import { BigNumber, ethers } from 'ethers'
+import { OrderType } from 'gouda-sdk'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS, SORT_FIELDS } from '../entities'
 import { SUPPORTED_CHAINS } from './chain'
@@ -14,7 +15,7 @@ export default class FieldValidator {
   private static readonly UUIDV4_JOI = Joi.string().guid({
     version: ['uuidv4'],
   })
-  private static readonly NONCE_JOI = Joi.string()
+  private static readonly BIG_NUMBER_JOI = Joi.string()
     .min(1)
     .max(78) // 2^256 - 1 in base 10 is 78 digits long
     .regex(/^[0-9]+$/)
@@ -38,6 +39,7 @@ export default class FieldValidator {
   )
   private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
+  private static readonly ORDER_TYPE_JOI = Joi.string().valid(OrderType.DutchLimit)
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.isAddress(value)) {
@@ -91,7 +93,7 @@ export default class FieldValidator {
   }
 
   public static isValidNonce(): StringSchema {
-    return this.NONCE_JOI
+    return this.BIG_NUMBER_JOI
   }
 
   public static isValidQuoteId(): StringSchema {
@@ -100,6 +102,14 @@ export default class FieldValidator {
 
   public static isValidTxHash(): StringSchema {
     return this.TX_HASH_JOI
+  }
+
+  public static isValidOrderType(): StringSchema {
+    return this.ORDER_TYPE_JOI
+  }
+
+  public static isValidAmount(): StringSchema {
+    return this.BIG_NUMBER_JOI
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {

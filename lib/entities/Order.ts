@@ -1,3 +1,5 @@
+import { OrderType } from 'gouda-sdk'
+
 export enum ORDER_STATUS {
   OPEN = 'open',
   EXPIRED = 'expired',
@@ -8,22 +10,38 @@ export enum ORDER_STATUS {
   INSUFFICIENT_FUNDS = 'insufficient-funds',
 }
 
+export type OrderInput = {
+  token: string
+  startAmount?: string
+  endAmount?: string
+}
+
+export type OrderOutput = {
+  token: string
+  startAmount?: string
+  endAmount?: string
+  isFeeOutput?: boolean
+  recipient?: string
+}
+
 export type OrderEntity = {
+  type: OrderType
   encodedOrder: string
   signature: string
   nonce: string
   orderHash: string
   orderStatus: ORDER_STATUS
+  chainId: number
   offerer: string
   reactor?: string
   startTime?: number
   endTime?: number
   deadline?: number
-  sellToken?: string
-  sellAmount?: string
   filler?: string
   quoteId?: string
   txHash?: string
+  input?: OrderInput
+  outputs?: OrderOutput[]
 }
 
 export enum SORT_FIELDS {

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { OrderValidation } from 'gouda-sdk'
+import { OrderType, OrderValidation } from 'gouda-sdk'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities/Order'
 import { CheckOrderStatusHandler } from '../../lib/handlers/check-order-status/handler'
 
@@ -15,6 +15,8 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
   orderHash: MOCK_ORDER_HASH,
   offerer: '0xofferer',
   orderStatus: ORDER_STATUS.UNVERIFIED,
+  type: OrderType.DutchLimit,
+  chainId: 1,
 }
 
 describe('Testing check order status handler', () => {

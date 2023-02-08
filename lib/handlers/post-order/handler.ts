@@ -1,9 +1,10 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import Logger from 'bunyan'
-import { DutchLimitOrder } from 'gouda-sdk'
+import { DutchLimitOrder, OrderType } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'
+import { formatOrderEntity } from '../../util/order'
 import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
@@ -53,25 +54,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const id = decodedOrder.hash().toLowerCase()
-
-    const order: OrderEntity = {
-      encodedOrder,
+    const order: OrderEntity = formatOrderEntity(
+      decodedOrder,
       signature,
-      nonce: decodedOrder.info.nonce.toString(),
-      orderHash: id,
-      orderStatus: ORDER_STATUS.UNVERIFIED,
-      offerer: decodedOrder.info.offerer.toLowerCase(),
-      sellToken: decodedOrder.info.input.token.toLowerCase(),
-      sellAmount: decodedOrder.info.input.startAmount.toString(),
-      reactor: decodedOrder.info.reactor.toLowerCase(),
-      startTime: decodedOrder.info.startTime,
-      endTime: decodedOrder.info.deadline,
-      deadline: decodedOrder.info.deadline,
-      // TODO: Replace this with the actual filler address once the gouda SDK supports this
-      filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-      ...(quoteId && { quoteId: quoteId }),
-    }
+      OrderType.DutchLimit,
+      ORDER_STATUS.UNVERIFIED,
+      quoteId
+    )
+    const id = order.orderHash
 
     try {
       const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)

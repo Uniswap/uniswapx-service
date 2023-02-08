@@ -44,10 +44,14 @@ const DECODED_ORDER = {
     ],
   },
   hash: () => '0x0000000000000000000000000000000000000000000000000000000000000006',
+  serialize: () => '0x01',
+  validation: { data: { filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' } },
+  chainId: 1,
 }
 
 jest.mock('gouda-sdk', () => ({
   DutchLimitOrder: { parse: () => DECODED_ORDER },
+  OrderType: { DutchLimit: 'DutchLimit' },
 }))
 
 describe('Testing post order handler.', () => {
@@ -75,20 +79,34 @@ describe('Testing post order handler.', () => {
 
   const ORDER = {
     encodedOrder: encodedOrder,
-    filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    chainId: 1,
+    filler: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
     signature:
       '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
     nonce: '40',
     orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
     orderStatus: ORDER_STATUS.UNVERIFIED,
     offerer: '0x0000000000000000000000000000000000000001',
-    sellToken: '0x0000000000000000000000000000000000000003',
-    sellAmount: '30',
     reactor: '0x0000000000000000000000000000000000000002',
     startTime: 20,
     endTime: 10,
     deadline: 10,
     quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
+    type: 'DutchLimit',
+    input: {
+      endAmount: '30',
+      startAmount: '30',
+      token: '0x0000000000000000000000000000000000000003',
+    },
+    outputs: [
+      {
+        endAmount: '50',
+        startAmount: '60',
+        token: '0x0000000000000000000000000000000000000005',
+        recipient: '0x0000000000000000000000000000000000000004',
+        isFeeOutput: false,
+      },
+    ],
   }
 
   const injectorPromiseMock: any = {

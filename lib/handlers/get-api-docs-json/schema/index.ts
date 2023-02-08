@@ -90,6 +90,21 @@ const OPENAPI_SCHEMA: GetJsonResponse = {
             schema: getOrderParamProperties.filler,
           },
           {
+            name: 'sortKey',
+            in: 'query',
+            description: 'Order the query results by the sort key.',
+            required: false,
+            schema: getOrderParamProperties.sortKey,
+          },
+          {
+            name: 'sort',
+            in: 'query',
+            description:
+              'Sort query. For example: `sort=gt(UNIX_TIMESTAMP)`, `sort=between(1675872827, 1675872930)`, or `lt(1675872930)`.',
+            required: false,
+            schema: getOrderParamProperties.sort,
+          },
+          {
             name: 'cursor',
             in: 'query',
             description: 'Cursor for paginated queries.',

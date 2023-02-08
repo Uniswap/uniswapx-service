@@ -41,6 +41,20 @@ export type GetOrdersResponse = {
   cursor?: string
 }
 
+export const OrderInputJoi = Joi.object({
+  token: FieldValidator.isValidEthAddress().required(),
+  startAmount: FieldValidator.isValidAmount(),
+  endAmount: FieldValidator.isValidAmount(),
+})
+
+export const OrderOutputJoi = Joi.object({
+  token: FieldValidator.isValidEthAddress().required(),
+  startAmount: FieldValidator.isValidAmount(),
+  endAmount: FieldValidator.isValidAmount(),
+  isFeeOutput: Joi.boolean(),
+  recipient: FieldValidator.isValidEthAddress(),
+})
+
 export const OrderResponseEntryJoi = Joi.object({
   createdAt: FieldValidator.isValidCreatedAt(),
   encodedOrder: FieldValidator.isValidEncodedOrder(),
@@ -49,6 +63,9 @@ export const OrderResponseEntryJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash(),
   offerer: FieldValidator.isValidEthAddress(),
   txHash: FieldValidator.isValidTxHash(),
+  type: FieldValidator.isValidOrderType(),
+  input: OrderInputJoi,
+  outputs: Joi.array().items(OrderOutputJoi),
 })
 
 export const GetOrdersResponseJoi = Joi.object({
