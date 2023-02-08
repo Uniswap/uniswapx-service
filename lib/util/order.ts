@@ -57,6 +57,8 @@ export const formatOrderEntity = (
       token: output.token,
       startAmount: output.startAmount.toString(),
       endAmount: output.endAmount.toString(),
+      recipient: output.recipient.toLowerCase(),
+      isFeeOutput: output.isFeeOutput,
     })),
     reactor: decodedOrder.info.reactor.toLowerCase(),
     startTime: decodedOrder.info.startTime,

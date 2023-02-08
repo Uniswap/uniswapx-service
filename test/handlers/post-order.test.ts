@@ -46,6 +46,7 @@ const DECODED_ORDER = {
   hash: () => '0x0000000000000000000000000000000000000000000000000000000000000006',
   serialize: () => '0x01',
   validation: { data: { filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' } },
+  chainId: 1,
 }
 
 jest.mock('gouda-sdk', () => ({
@@ -78,6 +79,7 @@ describe('Testing post order handler.', () => {
 
   const ORDER = {
     encodedOrder: encodedOrder,
+    chainId: 1,
     filler: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
     signature:
       '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
@@ -101,6 +103,8 @@ describe('Testing post order handler.', () => {
         endAmount: '50',
         startAmount: '60',
         token: '0x0000000000000000000000000000000000000005',
+        recipient: '0x0000000000000000000000000000000000000004',
+        isFeeOutput: false,
       },
     ],
   }
