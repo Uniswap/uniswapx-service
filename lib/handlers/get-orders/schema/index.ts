@@ -66,6 +66,7 @@ export const OrderResponseEntryJoi = Joi.object({
   type: FieldValidator.isValidOrderType(),
   input: OrderInputJoi,
   outputs: Joi.array().items(OrderOutputJoi),
+  chainId: FieldValidator.isValidChainId(),
 })
 
 export const GetOrdersResponseJoi = Joi.object({
