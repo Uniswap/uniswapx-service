@@ -16,7 +16,7 @@ import { StepFunctionStack } from './step-function-stack'
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
   stage: STAGE
-  envVars?: { [key: string]: string }
+  envVars: { [key: string]: string }
 }
 export class LambdaStack extends cdk.NestedStack {
   private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction

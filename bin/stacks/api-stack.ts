@@ -23,7 +23,7 @@ export class APIStack extends cdk.Stack {
       throttlingOverride?: string
       chatbotSNSArn?: string
       stage: string
-      envVars?: { [key: string]: string }
+      envVars: { [key: string]: string }
     }
   ) {
     super(parent, name, props)
