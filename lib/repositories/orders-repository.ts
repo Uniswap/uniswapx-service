@@ -1,4 +1,5 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
+import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
@@ -14,7 +15,14 @@ import { BaseOrdersRepository, QueryResult } from './base'
 export const MAX_ORDERS = 500
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
+  static log: Logger
+
   static create(documentClient: DocumentClient): BaseOrdersRepository {
+    this.log = Logger.createLogger({
+      name: 'DynamoOrdersRepository',
+      serializers: Logger.stdSerializers,
+    })
+
     const ordersTable = new Table({
       name: 'Orders',
       partitionKey: 'orderHash',
@@ -140,6 +148,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return res.Item as OrderEntity
   }
 
+  public async deleteOrderByHash(hash: string): Promise<void> {
+    await this.orderEntity.delete({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
+  }
+
   public async getNonceByAddress(address: string): Promise<string> {
     const res = await this.nonceEntity.query(address, {
       limit: 1,
@@ -147,7 +159,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       consistent: true,
       execute: true,
     })
-    return res.Items && res.Items.length > 0 ? res.Items[0].nonce : generateRandomNonce()
+    if (res.Items && res.Items.length > 0) {
+      DynamoOrdersRepository.log.info(`Nonce for ${address} found: ${res.Items[0].nonce}`)
+      return res.Items[0].nonce
+    }
+    return generateRandomNonce()
   }
 
   public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
@@ -178,6 +194,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       ],
       {
         capacity: 'total',
+        execute: true,
       }
     )
   }

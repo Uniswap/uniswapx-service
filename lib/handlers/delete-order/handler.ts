@@ -1,34 +1,34 @@
 import Joi from 'joi'
+
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
-import { GetNonceQueryParams, GetNonceQueryParamsJoi, GetNonceResponse, GetNonceResponseJoi } from './schema/index'
+import { DeleteOrderQueryParams, DeleteOrderQueryParamsJoi } from './schema/index'
 
-export class GetNonceHandler extends APIGLambdaHandler<
+export class DeleteOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
   void,
-  GetNonceQueryParams,
-  GetNonceResponse
+  DeleteOrderQueryParams,
+  null
 > {
   public async handleRequest(
-    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, GetNonceQueryParams>
-  ): Promise<ErrorResponse | Response<GetNonceResponse>> {
+    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, DeleteOrderQueryParams>
+  ): Promise<Response<null> | ErrorResponse> {
     const {
-      requestInjected: { address, log },
+      requestInjected: { orderHash, log },
       containerInjected: { dbInterface },
     } = params
 
     try {
-      log.info({ address: address }, 'Getting nonce for address')
-      const nonce = await dbInterface.getNonceByAddress(address)
+      const deleteOrderResult = await dbInterface.deleteOrderByHash(orderHash)
+      log.info({ dynamoResult: deleteOrderResult }, 'delete order result')
+
       return {
         statusCode: 200,
-        body: {
-          nonce: nonce,
-        },
+        body: null,
       }
     } catch (e: unknown) {
-      log.error({ e }, 'Error getting nonce')
+      // TODO: differentiate between input errors and add logging if unknown is not type Error
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),
@@ -41,10 +41,10 @@ export class GetNonceHandler extends APIGLambdaHandler<
   }
 
   protected requestQueryParamsSchema(): Joi.ObjectSchema | null {
-    return GetNonceQueryParamsJoi
+    return DeleteOrderQueryParamsJoi
   }
 
   protected responseBodySchema(): Joi.ObjectSchema | null {
-    return GetNonceResponseJoi
+    return null
   }
 }

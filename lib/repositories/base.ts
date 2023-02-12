@@ -15,4 +15,5 @@ export interface BaseOrdersRepository {
   getByOrderStatus: (orderStatus: string, limit: number) => Promise<QueryResult>
   getNonceByAddress: (address: string) => Promise<string>
   updateOrderStatus: (orderHash: string, status: ORDER_STATUS, txHash?: string) => Promise<void>
+  deleteOrderByHash(hash: string): Promise<void>
 }
