@@ -13,12 +13,11 @@ const wallet = new ethers.Wallet(ANVIL_TEST_WALLET_PK)
 const amount = BigNumber.from(10).pow(18)
 
 describe('get nonce', () => {
-  //TODO: uncomment once delete handler is deployed
-  // let orderHash: string
+  let orderHash: string
 
-  // afterAll(async () => {
-  //   await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash}`)
-  // })
+  afterAll(async () => {
+    await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash}`)
+  })
 
   it('should get current nonce for address, and increment it by one after the address posts an order', async () => {
     const address = await (await wallet.getAddress()).toLowerCase()
@@ -57,7 +56,7 @@ describe('get nonce', () => {
     })
 
     expect(postResponse.status).toEqual(201)
-    //orderHash = postResponse.data.hash
+    orderHash = postResponse.data.hash
     const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${address}`)
     expect(newGetResponse.status).toEqual(200)
     const newNonce = BigNumber.from(newGetResponse.data.nonce)
