@@ -255,8 +255,8 @@ export class LambdaStack extends cdk.NestedStack {
 
       const deleteOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-DeleteOrder-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 2,
-        minCapacity: provisionedConcurrency,
+        maxCapacity: 2,
+        minCapacity: 2,
         resourceId: `function:${this.deleteOrderLambdaAlias.lambda.functionName}:${this.deleteOrderLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
       })

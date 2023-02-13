@@ -17,7 +17,7 @@ describe('get nonce', () => {
 
   afterAll(async () => {
     await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash}`)
-  })
+  }, 10000)
 
   it('should get current nonce for address, and increment it by one after the address posts an order', async () => {
     const address = await (await wallet.getAddress()).toLowerCase()
