@@ -50,7 +50,6 @@ describe('get nonce', () => {
 
     const { domain, types, values } = order.permitData()
     const signature = await wallet._signTypedData(domain, types, values)
-    //    console.log(order.serialize())
     const postResponse = await axios.post(`${URL}dutch-auction/order`, {
       encodedOrder: order.serialize(),
       signature: signature,
@@ -58,10 +57,9 @@ describe('get nonce', () => {
     })
 
     expect(postResponse.status).toEqual(201)
-    orderHash = postResponse.data.hash
+    //orderHash = postResponse.data.hash
     const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${address}`)
     expect(newGetResponse.status).toEqual(200)
-    console.log(`new: ${newGetResponse.data.nonce}; old: ${getResponse.data.nonce}`)
     const newNonce = BigNumber.from(newGetResponse.data.nonce)
     expect(newNonce.eq(nonce.add(1))).toBeTruthy()
   })
