@@ -5,6 +5,8 @@ on:
     branches:
       - main
   pull_request:
+env:
+  GOUDA_SERVICE_URL: ${{ secrets.GOUDA_SERVICE_URL }}
 
 jobs:
   lint-and-test:
