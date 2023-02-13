@@ -1,5 +1,7 @@
 import { CheckOrderStatusHandler } from './check-order-status/handler'
 import { CheckOrderStatusInjector } from './check-order-status/injector'
+import { DeleteOrderHandler } from './delete-order/handler'
+import { DeleteOrderInjector } from './delete-order/injector'
 import { GetApiDocsJsonHandler } from './get-api-docs-json/handler'
 import { GetApiDocsJsonInjector } from './get-api-docs-json/injector'
 import { GetApiDocsHandler } from './get-api-docs/handler'
@@ -22,6 +24,9 @@ const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', getOrdersInjec
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 const postOrderHandler = new PostOrderHandler('postOrdersHandler', postOrderInjectorPromise)
 
+const deleteOrderInjectorPromise = new DeleteOrderInjector('deleteOrderInjector').build()
+const deleteOrderHandler = new DeleteOrderHandler('deleteOrdersHandler', deleteOrderInjectorPromise)
+
 const checkOrderStatusInjectorPromise = new CheckOrderStatusInjector('checkOrderStatusInjector').build()
 const checkOrderStatusHandler = new CheckOrderStatusHandler('checkOrderStatusHandler', checkOrderStatusInjectorPromise)
 
@@ -40,6 +45,7 @@ const orderNotificationHandler = new OrderNotificationHandler(
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,
   postOrderHandler: postOrderHandler.handler,
+  deleteOrderHandler: deleteOrderHandler.handler,
   getNonceHandler: getNonceHandler.handler,
   checkOrderStatusHandler: checkOrderStatusHandler.handler,
   getApiDocsHandler: getApiDocsHandler.handler,

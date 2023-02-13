@@ -23,7 +23,7 @@ export class APIStack extends cdk.Stack {
       throttlingOverride?: string
       chatbotSNSArn?: string
       stage: string
-      envVars?: { [key: string]: string }
+      envVars: { [key: string]: string }
     }
   ) {
     super(parent, name, props)
@@ -36,6 +36,7 @@ export class APIStack extends cdk.Stack {
       postOrderLambdaAlias,
       getApiDocsLambdaAlias,
       getApiDocsJsonLambdaAlias,
+      deleteOrderLambdaAlias,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       stage: stage as STAGE,
@@ -128,6 +129,7 @@ export class APIStack extends cdk.Stack {
 
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
     const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
+    const deleteOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(deleteOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getApiDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getApiDocsLambdaAlias)
     const getApiDocsJsonLambdaIntegration = new aws_apigateway.LambdaIntegration(getApiDocsJsonLambdaAlias, {})
@@ -152,6 +154,7 @@ export class APIStack extends cdk.Stack {
 
     const order = dutchAuction.addResource('order')
     order.addMethod('POST', postOrderLambdaIntegration)
+    order.addMethod('DELETE', deleteOrderLambdaIntegration)
 
     const orders = dutchAuction.addResource('orders')
     const nonce = dutchAuction.addResource('nonce')

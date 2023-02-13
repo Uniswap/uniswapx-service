@@ -23,7 +23,7 @@ export class APIStage extends Stage {
       provisionedConcurrency: number
       chatbotSNSArn?: string
       stage: string
-      envVars?: { [key: string]: string }
+      envVars: { [key: string]: string }
     }
   ) {
     super(scope, id, props)
@@ -102,6 +102,10 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-resource-arns-wF51FW',
     })
 
+    const goudaBackendUrls = sm.Secret.fromSecretAttributes(this, 'goudaBackendUrls', {
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-service-api-xCINOs',
+    })
+
     const jsonRpcUrls: { [chain: string]: string } = {}
     Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
       const key = `RPC_${chainId}`
@@ -128,7 +132,12 @@ export class APIPipeline extends Stack {
 
     const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
 
-    this.addIntegTests(code, betaUsEast2Stage, betaUsEast2AppStage)
+    this.addIntegTests(
+      code,
+      betaUsEast2Stage,
+      betaUsEast2AppStage,
+      goudaBackendUrls.secretValueFromJson('GOUDA_SERVICE_BETA').toString()
+    )
 
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
@@ -143,14 +152,21 @@ export class APIPipeline extends Stack {
     })
 
     const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
-    this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage)
+    this.addIntegTests(
+      code,
+      prodUsEast2Stage,
+      prodUsEast2AppStage,
+      goudaBackendUrls.secretValueFromJson('GOUDA_SERVICE_PROD').toString()
+    )
+
     pipeline.buildPipeline()
   }
 
   private addIntegTests(
     sourceArtifact: cdk.pipelines.CodePipelineSource,
     apiStage: APIStage,
-    applicationStage: cdk.pipelines.StageDeployment
+    applicationStage: cdk.pipelines.StageDeployment,
+    goudaServiceUrl: string
   ) {
     const testAction = new CodeBuildStep(`${SERVICE_NAME}-IntegTests-${apiStage.stageName}`, {
       projectName: `${SERVICE_NAME}-IntegTests-${apiStage.stageName}`,
@@ -169,6 +185,9 @@ export class APIPipeline extends Stack {
           GH_TOKEN: {
             value: 'github-token-2',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          GOUDA_SERVICE_URL: {
+            value: goudaServiceUrl,
           },
         },
       },

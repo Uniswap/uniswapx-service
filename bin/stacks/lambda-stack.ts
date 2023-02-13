@@ -16,16 +16,18 @@ import { StepFunctionStack } from './step-function-stack'
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
   stage: STAGE
-  envVars?: { [key: string]: string }
+  envVars: { [key: string]: string }
 }
 export class LambdaStack extends cdk.NestedStack {
   private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly deleteOrderLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getApiDocsLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getApiDocsJsonLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
+  public readonly deleteOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getApiDocsLambdaAlias: aws_lambda.Alias
@@ -122,12 +124,29 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    this.deleteOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `DeleteOrder{lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'deleteOrderHandler',
+      memorySize: 256,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+        REGION: this.region,
+      },
+    })
+
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getNonceHandler',
-      memorySize: 512,
+      memorySize: 256,
       bundling: {
         minify: true,
         sourceMap: true,
@@ -189,6 +208,12 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
+    this.deleteOrderLambdaAlias = new aws_lambda.Alias(this, `DeleteOrderLiveAlias`, {
+      aliasName: 'live',
+      version: this.deleteOrderLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
     this.getNonceLambdaAlias = new aws_lambda.Alias(this, `GetNonceLiveAlias`, {
       aliasName: 'live',
       version: this.getNonceLambda.currentVersion,
@@ -224,6 +249,20 @@ export class LambdaStack extends cdk.NestedStack {
 
       postOrderTarget.node.addDependency(this.postOrderLambdaAlias)
       postOrderTarget.scaleToTrackMetric(`${lambdaName}-PostOrder-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const deleteOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-DeleteOrder-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: 2,
+        minCapacity: 2,
+        resourceId: `function:${this.deleteOrderLambdaAlias.lambda.functionName}:${this.deleteOrderLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      deleteOrderTarget.node.addDependency(this.deleteOrderLambdaAlias)
+      deleteOrderTarget.scaleToTrackMetric(`${lambdaName}-DeleteOrder-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
