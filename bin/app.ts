@@ -172,7 +172,7 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           GOUDA_SERVICE_URL: {
-            value: 'prod/gouda-service/url',
+            value: `${apiStage.stageName}/gouda-service/url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
         },
