@@ -128,7 +128,7 @@ export class APIPipeline extends Stack {
 
     const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
 
-    this.addIntegTests(code, betaUsEast2Stage, betaUsEast2AppStage)
+    this.addIntegTests(code, betaUsEast2Stage, betaUsEast2AppStage, STAGE.BETA)
 
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
@@ -143,7 +143,7 @@ export class APIPipeline extends Stack {
     })
 
     const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
-    this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage)
+    this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage, STAGE.PROD)
 
     pipeline.buildPipeline()
   }
@@ -151,7 +151,8 @@ export class APIPipeline extends Stack {
   private addIntegTests(
     sourceArtifact: cdk.pipelines.CodePipelineSource,
     apiStage: APIStage,
-    applicationStage: cdk.pipelines.StageDeployment
+    applicationStage: cdk.pipelines.StageDeployment,
+    stage: STAGE
   ) {
     const testAction = new CodeBuildStep(`${SERVICE_NAME}-IntegTests-${apiStage.stageName}`, {
       projectName: `${SERVICE_NAME}-IntegTests-${apiStage.stageName}`,
@@ -172,7 +173,7 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           GOUDA_SERVICE_URL: {
-            value: `${apiStage.stageName}/gouda-service/url`,
+            value: `${stage}/gouda-service/url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
         },
