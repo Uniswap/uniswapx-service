@@ -1,4 +1,4 @@
-import { FinalOutput, OrderEntity, ORDER_STATUS } from '../entities/index'
+import { OrderEntity, ORDER_STATUS, SettledAmount } from '../entities/index'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export type QueryResult = {
@@ -18,7 +18,7 @@ export interface BaseOrdersRepository {
     orderHash: string,
     status: ORDER_STATUS,
     txHash?: string,
-    finalOutputs?: FinalOutput[]
+    settledAmounts?: SettledAmount[]
   ) => Promise<void>
   deleteOrderByHash(hash: string): Promise<void>
 }

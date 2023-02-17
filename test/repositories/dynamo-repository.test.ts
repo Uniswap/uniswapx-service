@@ -406,7 +406,7 @@ describe('OrdersRepository update status test', () => {
       orderStatus: ORDER_STATUS.FILLED,
       offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
       txHash: 'txHash',
-      finalOutputs: [{ tokenOut: '0x1', amountOut: '1' }],
+      settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
     })
   })
 

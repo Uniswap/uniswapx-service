@@ -55,9 +55,11 @@ export const OrderOutputJoi = Joi.object({
   recipient: FieldValidator.isValidEthAddress(),
 })
 
-export const FinalOutput = Joi.object({
-  tokenOut: FieldValidator.isValidEthAddress().required(),
+export const SettledAmount = Joi.object({
+  tokenOut: FieldValidator.isValidEthAddress(),
   amountOut: FieldValidator.isValidAmount(),
+  tokenIn: FieldValidator.isValidEthAddress(),
+  amountIn: FieldValidator.isValidAmount(),
 })
 
 export const OrderResponseEntryJoi = Joi.object({
@@ -71,7 +73,7 @@ export const OrderResponseEntryJoi = Joi.object({
   type: FieldValidator.isValidOrderType(),
   input: OrderInputJoi,
   outputs: Joi.array().items(OrderOutputJoi),
-  finalOutputs: Joi.array().items(FinalOutput),
+  settledAmounts: Joi.array().items(SettledAmount),
   chainId: FieldValidator.isValidChainId(),
 })
 

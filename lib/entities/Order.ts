@@ -24,9 +24,11 @@ export type OrderOutput = {
   recipient?: string
 }
 
-export type FinalOutput = {
-  tokenOut: string
-  amountOut: string
+export type SettledAmount = {
+  tokenOut?: string
+  amountOut?: string
+  tokenIn?: string
+  amountIn?: string
 }
 
 export type OrderEntity = {
@@ -47,7 +49,7 @@ export type OrderEntity = {
   txHash?: string
   input?: OrderInput
   outputs?: OrderOutput[]
-  finalOutputs?: FinalOutput[]
+  settledAmounts?: SettledAmount[]
 }
 
 export enum SORT_FIELDS {
