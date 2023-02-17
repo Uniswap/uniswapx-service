@@ -3,7 +3,7 @@ import Joi from 'joi'
 import { InjectionError, SfnInputValidationError } from '../../util/errors'
 import { BaseInjector, BaseLambdaHandler, BaseRInj } from './base'
 
-export type SfnStateInputOutput = Record<string, string | number>
+export type SfnStateInputOutput = Record<string, string | number | { [key: string]: string }[]>
 
 export type SfnHandler = (event: SfnStateInputOutput) => Promise<SfnStateInputOutput>
 

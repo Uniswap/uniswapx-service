@@ -3,7 +3,7 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
-import { OrderEntity, ORDER_STATUS, SORT_FIELDS } from '../entities/Order'
+import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { checkDefined } from '../preconditions/preconditions'
 import { parseComparisonFilter } from '../util/comparison'
@@ -85,6 +85,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         quoteId: { type: DYNAMODB_TYPES.STRING },
         txHash: { type: DYNAMODB_TYPES.STRING },
+        settledAmounts: { type: DYNAMODB_TYPES.LIST },
       },
       table: ordersTable,
     } as const)
@@ -199,7 +200,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     )
   }
 
-  public async updateOrderStatus(orderHash: string, status: ORDER_STATUS, txHash?: string): Promise<void> {
+  public async updateOrderStatus(
+    orderHash: string,
+    status: ORDER_STATUS,
+    txHash?: string,
+    settledAmounts?: SettledAmount[]
+  ): Promise<void> {
     const order = checkDefined(await this.getByHash(orderHash), 'cannot find order by hash when updating order status')
 
     await this.orderEntity.update({
@@ -209,6 +215,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       filler_orderStatus: `${order.filler}_${status}`,
       filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
       ...(txHash && { txHash }),
+      ...(settledAmounts && { settledAmounts }),
     })
   }
 

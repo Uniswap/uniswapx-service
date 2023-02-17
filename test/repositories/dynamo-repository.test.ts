@@ -399,11 +399,14 @@ describe('OrdersRepository get order count by offerer test', () => {
 
 describe('OrdersRepository update status test', () => {
   it('should successfully update orderStatus of an order identified by orderHash', async () => {
-    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash')
+    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash', [
+      { tokenOut: '0x1', amountOut: '1' },
+    ])
     await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
       orderStatus: ORDER_STATUS.FILLED,
       offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
       txHash: 'txHash',
+      settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
     })
   })
 

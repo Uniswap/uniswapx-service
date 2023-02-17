@@ -1,7 +1,7 @@
 import { default as Logger } from 'bunyan'
 import { DutchLimitOrder, OrderValidation } from 'gouda-sdk'
 import Joi from 'joi'
-import { ORDER_STATUS } from '../../entities/Order'
+import { ORDER_STATUS, SettledAmount } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { SfnLambdaHandler, SfnStateInputOutput } from '../base/index'
@@ -91,6 +91,11 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             })
           })
 
+          const settledAmounts = fillEvent.outputs.map((output) => ({
+            tokenOut: output.token,
+            amountOut: output.amount.toString(),
+          }))
+
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -101,6 +106,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               chainId,
               orderStatus: ORDER_STATUS.FILLED,
               txHash: fillEvent.txHash,
+              settledAmounts,
             },
             log
           )
@@ -151,13 +157,27 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       chainId: number
       orderStatus: ORDER_STATUS
       txHash?: string
+      settledAmounts?: SettledAmount[]
     },
     log: Logger
   ): Promise<SfnStateInputOutput> {
-    const { dbInterface, orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus, txHash } = params
+    const {
+      dbInterface,
+      orderHash,
+      quoteId,
+      retryCount,
+      lastBlockNumber,
+      chainId,
+      orderStatus,
+      txHash,
+      settledAmounts,
+    } = params
 
-    log.info({ orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus, txHash }, 'updating order status')
-    await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash)
+    log.info(
+      { orderHash, quoteId, retryCount, lastBlockNumber, chainId, orderStatus, txHash, settledAmounts },
+      'updating order status'
+    )
+    await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
     return {
       orderHash: orderHash,
       orderStatus: orderStatus,
@@ -166,6 +186,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       retryWaitSeconds: this.calculateRetryWaitSeconds(retryCount),
       lastBlockNumber: lastBlockNumber,
       chainId: chainId,
+      ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
     }
   }

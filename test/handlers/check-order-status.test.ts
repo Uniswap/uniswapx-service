@@ -151,7 +151,7 @@ describe('Testing check order status handler', () => {
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined)
+      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined, undefined)
       expect(response).toEqual({
         orderHash: MOCK_ORDER_HASH,
         orderStatus: 'open',
@@ -169,7 +169,7 @@ describe('Testing check order status handler', () => {
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined)
+      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined, undefined)
       expect(response).toEqual({
         orderHash: MOCK_ORDER_HASH,
         orderStatus: 'open',
@@ -187,7 +187,7 @@ describe('Testing check order status handler', () => {
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined)
+      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined, undefined)
       expect(response).toEqual({
         orderHash: MOCK_ORDER_HASH,
         orderStatus: 'open',
