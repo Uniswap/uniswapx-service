@@ -1,7 +1,7 @@
+import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from '@uniswap/gouda-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
-import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from 'gouda-sdk'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'

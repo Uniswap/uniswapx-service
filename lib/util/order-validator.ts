@@ -1,5 +1,5 @@
+import { DutchLimitOrder, DutchOutput } from '@uniswap/gouda-sdk'
 import { BigNumber } from 'ethers'
-import { DutchLimitOrder, DutchOutput } from 'gouda-sdk'
 import FieldValidator from './field-validator'
 
 export type OrderValidationResponse = {

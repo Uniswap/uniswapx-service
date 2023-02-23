@@ -1,5 +1,5 @@
+import { DutchLimitOrder } from '@uniswap/gouda-sdk'
 import { BigNumber } from 'ethers'
-import { DutchLimitOrder } from 'gouda-sdk'
 import { OrderValidator } from '../../lib/util/order-validator'
 
 const CURRENT_TIME = 10

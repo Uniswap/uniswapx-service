@@ -49,7 +49,7 @@ const DECODED_ORDER = {
   chainId: 1,
 }
 
-jest.mock('gouda-sdk', () => ({
+jest.mock('@uniswap/gouda-sdk', () => ({
   DutchLimitOrder: { parse: () => DECODED_ORDER },
   OrderType: { DutchLimit: 'DutchLimit' },
 }))

@@ -1,5 +1,5 @@
 import { default as Logger } from 'bunyan'
-import { DutchLimitOrder, OrderValidation } from 'gouda-sdk'
+import { DutchLimitOrder, OrderValidation } from '@uniswap/gouda-sdk'
 import Joi from 'joi'
 import { ORDER_STATUS, SettledAmount } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'

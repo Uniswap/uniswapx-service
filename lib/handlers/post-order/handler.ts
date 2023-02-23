@@ -1,6 +1,6 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
+import { DutchLimitOrder, OrderType } from '@uniswap/gouda-sdk'
 import Logger from 'bunyan'
-import { DutchLimitOrder, OrderType } from 'gouda-sdk'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'

@@ -1,7 +1,7 @@
+import { DutchLimitOrderBuilder } from '@uniswap/gouda-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, ethers } from 'ethers'
-import { DutchLimitOrderBuilder } from 'gouda-sdk'
 import { checkDefined } from '../../lib/preconditions/preconditions'
 dotenv.config()
 
