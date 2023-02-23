@@ -35,11 +35,11 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       serializers: bunyan.stdSerializers,
     })
 
-    // for beta environment, override mainnnet (chainId = 1) to Tenderly
+    // for local environment, override mainnnet (chainId = 1) to Tenderly
     // otherwise, inheret contract addrs from SDK
     let chainId = event.chainId
     let quoter, watcher, provider
-    if (process.env['stage'] == 'local' || (chainId == 1 && process.env['stage'] == 'beta')) {
+    if (process.env['stage'] == 'local') {
       chainId = 'TENDERLY'
       provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
       quoter = new OrderValidator(
