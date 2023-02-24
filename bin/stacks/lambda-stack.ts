@@ -194,6 +194,14 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
+      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
+        destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
+        filterPattern: '{ $.eventType = "OrderPosted" }',
+        logGroupName: this.postOrderLambda.logGroup.logGroupName,
+      })
+    }
+
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 
     this.getOrdersLambdaAlias = new aws_lambda.Alias(this, `GetOrdersLiveAlias`, {

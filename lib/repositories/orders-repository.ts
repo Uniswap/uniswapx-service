@@ -9,7 +9,7 @@ import { checkDefined } from '../preconditions/preconditions'
 import { parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
-import { getCurrentTime } from '../util/time'
+import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
 export const MAX_ORDERS = 500
@@ -186,7 +186,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           filler_orderStatus: `${order.filler}_${order.orderStatus}`,
           filler_offerer: `${order.filler}_${order.offerer}`,
           filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
-          createdAt: getCurrentTime(),
+          createdAt: currentTimestampInSeconds(),
         }),
         this.nonceEntity.updateTransaction({
           offerer: order.offerer,
