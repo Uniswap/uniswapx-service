@@ -17,7 +17,7 @@ describe('Testing new order Notification handler.', () => {
   const logInfoMock = jest.fn()
   const logErrorMock = jest.fn()
 
-  const mockWebhooks = ['webhook.com/1', 'webhook.com/2']
+  const mockWebhooks = [{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }]
 
   const MOCK_ORDER = {
     signature: {

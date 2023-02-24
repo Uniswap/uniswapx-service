@@ -1,4 +1,4 @@
-import { FILTER_FIELD } from './types'
+import { FILTER_FIELD, Webhook } from './types'
 
 export type OrderFilter = {
   [FILTER_FIELD.OFFERER]: string
@@ -8,5 +8,5 @@ export type OrderFilter = {
 }
 
 export interface WebhookProvider {
-  getEndpoints(filter: OrderFilter): Set<string>
+  getEndpoints(filter: OrderFilter): Webhook[]
 }

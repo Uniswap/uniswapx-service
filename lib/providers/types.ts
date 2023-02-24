@@ -10,9 +10,14 @@ export type WebhookDefinition = {
   registeredWebhook: { [key: string]: string }
 }
 
+export type Webhook = {
+  url: string
+  headers?: { [key: string]: string }
+}
+
 export type WebhookFilterMapping = {
-  [FILTER_FIELD.OFFERER]: { [key: string]: string[] }
-  [FILTER_FIELD.FILLER]: { [key: string]: string[] }
-  [FILTER_FIELD.ORDER_STATUS]: { [key: string]: string[] }
-  [FILTER_FIELD.SELL_TOKEN]: { [key: string]: string[] }
+  [FILTER_FIELD.OFFERER]: { [key: string]: Webhook[] }
+  [FILTER_FIELD.FILLER]: { [key: string]: Webhook[] }
+  [FILTER_FIELD.ORDER_STATUS]: { [key: string]: Webhook[] }
+  [FILTER_FIELD.SELL_TOKEN]: { [key: string]: Webhook[] }
 }

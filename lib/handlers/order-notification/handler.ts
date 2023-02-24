@@ -33,7 +33,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         for (const endpoint of registeredEndpoints) {
           const requestWithTimeout = async () =>
             await axios.post(
-              endpoint,
+              endpoint.url,
               {
                 orderHash: newOrder.orderHash,
                 createdAt: newOrder.createdAt,
@@ -42,7 +42,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
                 orderStatus: newOrder.orderStatus,
                 encodedOrder: newOrder.encodedOrder,
               },
-              { timeout: 5000 }
+              { timeout: 5000, headers: { ...endpoint.headers } }
             )
           requests.push(callWithRetry(requestWithTimeout))
         }
