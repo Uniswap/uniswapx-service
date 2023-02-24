@@ -1,7 +1,8 @@
 {
   "filter": {
     "filler": {
-      "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045": ["https://webhook.site/2ed9773a-58e8-4da6-85b3-1fddc7469fa8"]
+      "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045": ["https://webhook.site/2ed9773a-58e8-4da6-85b3-1fddc7469fa8"],
+      "0xa6cEaFED2fDA17365148A7A42291aAdbA10CaCED": ["https://rfq.fullblock.space/gouda-signed-order-webhook"]
     },
     "orderStatus": {
       "unverified": [
