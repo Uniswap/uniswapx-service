@@ -1,5 +1,5 @@
+import { DutchLimitOrder, OrderType } from '@uniswap/gouda-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
-import { DutchLimitOrder, OrderType } from 'gouda-sdk'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 
 type ParsedOrder = {

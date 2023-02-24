@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { OrderType, OrderValidation } from 'gouda-sdk'
+import { OrderType, OrderValidation } from '@uniswap/gouda-sdk'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities/Order'
 import { CheckOrderStatusHandler } from '../../lib/handlers/check-order-status/handler'
 

@@ -1,5 +1,5 @@
+import { OrderType } from '@uniswap/gouda-sdk'
 import { BigNumber, ethers } from 'ethers'
-import { OrderType } from 'gouda-sdk'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS, SORT_FIELDS } from '../entities'
 import { SUPPORTED_CHAINS } from './chain'
