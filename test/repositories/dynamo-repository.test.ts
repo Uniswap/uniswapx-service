@@ -4,7 +4,7 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
 import * as nonceUtil from '../../lib/util/nonce'
-import { getCurrentTime } from '../../lib/util/time'
+import { currentTimestampInSeconds } from '../../lib/util/time'
 
 jest.mock('../../lib/util/time')
 
@@ -75,9 +75,9 @@ const ADDITIONAL_FIELDS_ORDER_4 = {
   filler: '0x4',
 }
 
-const mockedGetCurrentTime = jest.mocked(getCurrentTime)
+const mockedGetCurrentTime = jest.mocked(currentTimestampInSeconds)
 const mockTime = (time: number) => {
-  mockedGetCurrentTime.mockImplementation(() => time)
+  mockedGetCurrentTime.mockImplementation(() => time.toString())
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
