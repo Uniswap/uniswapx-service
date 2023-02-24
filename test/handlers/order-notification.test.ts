@@ -100,9 +100,7 @@ describe('Testing new order Notification handler.', () => {
   it('Testing invalid order with no whitelisted filler.', async () => {
     const response = await orderNotificationHandler({ ...MOCK_ORDER, filler: undefined })
     expect(logErrorMock).toBeCalledWith(
-      {
-        e: TypeError("Cannot read properties of undefined (reading 'S')"),
-      },
+      "Cannot read properties of undefined (reading 'S')",
       'Unexpected failure in handler.'
     )
     expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
@@ -131,7 +129,7 @@ describe('Testing new order Notification handler.', () => {
 
   it('Testing no new order check.', async () => {
     const response = await orderNotificationHandler(null)
-    expect(logErrorMock).toBeCalledWith({ e: new Error('There is no new order.') }, 'Unexpected failure in handler.')
+    expect(logErrorMock).toBeCalledWith('There is no new order.', 'Unexpected failure in handler.')
     expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
   })
 
