@@ -5,6 +5,7 @@ import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'
 import { formatOrderEntity } from '../../util/order'
+import { currentTimestampInSeconds } from '../../util/time'
 import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
@@ -92,6 +93,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { errorCode: e.message }),
       }
     }
+    log?.info({
+      eventType: 'OrderPosted',
+      body: {
+        quoteId: order.quoteId,
+        createdAt: currentTimestampInSeconds(),
+        orderHash: order.orderHash,
+      },
+    })
     await this.kickoffOrderTrackingSfn(
       { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.UNVERIFIED, quoteId: quoteId ?? '' },
       stateMachineArn,
