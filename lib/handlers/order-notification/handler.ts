@@ -25,7 +25,6 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
           offerer: newOrder.offerer,
           orderStatus: newOrder.orderStatus,
           filler: newOrder.filler,
-          sellToken: newOrder.sellToken,
         })
 
         // build webhook requests with retries and timeouts
@@ -61,7 +60,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
           failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
         }
       } catch (e: unknown) {
-        log.error({ e }, 'Unexpected failure in handler.')
+        log.error(e instanceof Error ? e.message : e, 'Unexpected failure in handler.')
         failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
       }
     }

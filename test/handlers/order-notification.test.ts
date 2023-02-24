@@ -41,9 +41,6 @@ describe('Testing new order Notification handler.', () => {
     orderHash: {
       S: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3',
     },
-    sellToken: {
-      S: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
-    },
   }
   const getMockRecord = (order: any) => {
     return {
@@ -94,7 +91,6 @@ describe('Testing new order Notification handler.', () => {
       offerer: MOCK_ORDER.offerer.S,
       orderStatus: MOCK_ORDER.orderStatus.S,
       filler: MOCK_ORDER.filler.S,
-      sellToken: MOCK_ORDER.sellToken.S,
     })
     expect(logInfoMock).toBeCalledTimes(2)
     expect(logInfoMock).toBeCalledWith({ result: { status: 200 } }, 'Success: New order sent to registered webhook.')
@@ -120,7 +116,6 @@ describe('Testing new order Notification handler.', () => {
       offerer: MOCK_ORDER.offerer.S,
       orderStatus: MOCK_ORDER.orderStatus.S,
       filler: MOCK_ORDER.filler.S,
-      sellToken: MOCK_ORDER.sellToken.S,
     })
     expect(logErrorMock).toBeCalledWith(
       {

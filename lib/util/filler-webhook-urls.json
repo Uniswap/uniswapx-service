@@ -1,7 +1,7 @@
 {
   "filter": {
     "filler": {
-      "0xa6cEaFED2fDA17365148A7A42291aAdbA10CaCED": [
+      "0xa6ceafed2fda17365148a7a42291aadba10caced": [
         {
           "url": "https://rfq.fullblock.space/gouda-signed-order-webhook",
           "headers": {
@@ -14,7 +14,6 @@
     "orderStatus": {
       "unverified": []
     },
-    "sellToken": {},
     "offerer": {}
   },
   "registeredWebhook": {}
