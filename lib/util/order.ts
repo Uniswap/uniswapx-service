@@ -10,6 +10,7 @@ type ParsedOrder = {
   offerer: string
   filler: string
   createdAt: number
+  chainId: number
 }
 
 export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
@@ -26,6 +27,7 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
     signature: newOrder.signature.S as string,
     createdAt: parseInt(newOrder.createdAt.N as string),
     orderHash: newOrder.orderHash.S as string,
+    chainId: parseInt(newOrder.chainId.N as string),
   }
 }
 
