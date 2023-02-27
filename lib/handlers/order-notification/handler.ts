@@ -40,6 +40,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
                 offerer: newOrder.offerer,
                 orderStatus: newOrder.orderStatus,
                 encodedOrder: newOrder.encodedOrder,
+                chainId: newOrder.chainId,
               },
               { timeout: 5000, headers: { ...endpoint.headers } }
             )
