@@ -33,13 +33,16 @@ describe('Testing new order Notification handler.', () => {
       S: '0x00000000001325ad66ad5fa02621d3ad52c9323c6c2bff26820000000',
     },
     createdAt: {
-      N: 1670976836865,
+      N: '1670976836865',
     },
     filler: {
       S: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     },
     orderHash: {
       S: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3',
+    },
+    chainId: {
+      N: '1',
     },
   }
   const getMockRecord = (order: any) => {
