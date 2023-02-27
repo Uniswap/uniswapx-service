@@ -17,7 +17,7 @@ describe('Testing new order Notification handler.', () => {
   const logInfoMock = jest.fn()
   const logErrorMock = jest.fn()
 
-  const mockWebhooks = ['webhook.com/1', 'webhook.com/2']
+  const mockWebhooks = [{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }]
 
   const MOCK_ORDER = {
     signature: {
@@ -40,9 +40,6 @@ describe('Testing new order Notification handler.', () => {
     },
     orderHash: {
       S: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3',
-    },
-    sellToken: {
-      S: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
     },
   }
   const getMockRecord = (order: any) => {
@@ -94,7 +91,6 @@ describe('Testing new order Notification handler.', () => {
       offerer: MOCK_ORDER.offerer.S,
       orderStatus: MOCK_ORDER.orderStatus.S,
       filler: MOCK_ORDER.filler.S,
-      sellToken: MOCK_ORDER.sellToken.S,
     })
     expect(logInfoMock).toBeCalledTimes(2)
     expect(logInfoMock).toBeCalledWith({ result: { status: 200 } }, 'Success: New order sent to registered webhook.')
@@ -104,9 +100,7 @@ describe('Testing new order Notification handler.', () => {
   it('Testing invalid order with no whitelisted filler.', async () => {
     const response = await orderNotificationHandler({ ...MOCK_ORDER, filler: undefined })
     expect(logErrorMock).toBeCalledWith(
-      {
-        e: TypeError("Cannot read properties of undefined (reading 'S')"),
-      },
+      "Cannot read properties of undefined (reading 'S')",
       'Unexpected failure in handler.'
     )
     expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
@@ -120,7 +114,6 @@ describe('Testing new order Notification handler.', () => {
       offerer: MOCK_ORDER.offerer.S,
       orderStatus: MOCK_ORDER.orderStatus.S,
       filler: MOCK_ORDER.filler.S,
-      sellToken: MOCK_ORDER.sellToken.S,
     })
     expect(logErrorMock).toBeCalledWith(
       {
@@ -136,7 +129,7 @@ describe('Testing new order Notification handler.', () => {
 
   it('Testing no new order check.', async () => {
     const response = await orderNotificationHandler(null)
-    expect(logErrorMock).toBeCalledWith({ e: new Error('There is no new order.') }, 'Unexpected failure in handler.')
+    expect(logErrorMock).toBeCalledWith('There is no new order.', 'Unexpected failure in handler.')
     expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
   })
 
