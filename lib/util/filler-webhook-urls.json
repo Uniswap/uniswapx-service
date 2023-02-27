@@ -1,21 +1,20 @@
 {
   "filter": {
     "filler": {
-      "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045": ["https://webhook.site/2ed9773a-58e8-4da6-85b3-1fddc7469fa8"],
-      "0xa6cEaFED2fDA17365148A7A42291aAdbA10CaCED": ["https://rfq.fullblock.space/gouda-signed-order-webhook"]
-    },
-    "orderStatus": {
-      "unverified": [
-        "https://webhook.site/683d1912-fe8b-4469-8056-871cd59afb05",
-        "https://webhook.site/a7fb519b-ef33-46cf-9a70-5b6d02475b3a"
+      "0xa6ceafed2fda17365148a7a42291aadba10caced": [
+        {
+          "url": "https://rfq.fullblock.space/gouda-signed-order-webhook",
+          "headers": {
+            "CF-Access-Client-Id": "d8f79c081132230edc10c206aff1696c.access",
+            "CF-Access-Client-Secret": "c2ae13d2fa370590567befe36899ed35edfc331bb6402140a0a23aa986709518"
+          }
+        }
       ]
     },
-    "sellToken": {},
+    "orderStatus": {
+      "unverified": []
+    },
     "offerer": {}
   },
-  "registeredWebhook": {
-    "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045": "https://webhook.site/2ed9773a-58e8-4da6-85b3-1fddc7469fa8",
-    "0x76e4de46c21603545eaaf7daf25e54c0d06bafa9": "https://webhook.site/683d1912-fe8b-4469-8056-871cd59afb05",
-    "0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa": "https://webhook.site/a7fb519b-ef33-46cf-9a70-5b6d02475b3a"
-  }
+  "registeredWebhook": {}
 }

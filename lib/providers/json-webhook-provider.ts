@@ -1,5 +1,5 @@
 import { OrderFilter, WebhookProvider } from './base'
-import { FILTER_FIELD, WebhookDefinition } from './types'
+import { FILTER_FIELD, Webhook, WebhookDefinition } from './types'
 
 export class JsonWebhookProvider implements WebhookProvider {
   static create(jsonDocument: WebhookDefinition): JsonWebhookProvider {
@@ -9,8 +9,8 @@ export class JsonWebhookProvider implements WebhookProvider {
   private constructor(private readonly jsonDocument: WebhookDefinition) {}
 
   // get registered endpoints for a filter set
-  public getEndpoints(filter: OrderFilter): Set<string> {
-    let endpoints: string[] = []
+  public getEndpoints(filter: OrderFilter): Webhook[] {
+    let endpoints: Webhook[] = []
     const filterKeys = Object.keys(filter) as FILTER_FIELD[]
     const filterMapping = this.jsonDocument.filter
 
@@ -22,6 +22,13 @@ export class JsonWebhookProvider implements WebhookProvider {
       }
     }
 
-    return new Set(endpoints)
+    const urls: Set<string> = new Set()
+    return endpoints.filter((endpoint) => {
+      if (urls.has(endpoint.url)) {
+        return false
+      }
+      urls.add(endpoint.url)
+      return true
+    })
   }
 }
