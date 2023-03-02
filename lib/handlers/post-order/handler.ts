@@ -99,6 +99,9 @@ export class PostOrderHandler extends APIGLambdaHandler<
         quoteId: order.quoteId,
         createdAt: currentTimestampInSeconds(),
         orderHash: order.orderHash,
+        startTime: order.startTime,
+        endTime: order.endTime,
+        deadline: order.deadline,
       },
     })
     await this.kickoffOrderTrackingSfn(
