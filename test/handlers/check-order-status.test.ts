@@ -22,6 +22,7 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
 describe('Testing check order status handler', () => {
   const validateMock = jest.fn()
   const getFillEventsMock = jest.fn()
+  const getFillInfoMock = jest.fn()
 
   const getByHashMock = jest.fn().mockReturnValue(MOCK_ORDER_ENTITY)
   const updateOrderStatusMock = jest.fn().mockReturnValue(Promise<void>)
@@ -49,6 +50,7 @@ describe('Testing check order status handler', () => {
           },
           orderWatcher: {
             getFillEvents: getFillEventsMock,
+            getFillInfo: getFillInfoMock,
           },
           provider: {
             getBlockNumber: providerMock,
@@ -118,6 +120,7 @@ describe('Testing check order status handler', () => {
     it('should return expired order status', async () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
       validateMock.mockReturnValue(OrderValidation.Expired)
+      getFillInfoMock.mockReturnValue([])
       expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.EXPIRED,
       })
