@@ -26,20 +26,68 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
 
+    log.info({ validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash }, 'validating order')
     switch (validation) {
-      case OrderValidation.Expired:
-        return this.updateStatusAndReturn(
-          {
-            dbInterface,
-            orderHash,
-            quoteId,
-            retryCount,
-            lastBlockNumber: curBlockNumber,
-            chainId,
-            orderStatus: ORDER_STATUS.EXPIRED,
-          },
-          log
+      case OrderValidation.Expired: {
+        // order could still be filled even when OrderQuoter.quote bubbled up 'expired' revert
+        const fromBlock = lastBlockNumber === 0 ? curBlockNumber - 5 : lastBlockNumber
+        const fillEvent = (await orderWatcher.getFillInfo(fromBlock, curBlockNumber)).find(
+          (e) => e.orderHash === orderHash
         )
+        if (fillEvent) {
+          const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
+          fillEvent.outputs.forEach((output) => {
+            log.info({
+              orderInfo: {
+                orderStatus: ORDER_STATUS.FILLED,
+                orderHash: fillEvent.orderHash,
+                quoteId: quoteId,
+                filler: fillEvent.filler,
+                nonce: fillEvent.nonce.toString(),
+                offerer: fillEvent.offerer,
+                tokenOut: output.token,
+                amountOut: output.amount.toString(),
+                blockNumber: fillEvent.blockNumber,
+                txHash: fillEvent.txHash,
+                fillTimestamp: timestamp,
+              },
+            })
+          })
+
+          const settledAmounts = fillEvent.outputs.map((output) => ({
+            tokenOut: output.token,
+            amountOut: output.amount.toString(),
+          }))
+
+          return this.updateStatusAndReturn(
+            {
+              dbInterface,
+              orderHash,
+              quoteId,
+              retryCount,
+              lastBlockNumber: curBlockNumber,
+              chainId,
+              orderStatus: ORDER_STATUS.FILLED,
+              txHash: fillEvent.txHash,
+              settledAmounts,
+            },
+            log
+          )
+        } else {
+          return this.updateStatusAndReturn(
+            {
+              dbInterface,
+              orderHash,
+              quoteId,
+              retryCount,
+              lastBlockNumber: curBlockNumber,
+              chainId,
+              orderStatus: ORDER_STATUS.EXPIRED,
+            },
+            log
+          )
+        }
+      }
       case OrderValidation.InsufficientFunds:
         return this.updateStatusAndReturn(
           {
@@ -74,6 +122,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           (e) => e.orderHash === orderHash
         )
         if (fillEvent) {
+          const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
           fillEvent.outputs.forEach((output) => {
             log.info({
               orderInfo: {
@@ -87,6 +136,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
                 amountOut: output.amount.toString(),
                 blockNumber: fillEvent.blockNumber,
                 txHash: fillEvent.txHash,
+                fillTimestamp: timestamp,
               },
             })
           })
