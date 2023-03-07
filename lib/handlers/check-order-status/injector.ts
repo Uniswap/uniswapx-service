@@ -2,7 +2,6 @@ import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
-import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
@@ -37,34 +36,13 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
 
     // for local environment, override mainnnet (chainId = 1) to Tenderly
     // otherwise, inheret contract addrs from SDK
-    let chainId = event.chainId
-    let quoter, watcher, provider
-    if (process.env['stage'] == 'local') {
-      chainId = 'TENDERLY'
-      provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
-      quoter = new OrderValidator(
-        provider,
-        parseInt(event.chainId as string),
-        checkDefined(process.env[`QUOTER_${chainId}`])
-      )
-      watcher = new EventWatcher(provider, checkDefined(process.env[`DL_REACTOR_${chainId}`]))
+    const chainId = event.chainId
+    const provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
+    const quoter = new OrderValidator(provider, parseInt(chainId as string))
+    // TODO: use different reactor address for different order type
+    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.DutchLimit])
 
-      log.info(
-        {
-          chainId: chainId,
-          rpc: process.env[`RPC_${chainId}`],
-          quoterAddr: process.env[`QUOTER_${chainId}`],
-          reactorAddr: process.env[`DL_REACTOR_${chainId}`],
-        },
-        'using tenderly'
-      )
-    } else {
-      provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
-      quoter = new OrderValidator(provider, parseInt(event.chainId as string))
-      // TODO: use different reactor address for different order type
-      watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.DutchLimit])
-    }
-
+    log.info({ quoter: quoter, watcher: watcher, quoterAddr: quoter.orderQuoterAddress }, 'getRequestInjected')
     return {
       log,
       chainId: event.chainId as number,
