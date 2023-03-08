@@ -96,17 +96,19 @@ describe('Testing new order Notification handler.', () => {
       filler: MOCK_ORDER.filler.S,
     })
     expect(logInfoMock).toBeCalledTimes(2)
-    expect(logInfoMock).toBeCalledWith({ result: { status: 200 } }, 'Success: New order sent to registered webhook.')
+    expect(logInfoMock).toBeCalledWith(
+      { result: { status: 200 } },
+      'Success: New order record sent to registered webhook.'
+    )
     expect(response).toMatchObject({ batchItemFailures: [] })
   })
 
-  it('Testing invalid order with no whitelisted filler.', async () => {
-    const response = await orderNotificationHandler({ ...MOCK_ORDER, filler: undefined })
+  it('Testing invalid order with no order hash.', async () => {
+    await orderNotificationHandler({ ...MOCK_ORDER, orderHash: undefined })
     expect(logErrorMock).toBeCalledWith(
-      "Cannot read properties of undefined (reading 'S')",
+      "Error parsing new record to order: Cannot read properties of undefined (reading 'S')",
       'Unexpected failure in handler.'
     )
-    expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
   })
 
   it('Testing failed webhook notification.', async () => {

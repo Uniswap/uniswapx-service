@@ -8,7 +8,7 @@ type ParsedOrder = {
   orderHash: string
   orderStatus: ORDER_STATUS
   offerer: string
-  filler: string
+  filler?: string
   createdAt: number
   chainId: number
 }
@@ -19,15 +19,19 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
     throw new Error('There is no new order.')
   }
 
-  return {
-    offerer: newOrder.offerer.S as string,
-    orderStatus: newOrder.orderStatus.S as ORDER_STATUS,
-    filler: newOrder.filler.S as string,
-    encodedOrder: newOrder.encodedOrder.S as string,
-    signature: newOrder.signature.S as string,
-    createdAt: parseInt(newOrder.createdAt.N as string),
-    orderHash: newOrder.orderHash.S as string,
-    chainId: parseInt(newOrder.chainId.N as string),
+  try {
+    return {
+      offerer: newOrder.offerer.S as string,
+      orderStatus: newOrder.orderStatus.S as ORDER_STATUS,
+      encodedOrder: newOrder.encodedOrder.S as string,
+      signature: newOrder.signature.S as string,
+      createdAt: parseInt(newOrder.createdAt.N as string),
+      orderHash: newOrder.orderHash.S as string,
+      chainId: parseInt(newOrder.chainId.N as string),
+      ...(newOrder?.filler?.S && { filler: newOrder.filler.S as string }),
+    }
+  } catch (e) {
+    throw new Error(`Error parsing new record to order: ${e instanceof Error ? e.message : e}`)
   }
 }
 
