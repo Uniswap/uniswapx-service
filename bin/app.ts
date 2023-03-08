@@ -214,6 +214,7 @@ Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
 })
 
 envVars['RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
+envVars['RPC_1'] = process.env[`RPC_1`] || ''
 envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
