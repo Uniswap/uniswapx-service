@@ -52,7 +52,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         const results = await Promise.allSettled(requests)
         results.forEach((result) =>
           result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202
-            ? log.info({ result: result.value }, 'Success: New order sent to registered webhook.')
+            ? log.info({ result: result.value }, 'Success: New order record sent to registered webhook.')
             : failedRequests.push(result)
         )
 
