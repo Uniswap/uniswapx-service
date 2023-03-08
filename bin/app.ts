@@ -30,6 +30,7 @@ export class APIStage extends Stage {
     const { provisionedConcurrency, chatbotSNSArn, stage, env, envVars } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
+      throttlingOverride: envVars.THROTTLE_PER_FIVE_MINS,
       env,
       provisionedConcurrency,
       chatbotSNSArn,
@@ -124,6 +125,7 @@ export class APIPipeline extends Stack {
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
+        THROTTLE_PER_FIVE_MINS: '3000',
       },
     })
 
@@ -141,6 +143,7 @@ export class APIPipeline extends Stack {
         ...jsonRpcUrls,
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
+        THROTTLE_PER_FIVE_MINS: '3000',
       },
     })
 
