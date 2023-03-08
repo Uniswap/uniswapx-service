@@ -16,7 +16,7 @@ export class JsonWebhookProvider implements WebhookProvider {
 
     for (const filterKey of filterKeys) {
       const filterValue = filter[filterKey]
-      if (Object.keys(filterMapping[filterKey]).includes(filterValue)) {
+      if (filterValue && Object.keys(filterMapping[filterKey]).includes(filterValue)) {
         const registeredEndpoints = filterMapping[filterKey][filterValue]
         endpoints = endpoints.concat(registeredEndpoints)
       }
