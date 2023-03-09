@@ -1,5 +1,6 @@
 import { DutchLimitOrder, OrderValidation } from '@uniswap/gouda-sdk'
 import { default as Logger } from 'bunyan'
+import { ethers } from 'ethers'
 import Joi from 'joi'
 import { ORDER_STATUS, SettledAmount } from '../../entities/Order'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -38,6 +39,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         if (fillEvent) {
           const tx = await provider.getTransaction(fillEvent.txHash)
           const receipt = await tx.wait()
+          const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
           fillEvent.outputs.forEach((output) => {
             log.info({
@@ -55,6 +57,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
                 fillTimestamp: timestamp,
                 gasPriceWei: receipt.effectiveGasPrice.toString(),
                 gasUsed: receipt.gasUsed.toString(),
+                gasCostInETH: gasCostInETH,
               },
             })
           })
@@ -129,6 +132,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         if (fillEvent) {
           const tx = await provider.getTransaction(fillEvent.txHash)
           const receipt = await tx.wait()
+          const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
           fillEvent.outputs.forEach((output) => {
             log.info({
@@ -146,6 +150,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
                 fillTimestamp: timestamp,
                 gasPriceWei: receipt.effectiveGasPrice.toString(),
                 gasUsed: receipt.gasUsed.toString(),
+                gasCostInETH: gasCostInETH,
               },
             })
           })
