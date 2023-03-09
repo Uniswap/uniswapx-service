@@ -36,6 +36,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           (e) => e.orderHash === orderHash
         )
         if (fillEvent) {
+          const tx = await provider.getTransaction(fillEvent.txHash)
+          const receipt = await tx.wait()
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
           fillEvent.outputs.forEach((output) => {
             log.info({
@@ -51,6 +53,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
                 blockNumber: fillEvent.blockNumber,
                 txHash: fillEvent.txHash,
                 fillTimestamp: timestamp,
+                gasPriceWei: receipt.effectiveGasPrice.toString(),
+                gasUsed: receipt.gasUsed.toString(),
               },
             })
           })
@@ -123,6 +127,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           (e) => e.orderHash === orderHash
         )
         if (fillEvent) {
+          const tx = await provider.getTransaction(fillEvent.txHash)
+          const receipt = await tx.wait()
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
           fillEvent.outputs.forEach((output) => {
             log.info({
@@ -138,6 +144,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
                 blockNumber: fillEvent.blockNumber,
                 txHash: fillEvent.txHash,
                 fillTimestamp: timestamp,
+                gasPriceWei: receipt.effectiveGasPrice.toString(),
+                gasUsed: receipt.gasUsed.toString(),
               },
             })
           })
