@@ -1,21 +1,21 @@
-import hre from 'hardhat'
-import "@nomiclabs/hardhat-ethers";
+/**
+ * @jest-environment hardhat
+ */
+import 'jest-environment-hardhat';
 import { DutchLimitOrderBuilder } from '@uniswap/gouda-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
-import { BigNumber } from 'ethers'
+import { BigNumber, ethers, Wallet } from 'ethers';
 import { ANVIL_TEST_WALLET_PK, UNI, WETH, ZERO_ADDRESS } from './constants'
 dotenv.config()
 
-const { ethers } = hre
-
 describe('/dutch-auction/order', () => {
-    let wallet: ethers.Wallet
+    let wallet: Wallet
     let address: string
     let nonce: BigNumber
 
     beforeEach(async () => {
-        wallet = new ethers.Wallet(ANVIL_TEST_WALLET_PK)
+        wallet = new Wallet(ANVIL_TEST_WALLET_PK)
         address = (await wallet.getAddress()).toLowerCase()
 
         const getResponse = await axios.get(`${URL}dutch-auction/nonce?address=${address}`)
