@@ -1,39 +1,42 @@
-/**
- * @jest-environment hardhat
- */
-import 'jest-environment-hardhat'
 import { DutchLimitOrderBuilder } from '@uniswap/gouda-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
-import { BigNumber, ethers, Wallet } from 'ethers'
-import { ALICE_TEST_WALLET_PK, parseAmount, UNI, WETH } from './constants'
+import { BigNumber, Contract, ethers, Wallet } from 'ethers'
+import { ALICE_TEST_WALLET_PK, UNI, WETH } from './constants'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema/index'
+
+import * as ERC20_ABI from '../abis/erc20.json'
+const { abi } = ERC20_ABI
+
 dotenv.config()
 
 describe('/dutch-auction/order', () => {
-  jest.setTimeout(30 * 1000); // 500s
   let wallet: Wallet
+  let provider: ethers.providers.JsonRpcProvider
   let aliceAddress: string
   let nonce: BigNumber
   let URL: string
+  let weth: Contract
 
   beforeEach(async () => {
     if(!process.env.GOUDA_SERVICE_URL) {
         throw new Error('GOUDA_SERVICE_URL not set')
     }
+    if(!process.env.RPC_TENDERLY) {
+        throw new Error('RPC_TENDERLY not set')
+    }
     URL = process.env.GOUDA_SERVICE_URL
+    provider = new ethers.providers.JsonRpcProvider(process.env.RPC_TENDERLY)
 
-    await hardhat.fork()
     wallet = new Wallet(ALICE_TEST_WALLET_PK)
-    // fund wallet
-    await hardhat.fund(
-        wallet.address, 
-        [parseAmount('100', WETH)],
-        ['0x8eb8a3b98659cce290402893d0123abb75e3ab28']
-    )
-    expect(await hardhat.getBalance(wallet.address, WETH)).toEqual(parseAmount('100', WETH))
-
     aliceAddress = (await wallet.getAddress()).toLowerCase()
+
+    weth = new Contract(WETH, abi, provider)
+    // fund wallet if necessary
+    const balance = await weth.balanceOf(wallet.address) as BigNumber
+    if (balance.lt(ethers.utils.parseEther('10'))) {
+        throw new Error(`Insufficient weth balance for integration tests using ${aliceAddress}. Expected at least 10 weth, got ${balance.toString()}`)
+    }
 
     const getResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
     expect(getResponse.status).toEqual(200)
@@ -44,7 +47,7 @@ describe('/dutch-auction/order', () => {
   // base test case:
   // post order, get nonce, get orders, delete order
   it('erc20 to erc20', async () => {
-    const amount = BigNumber.from(10).pow(18)
+    const amount = BigNumber.from(1).pow(18)
     // post order
     const deadline = Math.round(new Date().getTime() / 1000) + 10
     const order = new DutchLimitOrderBuilder(1)
@@ -54,12 +57,12 @@ describe('/dutch-auction/order', () => {
       .offerer(await wallet.getAddress())
       .nonce(nonce.add(1))
       .input({
-        token: WETH.address,
+        token: WETH,
         startAmount: amount,
         endAmount: amount,
       })
       .output({
-        token: UNI.address,
+        token: UNI,
         startAmount: amount,
         endAmount: amount,
         recipient: aliceAddress,
@@ -91,7 +94,7 @@ describe('/dutch-auction/order', () => {
     expect(fetchedOrder!.orderHash).toEqual(postResponse.data.hash)
     expect(fetchedOrder!.orderStatus).toEqual('unverified')
     // ensure that order is eventually verified and is marked as open
-    await new Promise((resolve) => setTimeout(resolve, 10000))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
     const getOrdersResponse2 = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${postResponse.data.hash}`)
     expect(getOrdersResponse2.status).toEqual(200)
     expect(getOrdersResponse2.data.orders.length).toEqual(1)

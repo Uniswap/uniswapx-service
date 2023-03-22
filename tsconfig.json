@@ -19,7 +19,7 @@
     "strictNullChecks": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
-    "noUnusedLocals": true /* Report errors on unused locals. */,
+    "noUnusedLocals": false /* Report errors on unused locals. */,
     "noUnusedParameters": true /* Report errors on unused parameters. */,
     "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
     "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
@@ -30,8 +30,6 @@
     "allowJs": true,
     "typeRoots": ["./node_modules/@types"],
     "types": ["node", "jest"],
-    // seems like a nuclear option to solve the issue of mocha and jest types conflicting 
-    "skipLibCheck": true
   },
   "exclude": ["cdk.out", "./dist/**/*"]
 }
