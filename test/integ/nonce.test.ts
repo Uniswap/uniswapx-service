@@ -3,10 +3,9 @@ import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, ethers } from 'ethers'
 import { checkDefined } from '../../lib/preconditions/preconditions'
+import { ANVIL_TEST_WALLET_PK, ZERO_ADDRESS } from './constants'
 dotenv.config()
 
-const ANVIL_TEST_WALLET_PK = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 const URL = checkDefined(process.env.GOUDA_SERVICE_URL, 'GOUDA_SERVICE_URL must be defined')
 
 const wallet = new ethers.Wallet(ANVIL_TEST_WALLET_PK)
