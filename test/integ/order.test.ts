@@ -2,8 +2,8 @@ import { DutchLimitOrderBuilder } from '@uniswap/gouda-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { ALICE_TEST_WALLET_PK, UNI, WETH } from './constants'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema/index'
+import { ALICE_TEST_WALLET_PK, UNI, WETH } from './constants'
 
 import * as ERC20_ABI from '../abis/erc20.json'
 const { abi } = ERC20_ABI
@@ -22,11 +22,11 @@ describe('/dutch-auction/order', () => {
   let weth: Contract
 
   beforeEach(async () => {
-    if(!process.env.GOUDA_SERVICE_URL) {
-        throw new Error('GOUDA_SERVICE_URL not set')
+    if (!process.env.GOUDA_SERVICE_URL) {
+      throw new Error('GOUDA_SERVICE_URL not set')
     }
-    if(!process.env.RPC_TENDERLY) {
-        throw new Error('RPC_TENDERLY not set')
+    if (!process.env.RPC_TENDERLY) {
+      throw new Error('RPC_TENDERLY not set')
     }
     URL = process.env.GOUDA_SERVICE_URL
     provider = new ethers.providers.JsonRpcProvider(process.env.RPC_TENDERLY)
@@ -36,9 +36,11 @@ describe('/dutch-auction/order', () => {
 
     weth = new Contract(WETH, abi, provider)
     // fund wallet if necessary
-    const balance = await weth.balanceOf(wallet.address) as BigNumber
+    const balance = (await weth.balanceOf(wallet.address)) as BigNumber
     if (balance.lt(ethers.utils.parseEther('10'))) {
-        throw new Error(`Insufficient weth balance for integration tests using ${aliceAddress}. Expected at least 10 weth, got ${balance.toString()}`)
+      throw new Error(
+        `Insufficient weth balance for integration tests using ${aliceAddress}. Expected at least 10 weth, got ${balance.toString()}`
+      )
     }
     // approve P2
     await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
@@ -93,7 +95,9 @@ describe('/dutch-auction/order', () => {
     // ensure that order is eventually verified and is marked as open
     await new Promise((resolve) => setTimeout(resolve, 1000))
     // get orders
-    const getOrdersResponse2 = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${postResponse.data.hash}`)
+    const getOrdersResponse2 = await axios.get<GetOrdersResponse>(
+      `${URL}dutch-auction/orders?orderHash=${postResponse.data.hash}`
+    )
     expect(getOrdersResponse2.status).toEqual(200)
     expect(getOrdersResponse2.data.orders.length).toEqual(1)
     const fetchedOrder2 = getOrdersResponse2.data.orders[0]
@@ -125,6 +129,5 @@ describe('/dutch-auction/order', () => {
         isFeeOutput: false,
       })
       .build()
-
   })
 })
