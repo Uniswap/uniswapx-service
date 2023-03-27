@@ -4,7 +4,7 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
 import * as nonceUtil from '../../lib/util/nonce'
-import { currentTimestampInSeconds } from '../../lib/util/time'
+import { currentTimestampInSeconds, currentYearMonthDate } from '../../lib/util/time'
 
 jest.mock('../../lib/util/time')
 
@@ -76,17 +76,24 @@ const ADDITIONAL_FIELDS_ORDER_4 = {
 }
 
 const mockedGetCurrentTime = jest.mocked(currentTimestampInSeconds)
+const mockedGetCurrentYearMonthDate = jest.mocked(currentYearMonthDate)
 const mockTime = (time: number) => {
   mockedGetCurrentTime.mockImplementation(() => time.toString())
+}
+
+const mockYearMonthDate = (yearMonthDate: string) => {
+  mockedGetCurrentYearMonthDate.mockImplementation(() => yearMonthDate)
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
 const ordersRepository = DynamoOrdersRepository.create(documentClient)
 
 beforeAll(async () => {
+  mockYearMonthDate('2020-01-01')
   mockTime(1)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1)
   mockTime(2)
+  mockYearMonthDate('2020-01-02')
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_2)
   mockTime(3)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_3)
@@ -96,6 +103,7 @@ describe('OrdersRepository put item test', () => {
   it('should successfully put an item in table', async () => {
     expect(() => {
       mockTime(1)
+      mockYearMonthDate('2020-01-01')
       ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1)
     }).not.toThrow()
   })
@@ -234,6 +242,15 @@ describe('OrdersRepository getOrders test', () => {
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
     expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
   })
+
+  it('should successfully return order by current date', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      date: '2020-01-02',
+    })
+    expect(queryResult.orders.length).toEqual(2)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+  })
 })
 
 describe('OrdersRepository getOrders test with pagination', () => {
@@ -255,6 +272,24 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.orders.length).toEqual(1)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(orders.cursor).toEqual(undefined)
+  })
+
+  it('should successfully page through orders with date', async () => {
+    let queryResult = await ordersRepository.getOrders(1, {
+      date: '2020-01-02',
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    queryResult = await ordersRepository.getOrders(
+      2,
+      {
+        date: '2020-01-02',
+      },
+      queryResult.cursor
+    )
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(queryResult.cursor).toEqual(undefined)
   })
 
   it('should successfully page through orders with limit', async () => {
@@ -337,6 +372,16 @@ describe('OrdersRepository getOrders test with sorting', () => {
     expect(queryResult.orders.length).toEqual(2)
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+  })
+
+  it('should successfully get order given a date and createdAt sort', async () => {
+    const queryResult = await ordersRepository.getOrders(1, {
+      date: '2020-01-02',
+      sortKey: SORT_FIELDS.CREATED_AT,
+      sort: 'between(1,3)',
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
   })
 })
 

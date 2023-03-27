@@ -94,11 +94,15 @@ describe('Testing get orders handler.', () => {
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
       [
         { sortKey: 'createdAt' },
-        '{"detail":"\\"value\\" must contain at least one of [orderStatus, offerer, filler]","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"\\"value\\" must contain at least one of [orderStatus, offerer, filler, date]","errorCode":"VALIDATION_ERROR"}',
       ],
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
       [{ sort: 'gt(4)' }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
+      [
+        { date: '200-01-09' },
+        '{"detail":"\\"date\\" with value \\"200-01-09\\" fails to match the required pattern: /^\\\\d{4}-\\\\d{2}-\\\\d{2}$/","errorCode":"VALIDATION_ERROR"}',
+      ],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
         ...event,

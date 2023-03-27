@@ -238,4 +238,20 @@ describe('Testing each field on the FieldValidator class.', () => {
       )
     })
   })
+
+  describe('Testing date field.', () => {
+    it('should validate field.', async () => {
+      const date = '1997-04-30'
+      expect(FieldValidator.isValidDate().validate(date)).toEqual({ value: date })
+    })
+
+    it('should invalidate field.', async () => {
+      const invalidDate = '199-02-50'
+      const validatedField = FieldValidator.isValidDate().validate(invalidDate)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        `"value" with value "${invalidDate}" fails to match the required pattern: /^\\d{4}-\\d{2}-\\d{2}$/`
+      )
+    })
+  })
 })

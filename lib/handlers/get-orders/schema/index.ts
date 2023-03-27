@@ -6,6 +6,7 @@ const indexKeyJoi = Joi.object({
   orderStatus: FieldValidator.isValidOrderStatus(),
   offerer: FieldValidator.isValidEthAddress(),
   filler: FieldValidator.isValidEthAddress(),
+  date: FieldValidator.isValidDate(),
 })
 const sortKeyJoi = FieldValidator.isValidSortKey()
 
@@ -21,7 +22,7 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   cursor: FieldValidator.isValidCursor(),
 }).when('.sortKey', {
   is: Joi.exist(),
-  then: indexKeyJoi.or('orderStatus', 'offerer', 'filler'),
+  then: indexKeyJoi.or('orderStatus', 'offerer', 'filler', 'date'),
   otherwise: indexKeyJoi,
 })
 
@@ -34,6 +35,7 @@ export type GetOrdersQueryParams = {
   sort?: string
   filler?: string
   cursor?: string
+  date?: string
 }
 
 export type GetOrdersResponse = {
@@ -90,4 +92,5 @@ export enum GET_QUERY_PARAMS {
   SORT_KEY = 'sortKey',
   SORT = 'sort',
   FILLER = 'filler',
+  DATE = 'date',
 }

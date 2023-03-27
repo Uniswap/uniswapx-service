@@ -57,6 +57,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const sort = requestQueryParams?.sort ?? defaultSort
     const filler = requestQueryParams?.filler
     const cursor = requestQueryParams?.cursor
+    const date = requestQueryParams?.date
 
     return {
       limit: limit,
@@ -67,6 +68,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
         ...(sortKey && { sortKey: sortKey }),
         ...(filler && { filler: filler }),
         ...(sort && { sort: sort }),
+        ...(date && { date: date }),
       },
       requestId,
       log,

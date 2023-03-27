@@ -90,6 +90,13 @@ const OPENAPI_SCHEMA: GetJsonResponse = {
             schema: getOrderParamProperties.filler,
           },
           {
+            name: 'date',
+            in: 'query',
+            description: 'Filter by date. Use this parameter to page through all orders sorted by timestamp.',
+            required: false,
+            schema: getOrderParamProperties.date,
+          },
+          {
             name: 'sortKey',
             in: 'query',
             description: 'Order the query results by the sort key.',

@@ -9,7 +9,7 @@ import { checkDefined } from '../preconditions/preconditions'
 import { parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
-import { currentTimestampInSeconds } from '../util/time'
+import { currentTimestampInSeconds, currentYearMonthDate } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
 export const MAX_ORDERS = 500
@@ -30,6 +30,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       indexes: {
         [`${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: TABLE_KEY.OFFERER,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.DATE}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: TABLE_KEY.DATE,
           sortKey: TABLE_KEY.CREATED_AT,
         },
         [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
@@ -86,6 +90,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         quoteId: { type: DYNAMODB_TYPES.STRING },
         txHash: { type: DYNAMODB_TYPES.STRING },
         settledAmounts: { type: DYNAMODB_TYPES.LIST },
+        date: { type: DYNAMODB_TYPES.STRING },
       },
       table: ordersTable,
     } as const)
@@ -132,6 +137,16 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     sort?: string
   ): Promise<QueryResult> {
     return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort)
+  }
+
+  public async getByDate(
+    date: string,
+    limit: number,
+    cursor?: string,
+    sortKey?: SORT_FIELDS,
+    sort?: string
+  ): Promise<QueryResult> {
+    return await this.queryOrderEntity(date, TABLE_KEY.DATE, limit, cursor, sortKey, sort)
   }
 
   public async getByFiller(
@@ -187,6 +202,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           filler_offerer: `${order.filler}_${order.offerer}`,
           filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
           createdAt: currentTimestampInSeconds(),
+          date: currentYearMonthDate(),
         }),
         this.nonceEntity.updateTransaction({
           offerer: order.offerer,
@@ -227,6 +243,16 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
         const order = await this.getByHash(queryFilters['orderHash'] as string)
         return { orders: order ? [order] : [] }
+      }
+
+      case requestedParams.includes(GET_QUERY_PARAMS.DATE): {
+        return await this.getByDate(
+          queryFilters['date'] as string,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort']
+        )
       }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):

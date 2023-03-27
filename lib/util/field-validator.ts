@@ -15,6 +15,7 @@ export default class FieldValidator {
   private static readonly UUIDV4_JOI = Joi.string().guid({
     version: ['uuidv4'],
   })
+  private static readonly DATE_JOI = Joi.string().regex(/^\d{4}-\d{2}-\d{2}$/)
   private static readonly BIG_NUMBER_JOI = Joi.string()
     .min(1)
     .max(78) // 2^256 - 1 in base 10 is 78 digits long
@@ -110,6 +111,10 @@ export default class FieldValidator {
 
   public static isValidAmount(): StringSchema {
     return this.BIG_NUMBER_JOI
+  }
+
+  public static isValidDate(): StringSchema {
+    return this.DATE_JOI
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {
