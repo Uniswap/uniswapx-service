@@ -12,7 +12,8 @@
       ]
     },
     "orderStatus": {
-      "unverified": []
+      "unverified": [{ "url": "http://flask-test-env.eba-wirpqier.us-east-2.***REMOVED***/webhook" }],
+      "open": [{ "url": "http://flask-test-env.eba-wirpqier.us-east-2.***REMOVED***/webhook" }]
     },
     "offerer": {}
   },
