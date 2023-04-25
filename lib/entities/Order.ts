@@ -20,7 +20,6 @@ export type OrderOutput = {
   token: string
   startAmount?: string
   endAmount?: string
-  isFeeOutput?: boolean
   recipient?: string
 }
 

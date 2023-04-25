@@ -15,7 +15,6 @@ const OUTPUT = {
   startAmount: BigNumber.from('3'),
   endAmount: BigNumber.from('2'),
   recipient: RECIPIENT,
-  isFeeOutput: false,
 }
 const REACTOR = '0x1111111111111111111111111111111111111111'
 const VALIDATION_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -186,7 +185,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(-1),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -200,7 +198,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(1).shl(256),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -220,7 +217,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(-1),
             endAmount: BigNumber.from(2),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -234,7 +230,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(1).shl(256),
             endAmount: BigNumber.from(2),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -252,7 +247,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(3),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -268,7 +262,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(1),
             recipient: '0xfoo',
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -283,7 +276,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(1),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)

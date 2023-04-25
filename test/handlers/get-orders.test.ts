@@ -23,7 +23,6 @@ describe('Testing get orders handler.', () => {
         token: '0x0000000000000000000000000000000000000001',
         startAmount: '3000000000000000000',
         endAmount: '2000000000000000000',
-        isFeeOutput: false,
         recipient: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
       },
     ],

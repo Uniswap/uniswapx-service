@@ -51,7 +51,6 @@ export const OrderOutputJoi = Joi.object({
   token: FieldValidator.isValidEthAddress().required(),
   startAmount: FieldValidator.isValidAmount(),
   endAmount: FieldValidator.isValidAmount(),
-  isFeeOutput: Joi.boolean(),
   recipient: FieldValidator.isValidEthAddress(),
 })
 
