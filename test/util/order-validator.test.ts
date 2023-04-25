@@ -6,6 +6,7 @@ const CURRENT_TIME = 10
 const validationProvider = new OrderValidator(() => CURRENT_TIME)
 const INPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000022'
 const OUTPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000033'
+const EXCLUSIVE_FILLER = '0x0000000000000000000000000000000000000044'
 const ONE_YEAR = 60 * 60 * 24 * 365
 const OFFERER = '0x0000000000000000000000000000000000032100'
 const RECIPIENT = '0x0000000000000000000000000000000000045600'
@@ -23,6 +24,8 @@ const VALIDATION_DATA = '0x'
 function newOrder({
   startTime = 5,
   deadline = 20,
+  exclusiveFiller = EXCLUSIVE_FILLER,
+  exclusivityOverrideBps = BigNumber.from(0),
   nonce = BigNumber.from(30),
   offerer = OFFERER,
   input = INPUT,
@@ -36,6 +39,8 @@ function newOrder({
     {
       startTime,
       endTime: deadline,
+      exclusiveFiller,
+      exclusivityOverrideBps,
       deadline,
       nonce,
       offerer,
