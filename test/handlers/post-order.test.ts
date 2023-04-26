@@ -39,7 +39,6 @@ const DECODED_ORDER = {
         startAmount: BigNumber.from(60),
         recipient: '0x0000000000000000000000000000000000000004',
         token: '0x0000000000000000000000000000000000000005',
-        isFeeOutput: false,
       },
     ],
   },
@@ -104,7 +103,6 @@ describe('Testing post order handler.', () => {
         startAmount: '60',
         token: '0x0000000000000000000000000000000000000005',
         recipient: '0x0000000000000000000000000000000000000004',
-        isFeeOutput: false,
       },
     ],
   }
