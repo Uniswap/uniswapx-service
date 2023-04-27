@@ -23,9 +23,11 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       'cannot find order by hash when updating order status'
     )
 
+    log.info('chainid in checkOrderStatusHandler', chainId);
     const parsedOrder = DutchLimitOrder.parse(order.encodedOrder, chainId)
     log.info({ order: parsedOrder, signature: order.signature }, 'parsed order')
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
+    log.info('validation', validation);
     const curBlockNumber = await provider.getBlockNumber()
 
     log.info({ validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash }, 'validating order')
