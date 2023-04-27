@@ -151,6 +151,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
                 gasPriceWei: receipt.effectiveGasPrice.toString(),
                 gasUsed: receipt.gasUsed.toString(),
                 gasCostInETH: gasCostInETH,
+                tokenInChainId: chainId,
+                tokenOutChainId: chainId,
               },
             })
           })
