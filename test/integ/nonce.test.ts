@@ -42,7 +42,6 @@ describe('get nonce', () => {
         startAmount: amount,
         endAmount: amount,
         recipient: address,
-        isFeeOutput: false,
       })
       .build()
 

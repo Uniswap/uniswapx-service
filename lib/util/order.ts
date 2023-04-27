@@ -8,9 +8,10 @@ type ParsedOrder = {
   orderHash: string
   orderStatus: ORDER_STATUS
   offerer: string
-  filler?: string
   createdAt: number
   chainId: number
+  filler?: string
+  quoteId?: string
 }
 
 export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
@@ -28,6 +29,7 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
       createdAt: parseInt(newOrder.createdAt.N as string),
       orderHash: newOrder.orderHash.S as string,
       chainId: parseInt(newOrder.chainId.N as string),
+      ...(newOrder?.quoteId?.S && { quoteId: newOrder.quoteId.S as string }),
       ...(newOrder?.filler?.S && { filler: newOrder.filler.S as string }),
     }
   } catch (e) {
@@ -62,7 +64,6 @@ export const formatOrderEntity = (
       startAmount: output.startAmount.toString(),
       endAmount: output.endAmount.toString(),
       recipient: output.recipient.toLowerCase(),
-      isFeeOutput: output.isFeeOutput,
     })),
     reactor: decodedOrder.info.reactor.toLowerCase(),
     startTime: decodedOrder.info.startTime,

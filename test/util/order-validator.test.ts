@@ -6,6 +6,7 @@ const CURRENT_TIME = 10
 const validationProvider = new OrderValidator(() => CURRENT_TIME)
 const INPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000022'
 const OUTPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000033'
+const EXCLUSIVE_FILLER = '0x0000000000000000000000000000000000000044'
 const ONE_YEAR = 60 * 60 * 24 * 365
 const OFFERER = '0x0000000000000000000000000000000000032100'
 const RECIPIENT = '0x0000000000000000000000000000000000045600'
@@ -15,7 +16,6 @@ const OUTPUT = {
   startAmount: BigNumber.from('3'),
   endAmount: BigNumber.from('2'),
   recipient: RECIPIENT,
-  isFeeOutput: false,
 }
 const REACTOR = '0x1111111111111111111111111111111111111111'
 const VALIDATION_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -24,6 +24,8 @@ const VALIDATION_DATA = '0x'
 function newOrder({
   startTime = 5,
   deadline = 20,
+  exclusiveFiller = EXCLUSIVE_FILLER,
+  exclusivityOverrideBps = BigNumber.from(0),
   nonce = BigNumber.from(30),
   offerer = OFFERER,
   input = INPUT,
@@ -37,6 +39,8 @@ function newOrder({
     {
       startTime,
       endTime: deadline,
+      exclusiveFiller,
+      exclusivityOverrideBps,
       deadline,
       nonce,
       offerer,
@@ -186,7 +190,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(-1),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -200,7 +203,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(1).shl(256),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -220,7 +222,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(-1),
             endAmount: BigNumber.from(2),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -234,7 +235,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(1).shl(256),
             endAmount: BigNumber.from(2),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -252,7 +252,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(3),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -268,7 +267,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(1),
             recipient: '0xfoo',
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
@@ -283,7 +281,6 @@ describe('Testing off chain validation', () => {
             startAmount: BigNumber.from(2),
             endAmount: BigNumber.from(1),
             recipient: RECIPIENT,
-            isFeeOutput: false,
           },
         })
         const validationResp = validationProvider.validate(order)
