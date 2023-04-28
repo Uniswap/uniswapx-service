@@ -69,7 +69,7 @@ export const formatOrderEntity = (
     startTime: decodedOrder.info.startTime,
     endTime: decodedOrder.info.deadline,
     deadline: decodedOrder.info.deadline,
-    filler: decodedOrder.validation?.data?.filler?.toLowerCase(),
+    filler: decodedOrder.info?.exclusiveFiller?.toLowerCase(),
     ...(quoteId && { quoteId: quoteId }),
   }
 
