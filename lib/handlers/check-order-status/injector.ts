@@ -38,9 +38,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     // otherwise, inheret contract addrs from SDK
     const chainId = event.chainId
     const provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
-    log.info(chainId)
     const quoter = new OrderValidator(provider, parseInt(chainId as string))
-    log.info(REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.DutchLimit])
     // TODO: use different reactor address for different order type
     const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.DutchLimit])
 

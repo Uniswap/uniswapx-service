@@ -116,7 +116,6 @@ export class PostOrderHandler extends APIGLambdaHandler<
   }
 
   private async kickoffOrderTrackingSfn(sfnInput: OrderTrackingSfnInput, stateMachineArn: string, log?: Logger) {
-    log?.info('sfn input', sfnInput)
     const region = checkDefined(process.env['REGION'])
     const sfnClient = new SFNClient({ region: region })
     const startExecutionCommand = new StartExecutionCommand({
