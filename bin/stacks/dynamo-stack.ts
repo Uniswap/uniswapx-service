@@ -121,7 +121,7 @@ export class DynamoStack extends cdk.NestedStack {
       indexName: `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`,
       partitionKey: {
         name: TABLE_KEY.CHAIN_ID,
-        type: aws_dynamo.AttributeType.STRING,
+        type: aws_dynamo.AttributeType.NUMBER,
       },
       sortKey: {
         name: TABLE_KEY.CREATED_AT,
