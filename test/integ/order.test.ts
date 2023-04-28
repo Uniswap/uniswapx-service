@@ -2,7 +2,6 @@ import { DutchLimitOrderBuilder } from '@uniswap/gouda-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema/index'
 import { ALICE_TEST_WALLET_PK, UNI, WETH } from './constants'
 
 import * as ERC20_ABI from '../abis/erc20.json'
@@ -81,16 +80,20 @@ describe('/dutch-auction/order', () => {
 
     const encodedOrder = order.serialize()
 
-    const postResponse = await axios.post<any>(`${URL}dutch-auction/order`, {
-      encodedOrder,
-      signature,
-      chainId: 1,
-    }, {
-      headers: {
-        accept: 'application/json, text/plain, */*',
-        'content-type': 'application/json',
+    const postResponse = await axios.post<any>(
+      `${URL}dutch-auction/order`,
+      {
+        encodedOrder,
+        signature,
+        chainId: 1,
       },
-    })
+      {
+        headers: {
+          accept: 'application/json, text/plain, */*',
+          'content-type': 'application/json',
+        },
+      }
+    )
 
     // expect(postResponse.status).toEqual(201)
     // // orderHash = postResponse.data.hash
@@ -136,6 +139,6 @@ describe('/dutch-auction/order', () => {
       })
       .build()
 
-      console.log(order)
+    console.log(order)
   })
 })
