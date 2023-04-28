@@ -40,6 +40,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           partitionKey: TABLE_KEY.FILLER,
           sortKey: TABLE_KEY.CREATED_AT,
         },
+        [`${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: TABLE_KEY.CHAIN_ID,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
         [`${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
           sortKey: TABLE_KEY.CREATED_AT,
@@ -54,6 +58,18 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         },
         [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
           partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
         offererNonceIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.NONCE },
@@ -82,6 +98,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         filler_orderStatus: { type: DYNAMODB_TYPES.STRING },
         filler_offerer: { type: DYNAMODB_TYPES.STRING },
+        chainId_filler: { type: DYNAMODB_TYPES.STRING },
+        chainId_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        chainId_orderStatus_filler: { type: DYNAMODB_TYPES.STRING },
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         quoteId: { type: DYNAMODB_TYPES.STRING },
         txHash: { type: DYNAMODB_TYPES.STRING },
@@ -119,9 +138,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     limit: number,
     cursor?: string,
     sortKey?: SORT_FIELDS,
-    sort?: string
+    sort?: string,
+    desc?: boolean
   ): Promise<QueryResult> {
-    return await this.queryOrderEntity(offerer, TABLE_KEY.OFFERER, limit, cursor, sortKey, sort)
+    return await this.queryOrderEntity(offerer, TABLE_KEY.OFFERER, limit, cursor, sortKey, sort, desc)
   }
 
   public async getByOrderStatus(
@@ -129,9 +149,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     limit: number,
     cursor?: string,
     sortKey?: SORT_FIELDS,
-    sort?: string
+    sort?: string,
+    desc?: boolean
   ): Promise<QueryResult> {
-    return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort)
+    return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort, desc)
   }
 
   public async getByFiller(
@@ -139,9 +160,21 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     limit: number,
     cursor?: string,
     sortKey?: SORT_FIELDS,
-    sort?: string
+    sort?: string,
+    desc?: boolean
   ): Promise<QueryResult> {
-    return await this.queryOrderEntity(filler, TABLE_KEY.FILLER, limit, cursor, sortKey, sort)
+    return await this.queryOrderEntity(filler, TABLE_KEY.FILLER, limit, cursor, sortKey, sort, desc)
+  }
+
+  public async getByChainId(
+    chainId: number,
+    limit: number,
+    cursor?: string,
+    sortKey?: SORT_FIELDS,
+    sort?: string,
+    desc?: boolean
+  ): Promise<QueryResult> {
+    return await this.queryOrderEntity(chainId, TABLE_KEY.CHAIN_ID, limit, cursor, sortKey, sort, desc)
   }
 
   public async getByHash(hash: string): Promise<OrderEntity | undefined> {
@@ -185,6 +218,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
           filler_orderStatus: `${order.filler}_${order.orderStatus}`,
           filler_offerer: `${order.filler}_${order.offerer}`,
+          chainId_filler: `${order.chainId}_${order.filler}`,
+          chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
+          chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
           filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
           createdAt: currentTimestampInSeconds(),
         }),
@@ -214,6 +250,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       offerer_orderStatus: `${order.offerer}_${status}`,
       filler_orderStatus: `${order.filler}_${status}`,
       filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
+      chainId_orderStatus: `${order.chainId}_${status}`,
+      chainId_orderStatus_filler: `${order.chainId}_${status}_${order.filler}`,
       ...(txHash && { txHash }),
       ...(settledAmounts && { settledAmounts }),
     })
@@ -235,7 +273,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit,
           cursor,
           queryFilters['sortKey'],
-          queryFilters['sort']
+          queryFilters['sort'],
+          queryFilters['desc']
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
@@ -244,7 +283,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit,
           cursor,
           queryFilters['sortKey'],
-          queryFilters['sort']
+          queryFilters['sort'],
+          queryFilters['desc']
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.FILLER], requestedParams):
@@ -253,7 +293,54 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit,
           cursor,
           queryFilters['sortKey'],
-          queryFilters['sort']
+          queryFilters['sort'],
+          queryFilters['desc']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.CHAIN_ID], requestedParams):
+        return await this.getByChainId(
+          queryFilters['chainId'] as number,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort'],
+          queryFilters['desc']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.CHAIN_ID, GET_QUERY_PARAMS.FILLER], requestedParams):
+        return await this.queryOrderEntity(
+          `${queryFilters['chainId']}_${queryFilters['filler']}`,
+          `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort'],
+          queryFilters['desc']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.CHAIN_ID, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
+        return await this.queryOrderEntity(
+          `${queryFilters['chainId']}_${queryFilters['orderStatus']}`,
+          `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort'],
+          queryFilters['desc']
+        )
+
+      case this.areParamsRequested(
+        [GET_QUERY_PARAMS.CHAIN_ID, GET_QUERY_PARAMS.ORDER_STATUS, GET_QUERY_PARAMS.FILLER],
+        requestedParams
+      ):
+        return await this.queryOrderEntity(
+          `${queryFilters['chainId']}_${queryFilters['orderStatus']}_${queryFilters['filler']}`,
+          `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort'],
+          queryFilters['desc']
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
@@ -263,7 +350,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit,
           cursor,
           queryFilters['sortKey'],
-          queryFilters['sort']
+          queryFilters['sort'],
+          queryFilters['desc']
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER], requestedParams):
@@ -273,7 +361,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit,
           cursor,
           queryFilters['sortKey'],
-          queryFilters['sort']
+          queryFilters['sort'],
+          queryFilters['desc']
         )
 
       case this.areParamsRequested(
@@ -286,7 +375,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit,
           cursor,
           queryFilters['sortKey'],
-          queryFilters['sort']
+          queryFilters['sort'],
+          queryFilters['desc']
         )
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
@@ -296,7 +386,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           limit,
           cursor,
           queryFilters['sortKey'],
-          queryFilters['sort']
+          queryFilters['sort'],
+          queryFilters['desc']
         )
 
       default: {
@@ -320,7 +411,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     limit: number | undefined,
     cursor?: string,
     sortKey?: SORT_FIELDS | undefined,
-    sort?: string | undefined
+    sort?: string | undefined,
+    desc = true
   ): Promise<QueryResult> {
     let comparison = undefined
     if (sortKey) {
@@ -330,12 +422,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
     const queryResult = await this.orderEntity.query(partitionKey, {
       index: formattedIndex,
-      execute: true,
+      execute: desc,
       limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
       ...(sortKey &&
         comparison && {
           [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],
-          reverse: true,
+          reverse: desc,
         }),
       ...(cursor && { startKey: this.getStartKey(cursor, formattedIndex) }),
     })
