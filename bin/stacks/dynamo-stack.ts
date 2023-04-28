@@ -118,19 +118,6 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
-      indexName: `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`,
-      partitionKey: {
-        name: TABLE_KEY.CHAIN_ID,
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      sortKey: {
-        name: TABLE_KEY.CREATED_AT,
-        type: aws_dynamo.AttributeType.NUMBER,
-      },
-      projectionType: aws_dynamo.ProjectionType.ALL,
-    })
-
-    this.ordersTable.addGlobalSecondaryIndex({
       indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
       partitionKey: {
         name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
