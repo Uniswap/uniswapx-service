@@ -1,4 +1,5 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
+import { DutchLimitOrderInfo } from '@uniswap/gouda-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
@@ -21,30 +22,36 @@ mockSfnClient
   })
   .resolves({})
 
-const DECODED_ORDER = {
-  info: {
-    deadline: 10,
-    offerer: '0x0000000000000000000000000000000000000001',
-    reactor: '0x0000000000000000000000000000000000000002',
-    startTime: 20,
-    input: {
-      token: '0x0000000000000000000000000000000000000003',
-      endAmount: BigNumber.from(30),
-      startAmount: BigNumber.from(30),
-    },
-    nonce: BigNumber.from('40'),
-    outputs: [
-      {
-        endAmount: BigNumber.from(50),
-        startAmount: BigNumber.from(60),
-        recipient: '0x0000000000000000000000000000000000000004',
-        token: '0x0000000000000000000000000000000000000005',
-      },
-    ],
+const ORDER_INFO: DutchLimitOrderInfo = {
+  deadline: 10,
+  offerer: '0x0000000000000000000000000000000000000001',
+  reactor: '0x0000000000000000000000000000000000000002',
+  startTime: 20,
+  endTime: 25,
+  input: {
+    token: '0x0000000000000000000000000000000000000003',
+    endAmount: BigNumber.from(30),
+    startAmount: BigNumber.from(30),
   },
+  nonce: BigNumber.from('40'),
+  outputs: [
+    {
+      endAmount: BigNumber.from(50),
+      startAmount: BigNumber.from(60),
+      recipient: '0x0000000000000000000000000000000000000004',
+      token: '0x0000000000000000000000000000000000000005',
+    },
+  ],
+  exclusiveFiller: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+  exclusivityOverrideBps: BigNumber.from(5),
+  validationContract: '0x0000000000000000000000000000000000000000',
+  validationData: '0x',
+}
+
+const DECODED_ORDER = {
+  info: ORDER_INFO,
   hash: () => '0x0000000000000000000000000000000000000000000000000000000000000006',
   serialize: () => '0x01',
-  validation: { data: { filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045' } },
   chainId: 1,
 }
 

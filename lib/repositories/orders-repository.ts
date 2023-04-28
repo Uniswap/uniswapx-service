@@ -422,7 +422,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
     const queryResult = await this.orderEntity.query(partitionKey, {
       index: formattedIndex,
-      execute: desc,
+      execute: true,
       limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
       ...(sortKey &&
         comparison && {
@@ -446,7 +446,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
   private getRequestedParams(queryFilters: GetOrdersQueryParams) {
     return Object.keys(queryFilters).filter((requestedParam) => {
-      return ![GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT].includes(requestedParam as GET_QUERY_PARAMS)
+      return ![GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC].includes(
+        requestedParam as GET_QUERY_PARAMS
+      )
     })
   }
 

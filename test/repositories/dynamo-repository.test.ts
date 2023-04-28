@@ -396,6 +396,7 @@ describe('OrdersRepository getOrders test with sorting', () => {
       orderStatus: ORDER_STATUS.OPEN,
       sortKey: SORT_FIELDS.CREATED_AT,
       sort: 'between(1,3)',
+      desc: true,
     })
     expect(queryResult.orders.length).toEqual(2)
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
@@ -407,12 +408,11 @@ describe('OrdersRepository getOrders test with sorting', () => {
       orderStatus: ORDER_STATUS.OPEN,
       sortKey: SORT_FIELDS.CREATED_AT,
       sort: 'between(1,3)',
-      desc: true,
+      desc: false,
     })
-    console.log(queryResult)
-    // expect(queryResult.orders.length).toEqual(3)
-    // expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    // expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders.length).toEqual(2)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
   })
 })
 
