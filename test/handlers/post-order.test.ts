@@ -1,5 +1,5 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchLimitOrderInfo } from '@uniswap/gouda-sdk';
+import { DutchLimitOrderInfo } from '@uniswap/gouda-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
