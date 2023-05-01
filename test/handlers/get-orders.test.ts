@@ -95,7 +95,7 @@ describe('Testing get orders handler.', () => {
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
       [
         { sortKey: 'createdAt' },
-        '{"detail":"\\"value\\" must contain at least one of [orderStatus, offerer, filler]","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"\\"value\\" must contain at least one of [orderStatus, offerer, filler, chainId]","errorCode":"VALIDATION_ERROR"}',
       ],
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
@@ -103,6 +103,11 @@ describe('Testing get orders handler.', () => {
       [
         { chainId: 420 },
         '{"detail":"\\"chainId\\" must be one of [1, 5, TENDERLY, 137]","errorCode":"VALIDATION_ERROR"}',
+      ],
+      [{ desc: true }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
+      [
+        { desc: 'yes', sortKey: 'createdAt', orderStatus: 'expired' },
+        '{"detail":"\\"desc\\" must be a boolean","errorCode":"VALIDATION_ERROR"}',
       ],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {

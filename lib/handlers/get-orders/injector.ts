@@ -17,6 +17,7 @@ export interface RequestInjected extends ApiRInj {
     sort?: string
     filler?: string
     chainId?: number
+    desc?: boolean
   }
   cursor?: string
 }
@@ -71,7 +72,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
         ...(filler && { filler: filler }),
         ...(sort && { sort: sort }),
         ...(chainId && { chainId: chainId }),
-        ...(desc && { desc: desc }),
+        ...(desc !== undefined && { desc: desc }),
       },
       requestId,
       log,
