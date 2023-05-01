@@ -90,6 +90,13 @@ const OPENAPI_SCHEMA: GetJsonResponse = {
             schema: getOrderParamProperties.filler,
           },
           {
+            name: 'chainId',
+            in: 'query',
+            description: 'Filter by chainId.',
+            required: false,
+            schema: getOrderParamProperties.chainId,
+          },
+          {
             name: 'sortKey',
             in: 'query',
             description: 'Order the query results by the sort key.',
@@ -100,9 +107,16 @@ const OPENAPI_SCHEMA: GetJsonResponse = {
             name: 'sort',
             in: 'query',
             description:
-              'Sort query. For example: `sort=gt(UNIX_TIMESTAMP)`, `sort=between(1675872827, 1675872930)`, or `lt(1675872930)`.',
+              'Filter query by unix timestamp query. For example: `sort=gt(UNIX_TIMESTAMP)`, `sort=between(1675872827, 1675872930)`, or `lt(1675872930)`.',
             required: false,
             schema: getOrderParamProperties.sort,
+          },
+          {
+            name: 'desc',
+            in: 'query',
+            description: 'Sort query results by sortKey in descending order.',
+            required: false,
+            schema: getOrderParamProperties.desc,
           },
           {
             name: 'cursor',

@@ -12,16 +12,24 @@ const sortKeyJoi = FieldValidator.isValidSortKey()
 export const GetOrdersQueryParamsJoi = Joi.object({
   limit: FieldValidator.isValidLimit(),
   orderHash: FieldValidator.isValidOrderHash(),
-  sortKey: FieldValidator.isValidSortKey().when('sort', {
-    is: Joi.exist(),
-    then: sortKeyJoi.required(),
-    otherwise: sortKeyJoi,
-  }),
+  sortKey: FieldValidator.isValidSortKey()
+    .when('sort', {
+      is: Joi.exist(),
+      then: sortKeyJoi.required(),
+      otherwise: sortKeyJoi,
+    })
+    .when('desc', {
+      is: Joi.exist(),
+      then: sortKeyJoi.required(),
+      otherwise: sortKeyJoi,
+    }),
   sort: FieldValidator.isValidSort(),
   cursor: FieldValidator.isValidCursor(),
+  chainId: FieldValidator.isValidChainId(),
+  desc: Joi.boolean(),
 }).when('.sortKey', {
   is: Joi.exist(),
-  then: indexKeyJoi.or('orderStatus', 'offerer', 'filler'),
+  then: indexKeyJoi.or('orderStatus', 'offerer', 'filler', 'chainId'),
   otherwise: indexKeyJoi,
 })
 
@@ -34,6 +42,8 @@ export type GetOrdersQueryParams = {
   sort?: string
   filler?: string
   cursor?: string
+  chainId?: number
+  desc?: boolean
 }
 
 export type GetOrdersResponse = {
@@ -89,4 +99,6 @@ export enum GET_QUERY_PARAMS {
   SORT_KEY = 'sortKey',
   SORT = 'sort',
   FILLER = 'filler',
+  CHAIN_ID = 'chainId',
+  DESC = 'desc',
 }

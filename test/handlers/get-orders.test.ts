@@ -13,6 +13,7 @@ describe('Testing get orders handler.', () => {
     createdAt: 1667276283251,
     encodedOrder: '0xencoded000order',
     type: OrderType.DutchLimit,
+    chainId: 1,
     input: {
       token: '0x0000000000000000000000000000000000000000',
       startAmount: '1000000000000000000',
@@ -36,6 +37,7 @@ describe('Testing get orders handler.', () => {
     orderStatus: ORDER_STATUS.OPEN,
     sortKey: SORT_FIELDS.CREATED_AT,
     sort: `eq(${MOCK_ORDER.createdAt})`,
+    chainId: 1,
   }
   const requestInjectedMock = {
     limit: 10,
@@ -93,11 +95,20 @@ describe('Testing get orders handler.', () => {
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
       [
         { sortKey: 'createdAt' },
-        '{"detail":"\\"value\\" must contain at least one of [orderStatus, offerer, filler]","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"\\"value\\" must contain at least one of [orderStatus, offerer, filler, chainId]","errorCode":"VALIDATION_ERROR"}',
       ],
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
       [{ sort: 'gt(4)' }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
+      [
+        { chainId: 420 },
+        '{"detail":"\\"chainId\\" must be one of [1, 5, TENDERLY, 137]","errorCode":"VALIDATION_ERROR"}',
+      ],
+      [{ desc: true }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
+      [
+        { desc: 'yes', sortKey: 'createdAt', orderStatus: 'expired' },
+        '{"detail":"\\"desc\\" must be a boolean","errorCode":"VALIDATION_ERROR"}',
+      ],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
         ...event,
@@ -123,6 +134,7 @@ describe('Testing get orders handler.', () => {
       [{ type: 'BadOrderType' }],
       [{ input: { token: 'bad token' } }],
       [{ outputs: [{ startAmount: 'bad start' }] }],
+      [{ chainId: 'nope' }],
     ])('Throws 500 with invalid field %p in the response', async (invalidResponseField) => {
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
