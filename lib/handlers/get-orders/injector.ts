@@ -16,6 +16,8 @@ export interface RequestInjected extends ApiRInj {
     sortKey?: SORT_FIELDS
     sort?: string
     filler?: string
+    chainId?: number
+    desc?: boolean
   }
   cursor?: string
 }
@@ -57,6 +59,8 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const sort = requestQueryParams?.sort ?? defaultSort
     const filler = requestQueryParams?.filler
     const cursor = requestQueryParams?.cursor
+    const chainId = requestQueryParams?.chainId
+    const desc = requestQueryParams?.desc
 
     return {
       limit: limit,
@@ -67,6 +71,8 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
         ...(sortKey && { sortKey: sortKey }),
         ...(filler && { filler: filler }),
         ...(sort && { sort: sort }),
+        ...(chainId && { chainId: chainId }),
+        ...(desc !== undefined && { desc: desc }),
       },
       requestId,
       log,
