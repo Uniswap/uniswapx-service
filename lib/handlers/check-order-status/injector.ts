@@ -34,10 +34,14 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       serializers: bunyan.stdSerializers,
     })
 
-    // for local environment, override mainnnet (chainId = 1) to Tenderly
-    // otherwise, inheret contract addrs from SDK
     const chainId = event.chainId
-    const provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${chainId}`])
+    /// @dev When app stage is local, load the RPC_TENDERLY env var
+    const rpcURL =
+      process.env['stage'] == 'local' || (chainId == 1 && process.env['stage'] == 'beta')
+        ? process.env['RPC_TENDERLY']
+        : process.env[`RPC_${chainId}`]
+    // const provider = new ethers.providers.JsonRpcProvider(process.env[`RPC_${event.chainId}`])
+    const provider = new ethers.providers.JsonRpcProvider(rpcURL)
     const quoter = new OrderValidator(provider, parseInt(chainId as string))
     // TODO: use different reactor address for different order type
     const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.DutchLimit])

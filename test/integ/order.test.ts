@@ -5,6 +5,8 @@ import { BigNumber, Contract, ethers, Wallet } from 'ethers'
 import { ALICE_TEST_WALLET_PK, UNI, WETH } from './constants'
 
 import * as ERC20_ABI from '../abis/erc20.json'
+import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
+import { ChainId } from '../../lib/util/chain'
 const { abi } = ERC20_ABI
 
 dotenv.config()
@@ -50,12 +52,42 @@ describe('/dutch-auction/order', () => {
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
   })
 
-  // base test case:
-  // post order, get nonce, get orders, delete order
+  async function expectOrderToBeOpen(orderHash: string) {
+    // wait 2 seconds
+    await new Promise((resolve) => setTimeout(resolve, 2000))    
+    // get orders
+    const resp = await axios.get<GetOrdersResponse>(
+      `${URL}dutch-auction/orders?orderHash=${orderHash}`
+    )
+    expect(resp.status).toEqual(200)
+    expect(resp.data.orders.length).toEqual(1)
+    const order = resp.data.orders[0]
+    expect(order).toBeDefined()
+    expect(order!.orderHash).toEqual(orderHash)
+    expect(order!.orderStatus).toEqual('open')
+  }
+
+  async function expectOrderToExpire(orderHash: string, deadline: number) {
+    const now = new Date().getTime() / 1000
+    const waitTime = deadline - now
+    console.log(`Waiting ${waitTime} seconds for order to expire`)
+    // wait for order to expire
+    await new Promise((resolve) => setTimeout(resolve, waitTime * 1000))
+
+    const resp = await axios.get<GetOrdersResponse>(
+      `${URL}dutch-auction/orders?orderHash=${orderHash}`
+    )
+    expect(resp.status).toEqual(200)
+    expect(resp.data.orders.length).toEqual(1)
+    const order = resp.data.orders[0]
+    expect(order).toBeDefined()
+    expect(order!.orderHash).toEqual(orderHash)
+    expect(order!.orderStatus).toEqual('expired')
+  }
+
   it('erc20 to erc20', async () => {
     const amount = ethers.utils.parseEther('1')
-    // post order
-    const deadline = Math.round(new Date().getTime() / 1000) + 10
+    const deadline = Math.round(new Date().getTime() / 1000) + 5
     const order = new DutchLimitOrderBuilder(1)
       .deadline(deadline)
       .endTime(deadline)
@@ -85,7 +117,7 @@ describe('/dutch-auction/order', () => {
       {
         encodedOrder,
         signature,
-        chainId: 1,
+        chainId: ChainId.MAINNET,
       },
       {
         headers: {
@@ -95,31 +127,21 @@ describe('/dutch-auction/order', () => {
       }
     )
 
-    // expect(postResponse.status).toEqual(201)
-    // // orderHash = postResponse.data.hash
-    // const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
-    // expect(newGetResponse.status).toEqual(200)
-    // const newNonce = BigNumber.from(newGetResponse.data.nonce)
-    // expect(newNonce.eq(nonce.add(1))).toBeTruthy()
+    expect(postResponse.status).toEqual(201)
+    // orderHash = postResponse.data.hash
+    const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
+    expect(newGetResponse.status).toEqual(200)
+    const newNonce = BigNumber.from(newGetResponse.data.nonce)
+    expect(newNonce.eq(nonce.add(1))).toBeTruthy()
 
-    // // ensure that order is eventually verified and is marked as open
-    // await new Promise((resolve) => setTimeout(resolve, 1000))
-    // // get orders
-    // const getOrdersResponse2 = await axios.get<GetOrdersResponse>(
-    //   `${URL}dutch-auction/orders?orderHash=${postResponse.data.hash}`
-    // )
-    // expect(getOrdersResponse2.status).toEqual(200)
-    // expect(getOrdersResponse2.data.orders.length).toEqual(1)
-    // const fetchedOrder2 = getOrdersResponse2.data.orders[0]
-    // expect(fetchedOrder2).toBeDefined()
-    // expect(fetchedOrder2!.orderHash).toEqual(postResponse.data.hash)
-    // expect(fetchedOrder2!.orderStatus).toEqual('open')
+    await expectOrderToBeOpen(postResponse.data.hash)
+    // await expectOrderToExpire(postResponse.data.hash, deadline)
   })
 
-  xit('erc20 to eth', async () => {
+  it('erc20 to eth', async () => {
     const amount = ethers.utils.parseEther('1')
     // post order
-    const deadline = Math.round(new Date().getTime() / 1000) + 10
+    const deadline = Math.round(new Date().getTime() / 1000) + 5
     const order = new DutchLimitOrderBuilder(1)
       .deadline(deadline)
       .endTime(deadline)
@@ -139,6 +161,34 @@ describe('/dutch-auction/order', () => {
       })
       .build()
 
-    console.log(order)
+      const { domain, types, values } = order.permitData()
+      const signature = await wallet._signTypedData(domain, types, values)
+  
+      const encodedOrder = order.serialize()
+  
+      const postResponse = await axios.post<any>(
+        `${URL}dutch-auction/order`,
+        {
+          encodedOrder,
+          signature,
+          chainId: ChainId.MAINNET,
+        },
+        {
+          headers: {
+            accept: 'application/json, text/plain, */*',
+            'content-type': 'application/json',
+          },
+        }
+      )
+  
+      expect(postResponse.status).toEqual(201)
+      // orderHash = postResponse.data.hash
+      const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
+      expect(newGetResponse.status).toEqual(200)
+      const newNonce = BigNumber.from(newGetResponse.data.nonce)
+      expect(newNonce.eq(nonce.add(1))).toBeTruthy()
+  
+      await expectOrderToBeOpen(postResponse.data.hash)
+      // await expectOrderToExpire(postResponse.data.hash, deadline)
   })
 })
