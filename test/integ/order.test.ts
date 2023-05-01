@@ -12,7 +12,7 @@ dotenv.config()
 const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3'
 
 describe('/dutch-auction/order', () => {
-  // jest.setTimeout(30 * 1000)
+  jest.setTimeout(30 * 1000)
   let wallet: Wallet
   let provider: ethers.providers.JsonRpcProvider
   let aliceAddress: string
