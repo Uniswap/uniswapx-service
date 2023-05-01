@@ -89,7 +89,7 @@ describe('/dutch-auction/order', () => {
     // wait 2 seconds
     await new Promise((resolve) => setTimeout(resolve, 2000 * (1 + orderHashes.length * 0.5)))
     // get orders
-    for(const orderHash of orderHashes) {
+    for (const orderHash of orderHashes) {
       const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
       expect(resp.status).toEqual(200)
       expect(resp.data.orders.length).toEqual(1)
