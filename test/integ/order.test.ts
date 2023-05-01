@@ -34,25 +34,46 @@ describe('/dutch-auction/order', () => {
     URL = process.env.GOUDA_SERVICE_URL
     provider = new ethers.providers.JsonRpcProvider(process.env.RPC_TENDERLY)
 
-    wallet = new Wallet(ALICE_TEST_WALLET_PK, provider)
+    wallet = ethers.Wallet.createRandom().connect(provider)
     aliceAddress = (await wallet.getAddress()).toLowerCase()
 
     weth = new Contract(WETH, abi, provider)
     uni = new Contract(UNI, abi, provider)
-    // fund wallet if necessary
-    const wethBalance = (await weth.balanceOf(wallet.address)) as BigNumber
-    const uniBalance = (await uni.balanceOf(wallet.address)) as BigNumber
 
-    if (wethBalance.lt(ethers.utils.parseEther('10'))) {
-      throw new Error(
-        `Insufficient weth balance for integration tests using ${aliceAddress}. Expected at least 10 weth, got ${wethBalance.toString()}`
-      )
-    }
-    if (uniBalance.lt(ethers.utils.parseEther('10'))) {
-      throw new Error(
-        `Insufficient uni balance for integration tests using ${aliceAddress}. Expected at least 10 uni, got ${uniBalance.toString()}`
-      )
-    }
+    // Set alice's balance to 10 ETH
+    await provider.send("tenderly_setBalance", [
+      [aliceAddress],
+      ethers.utils.hexValue(ethers.utils.parseUnits("10", "ether").toHexString()),
+    ]);
+
+    // Ensure alice has some WETH and UNI
+    await provider.send('tenderly_setStorageAt', [
+      UNI,
+      // storage location balances[aliceAddress]
+      ethers.utils.keccak256(
+        ethers.utils.concat([
+          ethers.utils.hexZeroPad(aliceAddress, 32),
+          ethers.utils.hexZeroPad('0x04', 32), // the balances slot is 4th in the UNI contract
+        ])
+      ),
+      ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
+    ])
+    const uniBalance = (await uni.balanceOf(wallet.address)) as BigNumber
+    expect(uniBalance).toEqual(ethers.utils.parseEther('20'))
+
+    await provider.send('tenderly_setStorageAt', [
+      WETH,
+      // storage location balances[aliceAddress]
+      ethers.utils.keccak256(
+        ethers.utils.concat([
+          ethers.utils.hexZeroPad(aliceAddress, 32),
+          ethers.utils.hexZeroPad('0x03', 32), // the balanceOf slot is 4th in the WETH contract
+        ])
+      ),
+      ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
+    ])
+    const wethBalance = (await weth.balanceOf(wallet.address)) as BigNumber
+    expect(wethBalance).toEqual(ethers.utils.parseEther('20'))
 
     // approve P2
     await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
@@ -79,12 +100,19 @@ describe('/dutch-auction/order', () => {
     }
   }
 
+  /// Does not work now, keep getting open
   async function expectOrderToExpire(orderHash: string, deadline: number) {
     const now = new Date().getTime() / 1000
-    const waitTime = deadline - now
+    const waitTime = Math.ceil(deadline - now)
     console.log(`Waiting ${waitTime} seconds for order to expire`)
     // wait for order to expire
     await new Promise((resolve) => setTimeout(resolve, waitTime * 1000))
+
+    // const params = [
+    //   ethers.utils.hexValue(waitTime) // hex encoded number of seconds
+    // ];
+    
+    // await provider.send('evm_increaseTime', params)
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
@@ -95,7 +123,7 @@ describe('/dutch-auction/order', () => {
     expect(order!.orderStatus).toEqual('expired')
   }
 
-  const submitOrder = async (
+  const buildAndSubmitOrder = async (
     offerer: string,
     amount: BigNumber,
     deadline: number,
@@ -153,15 +181,15 @@ describe('/dutch-auction/order', () => {
   it('erc20 to erc20', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await submitOrder(aliceAddress, amount, deadline, WETH, UNI) 
+    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI) 
     await expectOrdersToBeOpen([orderHash])
-    // await expectOrderToExpire(postResponse.data.hash, deadline)
+    // await expectOrderToExpire(orderHash, deadline)
   })
 
   it('erc20 to eth', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await submitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS) 
+    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS) 
     await expectOrdersToBeOpen([orderHash])
     // await expectOrderToExpire(postResponse.data.hash, deadline)
   })
@@ -169,15 +197,15 @@ describe('/dutch-auction/order', () => {
   it('allows same offerer to post multiple orders', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash1 = await submitOrder(aliceAddress, amount, deadline, WETH, UNI) 
-    const orderHash2 = await submitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS) 
+    const orderHash1 = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI) 
+    const orderHash2 = await buildAndSubmitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS) 
     await expectOrdersToBeOpen([orderHash1, orderHash2])
   })
 
   it('allows offerer to delete order', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await submitOrder(aliceAddress, amount, deadline, WETH, UNI) 
+    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI) 
     await expectOrdersToBeOpen([orderHash])
     const deleteResponse = await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash}`)
     expect(deleteResponse.status).toEqual(200)
