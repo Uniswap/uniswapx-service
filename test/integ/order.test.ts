@@ -68,7 +68,7 @@ describe('/dutch-auction/order', () => {
     // wait 2 seconds
     await new Promise((resolve) => setTimeout(resolve, 2000 * (1 + orderHashes.length * 0.5)))
     // get orders
-    for(const orderHash of orderHashes) {
+    for (const orderHash of orderHashes) {
       const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
       expect(resp.status).toEqual(200)
       expect(resp.data.orders.length).toEqual(1)
@@ -153,7 +153,7 @@ describe('/dutch-auction/order', () => {
   it('erc20 to erc20', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await submitOrder(aliceAddress, amount, deadline, WETH, UNI) 
+    const orderHash = await submitOrder(aliceAddress, amount, deadline, WETH, UNI)
     await expectOrdersToBeOpen([orderHash])
     // await expectOrderToExpire(postResponse.data.hash, deadline)
   })
@@ -161,7 +161,7 @@ describe('/dutch-auction/order', () => {
   it('erc20 to eth', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await submitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS) 
+    const orderHash = await submitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS)
     await expectOrdersToBeOpen([orderHash])
     // await expectOrderToExpire(postResponse.data.hash, deadline)
   })
@@ -169,15 +169,15 @@ describe('/dutch-auction/order', () => {
   it('allows same offerer to post multiple orders', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash1 = await submitOrder(aliceAddress, amount, deadline, WETH, UNI) 
-    const orderHash2 = await submitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS) 
+    const orderHash1 = await submitOrder(aliceAddress, amount, deadline, WETH, UNI)
+    const orderHash2 = await submitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS)
     await expectOrdersToBeOpen([orderHash1, orderHash2])
   })
 
   it('allows offerer to delete order', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await submitOrder(aliceAddress, amount, deadline, WETH, UNI) 
+    const orderHash = await submitOrder(aliceAddress, amount, deadline, WETH, UNI)
     await expectOrdersToBeOpen([orderHash])
     const deleteResponse = await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash}`)
     expect(deleteResponse.status).toEqual(200)
