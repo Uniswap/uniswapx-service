@@ -63,10 +63,7 @@ describe('/dutch-auction/order', () => {
     await provider.send('tenderly_setStorageAt', [
       WETH,
       ethers.utils.keccak256(
-        ethers.utils.concat([
-          ethers.utils.hexZeroPad(aliceAddress, 32),
-          ethers.utils.hexZeroPad('0x03', 32),
-        ])
+        ethers.utils.concat([ethers.utils.hexZeroPad(aliceAddress, 32), ethers.utils.hexZeroPad('0x03', 32)])
       ),
       ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
     ])
