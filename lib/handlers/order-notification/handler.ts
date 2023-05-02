@@ -5,7 +5,7 @@ import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
 
-const WEBHOOK_TIMEOUT_MS = 500;
+const WEBHOOK_TIMEOUT_MS = 500
 
 export class OrderNotificationHandler extends DynamoStreamLambdaHandler<ContainerInjected, RequestInjected> {
   public async handleRequest(input: {
@@ -41,10 +41,12 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
               chainId: newOrder.chainId,
               ...(newOrder.quoteId && { quoteId: newOrder.quoteId }),
               ...(newOrder.filler && { filler: newOrder.filler }),
-            }, {
+            },
+            {
               timeout: WEBHOOK_TIMEOUT_MS,
-            })
-        );
+            }
+          )
+        )
 
         // send all notifications and track the failed requests
         // note we try each webhook once and only once, so guarantee to MM is _at most once_
