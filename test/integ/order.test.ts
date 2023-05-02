@@ -49,7 +49,6 @@ describe('/dutch-auction/order', () => {
     // Ensure alice has some WETH and UNI
     await provider.send('tenderly_setStorageAt', [
       UNI,
-      // storage location balances[aliceAddress]
       ethers.utils.keccak256(
         ethers.utils.concat([
           ethers.utils.hexZeroPad(aliceAddress, 32),
@@ -63,11 +62,10 @@ describe('/dutch-auction/order', () => {
 
     await provider.send('tenderly_setStorageAt', [
       WETH,
-      // storage location balances[aliceAddress]
       ethers.utils.keccak256(
         ethers.utils.concat([
           ethers.utils.hexZeroPad(aliceAddress, 32),
-          ethers.utils.hexZeroPad('0x03', 32), // the balanceOf slot is 4th in the WETH contract
+          ethers.utils.hexZeroPad('0x03', 32),
         ])
       ),
       ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
@@ -87,7 +85,6 @@ describe('/dutch-auction/order', () => {
 
   async function expectOrdersToBeOpen(orderHashes: string[]) {
     await new Promise((resolve) => setTimeout(resolve, 2000 * (1 + orderHashes.length * 0.5)))
-    // get orders
     for (const orderHash of orderHashes) {
       const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
       expect(resp.status).toEqual(200)
@@ -99,7 +96,7 @@ describe('/dutch-auction/order', () => {
     }
   }
 
-  /// Does not work now, keep getting open
+  /// TODO: Implement evm increase time
   async function expectOrderToExpire(orderHash: string, deadline: number) {
     const now = new Date().getTime() / 1000
     const waitTime = Math.ceil(deadline - now)
