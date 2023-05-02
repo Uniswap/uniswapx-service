@@ -86,7 +86,7 @@ describe('/dutch-auction/order', () => {
   })
 
   async function expectOrdersToBeOpen(orderHashes: string[]) {
-    await new Promise((resolve) => setTimeout(resolve, 1000 * (1 + orderHashes.length * 0.5)))
+    await new Promise((resolve) => setTimeout(resolve, 2000 * (1 + orderHashes.length * 0.5)))
     // get orders
     for (const orderHash of orderHashes) {
       const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)

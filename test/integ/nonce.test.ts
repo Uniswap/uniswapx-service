@@ -11,7 +11,7 @@ const URL = checkDefined(process.env.GOUDA_SERVICE_URL, 'GOUDA_SERVICE_URL must 
 const wallet = new ethers.Wallet(ANVIL_TEST_WALLET_PK)
 const amount = BigNumber.from(10).pow(18)
 
-xdescribe('get nonce', () => {
+describe('get nonce', () => {
   //   let orderHash: string
   //
   //   afterAll(async () => {
