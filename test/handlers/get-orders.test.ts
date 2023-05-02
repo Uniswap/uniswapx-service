@@ -102,7 +102,7 @@ describe('Testing get orders handler.', () => {
       [{ sort: 'gt(4)' }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
       [
         { chainId: 420 },
-        '{"detail":"\\"chainId\\" must be one of [1, 5, TENDERLY, 137]","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"\\"chainId\\" must be one of [1, 5, 137]","errorCode":"VALIDATION_ERROR"}',
       ],
       [{ desc: true }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
       [
