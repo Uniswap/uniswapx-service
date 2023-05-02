@@ -196,7 +196,7 @@ describe('Testing post order handler.', () => {
       ],
       [
         { chainId: 0 },
-        '{"detail":"\\"chainId\\" must be one of [1, 5, TENDERLY, 137]","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"\\"chainId\\" must be one of [1, 5, 137]","errorCode":"VALIDATION_ERROR"}',
       ],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {

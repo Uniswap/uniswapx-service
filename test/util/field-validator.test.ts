@@ -114,13 +114,13 @@ describe('Testing each field on the FieldValidator class.', () => {
       const chainId = 'MAINNET'
       const validatedField = FieldValidator.isValidChainId().validate(chainId)
       expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [1, 5, TENDERLY, 137]')
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [1, 5, 137]')
     })
     it('should invalidate unsupported chain.', async () => {
       const chainId = ChainId.ARBITRUM_ONE
       const validatedField = FieldValidator.isValidChainId().validate(chainId)
       expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [1, 5, TENDERLY, 137]')
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [1, 5, 137]')
     })
   })
   describe('Testing nonce field.', () => {
