@@ -2,7 +2,7 @@ import { DutchLimitOrderBuilder } from '@uniswap/gouda-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { ALICE_TEST_WALLET_PK, UNI, WETH, ZERO_ADDRESS } from './constants'
+import { UNI, WETH, ZERO_ADDRESS } from './constants'
 
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
@@ -41,10 +41,10 @@ describe('/dutch-auction/order', () => {
     uni = new Contract(UNI, abi, provider)
 
     // Set alice's balance to 10 ETH
-    await provider.send("tenderly_setBalance", [
+    await provider.send('tenderly_setBalance', [
       [aliceAddress],
-      ethers.utils.hexValue(ethers.utils.parseUnits("10", "ether").toHexString()),
-    ]);
+      ethers.utils.hexValue(ethers.utils.parseUnits('10', 'ether').toHexString()),
+    ])
 
     // Ensure alice has some WETH and UNI
     await provider.send('tenderly_setStorageAt', [
@@ -111,7 +111,7 @@ describe('/dutch-auction/order', () => {
     // const params = [
     //   ethers.utils.hexValue(waitTime) // hex encoded number of seconds
     // ];
-    
+
     // await provider.send('evm_increaseTime', params)
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
@@ -181,7 +181,7 @@ describe('/dutch-auction/order', () => {
   it('erc20 to erc20', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI) 
+    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI)
     await expectOrdersToBeOpen([orderHash])
     // await expectOrderToExpire(orderHash, deadline)
   })
@@ -189,7 +189,7 @@ describe('/dutch-auction/order', () => {
   it('erc20 to eth', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS) 
+    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS)
     await expectOrdersToBeOpen([orderHash])
     // await expectOrderToExpire(postResponse.data.hash, deadline)
   })
@@ -197,15 +197,15 @@ describe('/dutch-auction/order', () => {
   it('allows same offerer to post multiple orders', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash1 = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI) 
-    const orderHash2 = await buildAndSubmitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS) 
+    const orderHash1 = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI)
+    const orderHash2 = await buildAndSubmitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS)
     await expectOrdersToBeOpen([orderHash1, orderHash2])
   })
 
   it('allows offerer to delete order', async () => {
     const amount = ethers.utils.parseEther('1')
     const deadline = Math.round(new Date().getTime() / 1000) + 5
-    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI) 
+    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI)
     await expectOrdersToBeOpen([orderHash])
     const deleteResponse = await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash}`)
     expect(deleteResponse.status).toEqual(200)
