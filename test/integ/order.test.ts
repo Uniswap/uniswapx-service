@@ -86,8 +86,7 @@ describe('/dutch-auction/order', () => {
   })
 
   async function expectOrdersToBeOpen(orderHashes: string[]) {
-    // wait 2 seconds
-    await new Promise((resolve) => setTimeout(resolve, 2000 * (1 + orderHashes.length * 0.5)))
+    await new Promise((resolve) => setTimeout(resolve, 1000 * (1 + orderHashes.length * 0.5)))
     // get orders
     for (const orderHash of orderHashes) {
       const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
@@ -212,5 +211,18 @@ describe('/dutch-auction/order', () => {
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
     expect(resp.data.orders.length).toEqual(0)
+  })
+
+  it('allows offerer to delete order made before latest order', async () => {
+    const amount = ethers.utils.parseEther('1')
+    const deadline = Math.round(new Date().getTime() / 1000) + 5
+    const orderHash1 = await buildAndSubmitOrder(aliceAddress, amount, deadline, WETH, UNI)
+    const orderHash2 = await buildAndSubmitOrder(aliceAddress, amount, deadline, UNI, ZERO_ADDRESS)
+    const deleteResponse = await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash1}`)
+    expect(deleteResponse.status).toEqual(200)
+    const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash2}`)
+    expect(resp.status).toEqual(200)
+    expect(resp.data.orders.length).toEqual(1)
+    await expectOrdersToBeOpen([orderHash2])
   })
 })
