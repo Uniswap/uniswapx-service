@@ -37,7 +37,6 @@ describe('Testing get orders handler.', () => {
     orderStatus: ORDER_STATUS.OPEN,
     sortKey: SORT_FIELDS.CREATED_AT,
     sort: `eq(${MOCK_ORDER.createdAt})`,
-    chainId: 1,
   }
   const requestInjectedMock = {
     limit: 10,
@@ -108,6 +107,10 @@ describe('Testing get orders handler.', () => {
       [
         { desc: 'yes', sortKey: 'createdAt', orderStatus: 'expired' },
         '{"detail":"\\"desc\\" must be a boolean","errorCode":"VALIDATION_ERROR"}',
+      ],
+      [
+        { chainId: 1, offerer: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa' },
+        '{"detail":"\\"offerer\\" is not allowed","errorCode":"VALIDATION_ERROR"}',
       ],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
