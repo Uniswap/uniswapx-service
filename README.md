@@ -47,10 +47,12 @@ To test your changes you must redeploy your service. The dev cycle is thus:
 
 ```
 RPC_TENDERLY=<>
+FIREHOSE_ARN_LOCAL=<>
+
+# Only need these if testing against custom contract deployments
 REACTOR_TENDERLY=<>
 QUOTER_TENDERLY=<>
 PERMIT_TENDERLY=<>
-FIREHOSE_ARN_LOCAL=<>
 ```
 
 1. `yarn build && cdk deploy GoudaServiceStack`
