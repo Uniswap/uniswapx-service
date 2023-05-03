@@ -23,7 +23,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostOrderRequest"
+                "$ref": "#/components/schemas/PostOrderReques"
               }
             }
           }
