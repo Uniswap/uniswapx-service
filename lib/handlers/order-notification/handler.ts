@@ -44,6 +44,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
             },
             {
               timeout: WEBHOOK_TIMEOUT_MS,
+              headers: { ...endpoint.headers },
             }
           )
         )
