@@ -35,7 +35,9 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   })
   .when('.chainId', {
     is: Joi.exist(),
-    then: Joi.object({ offerer: Joi.forbidden() }),
+    then: Joi.object({
+      offerer: Joi.forbidden().error(new Error('Querying with both offerer and chainId is not currently supported.')),
+    }),
   })
 
 export type GetOrdersQueryParams = {

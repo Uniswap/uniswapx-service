@@ -81,6 +81,31 @@ describe('Testing get orders handler.', () => {
     headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
   })
 
+  it('Testing valid request and response with chainId.', async () => {
+    const tempQueryFilters = {
+      chainId: 1,
+      filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+      orderStatus: ORDER_STATUS.OPEN,
+      sortKey: SORT_FIELDS.CREATED_AT,
+      sort: `eq(${MOCK_ORDER.createdAt})`,
+    }
+    const getOrdersResponse = await getOrdersHandler({
+      ...injectorPromiseMock,
+      getRequestInjected: () => ({
+        ...requestInjectedMock,
+        queryFilters: tempQueryFilters,
+      }),
+    }).handler({ ...event, queryStringParameters: tempQueryFilters } as any, {} as any)
+    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, tempQueryFilters, requestInjectedMock.cursor)
+    expect(getOrdersResponse).toMatchObject({
+      body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' }),
+      statusCode: 200,
+    })
+    expect(getOrdersResponse.headers).not.toBeUndefined()
+    const headerExpectation = new HeaderExpectation(getOrdersResponse.headers)
+    headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
+  })
+
   describe('Testing invalid request validation.', () => {
     it.each([
       [{ orderHash: '0xbad_hash' }, 'orderHash\\" with value \\"0xbad_hash\\" fails to match the required pattern'],
@@ -110,7 +135,7 @@ describe('Testing get orders handler.', () => {
       ],
       [
         { chainId: 1, offerer: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa' },
-        '{"detail":"\\"offerer\\" is not allowed","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"Querying with both offerer and chainId is not currently supported.","errorCode":"VALIDATION_ERROR"}',
       ],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
