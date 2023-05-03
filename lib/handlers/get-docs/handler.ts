@@ -1,18 +1,18 @@
 import Joi from 'joi'
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
-import OPENAPI_SCHEMA, { GetJsonResponse } from './schema'
+import swagger from '../../../swagger.json'
 
-export class GetApiDocsJsonHandler extends APIGLambdaHandler<
+export class GetDocsHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
   void,
   void,
-  GetJsonResponse
+  object
 > {
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, void>
-  ): Promise<ErrorResponse | Response<GetJsonResponse>> {
+  ): Promise<ErrorResponse | Response<object>> {
     const {
       requestInjected: { log },
     } = params
@@ -20,7 +20,7 @@ export class GetApiDocsJsonHandler extends APIGLambdaHandler<
     try {
       return {
         statusCode: 200,
-        body: OPENAPI_SCHEMA,
+        body: swagger,
       }
     } catch (e: unknown) {
       log.error({ e }, 'Error getting api docs json.')
@@ -40,6 +40,6 @@ export class GetApiDocsJsonHandler extends APIGLambdaHandler<
   }
 
   protected responseBodySchema(): Joi.ObjectSchema | null {
-    return Joi.object()
+    return null
   }
 }
