@@ -85,7 +85,7 @@ describe('/dutch-auction/order', () => {
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?offerer=${aliceAddress}`)
     expect(resp.status).toEqual(200)
     for (const order of resp.data.orders) {
-      if(order) {
+      if (order) {
         const deleteResp = await axios.delete(`${URL}dutch-auction/order/${order.orderHash}`)
         expect(deleteResp.status).toEqual(200)
       }
@@ -97,7 +97,7 @@ describe('/dutch-auction/order', () => {
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?offerer=${aliceAddress}`)
     expect(resp.status).toEqual(200)
     for (const order of resp.data.orders) {
-      if(order) {
+      if (order) {
         const deleteResp = await axios.delete(`${URL}dutch-auction/order/${order.orderHash}`)
         expect(deleteResp.status).toEqual(200)
       }
@@ -107,31 +107,33 @@ describe('/dutch-auction/order', () => {
   async function expectOrdersToBeOpen(orderHashes: string[]) {
     console.log('orderHashes', orderHashes)
     // check that orders are open, retrying if status is unverified, with exponential backoff
-    for(let i = 0; i < 3; i++) {
-      const promises = orderHashes.map(orderHash => axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`))
+    for (let i = 0; i < 3; i++) {
+      const promises = orderHashes.map((orderHash) =>
+        axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
+      )
       const responses = await Promise.all(promises)
-      expect(responses.every(resp => resp.status === 200))
-      const orders = responses.map(resp => resp.data.orders[0])
+      expect(responses.every((resp) => resp.status === 200))
+      const orders = responses.map((resp) => resp.data.orders[0])
       expect(orders.length).toEqual(orderHashes.length)
-      const orderStatuses = orders.map(order => order!.orderStatus)
+      const orderStatuses = orders.map((order) => order!.orderStatus)
       console.log(`Order statuses: ${orderStatuses}`)
-      if(orderStatuses.every(status => status === 'open')) {
+      if (orderStatuses.every((status) => status === 'open')) {
         return true
       }
       console.log('Waiting', 2 ** i * 1000)
-      await new Promise(resolve => setTimeout(resolve, 2 ** i * 1000))
+      await new Promise((resolve) => setTimeout(resolve, 2 ** i * 1000))
     }
     console.log('Orders not open')
     return false
   }
 
   async function expectOrderToExpire(orderHash: string, deadlineSeconds: number) {
-    const waitTime = Math.ceil((new Date().getTime() / 1000 + deadlineSeconds) - Math.floor(new Date().getTime() / 1000))
+    const waitTime = Math.ceil(new Date().getTime() / 1000 + deadlineSeconds - Math.floor(new Date().getTime() / 1000))
     console.log(`Waiting ${waitTime} seconds for order to expire`)
     // fast forward to order expiry
     const params = [
-      ethers.utils.hexValue(waitTime) // hex encoded number of seconds
-    ];
+      ethers.utils.hexValue(waitTime), // hex encoded number of seconds
+    ]
 
     await provider.send('evm_increaseTime', params)
 
@@ -170,7 +172,7 @@ describe('/dutch-auction/order', () => {
         recipient: offerer,
       })
       .build()
-      
+
     const { domain, types, values } = order.permitData()
     const signature = await wallet._signTypedData(domain, types, values)
 
