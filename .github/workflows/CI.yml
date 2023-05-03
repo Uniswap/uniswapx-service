@@ -39,7 +39,7 @@ jobs:
           auto_fix: true
           prettier_extensions: 'js,json,jsx,md,ts,tsx,yaml,yml'
 
-      - name: Run `openapi` command 🚀
+      - name: Run swagger validation
         uses: readmeio/rdme@v8
         with:
           rdme: openapi:validate swagger.json
