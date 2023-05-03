@@ -39,6 +39,11 @@ jobs:
           auto_fix: true
           prettier_extensions: 'js,json,jsx,md,ts,tsx,yaml,yml'
 
+      - name: Run `openapi` command 🚀
+        uses: readmeio/rdme@v8
+        with:
+          rdme: openapi:validate swagger.json
+
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
