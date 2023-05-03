@@ -33,7 +33,10 @@ export class PostOrderHandler extends APIGLambdaHandler<
       containerInjected: { dbInterface, orderValidator },
     } = params
 
-    log.info('Handling POST order request', params)
+    log.info(
+      { encodedOrder: encodedOrder, signature: signature, chainId: chainId, quoteId: quoteId },
+      'Handling POST order request'
+    )
     let decodedOrder: DutchLimitOrder
 
     try {
