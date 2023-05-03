@@ -27,11 +27,18 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   cursor: FieldValidator.isValidCursor(),
   chainId: FieldValidator.isValidChainId(),
   desc: Joi.boolean(),
-}).when('.sortKey', {
-  is: Joi.exist(),
-  then: indexKeyJoi.or('orderStatus', 'offerer', 'filler', 'chainId'),
-  otherwise: indexKeyJoi,
 })
+  .when('.sortKey', {
+    is: Joi.exist(),
+    then: indexKeyJoi.or('orderStatus', 'offerer', 'filler', 'chainId'),
+    otherwise: indexKeyJoi,
+  })
+  .when('.chainId', {
+    is: Joi.exist(),
+    then: Joi.object({
+      offerer: Joi.forbidden().error(new Error('Querying with both offerer and chainId is not currently supported.')),
+    }),
+  })
 
 export type GetOrdersQueryParams = {
   limit?: number
