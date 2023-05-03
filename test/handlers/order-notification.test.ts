@@ -1,6 +1,5 @@
 import axios from 'axios'
 import { OrderNotificationHandler } from '../../lib/handlers/order-notification/handler'
-import * as networkUtil from '../../lib/util/network-requests'
 
 jest.mock('axios')
 
@@ -11,8 +10,6 @@ describe('Testing new order Notification handler.', () => {
 
   const getEndpointsMock = jest.fn()
   getEndpointsMock.mockImplementation(() => mockWebhooks)
-
-  const callWithRetrySpy = jest.spyOn(networkUtil, 'callWithRetry')
 
   const logInfoMock = jest.fn()
   const logErrorMock = jest.fn()
@@ -88,7 +85,7 @@ describe('Testing new order Notification handler.', () => {
   })
 
   it('Testing valid order.', async () => {
-    callWithRetrySpy.mockImplementation(() => Promise.resolve({ status: 200 }) as any)
+    mockedAxios.post.mockReturnValue(Promise.resolve({ status: 200 }))
     const response = await orderNotificationHandler()
     expect(getEndpointsMock).toBeCalledWith({
       offerer: MOCK_ORDER.offerer.S,
@@ -113,7 +110,7 @@ describe('Testing new order Notification handler.', () => {
 
   it('Testing failed webhook notification.', async () => {
     const failedResponse = { status: 500 }
-    callWithRetrySpy.mockImplementation(() => Promise.resolve(failedResponse) as any)
+    mockedAxios.post.mockReturnValue(Promise.resolve(failedResponse))
     const response = await orderNotificationHandler()
     expect(getEndpointsMock).toBeCalledWith({
       offerer: MOCK_ORDER.offerer.S,

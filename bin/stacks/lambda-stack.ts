@@ -99,7 +99,7 @@ export class LambdaStack extends cdk.NestedStack {
       new DynamoEventSource(databaseStack.ordersTable, {
         startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
         batchSize: 1,
-        retryAttempts: 3,
+        retryAttempts: 1,
         bisectBatchOnError: true,
         reportBatchItemFailures: true,
         onFailure: new SqsDlq(orderNotificationDlq),
