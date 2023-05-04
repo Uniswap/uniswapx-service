@@ -105,7 +105,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       },
     })
     await this.kickoffOrderTrackingSfn(
-      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.UNVERIFIED, quoteId: quoteId ?? `undefined-${id}` },
+      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.UNVERIFIED, quoteId: quoteId ?? '' },
       stateMachineArn,
       log
     )
@@ -121,7 +121,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const startExecutionCommand = new StartExecutionCommand({
       stateMachineArn: stateMachineArn,
       input: JSON.stringify(sfnInput),
-      name: sfnInput.quoteId,
+      name: sfnInput.orderHash,
     })
     log?.info(startExecutionCommand, 'Starting state machine execution')
     await sfnClient.send(startExecutionCommand)
