@@ -8,7 +8,7 @@ export interface ContainerInjected {
   [n: string]: never
 }
 
-export class GetApiDocsInjector extends ApiInjector<ContainerInjected, RequestInjected, void, void> {
+export class GetDocsInjector extends ApiInjector<ContainerInjected, RequestInjected, void, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {}
   }
