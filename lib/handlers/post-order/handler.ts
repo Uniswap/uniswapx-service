@@ -121,6 +121,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const startExecutionCommand = new StartExecutionCommand({
       stateMachineArn: stateMachineArn,
       input: JSON.stringify(sfnInput),
+      name: sfnInput.orderHash,
     })
     log?.info(startExecutionCommand, 'Starting state machine execution')
     await sfnClient.send(startExecutionCommand)

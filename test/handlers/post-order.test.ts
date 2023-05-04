@@ -220,6 +220,7 @@ describe('Testing post order handler.', () => {
         new StartExecutionCommand({
           stateMachineArn: MOCK_ARN,
           input: JSON.stringify(sfnInput),
+          name: sfnInput.orderHash,
         }).input
       )
     })
