@@ -25,6 +25,7 @@ const MOCK_ORDER_1 = {
   encodedOrder: 'order1',
   signature: 'sig1',
   nonce: '1',
+  chainId: 1,
   orderStatus: ORDER_STATUS.OPEN,
 }
 
@@ -34,6 +35,7 @@ const MOCK_ORDER_2 = {
   encodedOrder: 'order2',
   signature: 'sig2',
   nonce: '1',
+  chainId: 137,
   orderStatus: ORDER_STATUS.OPEN,
 }
 
@@ -43,6 +45,7 @@ const MOCK_ORDER_3 = {
   encodedOrder: 'order3',
   signature: 'sig3',
   nonce: '2',
+  chainId: 137,
   orderStatus: ORDER_STATUS.FILLED,
 }
 
@@ -52,6 +55,7 @@ const MOCK_ORDER_4 = {
   encodedOrder: 'order4',
   signature: 'sig4',
   nonce: '4',
+  chainId: 1,
   orderStatus: ORDER_STATUS.OPEN,
 }
 
@@ -134,6 +138,55 @@ describe('OrdersRepository getOrders test', () => {
 
   it('should return no orders for orderStatus', async () => {
     const orders = await ordersRepository.getOrders(10, { orderStatus: ORDER_STATUS.UNVERIFIED })
+    expect(orders.orders).toEqual([])
+  })
+
+  it('should successfully get orders given an chainId', async () => {
+    const queryResult = await ordersRepository.getOrders(10, { chainId: 137 })
+    expect(queryResult.orders.length).toEqual(2)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+  })
+
+  it('should return no orders for chainId', async () => {
+    const orders = await ordersRepository.getOrders(10, { chainId: 5 })
+    expect(orders.orders).toEqual([])
+  })
+
+  it('should successfully get orders given an chainId and filler', async () => {
+    const queryResult = await ordersRepository.getOrders(10, { chainId: 137, filler: '0x1' })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+  })
+
+  it('should return no orders for chainId and filler', async () => {
+    const orders = await ordersRepository.getOrders(10, { chainId: 137, filler: '0x5' })
+    expect(orders.orders).toEqual([])
+  })
+
+  it('should successfully get orders given an chainId and orderStatus', async () => {
+    const queryResult = await ordersRepository.getOrders(10, { chainId: 1, orderStatus: ORDER_STATUS.OPEN })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+  })
+
+  it('should return no orders for chainId and orderStatus', async () => {
+    const orders = await ordersRepository.getOrders(10, { chainId: 1, orderStatus: ORDER_STATUS.EXPIRED })
+    expect(orders.orders).toEqual([])
+  })
+
+  it('should successfully get orders given an chainId, orderStatus, and filler', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      chainId: 137,
+      orderStatus: ORDER_STATUS.FILLED,
+      filler: '0x3',
+    })
+    expect(queryResult.orders.length).toEqual(1)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+  })
+
+  it('should return no orders for chainId and orderStatus', async () => {
+    const orders = await ordersRepository.getOrders(10, { chainId: 137, orderStatus: ORDER_STATUS.OPEN, filler: '0x3' })
     expect(orders.orders).toEqual([])
   })
 
@@ -257,6 +310,16 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.cursor).toEqual(undefined)
   })
 
+  it('should successfully page through orders with chainId', async () => {
+    let orders = await ordersRepository.getOrders(1, { chainId: 137 })
+    expect(orders.orders.length).toEqual(1)
+    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    orders = await ordersRepository.getOrders(2, { chainId: 137 }, orders.cursor)
+    expect(orders.orders.length).toEqual(1)
+    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(orders.cursor).toEqual(undefined)
+  })
+
   it('should successfully page through orders with limit', async () => {
     let orders = await ordersRepository.getOrders(2, {})
     expect(orders.orders.length).toEqual(2)
@@ -333,10 +396,23 @@ describe('OrdersRepository getOrders test with sorting', () => {
       orderStatus: ORDER_STATUS.OPEN,
       sortKey: SORT_FIELDS.CREATED_AT,
       sort: 'between(1,3)',
+      desc: true,
     })
     expect(queryResult.orders.length).toEqual(2)
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+  })
+
+  it('should return all orders for OPEN status and between 1,3 time ascending order', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      orderStatus: ORDER_STATUS.OPEN,
+      sortKey: SORT_FIELDS.CREATED_AT,
+      sort: 'between(1,3)',
+      desc: false,
+    })
+    expect(queryResult.orders.length).toEqual(2)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
   })
 })
 
@@ -405,6 +481,8 @@ describe('OrdersRepository update status test', () => {
     await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
       orderStatus: ORDER_STATUS.FILLED,
       offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
+      chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
+      chainId_orderStatus_filler: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}_${MOCK_ORDER_1.filler}`,
       txHash: 'txHash',
       settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
     })

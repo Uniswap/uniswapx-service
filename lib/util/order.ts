@@ -64,13 +64,12 @@ export const formatOrderEntity = (
       startAmount: output.startAmount.toString(),
       endAmount: output.endAmount.toString(),
       recipient: output.recipient.toLowerCase(),
-      isFeeOutput: output.isFeeOutput,
     })),
     reactor: decodedOrder.info.reactor.toLowerCase(),
     startTime: decodedOrder.info.startTime,
     endTime: decodedOrder.info.deadline,
     deadline: decodedOrder.info.deadline,
-    filler: decodedOrder.validation?.data?.filler?.toLowerCase(),
+    filler: decodedOrder.info?.exclusiveFiller?.toLowerCase(),
     ...(quoteId && { quoteId: quoteId }),
   }
 

@@ -12,18 +12,33 @@ const sortKeyJoi = FieldValidator.isValidSortKey()
 export const GetOrdersQueryParamsJoi = Joi.object({
   limit: FieldValidator.isValidLimit(),
   orderHash: FieldValidator.isValidOrderHash(),
-  sortKey: FieldValidator.isValidSortKey().when('sort', {
-    is: Joi.exist(),
-    then: sortKeyJoi.required(),
-    otherwise: sortKeyJoi,
-  }),
+  sortKey: FieldValidator.isValidSortKey()
+    .when('sort', {
+      is: Joi.exist(),
+      then: sortKeyJoi.required(),
+      otherwise: sortKeyJoi,
+    })
+    .when('desc', {
+      is: Joi.exist(),
+      then: sortKeyJoi.required(),
+      otherwise: sortKeyJoi,
+    }),
   sort: FieldValidator.isValidSort(),
   cursor: FieldValidator.isValidCursor(),
-}).when('.sortKey', {
-  is: Joi.exist(),
-  then: indexKeyJoi.or('orderStatus', 'offerer', 'filler'),
-  otherwise: indexKeyJoi,
+  chainId: FieldValidator.isValidChainId(),
+  desc: Joi.boolean(),
 })
+  .when('.sortKey', {
+    is: Joi.exist(),
+    then: indexKeyJoi.or('orderStatus', 'offerer', 'filler', 'chainId'),
+    otherwise: indexKeyJoi,
+  })
+  .when('.chainId', {
+    is: Joi.exist(),
+    then: Joi.object({
+      offerer: Joi.forbidden().error(new Error('Querying with both offerer and chainId is not currently supported.')),
+    }),
+  })
 
 export type GetOrdersQueryParams = {
   limit?: number
@@ -34,6 +49,8 @@ export type GetOrdersQueryParams = {
   sort?: string
   filler?: string
   cursor?: string
+  chainId?: number
+  desc?: boolean
 }
 
 export type GetOrdersResponse = {
@@ -51,7 +68,6 @@ export const OrderOutputJoi = Joi.object({
   token: FieldValidator.isValidEthAddress().required(),
   startAmount: FieldValidator.isValidAmount(),
   endAmount: FieldValidator.isValidAmount(),
-  isFeeOutput: Joi.boolean(),
   recipient: FieldValidator.isValidEthAddress(),
 })
 
@@ -90,4 +106,6 @@ export enum GET_QUERY_PARAMS {
   SORT_KEY = 'sortKey',
   SORT = 'sort',
   FILLER = 'filler',
+  CHAIN_ID = 'chainId',
+  DESC = 'desc',
 }
