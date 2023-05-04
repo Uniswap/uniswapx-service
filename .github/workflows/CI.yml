@@ -46,4 +46,4 @@ jobs:
           java-version: "17"
 
       - name: Check test coverage
-        run: yarn test --coverage
+        run: yarn coverage
