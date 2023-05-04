@@ -34,8 +34,7 @@ export class APIStack extends cdk.Stack {
       getOrdersLambdaAlias,
       getNonceLambdaAlias,
       postOrderLambdaAlias,
-      getApiDocsLambdaAlias,
-      getApiDocsJsonLambdaAlias,
+      getDocsLambdaAlias,
       deleteOrderLambdaAlias,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
@@ -131,8 +130,7 @@ export class APIStack extends cdk.Stack {
     const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
     const deleteOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(deleteOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
-    const getApiDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getApiDocsLambdaAlias)
-    const getApiDocsJsonLambdaIntegration = new aws_apigateway.LambdaIntegration(getApiDocsJsonLambdaAlias, {})
+    const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -141,16 +139,13 @@ export class APIStack extends cdk.Stack {
       },
     })
 
-    const apiDocs = api.root.addResource('api-docs', {
+    const apiDocs = api.root.addResource('docs', {
       defaultCorsPreflightOptions: {
         allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
         allowMethods: aws_apigateway.Cors.ALL_METHODS,
       },
     })
-    apiDocs.addMethod('GET', getApiDocsLambdaIntegration)
-
-    const apiDocsJson = apiDocs.addResource('json')
-    apiDocsJson.addMethod('GET', getApiDocsJsonLambdaIntegration)
+    apiDocs.addMethod('GET', getDocsLambdaIntegration)
 
     const order = dutchAuction.addResource('order')
     order.addMethod('POST', postOrderLambdaIntegration)

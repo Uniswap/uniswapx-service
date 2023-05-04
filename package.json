@@ -15,7 +15,9 @@
     "cdk": "cdk",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
-    "fix:lint": "eslint lib --ext .ts --fix"
+    "fix:lint": "eslint lib --ext .ts --fix",
+    "lint": "eslint lib --ext .ts",
+    "coverage": "yarn test --coverage"
   },
   "devDependencies": {
     "@shelf/jest-dynamodb": "^3.3.1",
@@ -59,7 +61,6 @@
     "env-cmd": "^10.1.0",
     "esm": "^3.2.25",
     "joi": "^17.7.0",
-    "joi-to-swagger": "^6.1.1",
     "source-map-support": "^0.5.21",
     "uuid": "^9.0.0"
   },

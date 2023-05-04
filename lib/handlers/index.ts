@@ -2,10 +2,8 @@ import { CheckOrderStatusHandler } from './check-order-status/handler'
 import { CheckOrderStatusInjector } from './check-order-status/injector'
 import { DeleteOrderHandler } from './delete-order/handler'
 import { DeleteOrderInjector } from './delete-order/injector'
-import { GetApiDocsJsonHandler } from './get-api-docs-json/handler'
-import { GetApiDocsJsonInjector } from './get-api-docs-json/injector'
-import { GetApiDocsHandler } from './get-api-docs/handler'
-import { GetApiDocsInjector } from './get-api-docs/injector'
+import { GetDocsHandler } from './get-docs/handler'
+import { GetDocsInjector } from './get-docs/injector'
 import { GetNonceHandler } from './get-nonce/handler'
 import { GetNonceInjector } from './get-nonce/injector'
 import { GetOrdersHandler } from './get-orders/handler'
@@ -30,11 +28,8 @@ const deleteOrderHandler = new DeleteOrderHandler('deleteOrdersHandler', deleteO
 const checkOrderStatusInjectorPromise = new CheckOrderStatusInjector('checkOrderStatusInjector').build()
 const checkOrderStatusHandler = new CheckOrderStatusHandler('checkOrderStatusHandler', checkOrderStatusInjectorPromise)
 
-const getApiDocsInjectorPromise = new GetApiDocsInjector('getApiDocsInjector').build()
-const getApiDocsHandler = new GetApiDocsHandler('get-api-docs', getApiDocsInjectorPromise)
-
-const getApiDocsJsonInjectorPromise = new GetApiDocsJsonInjector('getApiDocsJsonInjector').build()
-const getApiDocsJsonHandler = new GetApiDocsJsonHandler('getApiDocsJsonHandler', getApiDocsJsonInjectorPromise)
+const getDocsInjectorPromise = new GetDocsInjector('getDocsInjector').build()
+const getDocsHandler = new GetDocsHandler('get-docs', getDocsInjectorPromise)
 
 const orderNotificationInjectorPromise = new OrderNotificationInjector('orderNotificationInjector').build()
 const orderNotificationHandler = new OrderNotificationHandler(
@@ -48,7 +43,6 @@ module.exports = {
   deleteOrderHandler: deleteOrderHandler.handler,
   getNonceHandler: getNonceHandler.handler,
   checkOrderStatusHandler: checkOrderStatusHandler.handler,
-  getApiDocsHandler: getApiDocsHandler.handler,
-  getApiDocsJsonHandler: getApiDocsJsonHandler.handler,
+  getDocsHandler: getDocsHandler.handler,
   orderNotificationHandler: orderNotificationHandler.handler,
 }
