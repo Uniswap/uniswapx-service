@@ -206,6 +206,15 @@
       "cursorParam": {
         "name": "cursor",
         "in": "query",
+        "description": "Sort query results by sortKey in descending order.",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      "descParam": {
+        "name": "desc",
+        "in": "query",
         "description": "Cursor for paginated queries.",
         "required": false,
         "schema": {
