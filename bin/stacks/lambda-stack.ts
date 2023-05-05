@@ -25,11 +25,13 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly getDocsUILambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly deleteOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getDocsLambdaAlias: aws_lambda.Alias
+  public readonly getDocsUILambdaAlias: aws_lambda.Alias
   private readonly orderNotificationLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
@@ -157,9 +159,30 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_14_X,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getDocsHandler',
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        // pg-native is not available and won't be used. This is letting he
+        // bundler (esbuild) know pg-native won't be included in the bundled JS
+        // file.
+        externalModules: ['pg-native'],
+      },
+      environment: {
+        ...props.envVars,
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
+
+    this.getDocsUILambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocsUI${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'getDocsUIHandler',
       memorySize: 512,
       bundling: {
         minify: true,
@@ -213,6 +236,12 @@ export class LambdaStack extends cdk.NestedStack {
     this.getDocsLambdaAlias = new aws_lambda.Alias(this, `GetDocsLiveAlias`, {
       aliasName: 'live',
       version: this.getDocsLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
+    this.getDocsUILambdaAlias = new aws_lambda.Alias(this, `GetDocsUILiveAlias`, {
+      aliasName: 'live',
+      version: this.getDocsUILambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
@@ -291,7 +320,22 @@ export class LambdaStack extends cdk.NestedStack {
 
       getDocsTarget.node.addDependency(this.getDocsLambdaAlias)
 
-      getDocsTarget.scaleToTrackMetric(`GetApiDocsJson-ProvConcTracking`, {
+      getDocsTarget.scaleToTrackMetric(`GetDocsJson-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const getDocsUITarget = new asg.ScalableTarget(this, `GetDocsUI-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.getDocsUILambdaAlias.lambda.functionName}:${this.getDocsUILambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      getDocsUITarget.node.addDependency(this.getDocsUILambdaAlias)
+
+      getDocsTarget.scaleToTrackMetric(`GetDocsUI-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })

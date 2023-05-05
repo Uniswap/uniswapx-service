@@ -1,4 +1,4 @@
-import { GetDocsHandler } from '../../lib/handlers/get-docs/handler'
+import { GetDocsHandler } from '../../lib/handlers/get-docs/GetDocsHandler'
 import schema from '../../swagger.json'
 import { HeaderExpectation } from '../utils'
 
@@ -18,7 +18,7 @@ describe('Testing get api docs json handler.', () => {
     body: null,
   }
 
-  const getDocsHandler = new GetDocsHandler('get-api-docs-json', injectorPromiseMock)
+  const getDocsHandler = new GetDocsHandler('get-api-docs', injectorPromiseMock)
 
   it('Testing valid request and response.', async () => {
     const getApiDocsJsonResponse = await getDocsHandler.handler(event as any, {} as any)
