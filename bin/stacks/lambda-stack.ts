@@ -303,7 +303,7 @@ export class LambdaStack extends cdk.NestedStack {
       })
 
       const getDocsTarget = new asg.ScalableTarget(this, `GetDocs-ProvConcASG`, {
-          serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
         maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getDocsLambdaAlias.lambda.functionName}:${this.getDocsLambdaAlias.aliasName}`,
@@ -327,7 +327,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       getDocsUITarget.node.addDependency(this.getDocsUILambdaAlias)
 
-      getDocsTarget.scaleToTrackMetric(`GetDocsUI-ProvConcTracking`, {
+      getDocsUITarget.scaleToTrackMetric(`GetDocsUI-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
