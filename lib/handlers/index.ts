@@ -2,10 +2,10 @@ import { CheckOrderStatusHandler } from './check-order-status/handler'
 import { CheckOrderStatusInjector } from './check-order-status/injector'
 import { DeleteOrderHandler } from './delete-order/handler'
 import { DeleteOrderInjector } from './delete-order/injector'
-import { GetDocsUIHandler } from './get-docs/GetDocsUIHandler'
-import { GetDocsUIInjector } from './get-docs/GetDocsUIInjector'
 import { GetDocsHandler } from './get-docs/GetDocsHandler'
 import { GetDocsInjector } from './get-docs/GetDocsInjector'
+import { GetDocsUIHandler } from './get-docs/GetDocsUIHandler'
+import { GetDocsUIInjector } from './get-docs/GetDocsUIInjector'
 import { GetNonceHandler } from './get-nonce/handler'
 import { GetNonceInjector } from './get-nonce/injector'
 import { GetOrdersHandler } from './get-orders/handler'
@@ -15,8 +15,8 @@ import { OrderNotificationInjector } from './order-notification/injector'
 import { PostOrderHandler } from './post-order/handler'
 import { PostOrderInjector } from './post-order/injector'
 
-const getNonceInjectorPromsise = new GetNonceInjector('getNonceInjector').build()
-const getNonceHandler = new GetNonceHandler('getNonceHandler', getNonceInjectorPromsise)
+const getNonceInjectorPromise = new GetNonceInjector('getNonceInjector').build()
+const getNonceHandler = new GetNonceHandler('getNonceHandler', getNonceInjectorPromise)
 
 const getOrdersInjectorPromise = new GetOrdersInjector('getOrdersInjector').build()
 const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', getOrdersInjectorPromise)
@@ -49,6 +49,6 @@ module.exports = {
   getNonceHandler: getNonceHandler.handler,
   checkOrderStatusHandler: checkOrderStatusHandler.handler,
   getDocsHandler: getDocsHandler.handler,
-  getDocsUIHandler: getDocsUIHandler.handler, 
+  getDocsUIHandler: getDocsUIHandler.handler,
   orderNotificationHandler: orderNotificationHandler.handler,
 }
