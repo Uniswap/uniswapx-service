@@ -166,10 +166,6 @@ export class LambdaStack extends cdk.NestedStack {
       bundling: {
         minify: true,
         sourceMap: true,
-        // pg-native is not available and won't be used. This is letting he
-        // bundler (esbuild) know pg-native won't be included in the bundled JS
-        // file.
-        externalModules: ['pg-native'],
       },
       environment: {
         ...props.envVars,
@@ -187,10 +183,6 @@ export class LambdaStack extends cdk.NestedStack {
       bundling: {
         minify: true,
         sourceMap: true,
-        // pg-native is not available and won't be used. This is letting he
-        // bundler (esbuild) know pg-native won't be included in the bundled JS
-        // file.
-        externalModules: ['pg-native'],
       },
       environment: {
         ...props.envVars,
@@ -311,7 +303,7 @@ export class LambdaStack extends cdk.NestedStack {
       })
 
       const getDocsTarget = new asg.ScalableTarget(this, `GetDocs-ProvConcASG`, {
-        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+          serviceNamespace: asg.ServiceNamespace.LAMBDA,
         maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getDocsLambdaAlias.lambda.functionName}:${this.getDocsLambdaAlias.aliasName}`,
