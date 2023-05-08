@@ -24,14 +24,14 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
-  // private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
-  // private readonly getDocsUILambda: aws_lambda_nodejs.NodejsFunction
+  private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly getDocsUILambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly deleteOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
-  // public readonly getDocsLambdaAlias: aws_lambda.Alias
-  // public readonly getDocsUILambdaAlias: aws_lambda.Alias
+  public readonly getDocsLambdaAlias: aws_lambda.Alias
+  public readonly getDocsUILambdaAlias: aws_lambda.Alias
   private readonly orderNotificationLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
@@ -157,39 +157,39 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
-    // this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
-    //   role: lambdaRole,
-    //   runtime: aws_lambda.Runtime.NODEJS_16_X,
-    //   entry: path.join(__dirname, '../../lib/handlers/index.ts'),
-    //   handler: 'getDocsHandler',
-    //   memorySize: 512,
-    //   bundling: {
-    //     minify: true,
-    //     sourceMap: true,
-    //   },
-    //   environment: {
-    //     ...props.envVars,
-    //     VERSION: '2',
-    //     NODE_OPTIONS: '--enable-source-maps',
-    //   },
-    // })
+    this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'getDocsHandler',
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        ...props.envVars,
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
 
-    // this.getDocsUILambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocsUI${lambdaName}`, {
-    //   role: lambdaRole,
-    //   runtime: aws_lambda.Runtime.NODEJS_16_X,
-    //   entry: path.join(__dirname, '../../lib/handlers/index.ts'),
-    //   handler: 'getDocsUIHandler',
-    //   memorySize: 512,
-    //   bundling: {
-    //     minify: true,
-    //     sourceMap: true,
-    //   },
-    //   environment: {
-    //     ...props.envVars,
-    //     VERSION: '2',
-    //     NODE_OPTIONS: '--enable-source-maps',
-    //   },
-    // })
+    this.getDocsUILambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocsUI${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'getDocsUIHandler',
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        ...props.envVars,
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
 
     if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
       new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
@@ -225,17 +225,17 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
-    // this.getDocsLambdaAlias = new aws_lambda.Alias(this, `GetDocsLiveAlias`, {
-    //   aliasName: 'live',
-    //   version: this.getDocsLambda.currentVersion,
-    //   provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
-    // })
+    this.getDocsLambdaAlias = new aws_lambda.Alias(this, `GetDocsLiveAlias`, {
+      aliasName: 'live',
+      version: this.getDocsLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
 
-    // this.getDocsUILambdaAlias = new aws_lambda.Alias(this, `GetDocsUILiveAlias`, {
-    //   aliasName: 'live',
-    //   version: this.getDocsUILambda.currentVersion,
-    //   provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
-    // })
+    this.getDocsUILambdaAlias = new aws_lambda.Alias(this, `GetDocsUILiveAlias`, {
+      aliasName: 'live',
+      version: this.getDocsUILambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
 
     this.orderNotificationLambdaAlias = new aws_lambda.Alias(this, `OrderNotificationAlias`, {
       aliasName: 'live',
@@ -302,35 +302,35 @@ export class LambdaStack extends cdk.NestedStack {
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
 
-      // const getDocsTarget = new asg.ScalableTarget(this, `GetDocs-ProvConcASG`, {
-      //   serviceNamespace: asg.ServiceNamespace.LAMBDA,
-      //   maxCapacity: provisionedConcurrency * 2,
-      //   minCapacity: provisionedConcurrency,
-      //   resourceId: `function:${this.getDocsLambdaAlias.lambda.functionName}:${this.getDocsLambdaAlias.aliasName}`,
-      //   scalableDimension: 'lambda:function:ProvisionedConcurrency',
-      // })
+      const getDocsTarget = new asg.ScalableTarget(this, `GetDocs-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.getDocsLambdaAlias.lambda.functionName}:${this.getDocsLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
 
-      // getDocsTarget.node.addDependency(this.getDocsLambdaAlias)
+      getDocsTarget.node.addDependency(this.getDocsLambdaAlias)
 
-      // getDocsTarget.scaleToTrackMetric(`GetDocs-ProvConcTracking`, {
-      //   targetValue: 0.8,
-      //   predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      // })
+      getDocsTarget.scaleToTrackMetric(`GetDocs-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
 
-      // const getDocsUITarget = new asg.ScalableTarget(this, `GetDocsUI-ProvConcASG`, {
-      //   serviceNamespace: asg.ServiceNamespace.LAMBDA,
-      //   maxCapacity: provisionedConcurrency * 2,
-      //   minCapacity: provisionedConcurrency,
-      //   resourceId: `function:${this.getDocsUILambdaAlias.lambda.functionName}:${this.getDocsUILambdaAlias.aliasName}`,
-      //   scalableDimension: 'lambda:function:ProvisionedConcurrency',
-      // })
+      const getDocsUITarget = new asg.ScalableTarget(this, `GetDocsUI-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.getDocsUILambdaAlias.lambda.functionName}:${this.getDocsUILambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
 
-      // getDocsUITarget.node.addDependency(this.getDocsUILambdaAlias)
+      getDocsUITarget.node.addDependency(this.getDocsUILambdaAlias)
 
-      // getDocsUITarget.scaleToTrackMetric(`GetDocsUI-ProvConcTracking`, {
-      //   targetValue: 0.8,
-      //   predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      // })
+      getDocsUITarget.scaleToTrackMetric(`GetDocsUI-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
 
       const orderNotificationLambdaTarget = new asg.ScalableTarget(this, `OrderNotificationLambda-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
