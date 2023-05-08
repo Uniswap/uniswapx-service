@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { OrderType, OrderValidation } from '@uniswap/gouda-sdk'
-import { OrderEntity, ORDER_STATUS } from '../../lib/entities/Order'
+import { OrderEntity, ORDER_STATUS } from '../../lib/entities'
 import { CheckOrderStatusHandler } from '../../lib/handlers/check-order-status/handler'
 
 const MOCK_ORDER_HASH = '0xc57af022b96e1cb0da0267c15f1d45cdfccf57cfeb8b33869bb50d7f478ab203'
@@ -101,7 +101,7 @@ describe('Testing check order status handler', () => {
           orderStatus: ORDER_STATUS.OPEN as string,
           chainId: 2022,
         } as any)
-      ).rejects.toThrowError('"chainId" must be one of [1, 5, TENDERLY, 137]')
+      ).rejects.toThrowError('"chainId" must be one of [1, TENDERLY, 137]')
     })
   })
 

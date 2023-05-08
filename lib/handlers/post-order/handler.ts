@@ -1,14 +1,14 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchLimitOrder, OrderType } from '@uniswap/gouda-sdk'
+import { DutchLimitOrder, OrderType, OrderValidation } from '@uniswap/gouda-sdk'
 import Logger from 'bunyan'
 import Joi from 'joi'
-import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
+import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { formatOrderEntity } from '../../util/order'
 import { currentTimestampInSeconds } from '../../util/time'
-import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/index'
+import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base'
 import { ContainerInjected } from './injector'
-import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
+import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
 type OrderTrackingSfnInput = {
   orderHash: string
@@ -30,7 +30,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody: { encodedOrder, signature, chainId, quoteId },
       requestInjected: { log },
-      containerInjected: { dbInterface, orderValidator },
+      containerInjected: { dbInterface, orderValidator, onchainValidatorByChainId },
     } = params
 
     log.info('Handling POST order request', params)
@@ -52,6 +52,16 @@ export class PostOrderHandler extends APIGLambdaHandler<
         statusCode: 400,
         errorCode: 'Invalid order',
         detail: validationResponse.errorString,
+      }
+    }
+    // onchain validation
+    const onchainValidator = onchainValidatorByChainId[chainId]
+    const validation = await onchainValidator.validate({ order: decodedOrder, signature: signature })
+    if (validation != OrderValidation.OK) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid order',
+        detail: `Onchain validation failed: ${OrderValidation[validation]}`,
       }
     }
 
@@ -105,7 +115,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       },
     })
     await this.kickoffOrderTrackingSfn(
-      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.UNVERIFIED, quoteId: quoteId ?? '' },
+      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '' },
       stateMachineArn,
       log
     )
