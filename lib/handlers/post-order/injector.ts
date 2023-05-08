@@ -18,19 +18,20 @@ export interface ContainerInjected {
 
 export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
+    const onchainValidatorByChainId: { [chainId: number]: OnchainValidator } = {}
+    SUPPORTED_CHAINS.forEach((chainId) => {
+      // TODO: remove if when we bring back tenderly
+      if (typeof chainId === 'number') {
+        const rpc = process.env[`RPC_${chainId}`]
+        if (rpc) {
+          onchainValidatorByChainId[chainId] = new OnchainValidator(new ethers.providers.JsonRpcProvider(rpc), chainId)
+        }
+      }
+    })
     return {
       dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
       orderValidator: new OrderValidator(() => new Date().getTime() / 1000),
-      onchainValidatorByChainId: SUPPORTED_CHAINS.flatMap((chainId) => {
-        if (typeof chainId === 'number') {
-          const rpc = process.env[`RPC_${chainId}`]
-          if (!rpc) {
-            return []
-          }
-          return [new OnchainValidator(new ethers.providers.JsonRpcProvider(rpc), chainId)]
-        }
-        return []
-      }),
+      onchainValidatorByChainId,
     }
   }
 

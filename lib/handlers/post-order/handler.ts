@@ -34,6 +34,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     } = params
 
     log.info('Handling POST order request', params)
+    log.info({ onchainValidatorByChainId }, 'onchain validators')
     let decodedOrder: DutchLimitOrder
 
     try {
@@ -56,6 +57,12 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
     // onchain validation
     const onchainValidator = onchainValidatorByChainId[chainId]
+    if (!onchainValidator) {
+      return {
+        statusCode: 500,
+        detail: `No onchain validator for chain ${chainId}`,
+      }
+    }
     const validation = await onchainValidator.validate({ order: decodedOrder, signature: signature })
     if (validation != OrderValidation.OK) {
       return {
