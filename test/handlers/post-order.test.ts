@@ -1,3 +1,5 @@
+var parserMock = jest.fn();
+
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchLimitOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
@@ -55,11 +57,16 @@ const DECODED_ORDER = {
   chainId: 1,
 }
 
-jest.mock('@uniswap/gouda-sdk', () => ({
-  DutchLimitOrder: { parse: () => DECODED_ORDER },
-  OrderType: { DutchLimit: 'DutchLimit' },
-  OrderValidation: OrderValidation,
-}))
+jest.mock('@uniswap/gouda-sdk', () => {
+  const originalSdk = jest.requireActual('@uniswap/gouda-sdk')
+  return {
+    ...originalSdk,
+    DutchLimitOrder: {
+      parse: parserMock
+    },
+    OrderType: { DutchLimit: 'DutchLimit' },
+  }
+})
 
 describe('Testing post order handler.', () => {
   const putOrderAndUpdateNonceTransactionMock = jest.fn()
@@ -145,6 +152,7 @@ describe('Testing post order handler.', () => {
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN'] = MOCK_ARN
     process.env['REGION'] = 'region'
+    parserMock.mockReturnValue(DECODED_ORDER)
   })
 
   afterEach(() => {
@@ -290,11 +298,15 @@ describe('Testing post order handler.', () => {
     })
 
     it('on-chain validation failed; throws 400', async () => {
+      parserMock.mockReturnValue({
+        ...DECODED_ORDER,
+        chainId: 137
+      })
       const event = {
         queryStringParameters: {},
         body: JSON.stringify({
           ...postRequestBody,
-          chainId: 1111,
+          chainId: 137,
         }),
       }
       validatorMock.mockReturnValue({
@@ -305,7 +317,7 @@ describe('Testing post order handler.', () => {
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({
           detail: `Onchain validation failed: ValidationFailed`,
-          errorCode: 'Invalid Order',
+          errorCode: 'Invalid order',
           id: 'testRequest',
         }),
         statusCode: 400,
