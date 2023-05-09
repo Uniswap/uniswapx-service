@@ -13,6 +13,11 @@ export class OrderValidator {
   constructor(private readonly getCurrentTime: () => number) {}
 
   validate(order: DutchLimitOrder): OrderValidationResponse {
+    const chainIdValidation = this.validateChainId(order.chainId)
+    if (!chainIdValidation.valid) {
+      return chainIdValidation
+    }
+
     const deadlineValidation = this.validateDeadline(order.info.deadline)
     if (!deadlineValidation.valid) {
       return deadlineValidation
@@ -61,6 +66,19 @@ export class OrderValidator {
     const orderHashValidation = this.validateHash(order.hash())
     if (!orderHashValidation.valid) {
       return orderHashValidation
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  private validateChainId(chainId: number): OrderValidationResponse {
+    const error = FieldValidator.isValidChainId().validate(chainId).error
+    if (error) {
+      return {
+        valid: false,
+        errorString: error.message,
+      }
     }
     return {
       valid: true,
