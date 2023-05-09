@@ -11,7 +11,7 @@
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
     "test": "jest --detectOpenHandles --forceExit --testPathIgnorePatterns=integ/ dist/",
-    "integ-test": "jest --testPathPattern=integ/",
+    "integ-test": "jest --detectOpenHandles --testPathPattern=integ/",
     "cdk": "cdk",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
