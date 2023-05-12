@@ -46,8 +46,10 @@ To test your changes you must redeploy your service. The dev cycle is thus:
 1. Make code changes. Make sure all env variables are present in the .env file:
 
 ```
-RPC_TENDERLY=<>
 FIREHOSE_ARN_LOCAL=<>
+TENDERLY_USER=<>
+TENDERLY_PROJECT=<>
+TENDERLY_ACCESS_KEY=<>
 
 # Only need these if testing against custom contract deployments
 REACTOR_TENDERLY=<>

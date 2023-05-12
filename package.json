@@ -10,7 +10,7 @@
     "build": "tsc",
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
-    "test": "jest --detectOpenHandles --forceExit --testPathIgnorePatterns=integ/ dist/",
+    "test": "jest --detectOpenHandles --maxWorkers=1 --testPathIgnorePatterns=integ/ dist/",
     "integ-test": "jest --testPathPattern=integ/",
     "cdk": "cdk",
     "fix": "run-s fix:*",
