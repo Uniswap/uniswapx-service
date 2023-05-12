@@ -7,7 +7,6 @@ import { UNI, WETH, ZERO_ADDRESS } from './constants'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from '../abis/erc20.json'
-import { createMainnetFork, deleteMainnetFork } from './helpers'
 const { abi } = ERC20_ABI
 
 dotenv.config()
@@ -18,26 +17,25 @@ describe('/dutch-auction/order', () => {
   jest.setTimeout(30 * 1000)
   let wallet: Wallet
   let provider: ethers.providers.JsonRpcProvider
-  let forkId: string
   let aliceAddress: string
   let nonce: BigNumber
   let URL: string
   // Token contracts
   let weth: Contract
   let uni: Contract
+  // Fork management
+  let snap: null | string = null
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
       throw new Error('GOUDA_SERVICE_URL not set')
     }
+    if (!process.env.RPC_TENDERLY) {
+      throw new Error('RPC_TENDERLY not set')
+    }
     URL = process.env.GOUDA_SERVICE_URL
-
-    const forkResponse = await createMainnetFork('1', 17245000)
-    forkId = forkResponse.data.root_transaction.fork_id;
-    const rpcURL = `https://rpc.tenderly.co/fork/${forkId}`
-    console.log(`Using rpcURL: ${rpcURL}`)
-
-    provider = new ethers.providers.JsonRpcProvider(rpcURL)
+    
+    provider = new ethers.providers.JsonRpcProvider(process.env.RPC_TENDERLY)
 
     wallet = ethers.Wallet.createRandom().connect(provider)
     aliceAddress = (await wallet.getAddress()).toLowerCase()
@@ -83,6 +81,8 @@ describe('/dutch-auction/order', () => {
     expect(getResponse.status).toEqual(200)
     nonce = BigNumber.from(getResponse.data.nonce)
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
+
+    snap = await provider.send("evm_snapshot", []);
   })
 
   beforeAll(async () => {
@@ -107,8 +107,11 @@ describe('/dutch-auction/order', () => {
         expect(deleteResp.status).toEqual(200)
       }
     }
+    // await deleteMainnetFork(forkId)
+  })
 
-    await deleteMainnetFork(forkId)
+  afterEach(async () => {
+    await provider.send("evm_revert", [snap]);
   })
 
   async function expectOrdersToBeOpen(orderHashes: string[]) {
@@ -135,11 +138,9 @@ describe('/dutch-auction/order', () => {
   }
 
   async function expectOrderToExpire(orderHash: string, deadlineSeconds: number) {
-    const waitTime = Math.ceil(new Date().getTime() / 1000 + deadlineSeconds - Math.floor(new Date().getTime() / 1000))
-    console.log(`Waiting ${waitTime} seconds for order to expire`)
     // fast forward to order expiry
     const params = [
-      ethers.utils.hexValue(waitTime), // hex encoded number of seconds
+      ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
     ]
 
     await provider.send('evm_increaseTime', params)
@@ -212,8 +213,8 @@ describe('/dutch-auction/order', () => {
   it.only('erc20 to erc20', async () => {
     const amount = ethers.utils.parseEther('1')
     const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 3000, WETH, UNI)
-    // expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-    await expectOrderToExpire(orderHash, 10000)
+    expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
+    await expectOrderToExpire(orderHash, 3500)
   })
 
   it('erc20 to eth', async () => {
