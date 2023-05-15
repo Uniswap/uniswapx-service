@@ -12,6 +12,8 @@ const URL = checkDefined(process.env.GOUDA_SERVICE_URL, 'GOUDA_SERVICE_URL must 
 const wallet = new ethers.Wallet(ANVIL_TEST_WALLET_PK)
 const amount = BigNumber.from(10).pow(18)
 
+axios.defaults.timeout = 10000
+
 describe('get nonce', () => {
   it('should get current nonce for address, and increment it by one after the address posts an order', async () => {
     const address = await (await wallet.getAddress()).toLowerCase()
