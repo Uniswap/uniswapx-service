@@ -1,10 +1,11 @@
 import axios, { AxiosResponse } from 'axios'
 import Joi from 'joi'
-import { callWithRetry } from '../../util/network-requests'
 import { eventRecordToOrder } from '../../util/order'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
+
+const WEBHOOK_TIMEOUT_MS = 500
 
 export class OrderNotificationHandler extends DynamoStreamLambdaHandler<ContainerInjected, RequestInjected> {
   public async handleRequest(input: {
@@ -27,29 +28,29 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
           filler: newOrder.filler,
         })
 
-        // build webhook requests with retries and timeouts
-        const requests: Promise<AxiosResponse>[] = []
-        for (const endpoint of registeredEndpoints) {
-          const requestWithTimeout = async () =>
-            await axios.post(
-              endpoint.url,
-              {
-                orderHash: newOrder.orderHash,
-                createdAt: newOrder.createdAt,
-                signature: newOrder.signature,
-                offerer: newOrder.offerer,
-                orderStatus: newOrder.orderStatus,
-                encodedOrder: newOrder.encodedOrder,
-                chainId: newOrder.chainId,
-                ...(newOrder.quoteId && { quoteId: newOrder.quoteId }),
-                ...(newOrder.filler && { filler: newOrder.filler }),
-              },
-              { timeout: 5000, headers: { ...endpoint.headers } }
-            )
-          requests.push(callWithRetry(requestWithTimeout))
-        }
+        const requests: Promise<AxiosResponse>[] = registeredEndpoints.map((endpoint) =>
+          axios.post(
+            endpoint.url,
+            {
+              orderHash: newOrder.orderHash,
+              createdAt: newOrder.createdAt,
+              signature: newOrder.signature,
+              offerer: newOrder.offerer,
+              orderStatus: newOrder.orderStatus,
+              encodedOrder: newOrder.encodedOrder,
+              chainId: newOrder.chainId,
+              ...(newOrder.quoteId && { quoteId: newOrder.quoteId }),
+              ...(newOrder.filler && { filler: newOrder.filler }),
+            },
+            {
+              timeout: WEBHOOK_TIMEOUT_MS,
+              headers: { ...endpoint.headers },
+            }
+          )
+        )
 
         // send all notifications and track the failed requests
+        // note we try each webhook once and only once, so guarantee to MM is _at most once_
         const failedRequests: PromiseSettledResult<AxiosResponse>[] = []
         const results = await Promise.allSettled(requests)
         results.forEach((result) =>

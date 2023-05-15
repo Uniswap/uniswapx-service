@@ -1,14 +1,14 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchLimitOrder, OrderType } from '@uniswap/gouda-sdk'
+import { DutchLimitOrder, OrderType, OrderValidation } from '@uniswap/gouda-sdk'
 import Logger from 'bunyan'
 import Joi from 'joi'
-import { OrderEntity, ORDER_STATUS } from '../../entities/Order'
+import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { formatOrderEntity } from '../../util/order'
 import { currentTimestampInSeconds } from '../../util/time'
-import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/index'
+import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base'
 import { ContainerInjected } from './injector'
-import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema/index'
+import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
 type OrderTrackingSfnInput = {
   orderHash: string
@@ -30,13 +30,11 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody: { encodedOrder, signature, chainId, quoteId },
       requestInjected: { log },
-      containerInjected: { dbInterface, orderValidator },
+      containerInjected: { dbInterface, orderValidator, onchainValidatorByChainId },
     } = params
 
-    log.info(
-      { encodedOrder: encodedOrder, signature: signature, chainId: chainId, quoteId: quoteId },
-      'Handling POST order request'
-    )
+    log.info('Handling POST order request', params)
+    log.info({ onchainValidatorByChainId }, 'onchain validators')
     let decodedOrder: DutchLimitOrder
 
     try {
@@ -55,6 +53,22 @@ export class PostOrderHandler extends APIGLambdaHandler<
         statusCode: 400,
         errorCode: 'Invalid order',
         detail: validationResponse.errorString,
+      }
+    }
+    // onchain validation
+    const onchainValidator = onchainValidatorByChainId[chainId]
+    if (!onchainValidator) {
+      return {
+        statusCode: 500,
+        detail: `No onchain validator for chain ${chainId}`,
+      }
+    }
+    const validation = await onchainValidator.validate({ order: decodedOrder, signature: signature })
+    if (validation != OrderValidation.OK) {
+      return {
+        statusCode: 400,
+        errorCode: 'Invalid order',
+        detail: `Onchain validation failed: ${OrderValidation[validation]}`,
       }
     }
 
@@ -108,7 +122,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       },
     })
     await this.kickoffOrderTrackingSfn(
-      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.UNVERIFIED, quoteId: quoteId ?? '' },
+      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '' },
       stateMachineArn,
       log
     )
@@ -124,6 +138,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const startExecutionCommand = new StartExecutionCommand({
       stateMachineArn: stateMachineArn,
       input: JSON.stringify(sfnInput),
+      name: sfnInput.orderHash,
     })
     log?.info(startExecutionCommand, 'Starting state machine execution')
     await sfnClient.send(startExecutionCommand)

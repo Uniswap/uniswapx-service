@@ -24,14 +24,14 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
-  private readonly getApiDocsLambda: aws_lambda_nodejs.NodejsFunction
-  private readonly getApiDocsJsonLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
+  private readonly getDocsUILambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly deleteOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
-  public readonly getApiDocsLambdaAlias: aws_lambda.Alias
-  public readonly getApiDocsJsonLambdaAlias: aws_lambda.Alias
+  public readonly getDocsLambdaAlias: aws_lambda.Alias
+  public readonly getDocsUILambdaAlias: aws_lambda.Alias
   private readonly orderNotificationLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
@@ -99,7 +99,7 @@ export class LambdaStack extends cdk.NestedStack {
       new DynamoEventSource(databaseStack.ordersTable, {
         startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
         batchSize: 1,
-        retryAttempts: 3,
+        retryAttempts: 1,
         bisectBatchOnError: true,
         reportBatchItemFailures: true,
         onFailure: new SqsDlq(orderNotificationDlq),
@@ -117,6 +117,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
+        ...props.envVars,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
         STATE_MACHINE_ARN: sfnStack.statusTrackingStateMachine.attrArn,
@@ -157,35 +158,32 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
-    this.getApiDocsJsonLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetApiDocsJson${lambdaName}`, {
+    this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
-      handler: 'getApiDocsJsonHandler',
-      memorySize: 256,
+      handler: 'getDocsHandler',
+      memorySize: 512,
       bundling: {
         minify: true,
         sourceMap: true,
       },
       environment: {
+        ...props.envVars,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
 
-    this.getApiDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetApiDocs${lambdaName}`, {
+    this.getDocsUILambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocsUI${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_14_X,
+      runtime: aws_lambda.Runtime.NODEJS_16_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
-      handler: 'getApiDocsHandler',
+      handler: 'getDocsUIHandler',
       memorySize: 512,
       bundling: {
         minify: true,
         sourceMap: true,
-        // pg-native is not available and won't be used. This is letting he
-        // bundler (esbuild) know pg-native won't be included in the bundled JS
-        // file.
-        externalModules: ['pg-native'],
       },
       environment: {
         ...props.envVars,
@@ -228,15 +226,15 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
-    this.getApiDocsLambdaAlias = new aws_lambda.Alias(this, `GetApiOrdersLiveAlias`, {
+    this.getDocsLambdaAlias = new aws_lambda.Alias(this, `GetDocsLiveAlias`, {
       aliasName: 'live',
-      version: this.getApiDocsLambda.currentVersion,
+      version: this.getDocsLambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
-    this.getApiDocsJsonLambdaAlias = new aws_lambda.Alias(this, `GetApiDocsJsonAlias`, {
+    this.getDocsUILambdaAlias = new aws_lambda.Alias(this, `GetDocsUILiveAlias`, {
       aliasName: 'live',
-      version: this.getApiDocsJsonLambda.currentVersion,
+      version: this.getDocsUILambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
@@ -305,17 +303,32 @@ export class LambdaStack extends cdk.NestedStack {
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
 
-      const getApisDocsJsonTarget = new asg.ScalableTarget(this, `GetApiDocsJson-ProvConcASG`, {
+      const getDocsTarget = new asg.ScalableTarget(this, `GetDocs-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
         maxCapacity: provisionedConcurrency * 2,
         minCapacity: provisionedConcurrency,
-        resourceId: `function:${this.getApiDocsJsonLambdaAlias.lambda.functionName}:${this.getApiDocsJsonLambdaAlias.aliasName}`,
+        resourceId: `function:${this.getDocsLambdaAlias.lambda.functionName}:${this.getDocsLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
       })
 
-      getApisDocsJsonTarget.node.addDependency(this.getApiDocsJsonLambdaAlias)
+      getDocsTarget.node.addDependency(this.getDocsLambdaAlias)
 
-      getApisDocsJsonTarget.scaleToTrackMetric(`GetApiDocsJson-ProvConcTracking`, {
+      getDocsTarget.scaleToTrackMetric(`GetDocs-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const getDocsUITarget = new asg.ScalableTarget(this, `GetDocsUI-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.getDocsUILambdaAlias.lambda.functionName}:${this.getDocsUILambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      getDocsUITarget.node.addDependency(this.getDocsUILambdaAlias)
+
+      getDocsUITarget.scaleToTrackMetric(`GetDocsUI-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })

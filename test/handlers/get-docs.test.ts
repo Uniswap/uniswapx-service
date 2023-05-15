@@ -1,5 +1,5 @@
-import { GetApiDocsJsonHandler } from '../../lib/handlers/get-api-docs-json/handler'
-import OPENAPI_SCHEMA from '../../lib/handlers/get-api-docs-json/schema'
+import { GetDocsHandler } from '../../lib/handlers/get-docs/GetDocsHandler'
+import schema from '../../swagger.json'
 import { HeaderExpectation } from '../utils'
 
 describe('Testing get api docs json handler.', () => {
@@ -18,13 +18,13 @@ describe('Testing get api docs json handler.', () => {
     body: null,
   }
 
-  const getApiDocsJsonHanlder = new GetApiDocsJsonHandler('get-api-docs-json', injectorPromiseMock)
+  const getDocsHandler = new GetDocsHandler('get-api-docs', injectorPromiseMock)
 
   it('Testing valid request and response.', async () => {
-    const getApiDocsJsonResponse = await getApiDocsJsonHanlder.handler(event as any, {} as any)
+    const getApiDocsJsonResponse = await getDocsHandler.handler(event as any, {} as any)
     expect(getApiDocsJsonResponse).toMatchObject({
       statusCode: 200,
-      body: JSON.stringify(OPENAPI_SCHEMA),
+      body: JSON.stringify(schema),
     })
     expect(getApiDocsJsonResponse.headers).not.toBeUndefined()
     const headerExpectation = new HeaderExpectation(getApiDocsJsonResponse.headers)
