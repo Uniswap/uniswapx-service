@@ -9,6 +9,9 @@
             "CF-Access-Client-Secret": "***REMOVED***"
           }
         }
+      ],
+      "0xb507d4ef5ed7a01e37cb578f497329cdb3c273a5": [
+        { "url": "https://api.***REMOVED***/kELxupuoRRWdKX9Q1inVoxOkuNvc3BsHvKTkEYQZ/gouda/defi/signedOrder" }
       ]
     },
     "orderStatus": {},
