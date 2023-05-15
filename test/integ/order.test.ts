@@ -34,7 +34,7 @@ describe('/dutch-auction/order', () => {
       throw new Error('RPC_TENDERLY not set')
     }
     URL = process.env.GOUDA_SERVICE_URL
-    
+
     provider = new ethers.providers.JsonRpcProvider(process.env.RPC_TENDERLY)
 
     wallet = ethers.Wallet.createRandom().connect(provider)
@@ -82,35 +82,37 @@ describe('/dutch-auction/order', () => {
     nonce = BigNumber.from(getResponse.data.nonce)
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
 
-    snap = await provider.send("evm_snapshot", []);
-  })
-
-  beforeAll(async () => {
-    // delete all orders with aliceAddress
-    const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?offerer=${aliceAddress}`)
-    expect(resp.status).toEqual(200)
-    for (const order of resp.data.orders) {
-      if (order) {
-        const deleteResp = await axios.delete(`${URL}dutch-auction/order/${order.orderHash}`)
-        expect(deleteResp.status).toEqual(200)
-      }
-    }
+     // delete all orders with aliceAddress
+     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?offerer=${aliceAddress}`)
+     expect(resp.status).toEqual(200)
+     for (const order of resp.data.orders) {
+       if (order) {
+         const deleteResp = await axios.delete(`${URL}dutch-auction/order/${order.orderHash}`)
+         expect(deleteResp.status).toEqual(200)
+       }
+     }
   })
 
   afterAll(async () => {
     // delete all orders with aliceAddress
-    const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?offerer=${aliceAddress}`)
-    expect(resp.status).toEqual(200)
-    for (const order of resp.data.orders) {
-      if (order) {
-        const deleteResp = await axios.delete(`${URL}dutch-auction/order/${order.orderHash}`)
-        expect(deleteResp.status).toEqual(200)
-      }
-    }
+    // const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?offerer=${aliceAddress}`)
+    // expect(resp.status).toEqual(200)
+    // for (const order of resp.data.orders) {
+    //   if (order) {
+    //     const deleteResp = await axios.delete(`${URL}dutch-auction/order/${order.orderHash}`)
+    //     expect(deleteResp.status).toEqual(200)
+    //   }
+    // }
     // await deleteMainnetFork(forkId)
   })
 
+  beforeEach(async () => {
+    snap = await provider.send("evm_snapshot", []);
+    console.log("Saved snap", snap)
+  });
+
   afterEach(async () => {
+    console.log("Reverting to snap", snap)
     await provider.send("evm_revert", [snap]);
   })
 
@@ -143,7 +145,14 @@ describe('/dutch-auction/order', () => {
       ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
     ]
 
+    console.log(await provider.getBlock('latest'))
+
     await provider.send('evm_increaseTime', params)
+    await provider.send('evm_increaseBlocks', [
+      ethers.utils.hexValue(1)
+    ])
+
+    console.log(await provider.getBlock('latest'))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
