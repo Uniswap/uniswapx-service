@@ -58,6 +58,15 @@ export class StepFunctionStack extends cdk.NestedStack {
       })
     }
 
+    if (props.envVars['FAILED_EVENT_DESTINATION_ARN']) {
+      new aws_logs.CfnSubscriptionFilter(this, 'FailedStateSub', {
+        destinationArn: checkDefined(props.envVars['FAILED_EVENT_DESTINATION_ARN']),
+        // TODO: would this catch the errors? ideally, we have a not null check on errorInfo
+        filterPattern: '{ $.errorInfo = "*" }',
+        logGroupName: checkStatusFunction.logGroup.logGroupName,
+      })
+    }
+
     this.statusTrackingStateMachine = new CfnStateMachine(this, `${SERVICE_NAME}-${stage}-OrderStatusTracking`, {
       roleArn: stateMachineRole.roleArn,
       definition: orderStatusTrackingStateMachine,
