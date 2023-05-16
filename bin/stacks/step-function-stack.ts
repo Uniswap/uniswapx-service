@@ -70,7 +70,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       },
       // Since the checkOrderStatus already posts logs, we only want to post failure logs from the state machine
       loggingConfiguration: {
-        level: 'FATAL',
+        level: 'ERROR',
         includeExecutionData: true,
         destinations: [
           {
