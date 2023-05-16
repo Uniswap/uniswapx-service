@@ -124,7 +124,6 @@ export class APIPipeline extends Stack {
         DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
-        FAILED_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FAILED_EVENT_DESTINATION_ARN_BETA').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
       },
@@ -143,7 +142,6 @@ export class APIPipeline extends Stack {
       envVars: {
         ...jsonRpcUrls,
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
-        FAILED_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FAILED_EVENT_DESTINATION_ARN_PROD').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
       },
@@ -225,7 +223,6 @@ envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
 envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
-envVars['FAILED_EVENT_DESTINATION_ARN'] = process.env['FAILED_EVENT_DESTINATION_ARN'] || ''
 envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
