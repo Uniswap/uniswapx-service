@@ -60,8 +60,7 @@
     },
     "orderInFailedState": {
       "Type": "Fail",
-      "Cause": "Order in failed state",
-      "Error": "OrderFailed"
+      "Error": "Order in failed state"
     },
     "orderInTerminalState": {
       "Type": "Succeed"
