@@ -35,8 +35,7 @@ export class APIStack extends cdk.Stack {
       getNonceLambdaAlias,
       postOrderLambdaAlias,
       getDocsLambdaAlias,
-      deleteOrderLambdaAlias,
-      getDocsUILambdaAlias
+      getDocsUILambdaAlias,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       stage: stage as STAGE,
@@ -129,7 +128,6 @@ export class APIStack extends cdk.Stack {
 
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
     const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
-    const deleteOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(deleteOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
     const getDocsUILambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsUILambdaAlias, {})
@@ -156,10 +154,9 @@ export class APIStack extends cdk.Stack {
       },
     })
     apiDocsUI.addMethod('GET', getDocsUILambdaIntegration)
-    
+
     const order = dutchAuction.addResource('order')
     order.addMethod('POST', postOrderLambdaIntegration)
-    order.addMethod('DELETE', deleteOrderLambdaIntegration)
 
     const orders = dutchAuction.addResource('orders')
     const nonce = dutchAuction.addResource('nonce')

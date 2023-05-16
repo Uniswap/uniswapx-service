@@ -182,10 +182,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return res.Item as OrderEntity
   }
 
-  public async deleteOrderByHash(hash: string): Promise<void> {
-    await this.orderEntity.delete({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
-  }
-
   public async getNonceByAddress(address: string): Promise<string> {
     const res = await this.nonceEntity.query(address, {
       limit: 1,
