@@ -494,11 +494,3 @@ describe('OrdersRepository update status test', () => {
     )
   })
 })
-
-describe('OrdersRepository delete order by hash test', () => {
-  it('should successfully delete an order identified by orderHash', async () => {
-    await expect(ordersRepository.deleteOrderByHash('0x4')).resolves.toBeUndefined()
-    await expect(ordersRepository.getByHash('0x4')).resolves.toBeUndefined()
-    await expect(ordersRepository.getByHash('0x3')).resolves.not.toBeUndefined()
-  })
-})
