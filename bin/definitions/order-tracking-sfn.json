@@ -11,6 +11,13 @@
           "BackoffRate": 2
         }
       ],
+      "Catch": [
+        {
+          "ErrorEquals": [ "States.ALL" ],
+          "ResultPath": "$.errorInfo",
+          "Next": "orderInFailedState"
+        }
+      ],
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
@@ -50,6 +57,11 @@
       "Type": "Wait",
       "SecondsPath": "$.retryWaitSeconds",
       "Next": "checkOrderStatus"
+    },
+    "orderInFailedState": {
+      "Type": "Fail",
+      "Cause": "Order in failed state",
+      "Error": "OrderFailed"
     },
     "orderInTerminalState": {
       "Type": "Succeed"
