@@ -14,9 +14,7 @@
   "paths": {
     "/prod/dutch-auction/order": {
       "post": {
-        "tags": [
-          "Dutch Auction"
-        ],
+        "tags": ["Dutch Auction"],
         "summary": "Submit order",
         "description": "Submits a new signed order to the trading API.",
         "requestBody": {
@@ -47,9 +45,7 @@
     },
     "/prod/dutch-auction/orders": {
       "get": {
-        "tags": [
-          "Dutch Auction"
-        ],
+        "tags": ["Dutch Auction"],
         "summary": "Retrieve orders",
         "description": "Retrieve orders filtered by query param(s). Some fields on the order can be used as query param.",
         "parameters": [
@@ -94,9 +90,7 @@
     },
     "/prod/dutch-auction/nonce": {
       "get": {
-        "tags": [
-          "Dutch Auction"
-        ],
+        "tags": ["Dutch Auction"],
         "summary": "Get nonce",
         "description": "Get current nonce for dutch auction orders. Given an address this endpoint will return the next valid nonce to be used in order creation.",
         "parameters": [
@@ -239,9 +233,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "token"
-        ]
+        "required": ["token"]
       },
       "OrderOutput": {
         "type": "object",
@@ -262,12 +254,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "startAmount",
-          "endAmount",
-          "isFeeOutput",
-          "recipient"
-        ]
+        "required": ["startAmount", "endAmount", "isFeeOutput", "recipient"]
       },
       "SettledAmount": {
         "type": "object",
@@ -290,9 +277,7 @@
       },
       "OrderType": {
         "type": "string",
-        "enum": [
-          "DutchLimit"
-        ]
+        "enum": ["DutchLimit"]
       },
       "OrderEntity": {
         "type": "object",
@@ -333,15 +318,6 @@
           "deadline": {
             "type": "number"
           },
-          "filler": {
-            "type": "string"
-          },
-          "quoteId": {
-            "type": "string"
-          },
-          "txHash": {
-            "type": "string"
-          },
           "input": {
             "$ref": "#/components/schemas/OrderInput"
           },
@@ -351,7 +327,20 @@
               "$ref": "#/components/schemas/OrderOutput"
             }
           },
+          "filler": {
+            "description": "Filler field is defined when the order has been filled and the status tracking function has recorded the filler address.",
+            "type": "string"
+          },
+          "quoteId": {
+            "description": "QuoteId field is defined when the order has a quote associated with it.",
+            "type": "string"
+          },
+          "txHash": {
+            "description": "TxHash field is defined when the order has been filled and there is a txHash associated with the fill.",
+            "type": "string"
+          },
           "settledAmounts": {
+            "description": "SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SettledAmount"
@@ -365,7 +354,15 @@
           "orderHash",
           "orderStatus",
           "chainId",
-          "offerer"
+          "offerer",
+          "reactor",
+          "startTime",
+          "endTime",
+          "deadline",
+          "input",
+          "outputs",
+          "type",
+          "encodedOrder"
         ]
       },
       "GetOrdersResponse": {
@@ -381,37 +378,22 @@
             "type": "string"
           }
         },
-        "required": [
-          "orders"
-        ]
+        "required": ["orders"]
       },
       "SortKey": {
         "type": "string",
-        "enum": [
-          "createdAt"
-        ]
+        "enum": ["createdAt"]
       },
       "OrderHash": {
         "type": "string"
       },
       "OrderStatus": {
         "type": "string",
-        "enum": [
-          "open",
-          "expired",
-          "error",
-          "cancelled",
-          "filled",
-          "unverified",
-          "insufficient-funds"
-        ]
+        "enum": ["open", "expired", "error", "cancelled", "filled", "unverified", "insufficient-funds"]
       },
       "ChainId": {
         "type": "number",
-        "enum": [
-          1,
-          137
-        ]
+        "enum": [1, 137]
       },
       "PostOrderResponse": {
         "type": "object",
