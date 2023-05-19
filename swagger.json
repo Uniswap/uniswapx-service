@@ -3,7 +3,7 @@
   "servers": [
     {
       "description": "Uniswap Trade APIs",
-      "url": "https://beta.api.uniswap.org/v1"
+      "url": "https://***REMOVED***.execute-api.us-east-2.amazonaws.com/prod"
     }
   ],
   "info": {
