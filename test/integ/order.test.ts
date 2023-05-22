@@ -129,7 +129,6 @@ describe('/dutch-auction/order', () => {
       ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
     ]
     const blockNumber = (await provider.getBlock('latest')).number
-    // console.log(new Date().toISOString(), await provider.getBlock('latest').)
 
     await provider.send('evm_increaseTime', params)
     const blocksToMine = 1
@@ -178,10 +177,7 @@ describe('/dutch-auction/order', () => {
 
     const { domain, types, values } = order.permitData()
     const signature = await wallet._signTypedData(domain, types, values)
-
     const encodedOrder = order.serialize()
-
-    console.log(order.toJSON(), order.hash())
 
     try {
       const postResponse = await axios.post<any>(

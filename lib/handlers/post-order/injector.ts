@@ -7,9 +7,9 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { OrderValidator } from '../../util/order-validator'
+import { STAGE } from '../../util/stage'
 import { ApiInjector, ApiRInj } from '../base'
 import { PostOrderRequestBody } from './schema'
-import { STAGE } from '../../util/stage'
 
 export interface ContainerInjected {
   dbInterface: BaseOrdersRepository
