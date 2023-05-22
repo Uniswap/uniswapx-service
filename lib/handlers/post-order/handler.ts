@@ -10,6 +10,9 @@ import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Resp
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
+export const MAX_OPEN_ORDERS = 50
+const CANARY_OFFERER_ADDRESS = '0xa7152Fad7467857dC2D4060FEcaAdf9f6B8227d3'
+
 type OrderTrackingSfnInput = {
   orderHash: string
   chainId: number
@@ -90,7 +93,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     try {
       const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
-      if (orderCount > 50) {
+      if (orderCount > MAX_OPEN_ORDERS && order.offerer.toLowerCase() !== CANARY_OFFERER_ADDRESS.toLowerCase()) {
         log.info(orderCount, `${order.offerer} has too many open orders`)
         return {
           statusCode: 403,
