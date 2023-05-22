@@ -34,7 +34,9 @@ export class PostOrderHandler extends APIGLambdaHandler<
     } = params
 
     log.info('Handling POST order request', params)
-    log.info({ onchainValidatorByChainId }, 'onchain validators')
+    log.info({ onchainValidatorByChainId: Object.keys(onchainValidatorByChainId).map(
+      (chainId) => onchainValidatorByChainId[Number(chainId)].orderQuoterAddress
+    ) }, 'onchain validators')
     let decodedOrder: DutchLimitOrder
 
     try {
