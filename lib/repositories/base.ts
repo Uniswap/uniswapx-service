@@ -20,5 +20,4 @@ export interface BaseOrdersRepository {
     txHash?: string,
     settledAmounts?: SettledAmount[]
   ) => Promise<void>
-  deleteOrderByHash(hash: string): Promise<void>
 }

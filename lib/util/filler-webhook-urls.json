@@ -9,6 +9,9 @@
             "CF-Access-Client-Secret": "c2ae13d2fa370590567befe36899ed35edfc331bb6402140a0a23aa986709518"
           }
         }
+      ],
+      "0xb507d4ef5ed7a01e37cb578f497329cdb3c273a5": [
+        { "url": "https://api.prycto.network/kELxupuoRRWdKX9Q1inVoxOkuNvc3BsHvKTkEYQZ/gouda/defi/signedOrder" }
       ]
     },
     "orderStatus": {},
