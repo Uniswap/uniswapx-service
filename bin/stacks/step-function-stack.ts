@@ -8,6 +8,7 @@ import { checkDefined } from '../../lib/preconditions/preconditions'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.json'
+import { Alarm, ComparisonOperator, Metric, Statistic, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
 
 export class StepFunctionStack extends cdk.NestedStack {
   public statusTrackingStateMachine: CfnStateMachine
@@ -26,7 +27,10 @@ export class StepFunctionStack extends cdk.NestedStack {
 
     const stateMachineRole = new cdk.aws_iam.Role(this, `StepFunctionRole`, {
       assumedBy: new cdk.aws_iam.ServicePrincipal('states.amazonaws.com'),
-      managedPolicies: [cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaRole')],
+      managedPolicies: [
+        cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaRole'),
+        cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchLogsFullAccess')
+      ],
     })
 
     const checkStatusFunction = new NodejsFunction(this, `${SERVICE_NAME}-${stage}-CheckOrderStatusLambda`, {
@@ -64,6 +68,36 @@ export class StepFunctionStack extends cdk.NestedStack {
       definitionSubstitutions: {
         checkOrderStatusLambdaArn: checkStatusFunction.functionArn,
       },
+      // Since the checkOrderStatus already posts logs, we only want to post failure logs from the state machine
+      loggingConfiguration: {
+        level: 'ERROR',
+        includeExecutionData: true,
+        destinations: [
+          {
+            cloudWatchLogsLogGroup: {
+              logGroupArn: checkStatusFunction.logGroup.logGroupArn,
+            },
+          },
+        ],
+      }
     })
+
+    new Alarm(this, 'CheckOrderStatusStepFunctionExecutionFail', {
+      alarmName: 'CheckOrderStatusStepFunctionExecutionFail',
+      metric:
+        new Metric({
+          metricName: 'ExecutionsFailed',
+          namespace: 'AWS/States',
+          statistic: Statistic.SUM,
+          dimensionsMap: {
+            StateMachineArn: checkStatusFunction.logGroup.logGroupArn
+          },
+        }),
+      threshold: 5, // TODO: remove placeholder threshold
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      treatMissingData: TreatMissingData.MISSING,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    });
   }
 }
