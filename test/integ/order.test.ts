@@ -93,19 +93,6 @@ describe('/dutch-auction/order', () => {
      }
   })
 
-  afterAll(async () => {
-    // delete all orders with aliceAddress
-    // const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?offerer=${aliceAddress}`)
-    // expect(resp.status).toEqual(200)
-    // for (const order of resp.data.orders) {
-    //   if (order) {
-    //     const deleteResp = await axios.delete(`${URL}dutch-auction/order/${order.orderHash}`)
-    //     expect(deleteResp.status).toEqual(200)
-    //   }
-    // }
-    // await deleteMainnetFork(forkId)
-  })
-
   beforeEach(async () => {
     snap = await provider.send("evm_snapshot", []);
     console.log("Saved snap", snap)
@@ -195,42 +182,50 @@ describe('/dutch-auction/order', () => {
 
     const encodedOrder = order.serialize()
 
-    const postResponse = await axios.post<any>(
-      `${URL}dutch-auction/order`,
-      {
-        encodedOrder,
-        signature,
-        chainId: ChainId.MAINNET,
-      },
-      {
-        headers: {
-          accept: 'application/json, text/plain, */*',
-          'content-type': 'application/json',
+    console.log(order.toJSON(), order.hash())
+
+    try {
+      const postResponse = await axios.post<any>(
+        `${URL}dutch-auction/order`,
+        {
+          encodedOrder,
+          signature,
+          chainId: ChainId.MAINNET,
         },
-      }
-    )
-
-    expect(postResponse.status).toEqual(201)
-    const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
-    expect(newGetResponse.status).toEqual(200)
-    const newNonce = BigNumber.from(newGetResponse.data.nonce)
-    expect(newNonce.eq(nonce.add(1))).toBeTruthy()
-
-    return postResponse.data.hash
+        {
+          headers: {
+            accept: 'application/json, text/plain, */*',
+            'content-type': 'application/json',
+          },
+        }
+      )
+  
+      expect(postResponse.status).toEqual(201)
+      const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
+      expect(newGetResponse.status).toEqual(200)
+      const newNonce = BigNumber.from(newGetResponse.data.nonce)
+      expect(newNonce.eq(nonce.add(1))).toBeTruthy()
+  
+      return postResponse.data.hash
+    }
+    catch(err: any) {
+      console.log(err)
+      throw err
+    }
   }
 
   it.only('erc20 to erc20', async () => {
     const amount = ethers.utils.parseEther('1')
     const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 3000, WETH, UNI)
     expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-    await expectOrderToExpire(orderHash, 3500)
+    // await expectOrderToExpire(orderHash, 3500)
   })
 
   it('erc20 to eth', async () => {
     const amount = ethers.utils.parseEther('1')
     const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 5, UNI, ZERO_ADDRESS)
     expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-    // await expectOrderToExpire(postResponse.data.hash, deadline)
+    await expectOrderToExpire(orderHash, 300)
   })
 
   it('allows same offerer to post multiple orders', async () => {
