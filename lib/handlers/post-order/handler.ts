@@ -110,17 +110,27 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { errorCode: e.message }),
       }
     }
-    log?.info({
-      eventType: 'OrderPosted',
-      body: {
-        quoteId: order.quoteId,
-        createdAt: currentTimestampInSeconds(),
-        orderHash: order.orderHash,
-        startTime: order.startTime,
-        endTime: order.endTime,
-        deadline: order.deadline,
-      },
+    order.outputs?.forEach((output) => {
+      log?.info({
+        eventType: 'OrderPosted',
+        body: {
+          quoteId: order.quoteId,
+          createdAt: currentTimestampInSeconds(),
+          orderHash: order.orderHash,
+          startTime: order.startTime,
+          endTime: order.endTime,
+          deadline: order.deadline,
+          chainId: order.chainId,
+          inputStartAmount: order.input?.startAmount,
+          inputEndAmount: order.input?.endAmount,
+          tokenIn: order.input?.token,
+          outputStartAmount: output.startAmount,
+          outputEndAmount: output.endAmount,
+          tokenOut: output.token,
+        },
+      })
     })
+
     await this.kickoffOrderTrackingSfn(
       { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '' },
       stateMachineArn,
