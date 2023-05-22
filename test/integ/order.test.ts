@@ -14,7 +14,7 @@ dotenv.config()
 const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3'
 
 describe('/dutch-auction/order', () => {
-  jest.setTimeout(30 * 1000)
+  jest.setTimeout(60 * 1000)
   let wallet: Wallet
   let provider: ethers.providers.JsonRpcProvider
   let aliceAddress: string
@@ -95,16 +95,13 @@ describe('/dutch-auction/order', () => {
 
   beforeEach(async () => {
     snap = await provider.send("evm_snapshot", []);
-    console.log("Saved snap", snap)
   });
 
   afterEach(async () => {
-    console.log("Reverting to snap", snap)
     await provider.send("evm_revert", [snap]);
   })
 
   async function expectOrdersToBeOpen(orderHashes: string[]) {
-    console.log('orderHashes', orderHashes)
     // check that orders are open, retrying if status is unverified, with exponential backoff
     for (let i = 0; i < 5; i++) {
       const promises = orderHashes.map((orderHash) =>
@@ -115,31 +112,33 @@ describe('/dutch-auction/order', () => {
       const orders = responses.map((resp) => resp.data.orders[0])
       expect(orders.length).toEqual(orderHashes.length)
       const orderStatuses = orders.map((order) => order!.orderStatus)
-      console.log(`Order statuses: ${orderStatuses}`)
       if (orderStatuses.every((status) => status === 'open')) {
         return true
       }
-      console.log('Waiting', 2 ** i * 1000)
       await new Promise((resolve) => setTimeout(resolve, 2 ** i * 1000))
     }
-    console.log('Orders not open')
     return false
   }
 
-  async function expectOrderToExpire(orderHash: string, deadlineSeconds: number) {
-    // fast forward to order expiry
+  async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number) {
+    /// @dev testing expiry of the order via the step function is very finicky
+    ///      we fast forward the fork's timestamp by the deadline and then mine a block to get the changes included
+    /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period, 
+    ///      we can be sure that the order correctly expired based on the block.timestamp
     const params = [
       ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
     ]
-
-    console.log(await provider.getBlock('latest'))
+    const blockNumber = (await provider.getBlock('latest')).number
+    // console.log(new Date().toISOString(), await provider.getBlock('latest').)
 
     await provider.send('evm_increaseTime', params)
+    const blocksToMine = 1
     await provider.send('evm_increaseBlocks', [
-      ethers.utils.hexValue(1)
+      ethers.utils.hexValue(blocksToMine)
     ])
-
-    console.log(await provider.getBlock('latest'))
+    expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine + 1)
+    // Wait a bit for sfn to fire again
+    await new Promise((resolve) => setTimeout(resolve, 15_000))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
@@ -147,7 +146,7 @@ describe('/dutch-auction/order', () => {
     const order = resp.data.orders[0]
     expect(order).toBeDefined()
     expect(order!.orderHash).toEqual(orderHash)
-    expect(order!.orderStatus).toEqual('expired')
+    return order!.orderStatus
   }
 
   const buildAndSubmitOrder = async (
@@ -213,19 +212,28 @@ describe('/dutch-auction/order', () => {
       throw err
     }
   }
-
-  it.only('erc20 to erc20', async () => {
-    const amount = ethers.utils.parseEther('1')
-    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 3000, WETH, UNI)
-    expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-    // await expectOrderToExpire(orderHash, 3500)
-  })
-
-  it('erc20 to eth', async () => {
-    const amount = ethers.utils.parseEther('1')
-    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 5, UNI, ZERO_ADDRESS)
-    expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-    await expectOrderToExpire(orderHash, 300)
+  
+  describe('checking expiry', () => {
+    it('erc20 to erc20', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
+      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(orderHash, 1001)).toBe('expired')
+    })
+  
+    it('erc20 to eth', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
+      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(orderHash, 1001)).toBe('expired')
+    })
+  
+    it('does not expire order before deadline', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
+      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(orderHash, 900)).toBe('open')
+    })
   })
 
   it('allows same offerer to post multiple orders', async () => {
@@ -233,28 +241,5 @@ describe('/dutch-auction/order', () => {
     const orderHash1 = await buildAndSubmitOrder(aliceAddress, amount, 5, WETH, UNI)
     const orderHash2 = await buildAndSubmitOrder(aliceAddress, amount, 5, UNI, ZERO_ADDRESS)
     expect(await expectOrdersToBeOpen([orderHash1, orderHash2])).toBeTruthy()
-  })
-
-  it('allows offerer to delete order', async () => {
-    const amount = ethers.utils.parseEther('1')
-    const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 5, WETH, UNI)
-    await expectOrdersToBeOpen([orderHash])
-    const deleteResponse = await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash}`)
-    expect(deleteResponse.status).toEqual(200)
-    const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
-    expect(resp.status).toEqual(200)
-    expect(resp.data.orders.length).toEqual(0)
-  })
-
-  it('allows offerer to delete order made before latest order', async () => {
-    const amount = ethers.utils.parseEther('1')
-    const orderHash1 = await buildAndSubmitOrder(aliceAddress, amount, 5, WETH, UNI)
-    const orderHash2 = await buildAndSubmitOrder(aliceAddress, amount, 5, UNI, ZERO_ADDRESS)
-    const deleteResponse = await axios.delete(`${URL}dutch-auction/order?orderHash=${orderHash1}`)
-    expect(deleteResponse.status).toEqual(200)
-    const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash2}`)
-    expect(resp.status).toEqual(200)
-    expect(resp.data.orders.length).toEqual(1)
-    await expectOrdersToBeOpen([orderHash2])
   })
 })

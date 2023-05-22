@@ -40,6 +40,9 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       process.env['stage'] == 'local' || (chainId == 1 && process.env['stage'] == 'beta')
         ? process.env['RPC_TENDERLY']
         : process.env[`RPC_${chainId}`]
+    
+    console.log('rpcURL', rpcURL)
+    
     const provider = new ethers.providers.JsonRpcProvider(rpcURL)
     const quoter = new OrderValidator(provider, parseInt(chainId as string))
     // TODO: use different reactor address for different order type

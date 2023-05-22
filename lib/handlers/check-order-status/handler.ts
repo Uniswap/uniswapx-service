@@ -28,6 +28,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
 
+    console.log('curBlockNumber', curBlockNumber)
+
     log.info({ validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash }, 'validating order')
     switch (validation) {
       case OrderValidation.Expired: {
