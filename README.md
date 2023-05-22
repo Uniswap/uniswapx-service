@@ -47,9 +47,7 @@ To test your changes you must redeploy your service. The dev cycle is thus:
 
 ```
 FIREHOSE_ARN_LOCAL=<>
-TENDERLY_USER=<>
-TENDERLY_PROJECT=<>
-TENDERLY_ACCESS_KEY=<>
+RPC_TENDERLY=<>
 
 # Only need these if testing against custom contract deployments
 REACTOR_TENDERLY=<>
