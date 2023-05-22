@@ -9,6 +9,7 @@ import { SUPPORTED_CHAINS } from '../../util/chain'
 import { OrderValidator } from '../../util/order-validator'
 import { ApiInjector, ApiRInj } from '../base'
 import { PostOrderRequestBody } from './schema'
+import { STAGE } from '../../util/stage'
 
 export interface ContainerInjected {
   dbInterface: BaseOrdersRepository
@@ -23,7 +24,10 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
       // TODO: remove when we bring back tenderly
       if (typeof chainId === 'number') {
         /// @dev When app stage is local or when running in beta on mainnet, use tenderly rpc to pass integration tests
-        const rpc = process.env['stage'] == 'local' || (chainId == 1 && process.env['stage'] == 'beta') ? process.env[`RPC_TENDERLY`] : process.env[`RPC_${chainId}`]
+        const rpc =
+          process.env['stage'] == STAGE.LOCAL || (chainId == 1 && process.env['stage'] == STAGE.BETA)
+            ? process.env[`RPC_TENDERLY`]
+            : process.env[`RPC_${chainId}`]
         if (rpc) {
           onchainValidatorByChainId[chainId] = new OnchainValidator(new ethers.providers.JsonRpcProvider(rpc), chainId)
         }
