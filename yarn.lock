@@ -2698,10 +2698,10 @@
     "@typescript-eslint/types" "5.41.0"
     eslint-visitor-keys "^3.3.0"
 
-"@uniswap/gouda-sdk@^0.9.4":
-  version "0.9.4"
-  resolved "https://registry.yarnpkg.com/@uniswap/gouda-sdk/-/gouda-sdk-0.9.4.tgz#9e28747999b59c29555293ab01a3d97903c2e4ad"
-  integrity sha512-9yG14v4H4ZtBSHRqIZpv9GypylQFcPY+73P62J1RwkfpHmTEh9G4IGoW9pFdTjsVMD25aYbSwEVuWa6qr6t3Cw==
+"@uniswap/gouda-sdk@^0.9.6":
+  version "0.9.6"
+  resolved "https://registry.yarnpkg.com/@uniswap/gouda-sdk/-/gouda-sdk-0.9.6.tgz#036618ba2458ef6138b66fe8e83f13a1d98dfb73"
+  integrity sha512-KRuCL9sGO4VYbrEXNN9bYsveXguPwYF6d2LJ+MIJheEZYiCGhnmguqhK6w9s+CD/RFmvz0Ln8lYy9Pj4PSi0xQ==
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"
