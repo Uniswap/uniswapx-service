@@ -14,7 +14,7 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
   nonce: '0xnonce',
   orderHash: MOCK_ORDER_HASH,
   offerer: '0xofferer',
-  orderStatus: ORDER_STATUS.UNVERIFIED,
+  orderStatus: ORDER_STATUS.OPEN,
   type: OrderType.DutchLimit,
   chainId: 1,
   reactor: '0x1',
@@ -77,7 +77,7 @@ describe('Testing check order status handler', () => {
   }
 
   describe('Test invalid input fields', () => {
-    const injectorPromiseMock: any = buildInjectorPromiseMock(0, ORDER_STATUS.UNVERIFIED)
+    const injectorPromiseMock: any = buildInjectorPromiseMock(0, ORDER_STATUS.OPEN)
     const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
 
     it('Should throw when orderHash is not provided', async () => {
@@ -100,7 +100,7 @@ describe('Testing check order status handler', () => {
       await expect(
         checkOrderStatusHandler.handler({ orderHash: MOCK_ORDER_HASH, chainId: 1, orderStatus: 'foo' } as any)
       ).rejects.toThrowError(
-        '"orderStatus" must be one of [open, filled, cancelled, expired, error, unverified, insufficient-funds]'
+        '"orderStatus" must be one of [open, filled, cancelled, expired, error, insufficient-funds]'
       )
     })
 
@@ -122,10 +122,10 @@ describe('Testing check order status handler', () => {
   })
 
   describe('Test valid order', () => {
-    const initialInjectorPromiseMock: any = buildInjectorPromiseMock(0, ORDER_STATUS.UNVERIFIED)
+    const initialInjectorPromiseMock: any = buildInjectorPromiseMock(0, ORDER_STATUS.OPEN)
     const handlerEventMock = {
       orderHash: MOCK_ORDER_HASH,
-      orderStatus: ORDER_STATUS.UNVERIFIED as string,
+      orderStatus: ORDER_STATUS.OPEN as string,
       chainId: 1,
     }
 
@@ -182,7 +182,7 @@ describe('Testing check order status handler', () => {
     })
 
     it('should do exponential backoff when retry count > 300', async () => {
-      const injectorPromiseMock: any = buildInjectorPromiseMock(301, ORDER_STATUS.UNVERIFIED)
+      const injectorPromiseMock: any = buildInjectorPromiseMock(301, ORDER_STATUS.OPEN)
       const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
       validateMock.mockReturnValue(OrderValidation.OK)
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
@@ -200,7 +200,7 @@ describe('Testing check order status handler', () => {
     })
 
     it('should cap exponential backoff when wait interval reaches 18000 seconds', async () => {
-      const injectorPromiseMock: any = buildInjectorPromiseMock(500, ORDER_STATUS.UNVERIFIED)
+      const injectorPromiseMock: any = buildInjectorPromiseMock(500, ORDER_STATUS.OPEN)
       const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
       validateMock.mockReturnValue(OrderValidation.OK)
       const response = await checkOrderStatusHandler.handler(handlerEventMock)

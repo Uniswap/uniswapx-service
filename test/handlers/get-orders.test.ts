@@ -110,10 +110,7 @@ describe('Testing get orders handler.', () => {
     it.each([
       [{ orderHash: '0xbad_hash' }, 'orderHash\\" with value \\"0xbad_hash\\" fails to match the required pattern'],
       [{ offerer: '0xbad_address' }, 'VALIDATION ERROR: Invalid address'],
-      [
-        { orderStatus: 'bad_status' },
-        'must be one of [open, filled, cancelled, expired, error, unverified, insufficient-funds]',
-      ],
+      [{ orderStatus: 'bad_status' }, 'must be one of [open, filled, cancelled, expired, error, insufficient-funds]'],
       [{ limit: 'bad_limit' }, 'must be a number'],
       [{ filler: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
@@ -124,10 +121,7 @@ describe('Testing get orders handler.', () => {
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
       [{ sort: 'gt(4)' }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
-      [
-        { chainId: 420 },
-        '{"detail":"\\"chainId\\" must be one of [1, TENDERLY, 137]","errorCode":"VALIDATION_ERROR"}',
-      ],
+      [{ chainId: 420 }, '{"detail":"\\"chainId\\" must be one of [1, TENDERLY, 137]","errorCode":"VALIDATION_ERROR"}'],
       [{ desc: true }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
       [
         { desc: 'yes', sortKey: 'createdAt', orderStatus: 'expired' },
