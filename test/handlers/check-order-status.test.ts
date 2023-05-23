@@ -17,6 +17,22 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
   orderStatus: ORDER_STATUS.OPEN,
   type: OrderType.DutchLimit,
   chainId: 1,
+  reactor: '0x1',
+  startTime: 1,
+  endTime: 2,
+  deadline: 3,
+  input: {
+    token: '0xinput',
+    startAmount: '1000000000000000000',
+    endAmount: '1000000000000000000',
+  },
+  outputs: [
+    {
+      token: '0xoutput',
+      startAmount: '2000000000000000000',
+      endAmount: '1000000000000000000',
+    },
+  ],
 }
 
 describe('Testing check order status handler', () => {

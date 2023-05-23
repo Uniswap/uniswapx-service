@@ -38,15 +38,19 @@ export type OrderEntity = {
   orderStatus: ORDER_STATUS
   chainId: number
   offerer: string
-  reactor?: string
-  startTime?: number
-  endTime?: number
-  deadline?: number
+  reactor: string
+  startTime: number
+  endTime: number
+  deadline: number
+  input: OrderInput
+  outputs: OrderOutput[]
+  // Filler field is defined when the order has been filled and the status tracking function has recorded the filler address.
   filler?: string
+  // QuoteId field is defined when the order has a quote associated with it.
   quoteId?: string
+  // TxHash field is defined when the order has been filled and there is a txHash associated with the fill.
   txHash?: string
-  input?: OrderInput
-  outputs?: OrderOutput[]
+  // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
   settledAmounts?: SettledAmount[]
 }
 

@@ -3,7 +3,7 @@
   "servers": [
     {
       "description": "Uniswap Trade APIs",
-      "url": "https://6q5qkya37k.execute-api.us-east-2.amazonaws.com/prod"
+      "url": "https://6q5qkya37k.execute-api.us-east-2.amazonaws.com"
     }
   ],
   "info": {
@@ -318,15 +318,6 @@
           "deadline": {
             "type": "number"
           },
-          "filler": {
-            "type": "string"
-          },
-          "quoteId": {
-            "type": "string"
-          },
-          "txHash": {
-            "type": "string"
-          },
           "input": {
             "$ref": "#/components/schemas/OrderInput"
           },
@@ -336,14 +327,43 @@
               "$ref": "#/components/schemas/OrderOutput"
             }
           },
+          "filler": {
+            "description": "Filler field is defined when the order has been filled and the status tracking function has recorded the filler address.",
+            "type": "string"
+          },
+          "quoteId": {
+            "description": "QuoteId field is defined when the order has a quote associated with it.",
+            "type": "string"
+          },
+          "txHash": {
+            "description": "TxHash field is defined when the order has been filled and there is a txHash associated with the fill.",
+            "type": "string"
+          },
           "settledAmounts": {
+            "description": "SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SettledAmount"
             }
           }
         },
-        "required": ["ecodedOrder", "signature", "nonce", "orderHash", "orderStatus", "chainId", "offerer"]
+        "required": [
+          "ecodedOrder",
+          "signature",
+          "nonce",
+          "orderHash",
+          "orderStatus",
+          "chainId",
+          "offerer",
+          "reactor",
+          "startTime",
+          "endTime",
+          "deadline",
+          "input",
+          "outputs",
+          "type",
+          "encodedOrder"
+        ]
       },
       "GetOrdersResponse": {
         "type": "object",
