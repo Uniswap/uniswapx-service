@@ -7,7 +7,6 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { OrderValidator } from '../../util/order-validator'
-import { STAGE } from '../../util/stage'
 import { ApiInjector, ApiRInj } from '../base'
 import { PostOrderRequestBody } from './schema'
 
@@ -22,11 +21,7 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
     const onchainValidatorByChainId: { [chainId: number]: OnchainValidator } = {}
     SUPPORTED_CHAINS.forEach((chainId) => {
       if (typeof chainId === 'number') {
-        /// @dev When app stage is local or when running in beta on mainnet, use tenderly rpc to pass integration tests
-        const rpc =
-          process.env['stage'] == STAGE.LOCAL || (chainId == 1 && process.env['stage'] == STAGE.BETA)
-            ? process.env[`RPC_TENDERLY`]
-            : process.env[`RPC_${chainId}`]
+        const rpc = process.env[`RPC_${chainId}`]
         if (rpc) {
           onchainValidatorByChainId[chainId] = new OnchainValidator(new ethers.providers.JsonRpcProvider(rpc), chainId)
         }

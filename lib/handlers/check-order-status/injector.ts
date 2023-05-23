@@ -35,12 +35,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     })
 
     const chainId = event.chainId
-    /// @dev When app stage is local or when running in beta on mainnet, use tenderly rpc to pass integration tests
-    const rpcURL =
-      process.env['stage'] == 'local' || (chainId == 1 && process.env['stage'] == 'beta')
-        ? process.env['RPC_TENDERLY']
-        : process.env[`RPC_${chainId}`]
-
+    const rpcURL = process.env[`RPC_${chainId}`]
     const provider = new ethers.providers.JsonRpcProvider(rpcURL)
     const quoter = new OrderValidator(provider, parseInt(chainId as string))
     // TODO: use different reactor address for different order type

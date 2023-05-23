@@ -4,6 +4,7 @@ export enum ChainId {
   OPTIMISM = 10,
   ARBITRUM_ONE = 42161,
   POLYGON = 137,
+  TENDERLY = 12341234,
 }
 
-export const SUPPORTED_CHAINS = [ChainId.MAINNET, ChainId.GÖRLI, ChainId.POLYGON]
+export const SUPPORTED_CHAINS = [ChainId.MAINNET, ChainId.GÖRLI, ChainId.POLYGON, ChainId.TENDERLY]
