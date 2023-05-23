@@ -12,7 +12,7 @@ describe('Testing get orders handler.', () => {
     offerer: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
     createdAt: 1667276283251,
     encodedOrder: '0xencoded000order',
-    type: OrderType.DutchLimit,
+    type: OrderType.Dutch,
     chainId: 1,
     input: {
       token: '0x0000000000000000000000000000000000000000',

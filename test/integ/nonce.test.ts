@@ -1,4 +1,4 @@
-import { DutchLimitOrderBuilder } from '@uniswap/gouda-sdk'
+import { DutchOrderBuilder } from '@uniswap/gouda-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, ethers } from 'ethers'
@@ -22,7 +22,7 @@ describe('get nonce', () => {
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
 
     const deadline = Math.round(new Date().getTime() / 1000) + 10
-    const order = new DutchLimitOrderBuilder(1)
+    const order = new DutchOrderBuilder(1)
       .deadline(deadline)
       .endTime(deadline)
       .startTime(deadline - 5)

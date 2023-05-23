@@ -1,4 +1,4 @@
-import { DutchLimitOrderBuilder } from '@uniswap/gouda-sdk'
+import { DutchOrderBuilder } from '@uniswap/gouda-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
@@ -30,12 +30,12 @@ describe('/dutch-auction/order', () => {
     if (!process.env.GOUDA_SERVICE_URL) {
       throw new Error('GOUDA_SERVICE_URL not set')
     }
-    if (!process.env.RPC_TENDERLY) {
-      throw new Error('RPC_TENDERLY not set')
+    if (!process.env.RPC_12341234) {
+      throw new Error('RPC_12341234 not set')
     }
     URL = process.env.GOUDA_SERVICE_URL
 
-    provider = new ethers.providers.JsonRpcProvider(process.env.RPC_TENDERLY)
+    provider = new ethers.providers.JsonRpcProvider(process.env.RPC_12341234)
 
     wallet = ethers.Wallet.createRandom().connect(provider)
     aliceAddress = (await wallet.getAddress()).toLowerCase()
@@ -156,7 +156,7 @@ describe('/dutch-auction/order', () => {
     outputToken: string
   ) => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
-    const order = new DutchLimitOrderBuilder(ChainId.TENDERLY)
+    const order = new DutchOrderBuilder(ChainId.TENDERLY)
       .deadline(deadline)
       .endTime(deadline)
       .startTime(Math.round(new Date().getTime() / 1000))

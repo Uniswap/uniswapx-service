@@ -1,7 +1,7 @@
 var parserMock = jest.fn();
 
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchLimitOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
@@ -24,7 +24,7 @@ mockSfnClient
   })
   .resolves({})
 
-const ORDER_INFO: DutchLimitOrderInfo = {
+const ORDER_INFO: DutchOrderInfo = {
   deadline: 10,
   offerer: '0x0000000000000000000000000000000000000001',
   reactor: '0x0000000000000000000000000000000000000002',
@@ -61,7 +61,7 @@ jest.mock('@uniswap/gouda-sdk', () => {
   const originalSdk = jest.requireActual('@uniswap/gouda-sdk')
   return {
     ...originalSdk,
-    DutchLimitOrder: {
+    DutchOrder: {
       parse: parserMock
     },
     OrderType: { DutchLimit: 'DutchLimit' },

@@ -1,5 +1,5 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchLimitOrder, OrderType, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderType, OrderValidation } from '@uniswap/gouda-sdk'
 import Logger from 'bunyan'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities'
@@ -42,10 +42,10 @@ export class PostOrderHandler extends APIGLambdaHandler<
       },
       'onchain validators'
     )
-    let decodedOrder: DutchLimitOrder
+    let decodedOrder: DutchOrder
 
     try {
-      decodedOrder = DutchLimitOrder.parse(encodedOrder, chainId) as DutchLimitOrder
+      decodedOrder = DutchOrder.parse(encodedOrder, chainId) as DutchOrder
     } catch (e: unknown) {
       log.error(e, 'Failed to parse order')
       return {
@@ -82,7 +82,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const order: OrderEntity = formatOrderEntity(
       decodedOrder,
       signature,
-      OrderType.DutchLimit,
+      OrderType.Dutch,
       ORDER_STATUS.UNVERIFIED,
       quoteId
     )

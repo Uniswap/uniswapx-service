@@ -1,4 +1,4 @@
-import { DutchLimitOrder } from '@uniswap/gouda-sdk'
+import { DutchOrder } from '@uniswap/gouda-sdk'
 import { BigNumber } from 'ethers'
 import { OrderValidator } from '../../lib/util/order-validator'
 
@@ -34,8 +34,8 @@ function newOrder({
   chainId = 1,
   validationContract = VALIDATION_CONTRACT_ADDRESS,
   validationData = VALIDATION_DATA,
-}): DutchLimitOrder {
-  return new DutchLimitOrder(
+}): DutchOrder {
+  return new DutchOrder(
     {
       startTime,
       endTime: deadline,

@@ -39,7 +39,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     const provider = new ethers.providers.JsonRpcProvider(rpcURL)
     const quoter = new OrderValidator(provider, parseInt(chainId as string))
     // TODO: use different reactor address for different order type
-    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.DutchLimit])
+    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.Dutch])
 
     log.info({ quoterAddr: quoter.orderQuoterAddress }, 'getRequestInjected')
     return {

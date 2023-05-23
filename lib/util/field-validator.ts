@@ -39,7 +39,7 @@ export default class FieldValidator {
   )
   private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
-  private static readonly ORDER_TYPE_JOI = Joi.string().valid(OrderType.DutchLimit)
+  private static readonly ORDER_TYPE_JOI = Joi.string().valid(OrderType.Dutch)
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.isAddress(value)) {

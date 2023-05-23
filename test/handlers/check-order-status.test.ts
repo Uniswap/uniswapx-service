@@ -15,7 +15,7 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
   orderHash: MOCK_ORDER_HASH,
   offerer: '0xofferer',
   orderStatus: ORDER_STATUS.UNVERIFIED,
-  type: OrderType.DutchLimit,
+  type: OrderType.Dutch,
   chainId: 1,
 }
 
