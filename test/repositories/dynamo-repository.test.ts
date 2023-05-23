@@ -137,7 +137,7 @@ describe('OrdersRepository getOrders test', () => {
   })
 
   it('should return no orders for orderStatus', async () => {
-    const orders = await ordersRepository.getOrders(10, { orderStatus: ORDER_STATUS.UNVERIFIED })
+    const orders = await ordersRepository.getOrders(10, { orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS })
     expect(orders.orders).toEqual([])
   })
 
@@ -215,7 +215,7 @@ describe('OrdersRepository getOrders test', () => {
   it('should return no orders for filler and orderStatus', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       filler: ADDITIONAL_FIELDS_ORDER_1.filler,
-      orderStatus: ORDER_STATUS.UNVERIFIED,
+      orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
     })
     expect(queryResult.orders).toEqual([])
   })
@@ -275,7 +275,7 @@ describe('OrdersRepository getOrders test', () => {
 
   it('should return no orders for offerer and orderStatus', async () => {
     const orders = await ordersRepository.getOrders(10, {
-      orderStatus: ORDER_STATUS.UNVERIFIED,
+      orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
       offerer: MOCK_ORDER_1.offerer,
     })
     expect(orders.orders).toEqual([])
@@ -384,7 +384,7 @@ describe('OrdersRepository getOrders test with sorting', () => {
 
   it('should return no orders for orderStatus', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
-      orderStatus: ORDER_STATUS.OPEN,
+      orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
       sortKey: SORT_FIELDS.CREATED_AT,
       sort: 'gt(2)',
     })
