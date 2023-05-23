@@ -389,7 +389,7 @@
       },
       "OrderStatus": {
         "type": "string",
-        "enum": ["open", "expired", "error", "cancelled", "filled", "unverified", "insufficient-funds"]
+        "enum": ["open", "expired", "error", "cancelled", "filled", "insufficient-funds"]
       },
       "ChainId": {
         "type": "number",

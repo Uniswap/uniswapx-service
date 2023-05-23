@@ -6,7 +6,6 @@ export enum ORDER_STATUS {
   ERROR = 'error',
   CANCELLED = 'cancelled',
   FILLED = 'filled',
-  UNVERIFIED = 'unverified',
   INSUFFICIENT_FUNDS = 'insufficient-funds',
 }
 

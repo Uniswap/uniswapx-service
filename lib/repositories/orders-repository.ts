@@ -190,7 +190,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       execute: true,
     })
     if (res.Items && res.Items.length > 0) {
-      DynamoOrdersRepository.log.info(`Nonce for ${address} found: ${res.Items[0].nonce}`)
       return res.Items[0].nonce
     }
     return generateRandomNonce()
@@ -258,44 +257,13 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
     // Query Orders table based on the requested params
     switch (true) {
-      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
-        const order = await this.getByHash(queryFilters['orderHash'] as string)
-        return { orders: order ? [order] : [] }
-      }
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
-        return await this.getByOfferer(
-          queryFilters['offerer'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.getByOrderStatus(
-          queryFilters['orderStatus'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER], requestedParams):
-        return await this.getByFiller(
-          queryFilters['filler'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.CHAIN_ID], requestedParams):
-        return await this.getByChainId(
-          queryFilters['chainId'] as number,
+      case this.areParamsRequested(
+        [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS],
+        requestedParams
+      ):
+        return await this.queryOrderEntity(
+          `${queryFilters['filler']}_${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
+          `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           limit,
           cursor,
           queryFilters['sortKey'],
@@ -361,13 +329,10 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           queryFilters['desc']
         )
 
-      case this.areParamsRequested(
-        [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS],
-        requestedParams
-      ):
+      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         return await this.queryOrderEntity(
-          `${queryFilters['filler']}_${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+          `${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
+          `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           limit,
           cursor,
           queryFilters['sortKey'],
@@ -375,10 +340,44 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           queryFilters['desc']
         )
 
-      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
+        const order = await this.getByHash(queryFilters['orderHash'] as string)
+        return { orders: order ? [order] : [] }
+      }
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
+        return await this.getByOfferer(
+          queryFilters['offerer'] as string,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort'],
+          queryFilters['desc']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
+        return await this.getByOrderStatus(
+          queryFilters['orderStatus'] as string,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort'],
+          queryFilters['desc']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER], requestedParams):
+        return await this.getByFiller(
+          queryFilters['filler'] as string,
+          limit,
+          cursor,
+          queryFilters['sortKey'],
+          queryFilters['sort'],
+          queryFilters['desc']
+        )
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.CHAIN_ID], requestedParams):
+        return await this.getByChainId(
+          queryFilters['chainId'] as number,
           limit,
           cursor,
           queryFilters['sortKey'],
