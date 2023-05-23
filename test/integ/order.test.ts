@@ -156,7 +156,7 @@ describe('/dutch-auction/order', () => {
     outputToken: string
   ) => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
-    const order = new DutchLimitOrderBuilder(1)
+    const order = new DutchLimitOrderBuilder(ChainId.TENDERLY)
       .deadline(deadline)
       .endTime(deadline)
       .startTime(Math.round(new Date().getTime() / 1000))
@@ -185,7 +185,7 @@ describe('/dutch-auction/order', () => {
         {
           encodedOrder,
           signature,
-          chainId: ChainId.MAINNET,
+          chainId: ChainId.TENDERLY,
         },
         {
           headers: {
