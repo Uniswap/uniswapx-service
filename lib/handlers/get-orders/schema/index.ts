@@ -6,6 +6,7 @@ const indexKeyJoi = Joi.object({
   orderStatus: FieldValidator.isValidOrderStatus(),
   offerer: FieldValidator.isValidEthAddress(),
   filler: FieldValidator.isValidEthAddress(),
+  chainId: FieldValidator.isValidChainId(),
 })
 const sortKeyJoi = FieldValidator.isValidSortKey()
 
@@ -25,7 +26,6 @@ export const GetOrdersQueryParamsJoi = Joi.object({
     }),
   sort: FieldValidator.isValidSort(),
   cursor: FieldValidator.isValidCursor(),
-  chainId: FieldValidator.isValidChainId(),
   desc: Joi.boolean(),
 })
   .when('.sortKey', {
@@ -33,12 +33,22 @@ export const GetOrdersQueryParamsJoi = Joi.object({
     then: indexKeyJoi.or('orderStatus', 'offerer', 'filler', 'chainId'),
     otherwise: indexKeyJoi,
   })
-  .when('.chainId', {
-    is: Joi.exist(),
-    then: Joi.object({
-      offerer: Joi.forbidden().error(new Error('Querying with both offerer and chainId is not currently supported.')),
+  .when(
+    Joi.object({
+      chainId: Joi.exist(),
+      offerer: Joi.exist(),
     }),
-  })
+    {
+      then: Joi.object({
+        offerer: Joi.forbidden(),
+      }).error((errors: any) => {
+        errors.forEach((err: any) => {
+          err.message = `Querying with both offerer and chainId is not currently supported.`
+        })
+        return errors
+      }),
+    }
+  )
 
 export type GetOrdersQueryParams = {
   limit?: number
