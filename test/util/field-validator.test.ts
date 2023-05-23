@@ -25,7 +25,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const validatedField = FieldValidator.isValidOrderStatus().validate('NOT_A_VALID_STATUS')
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
-        '"value" must be one of [open, filled, cancelled, expired, error, unverified, insufficient-funds]'
+        '"value" must be one of [open, filled, cancelled, expired, error, insufficient-funds]'
       )
     })
   })

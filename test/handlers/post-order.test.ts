@@ -1,4 +1,4 @@
-var parserMock = jest.fn();
+var parserMock = jest.fn()
 
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchLimitOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
@@ -12,7 +12,7 @@ const MOCK_HASH = '0xhash'
 const MOCK_START_EXECUTION_INPUT = JSON.stringify({
   orderHash: MOCK_HASH,
   chainId: 1,
-  orderStatus: ORDER_STATUS.UNVERIFIED,
+  orderStatus: ORDER_STATUS.OPEN,
 })
 
 const mockSfnClient = mockClient(SFNClient)
@@ -62,7 +62,7 @@ jest.mock('@uniswap/gouda-sdk', () => {
   return {
     ...originalSdk,
     DutchLimitOrder: {
-      parse: parserMock
+      parse: parserMock,
     },
     OrderType: { DutchLimit: 'DutchLimit' },
   }
@@ -101,7 +101,7 @@ describe('Testing post order handler.', () => {
       '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
     nonce: '40',
     orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
-    orderStatus: ORDER_STATUS.UNVERIFIED,
+    orderStatus: ORDER_STATUS.OPEN,
     offerer: '0x0000000000000000000000000000000000000001',
     reactor: '0x0000000000000000000000000000000000000002',
     startTime: 20,
@@ -231,7 +231,7 @@ describe('Testing post order handler.', () => {
     })
 
     it('should call StepFunctions.startExecution method with the correct params', async () => {
-      const sfnInput = { orderHash: '0xhash', chainId: 1, quoteId: 'quoteId', orderStatus: ORDER_STATUS.UNVERIFIED }
+      const sfnInput = { orderHash: '0xhash', chainId: 1, quoteId: 'quoteId', orderStatus: ORDER_STATUS.OPEN }
       expect(async () => await postOrderHandler['kickoffOrderTrackingSfn'](sfnInput, MOCK_ARN)).not.toThrow()
       expect(mockSfnClient.calls()).toHaveLength(1)
       expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
@@ -300,7 +300,7 @@ describe('Testing post order handler.', () => {
     it('on-chain validation failed; throws 400', async () => {
       parserMock.mockReturnValue({
         ...DECODED_ORDER,
-        chainId: 137
+        chainId: 137,
       })
       const event = {
         queryStringParameters: {},
