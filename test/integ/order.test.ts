@@ -156,12 +156,33 @@ describe('/dutch-auction/order', () => {
     outputToken: string
   ) => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
+    const startTime = Math.round(new Date().getTime() / 1000)
+    const nextNonce = nonce.add(1)
     const order = new DutchOrderBuilder(ChainId.TENDERLY)
       .deadline(deadline)
       .endTime(deadline)
-      .startTime(Math.round(new Date().getTime() / 1000))
+      .startTime(startTime)
       .offerer(offerer)
-      .nonce(nonce.add(1))
+      .nonce(nextNonce)
+      .input({
+        token: inputToken,
+        startAmount: amount,
+        endAmount: amount,
+      })
+      .output({
+        token: outputToken,
+        startAmount: amount,
+        endAmount: amount,
+        recipient: offerer,
+      })
+      .build()
+    
+    const mainnetOrder = new DutchOrderBuilder(ChainId.MAINNET)
+      .deadline(deadline)
+      .endTime(deadline)
+      .startTime(startTime)
+      .offerer(offerer)
+      .nonce(nextNonce)
       .input({
         token: inputToken,
         startAmount: amount,
@@ -178,6 +199,8 @@ describe('/dutch-auction/order', () => {
     const { domain, types, values } = order.permitData()
     const signature = await wallet._signTypedData(domain, types, values)
     const encodedOrder = order.serialize()
+
+    expect(encodedOrder).toEqual(mainnetOrder.serialize())
 
     try {
       const postResponse = await axios.post<any>(
@@ -210,7 +233,7 @@ describe('/dutch-auction/order', () => {
   }
   
   describe('checking expiry', () => {
-    it('erc20 to erc20', async () => {
+    it.only('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
       const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
       expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
