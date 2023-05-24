@@ -183,7 +183,7 @@ describe('Testing post order handler.', () => {
 
   describe('Test order submission blocking', () => {
     it('should reject order submission for offerer when too many open orders exist', async () => {
-      countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
+      countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
       validatorMock.mockReturnValue({ valid: true })
       expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
         body: JSON.stringify({
