@@ -24,7 +24,7 @@ describe('Testing new order Notification handler.', () => {
       S: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     },
     orderStatus: {
-      S: 'unverified',
+      S: 'open',
     },
     encodedOrder: {
       S: '0x00000000001325ad66ad5fa02621d3ad52c9323c6c2bff26820000000',

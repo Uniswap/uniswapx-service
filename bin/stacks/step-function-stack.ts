@@ -88,7 +88,7 @@ export class StepFunctionStack extends cdk.NestedStack {
         new Metric({
           metricName: 'ExecutionsFailed',
           namespace: 'AWS/States',
-          statistic: Statistic.SUM,
+          statistic: Statistic.SAMPLE_COUNT,
           dimensionsMap: {
             StateMachineArn: checkStatusFunction.logGroup.logGroupArn
           },

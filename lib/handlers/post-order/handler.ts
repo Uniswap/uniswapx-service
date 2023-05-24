@@ -85,7 +85,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       decodedOrder,
       signature,
       OrderType.DutchLimit,
-      ORDER_STATUS.UNVERIFIED,
+      ORDER_STATUS.OPEN,
       quoteId
     )
     const id = order.orderHash
