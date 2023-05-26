@@ -101,7 +101,7 @@ describe('Testing check order status handler', () => {
           orderStatus: ORDER_STATUS.OPEN as string,
           chainId: 2022,
         } as any)
-      ).rejects.toThrowError(`"chainId" must be one of [1, 5, 137, 12341234]`)
+      ).rejects.toThrowError(`"chainId" must be one of [1, 137, 12341234]`)
     })
   })
 

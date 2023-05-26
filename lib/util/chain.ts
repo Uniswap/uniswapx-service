@@ -7,4 +7,4 @@ export enum ChainId {
   TENDERLY = 12341234,
 }
 
-export const SUPPORTED_CHAINS = [ChainId.MAINNET, ChainId.GÖRLI, ChainId.POLYGON, ChainId.TENDERLY]
+export const SUPPORTED_CHAINS = [ChainId.MAINNET, ChainId.POLYGON, ChainId.TENDERLY]

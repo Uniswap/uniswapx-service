@@ -124,7 +124,7 @@ describe('Testing get orders handler.', () => {
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
       [{ sort: 'gt(4)' }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
-      [{ chainId: 420 }, `{"detail":"\\"chainId\\" must be one of [1, 5, 137, 12341234]","errorCode":"VALIDATION_ERROR"}`],
+      [{ chainId: 420 }, `{"detail":"\\"chainId\\" must be one of [1, 137, 12341234]","errorCode":"VALIDATION_ERROR"}`],
       [{ desc: true }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
       [
         { desc: 'yes', sortKey: 'createdAt', orderStatus: 'expired' },
