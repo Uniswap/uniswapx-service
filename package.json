@@ -11,7 +11,7 @@
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
     "test": "jest --detectOpenHandles --forceExit --testPathIgnorePatterns=integ/ dist/",
-    "integ-test": "jest --maxWorkers=1 --detectOpenHandles --testPathPattern=integ/",
+    "integ-test": "jest --detectOpenHandles --testPathPattern=integ/",
     "cdk": "cdk",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
@@ -50,7 +50,7 @@
   "dependencies": {
     "@aws-sdk/client-sfn": "^3.213.0",
     "@types/sinon": "^10.0.13",
-    "@uniswap/gouda-sdk": "^1.0.0-alpha.1",
+    "@uniswap/gouda-sdk": "^1.0.0-alpha.2",
     "aws-cdk-lib": "2.43.1",
     "aws-sdk": "^2.1238.0",
     "axios": "^1.2.1",
