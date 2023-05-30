@@ -91,7 +91,7 @@ describe('S3WebhookProvider test', () => {
       orderStatus: 'open',
       offerer: '0x2',
     } as any)
-    // should have been updated
+    // should still equal old ones
     expect(endpoints).toEqual([{ url: 'webhook2.com/1' }, { url: 'webhook2.com/2' }, { url: 'webhook2.com/4' }])
   });
 })
