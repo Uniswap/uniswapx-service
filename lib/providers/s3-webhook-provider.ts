@@ -1,9 +1,10 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { checkDefined } from '../preconditions/preconditions';
 import { OrderFilter, WebhookProvider } from './base'
-import { FILTER_FIELD, Webhook, WebhookDefinition } from './types'
+import { Webhook, WebhookDefinition } from './types'
+import { findEndpointsMatchingFilter } from './json-webhook-provider';
 
-export class S3WebhookProvider implements WebhookProvider {
+export class S3WebhookConfigurationProvider implements WebhookProvider {
   private static UPDATE_ENDPOINTS_PERIOD_MS = 5 * 60000;
 
   private cachedDefinition: WebhookDefinition | null;
@@ -16,33 +17,15 @@ export class S3WebhookProvider implements WebhookProvider {
 
   // get registered endpoints for a filter set
   public async getEndpoints(filter: OrderFilter): Promise<Webhook[]> {
-    let endpoints: Webhook[] = []
-    const filterKeys = Object.keys(filter) as FILTER_FIELD[]
     const definition = await this.getDefinition();
-
-    for (const filterKey of filterKeys) {
-      const filterValue = filter[filterKey]
-      if (filterValue && Object.keys(definition.filter[filterKey]).includes(filterValue)) {
-        const registeredEndpoints = definition.filter[filterKey][filterValue]
-        endpoints = endpoints.concat(registeredEndpoints)
-      }
-    }
-
-    const urls: Set<string> = new Set()
-    return endpoints.filter((endpoint) => {
-      if (urls.has(endpoint.url)) {
-        return false
-      }
-      urls.add(endpoint.url)
-      return true
-    })
+    return findEndpointsMatchingFilter(filter, definition);
   }
 
   async getDefinition(): Promise<WebhookDefinition> {
   // if we already have a cached one just return it
     if (
       this.cachedDefinition !== null &&
-      Date.now() - this.lastUpdatedEndpointsTimestamp < S3WebhookProvider.UPDATE_ENDPOINTS_PERIOD_MS
+      Date.now() - this.lastUpdatedEndpointsTimestamp < S3WebhookConfigurationProvider.UPDATE_ENDPOINTS_PERIOD_MS
     ) {
     return this.cachedDefinition;
     }

@@ -10,9 +10,15 @@ export class JsonWebhookProvider implements WebhookProvider {
 
   // get registered endpoints for a filter set
   public async getEndpoints(filter: OrderFilter): Promise<Webhook[]> {
+    return findEndpointsMatchingFilter(filter, this.jsonDocument);
+  }
+}
+
+export function findEndpointsMatchingFilter(filter: OrderFilter, definition: WebhookDefinition): Webhook[] {
     let endpoints: Webhook[] = []
+
     const filterKeys = Object.keys(filter) as FILTER_FIELD[]
-    const filterMapping = this.jsonDocument.filter
+    const filterMapping = definition.filter
 
     for (const filterKey of filterKeys) {
       const filterValue = filter[filterKey]
@@ -30,5 +36,5 @@ export class JsonWebhookProvider implements WebhookProvider {
       urls.add(endpoint.url)
       return true
     })
-  }
+
 }
