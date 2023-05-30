@@ -81,13 +81,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const order: OrderEntity = formatOrderEntity(
-      decodedOrder,
-      signature,
-      OrderType.Dutch,
-      ORDER_STATUS.OPEN,
-      quoteId
-    )
+    const order: OrderEntity = formatOrderEntity(decodedOrder, signature, OrderType.Dutch, ORDER_STATUS.OPEN, quoteId)
     const id = order.orderHash
 
     try {

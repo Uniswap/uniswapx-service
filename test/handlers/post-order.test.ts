@@ -64,7 +64,7 @@ jest.mock('@uniswap/gouda-sdk', () => {
     DutchOrder: {
       parse: parserMock
     },
-    OrderType: { DutchLimit: 'DutchLimit' },
+    OrderType: { Dutch: 'Dutch' },
   }
 })
 
@@ -108,7 +108,7 @@ describe('Testing post order handler.', () => {
     endTime: 10,
     deadline: 10,
     quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
-    type: 'DutchLimit',
+    type: 'Dutch',
     input: {
       endAmount: '30',
       startAmount: '30',
