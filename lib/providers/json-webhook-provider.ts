@@ -9,7 +9,7 @@ export class JsonWebhookProvider implements WebhookProvider {
   private constructor(private readonly jsonDocument: WebhookDefinition) {}
 
   // get registered endpoints for a filter set
-  public getEndpoints(filter: OrderFilter): Webhook[] {
+  public async getEndpoints(filter: OrderFilter): Promise<Webhook[]> {
     let endpoints: Webhook[] = []
     const filterKeys = Object.keys(filter) as FILTER_FIELD[]
     const filterMapping = this.jsonDocument.filter
