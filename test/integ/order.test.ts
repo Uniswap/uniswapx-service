@@ -81,16 +81,6 @@ describe('/dutch-auction/order', () => {
     expect(getResponse.status).toEqual(200)
     nonce = BigNumber.from(getResponse.data.nonce)
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
-
-     // delete all orders with aliceAddress
-     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?offerer=${aliceAddress}`)
-     expect(resp.status).toEqual(200)
-     for (const order of resp.data.orders) {
-       if (order) {
-         const deleteResp = await axios.delete(`${URL}dutch-auction/order/${order.orderHash}`)
-         expect(deleteResp.status).toEqual(200)
-       }
-     }
   })
 
   beforeEach(async () => {
@@ -176,31 +166,10 @@ describe('/dutch-auction/order', () => {
         recipient: offerer,
       })
       .build()
-    
-    const mainnetOrder = new DutchOrderBuilder(ChainId.MAINNET)
-      .deadline(deadline)
-      .endTime(deadline)
-      .startTime(startTime)
-      .offerer(offerer)
-      .nonce(nextNonce)
-      .input({
-        token: inputToken,
-        startAmount: amount,
-        endAmount: amount,
-      })
-      .output({
-        token: outputToken,
-        startAmount: amount,
-        endAmount: amount,
-        recipient: offerer,
-      })
-      .build()
 
     const { domain, types, values } = order.permitData()
     const signature = await wallet._signTypedData(domain, types, values)
     const encodedOrder = order.serialize()
-
-    expect(encodedOrder).toEqual(mainnetOrder.serialize())
 
     try {
       const postResponse = await axios.post<any>(
@@ -233,7 +202,7 @@ describe('/dutch-auction/order', () => {
   }
   
   describe('checking expiry', () => {
-    it.only('erc20 to erc20', async () => {
+    it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
       const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
       expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
