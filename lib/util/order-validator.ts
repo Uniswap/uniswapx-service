@@ -7,7 +7,7 @@ export type OrderValidationResponse = {
   errorString?: string
 }
 
-const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
+const THIRTY_MINUTES_IN_SECONDS = 60 * 30
 
 export class OrderValidator {
   constructor(private readonly getCurrentTime: () => number) {}
@@ -92,12 +92,12 @@ export class OrderValidator {
         errorString: 'Deadline must be in the future',
       }
     }
-    /* 
+    /*
       We use AWS step function for status tracking
       Step function last at most one year, so deadline can
       be at most one year from now
     */
-    if (deadline > this.getCurrentTime() + ONE_YEAR_IN_SECONDS) {
+    if (deadline > this.getCurrentTime() + THIRTY_MINUTES_IN_SECONDS) {
       return {
         valid: false,
         errorString: `Deadline field invalid: Order expiry cannot be larger than one year`,
