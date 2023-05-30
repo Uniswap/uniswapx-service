@@ -5,19 +5,19 @@ import Joi from 'joi'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
+import { ChainId } from '../../util/chain'
 import { SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { ContainerInjected, RequestInjected } from './injector'
 import { CheckOrderStatusInputJoi } from './schema'
-import { ChainId } from '../../util/chain'
 
 const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
-  switch(chainId) {
+  switch (chainId) {
     case ChainId.MAINNET:
-      return 5;
+      return 5
     case ChainId.POLYGON:
-      return 30;
+      return 30
     default:
-      return 5;
+      return 5
   }
 }
 
@@ -137,7 +137,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           log
         )
       case OrderValidation.NonceUsed: {
-        const fromBlock = lastBlockNumber === 0 ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId) : lastBlockNumber
+        const fromBlock =
+          lastBlockNumber === 0 ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId) : lastBlockNumber
         const fillEvent = (await orderWatcher.getFillInfo(fromBlock, curBlockNumber)).find(
           (e) => e.orderHash === orderHash
         )
