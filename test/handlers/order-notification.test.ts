@@ -9,7 +9,7 @@ describe('Testing new order Notification handler.', () => {
   mockedAxios.post.mockReturnValue(Promise.resolve({ status: 201 }))
 
   const getEndpointsMock = jest.fn()
-  getEndpointsMock.mockImplementation(() => mockWebhooks)
+  getEndpointsMock.mockImplementation(() => Promise.resolve(mockWebhooks))
 
   const logInfoMock = jest.fn()
   const logErrorMock = jest.fn()

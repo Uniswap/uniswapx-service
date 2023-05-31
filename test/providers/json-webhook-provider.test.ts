@@ -12,7 +12,7 @@ describe('JsonWebHookProvider test', () => {
       },
     } as any)
     expect(
-      webhookProvider.getEndpoints({
+      await webhookProvider.getEndpoints({
         filler: '0x1',
         orderStatus: 'open',
         offerer: '0x2',
