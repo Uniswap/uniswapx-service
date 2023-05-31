@@ -5,12 +5,14 @@ import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
 import { UNI, WETH, ZERO_ADDRESS } from './constants'
 
-const { DutchLimitOrderReactor__factory, DirectTakerExecutor__factory } = factories
+const { DutchLimitOrderReactor__factory } = factories
 
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from '../abis/erc20.json'
+import * as PERMIT2_ABI from '../abis/permit2.json'
 const { abi } = ERC20_ABI
+const { abi: permit2Abi } = PERMIT2_ABI
 
 dotenv.config()
 
@@ -38,7 +40,6 @@ describe('/dutch-auction/order', () => {
 
   // Filler
   let filler: Wallet
-  let directTakerExecutor: Contract
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
@@ -57,6 +58,7 @@ describe('/dutch-auction/order', () => {
 
     weth = new Contract(WETH, abi, provider)
     uni = new Contract(UNI, abi, provider)
+    const permit2Contract = new Contract(PERMIT2, permit2Abi, provider)
 
     const fundWallets = async (wallets: Wallet[]) => {
       for (const wallet of wallets) {
@@ -92,15 +94,13 @@ describe('/dutch-auction/order', () => {
         // approve P2
         await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
         await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+        // approve reactor for permit2
+        await permit2Contract.connect(wallet).approve(weth.address, REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'], ethers.utils.parseEther('100'), 281474976710655);
+        await permit2Contract.connect(wallet).approve(uni.address, REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'], ethers.utils.parseEther('100'), 281474976710655);
       }
     }
 
     await fundWallets([alice, filler])
-
-    // deploy direct taker executor with filler as whitelistedCaller
-    const directTakerExecutorFactory = new DirectTakerExecutor__factory(filler)
-    directTakerExecutor = await directTakerExecutorFactory.deploy(filler.address)
-    await directTakerExecutor.deployed()
 
     const getResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
     expect(getResponse.status).toEqual(200)
@@ -158,6 +158,7 @@ describe('/dutch-auction/order', () => {
     const order = resp.data.orders[0]
     expect(order).toBeDefined()
     expect(order!.orderHash).toEqual(orderHash)
+    console.log(order!.orderStatus)
     return order!.orderStatus
   }
 
@@ -235,15 +236,16 @@ describe('/dutch-auction/order', () => {
         },
       ],
       reactor: REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'],
-      fillContract: directTakerExecutor.address,
+      // direct fill is 0x01
+      fillContract: '0x0000000000000000000000000000000000000001',
       fillData: '0x', // TODO: do we need data here
     }
-
-    console.log(execution)
 
     try {
       const reactor = DutchLimitOrderReactor__factory.connect(execution.reactor, provider)
       const fillerNonce = await filler.getTransactionCount()
+      const maxFeePerGas =
+          (await provider.getFeeData()).maxFeePerGas
 
       const populatedTx = await reactor.populateTransaction.executeBatch(
         execution.orders.map((order) => {
@@ -257,21 +259,23 @@ describe('/dutch-auction/order', () => {
         {
           gasLimit: BigNumber.from(700_000),
           nonce: fillerNonce,
+          ...(maxFeePerGas && { maxFeePerGas }),
+          maxPriorityFeePerGas: ethers.utils.parseUnits('50', 'gwei')
         }
       )
 
-      console.log(populatedTx)
-
       populatedTx.gasLimit = BigNumber.from(700_000)
       const tx = await filler.sendTransaction(populatedTx)
-      return tx.hash
+      const receipt = await tx.wait()
+      console.log(receipt.transactionHash)
+      return receipt.transactionHash
     } catch (err) {
       console.log(err)
       throw err
     }
   }
 
-  xdescribe('checking expiry', () => {
+  describe('checking expiry', () => {
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
       const { order } = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
@@ -301,6 +305,7 @@ describe('/dutch-auction/order', () => {
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
+      expect(await waitAndGetOrderStatus(order.hash(), 0)).toBe('filled')
     })
   })
 
