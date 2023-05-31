@@ -7,5 +7,5 @@ export type OrderFilter = {
 }
 
 export interface WebhookProvider {
-  getEndpoints(filter: OrderFilter): Webhook[]
+  getEndpoints(filter: OrderFilter): Promise<Webhook[]>
 }
