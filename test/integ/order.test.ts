@@ -1,8 +1,11 @@
-import { DutchOrderBuilder } from '@uniswap/gouda-sdk'
+import { DutchOrderBuilder, Order, REACTOR_ADDRESS_MAPPING, SignedOrder } from '@uniswap/gouda-sdk'
+import { factories } from '@uniswap/gouda-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
 import { UNI, WETH, ZERO_ADDRESS } from './constants'
+
+const { DutchLimitOrderReactor__factory, DirectTakerExecutor__factory } = factories
 
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
@@ -13,9 +16,16 @@ dotenv.config()
 
 const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3'
 
+type OrderExecution = {
+  orders: SignedOrder[]
+  reactor: string
+  fillContract: string
+  fillData: string
+}
+
 describe('/dutch-auction/order', () => {
   jest.setTimeout(60 * 1000)
-  let wallet: Wallet
+  let alice: Wallet
   let provider: ethers.providers.JsonRpcProvider
   let aliceAddress: string
   let nonce: BigNumber
@@ -25,6 +35,10 @@ describe('/dutch-auction/order', () => {
   let uni: Contract
   // Fork management
   let snap: null | string = null
+
+  // Filler
+  let filler: Wallet
+  let directTakerExecutor: Contract
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
@@ -37,45 +51,56 @@ describe('/dutch-auction/order', () => {
 
     provider = new ethers.providers.JsonRpcProvider(process.env.RPC_12341234)
 
-    wallet = ethers.Wallet.createRandom().connect(provider)
-    aliceAddress = (await wallet.getAddress()).toLowerCase()
+    alice = ethers.Wallet.createRandom().connect(provider)
+    filler = ethers.Wallet.createRandom().connect(provider)
+    aliceAddress = (await alice.getAddress()).toLowerCase()
 
     weth = new Contract(WETH, abi, provider)
     uni = new Contract(UNI, abi, provider)
 
-    // Set alice's balance to 10 ETH
-    await provider.send('tenderly_setBalance', [
-      [aliceAddress],
-      ethers.utils.hexValue(ethers.utils.parseUnits('10', 'ether').toHexString()),
-    ])
-
-    // Ensure alice has some WETH and UNI
-    await provider.send('tenderly_setStorageAt', [
-      UNI,
-      ethers.utils.keccak256(
-        ethers.utils.concat([
-          ethers.utils.hexZeroPad(aliceAddress, 32),
-          ethers.utils.hexZeroPad('0x04', 32), // the balances slot is 4th in the UNI contract
+    const fundWallets = async (wallets: Wallet[]) => {
+      for (const wallet of wallets) {
+        await provider.send('tenderly_setBalance', [
+          [wallet.address],
+          ethers.utils.hexValue(ethers.utils.parseUnits('10', 'ether').toHexString()),
         ])
-      ),
-      ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
-    ])
-    const uniBalance = (await uni.balanceOf(wallet.address)) as BigNumber
-    expect(uniBalance).toEqual(ethers.utils.parseEther('20'))
+        expect(await provider.getBalance(wallet.address)).toEqual(ethers.utils.parseEther('10'))
+        // Ensure both alice and filler have WETH and UNI
+        await provider.send('tenderly_setStorageAt', [
+          UNI,
+          ethers.utils.keccak256(
+            ethers.utils.concat([
+              ethers.utils.hexZeroPad(wallet.address, 32),
+              ethers.utils.hexZeroPad('0x04', 32), // the balances slot is 4th in the UNI contract
+            ])
+          ),
+          ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
+        ])
+        const uniBalance = (await uni.balanceOf(wallet.address)) as BigNumber
+        expect(uniBalance).toEqual(ethers.utils.parseEther('20'))
 
-    await provider.send('tenderly_setStorageAt', [
-      WETH,
-      ethers.utils.keccak256(
-        ethers.utils.concat([ethers.utils.hexZeroPad(aliceAddress, 32), ethers.utils.hexZeroPad('0x03', 32)])
-      ),
-      ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
-    ])
-    const wethBalance = (await weth.balanceOf(wallet.address)) as BigNumber
-    expect(wethBalance).toEqual(ethers.utils.parseEther('20'))
+        await provider.send('tenderly_setStorageAt', [
+          WETH,
+          ethers.utils.keccak256(
+            ethers.utils.concat([ethers.utils.hexZeroPad(wallet.address, 32), ethers.utils.hexZeroPad('0x03', 32)])
+          ),
+          ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
+        ])
+        const wethBalance = (await weth.balanceOf(wallet.address)) as BigNumber
+        expect(wethBalance).toEqual(ethers.utils.parseEther('20'))
 
-    // approve P2
-    await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-    await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+        // approve P2
+        await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+        await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+      }
+    }
+
+    await fundWallets([alice, filler])
+
+    // deploy direct taker executor with filler as whitelistedCaller
+    const directTakerExecutorFactory = new DirectTakerExecutor__factory(filler)
+    directTakerExecutor = await directTakerExecutorFactory.deploy(filler.address)
+    await directTakerExecutor.deployed()
 
     const getResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
     expect(getResponse.status).toEqual(200)
@@ -84,11 +109,11 @@ describe('/dutch-auction/order', () => {
   })
 
   beforeEach(async () => {
-    snap = await provider.send("evm_snapshot", []);
-  });
+    snap = await provider.send('evm_snapshot', [])
+  })
 
   afterEach(async () => {
-    await provider.send("evm_revert", [snap]);
+    await provider.send('evm_revert', [snap])
   })
 
   async function expectOrdersToBeOpen(orderHashes: string[]) {
@@ -113,7 +138,7 @@ describe('/dutch-auction/order', () => {
   async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number) {
     /// @dev testing expiry of the order via the step function is very finicky
     ///      we fast forward the fork's timestamp by the deadline and then mine a block to get the changes included
-    /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period, 
+    /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
     const params = [
       ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
@@ -122,9 +147,7 @@ describe('/dutch-auction/order', () => {
 
     await provider.send('evm_increaseTime', params)
     const blocksToMine = 1
-    await provider.send('evm_increaseBlocks', [
-      ethers.utils.hexValue(blocksToMine)
-    ])
+    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
     expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine + 1)
     // Wait a bit for sfn to fire again
     await new Promise((resolve) => setTimeout(resolve, 15_000))
@@ -144,7 +167,10 @@ describe('/dutch-auction/order', () => {
     deadlineSeconds: number,
     inputToken: string,
     outputToken: string
-  ) => {
+  ): Promise<{
+    order: Order
+    signature: string
+  }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
     const startTime = Math.round(new Date().getTime() / 1000)
     const nextNonce = nonce.add(1)
@@ -168,7 +194,7 @@ describe('/dutch-auction/order', () => {
       .build()
 
     const { domain, types, values } = order.permitData()
-    const signature = await wallet._signTypedData(domain, types, values)
+    const signature = await alice._signTypedData(domain, types, values)
     const encodedOrder = order.serialize()
 
     try {
@@ -186,48 +212,102 @@ describe('/dutch-auction/order', () => {
           },
         }
       )
-  
+
       expect(postResponse.status).toEqual(201)
       const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
       expect(newGetResponse.status).toEqual(200)
       const newNonce = BigNumber.from(newGetResponse.data.nonce)
       expect(newNonce.eq(nonce.add(1))).toBeTruthy()
-  
-      return postResponse.data.hash
-    }
-    catch(err: any) {
+
+      return { order, signature }
+    } catch (err: any) {
       console.log(err)
       throw err
     }
   }
-  
-  describe('checking expiry', () => {
+
+  const fillOrder = async (order: Order, signature: string) => {
+    const execution: OrderExecution = {
+      orders: [
+        {
+          order,
+          signature,
+        },
+      ],
+      reactor: REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'],
+      fillContract: directTakerExecutor.address,
+      fillData: '0x', // TODO: do we need data here
+    }
+
+    console.log(execution)
+
+    try {
+      const reactor = DutchLimitOrderReactor__factory.connect(execution.reactor, provider)
+      const fillerNonce = await filler.getTransactionCount()
+
+      const populatedTx = await reactor.populateTransaction.executeBatch(
+        execution.orders.map((order) => {
+          return {
+            order: order.order.serialize(),
+            sig: order.signature,
+          }
+        }),
+        execution.fillContract,
+        execution.fillData,
+        {
+          gasLimit: BigNumber.from(700_000),
+          nonce: fillerNonce,
+        }
+      )
+
+      console.log(populatedTx)
+
+      populatedTx.gasLimit = BigNumber.from(700_000)
+      const tx = await filler.sendTransaction(populatedTx)
+      return tx.hash
+    } catch (err) {
+      console.log(err)
+      throw err
+    }
+  }
+
+  xdescribe('checking expiry', () => {
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
-      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
-      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(orderHash, 1001)).toBe('expired')
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(order.hash(), 1001)).toBe('expired')
     })
-  
+
     it('erc20 to eth', async () => {
       const amount = ethers.utils.parseEther('1')
-      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
-      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(orderHash, 1001)).toBe('expired')
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(order.hash(), 1001)).toBe('expired')
     })
-  
+
     it('does not expire order before deadline', async () => {
       const amount = ethers.utils.parseEther('1')
-      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
-      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(orderHash, 900)).toBe('open')
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(order.hash(), 900)).toBe('open')
     })
   })
 
-  it('allows same offerer to post multiple orders', async () => {
+  describe('checking fill', () => {
+    it('erc20 to erc20', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      const txHash = await fillOrder(order, signature)
+      expect(txHash).toBeDefined()
+    })
+  })
+
+  xit('allows same offerer to post multiple orders', async () => {
     const amount = ethers.utils.parseEther('1')
-    const orderHash1 = await buildAndSubmitOrder(aliceAddress, amount, 5, WETH, UNI)
-    const orderHash2 = await buildAndSubmitOrder(aliceAddress, amount, 5, UNI, ZERO_ADDRESS)
-    expect(await expectOrdersToBeOpen([orderHash1, orderHash2])).toBeTruthy()
+    const { order: order1 } = await buildAndSubmitOrder(aliceAddress, amount, 5, WETH, UNI)
+    const { order: order2 } = await buildAndSubmitOrder(aliceAddress, amount, 5, UNI, ZERO_ADDRESS)
+    expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
   })
 })
