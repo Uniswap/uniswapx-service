@@ -1,9 +1,9 @@
-import { DutchOrderBuilder, Order, REACTOR_ADDRESS_MAPPING, SignedOrder } from '@uniswap/gouda-sdk'
+import { DutchOrderBuilder, DutchOrder, REACTOR_ADDRESS_MAPPING, SignedOrder } from '@uniswap/gouda-sdk'
 import { factories } from '@uniswap/gouda-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { UNI, WETH, ZERO_ADDRESS } from './constants'
+import { PERMIT2, UNI, WETH, ZERO_ADDRESS } from './constants'
 
 const { DutchLimitOrderReactor__factory } = factories
 
@@ -16,8 +16,6 @@ const { abi: permit2Abi } = PERMIT2_ABI
 
 dotenv.config()
 
-const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3'
-
 type OrderExecution = {
   orders: SignedOrder[]
   reactor: string
@@ -26,8 +24,10 @@ type OrderExecution = {
 }
 
 describe('/dutch-auction/order', () => {
+  const DEFAULT_DEADLINE_SECONDS = 1000
   jest.setTimeout(60 * 1000)
   let alice: Wallet
+  let filler: Wallet
   let provider: ethers.providers.JsonRpcProvider
   let aliceAddress: string
   let nonce: BigNumber
@@ -37,9 +37,6 @@ describe('/dutch-auction/order', () => {
   let uni: Contract
   // Fork management
   let snap: null | string = null
-
-  // Filler
-  let filler: Wallet
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
@@ -158,7 +155,6 @@ describe('/dutch-auction/order', () => {
     const order = resp.data.orders[0]
     expect(order).toBeDefined()
     expect(order!.orderHash).toEqual(orderHash)
-    console.log(order!.orderStatus)
     return order!.orderStatus
   }
 
@@ -169,7 +165,7 @@ describe('/dutch-auction/order', () => {
     inputToken: string,
     outputToken: string
   ): Promise<{
-    order: Order
+    order: DutchOrder
     signature: string
   }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
@@ -227,7 +223,7 @@ describe('/dutch-auction/order', () => {
     }
   }
 
-  const fillOrder = async (order: Order, signature: string) => {
+  const fillOrder = async (order: DutchOrder, signature: string) => {
     const execution: OrderExecution = {
       orders: [
         {
@@ -238,8 +234,11 @@ describe('/dutch-auction/order', () => {
       reactor: REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'],
       // direct fill is 0x01
       fillContract: '0x0000000000000000000000000000000000000001',
-      fillData: '0x', // TODO: do we need data here
+      fillData: '0x',
     }
+
+    // if output token is ETH, then the value is the amount of ETH to send
+    const value = order.info.outputs[0].token == ZERO_ADDRESS ? order.info.outputs[0].startAmount : 0
 
     try {
       const reactor = DutchLimitOrderReactor__factory.connect(execution.reactor, provider)
@@ -260,7 +259,8 @@ describe('/dutch-auction/order', () => {
           gasLimit: BigNumber.from(700_000),
           nonce: fillerNonce,
           ...(maxFeePerGas && { maxFeePerGas }),
-          maxPriorityFeePerGas: ethers.utils.parseUnits('50', 'gwei')
+          maxPriorityFeePerGas: ethers.utils.parseUnits('50', 'gwei'),
+          value
         }
       )
 
@@ -278,30 +278,39 @@ describe('/dutch-auction/order', () => {
   describe('checking expiry', () => {
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(order.hash(), 1001)).toBe('expired')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
     it('erc20 to eth', async () => {
       const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(order.hash(), 1001)).toBe('expired')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
     it('does not expire order before deadline', async () => {
       const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(order.hash(), 900)).toBe('open')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS - 100)).toBe('open')
     })
   })
 
   describe('checking fill', () => {
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
-      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
+      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      const txHash = await fillOrder(order, signature)
+      expect(txHash).toBeDefined()
+      expect(await waitAndGetOrderStatus(order.hash(), 0)).toBe('filled')
+    })
+
+    it('erc20 to eth', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
@@ -309,10 +318,21 @@ describe('/dutch-auction/order', () => {
     })
   })
 
-  xit('allows same offerer to post multiple orders', async () => {
-    const amount = ethers.utils.parseEther('1')
-    const { order: order1 } = await buildAndSubmitOrder(aliceAddress, amount, 5, WETH, UNI)
-    const { order: order2 } = await buildAndSubmitOrder(aliceAddress, amount, 5, UNI, ZERO_ADDRESS)
-    expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
+  describe('checking cancel', () => {
+    it('an offerer sending multiple orders with the same nonce cancels the first one', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const { order: order1 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      nonce = nonce.sub(1)
+      const { order: order2 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
+      expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('cancelled')
+      expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('open')
+    })
+
+    it('allows same offerer to post multiple orders with different nonces', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const { order: order1 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      const { order: order2 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
+      expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
+    })
   })
 })
