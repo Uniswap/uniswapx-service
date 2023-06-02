@@ -223,7 +223,6 @@ describe('/dutch-auction/order', () => {
           },
         }
       )
-
       expect(postResponse.status).toEqual(201)
       const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
       expect(newGetResponse.status).toEqual(200)
