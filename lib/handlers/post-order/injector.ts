@@ -20,7 +20,6 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
   public async buildContainerInjected(): Promise<ContainerInjected> {
     const onchainValidatorByChainId: { [chainId: number]: OnchainValidator } = {}
     SUPPORTED_CHAINS.forEach((chainId) => {
-      // TODO: remove when we bring back tenderly
       if (typeof chainId === 'number') {
         const rpc = process.env[`RPC_${chainId}`]
         if (rpc) {

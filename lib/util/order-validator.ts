@@ -1,4 +1,4 @@
-import { DutchLimitOrder, DutchOutput } from '@uniswap/gouda-sdk'
+import { DutchOrder, DutchOutput } from '@uniswap/gouda-sdk'
 import { BigNumber } from 'ethers'
 import FieldValidator from './field-validator'
 
@@ -12,7 +12,7 @@ const THIRTY_MINUTES_IN_SECONDS = 60 * 30
 export class OrderValidator {
   constructor(private readonly getCurrentTime: () => number) {}
 
-  validate(order: DutchLimitOrder): OrderValidationResponse {
+  validate(order: DutchOrder): OrderValidationResponse {
     const chainIdValidation = this.validateChainId(order.chainId)
     if (!chainIdValidation.valid) {
       return chainIdValidation
