@@ -276,8 +276,10 @@ describe('/dutch-auction/order', () => {
     )
 
     populatedTx.gasLimit = BigNumber.from(700_000)
+    
     const tx = await filler.sendTransaction(populatedTx)
     const receipt = await tx.wait()
+    console.log(receipt.transactionHash)
     return receipt.transactionHash
   }
 
@@ -304,7 +306,7 @@ describe('/dutch-auction/order', () => {
     })
   })
 
-  describe('checking fill', () => {
+  describe('+ attempt to fill', () => {
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
       const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
@@ -328,59 +330,59 @@ describe('/dutch-auction/order', () => {
       expect(txHash).toBeDefined()
       expect(await waitAndGetOrderStatus(order.hash(), 0)).toBe('filled')
     })
-  })
 
-  describe('checking cancel', () => {
-    it('updates status to cancelled when fill reverts due to nonce reuse', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
-        aliceAddress,
-        amount,
-        DEFAULT_DEADLINE_SECONDS,
-        WETH,
-        UNI
-      )
-      const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
-        aliceAddress,
-        amount,
-        DEFAULT_DEADLINE_SECONDS,
-        UNI,
-        ZERO_ADDRESS
-      )
-      expect(order1.info.nonce.toString()).toEqual(order2.info.nonce.toString())
-      expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
-      // fill the first one
-      const txHash = await fillOrder(order1, sig1)
-      expect(txHash).toBeDefined()
-      expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
-      // try to fill the second one, expect revert
-      try {
-        await fillOrder(order2, sig2)
-        expect(true).toBeFalsy()
-      } catch (err: any) {
-        expect(err.message.includes('transaction failed')).toBeTruthy();
-      }
-      expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('cancelled')
-    })
-
-    it('allows same offerer to post multiple orders with different nonces and be filled', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order: order1, signature: sig1 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
-      nonce = nonce.add(1)
-      const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
-        aliceAddress,
-        amount,
-        DEFAULT_DEADLINE_SECONDS,
-        UNI,
-        ZERO_ADDRESS
-      )
-      expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
-      const txHash = await fillOrder(order1, sig1)
-      expect(txHash).toBeDefined()
-      expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
-      const txHash2 = await fillOrder(order2, sig2)
-      expect(txHash2).toBeDefined()
-      expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('filled')
+    describe('checking cancel', () => {
+      it('updates status to cancelled when fill reverts due to nonce reuse', async () => {
+        const amount = ethers.utils.parseEther('1')
+        const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
+          aliceAddress,
+          amount,
+          DEFAULT_DEADLINE_SECONDS,
+          WETH,
+          UNI
+        )
+        const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
+          aliceAddress,
+          amount,
+          DEFAULT_DEADLINE_SECONDS,
+          UNI,
+          ZERO_ADDRESS
+        )
+        expect(order1.info.nonce.toString()).toEqual(order2.info.nonce.toString())
+        expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
+        // fill the first one
+        const txHash = await fillOrder(order1, sig1)
+        expect(txHash).toBeDefined()
+        expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
+        // try to fill the second one, expect revert
+        try {
+          await fillOrder(order2, sig2)
+          expect(true).toBeFalsy()
+        } catch (err: any) {
+          expect(err.message.includes('transaction failed')).toBeTruthy();
+        }
+        expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('cancelled')
+      })
+  
+      it('allows same offerer to post multiple orders with different nonces and be filled', async () => {
+        const amount = ethers.utils.parseEther('1')
+        const { order: order1, signature: sig1 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+        nonce = nonce.add(1)
+        const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
+          aliceAddress,
+          amount,
+          DEFAULT_DEADLINE_SECONDS,
+          UNI,
+          ZERO_ADDRESS
+        )
+        expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
+        const txHash = await fillOrder(order1, sig1)
+        expect(txHash).toBeDefined()
+        expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
+        const txHash2 = await fillOrder(order2, sig2)
+        expect(txHash2).toBeDefined()
+        expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('filled')
+      })
     })
   })
 })
