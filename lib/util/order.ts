@@ -1,4 +1,4 @@
-import { DutchLimitOrder, OrderType } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderType } from '@uniswap/gouda-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 
@@ -38,7 +38,7 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
 }
 
 export const formatOrderEntity = (
-  decodedOrder: DutchLimitOrder,
+  decodedOrder: DutchOrder,
   signature: string,
   orderType: OrderType,
   orderStatus: ORDER_STATUS,

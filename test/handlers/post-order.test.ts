@@ -1,7 +1,7 @@
 var parserMock = jest.fn()
 
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchLimitOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
@@ -24,7 +24,7 @@ mockSfnClient
   })
   .resolves({})
 
-const ORDER_INFO: DutchLimitOrderInfo = {
+const ORDER_INFO: DutchOrderInfo = {
   deadline: 10,
   offerer: '0x0000000000000000000000000000000000000001',
   reactor: '0x0000000000000000000000000000000000000002',
@@ -61,10 +61,10 @@ jest.mock('@uniswap/gouda-sdk', () => {
   const originalSdk = jest.requireActual('@uniswap/gouda-sdk')
   return {
     ...originalSdk,
-    DutchLimitOrder: {
-      parse: parserMock,
+    DutchOrder: {
+      parse: parserMock
     },
-    OrderType: { DutchLimit: 'DutchLimit' },
+    OrderType: { Dutch: 'Dutch' },
   }
 })
 
@@ -108,7 +108,7 @@ describe('Testing post order handler.', () => {
     endTime: 10,
     deadline: 10,
     quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
-    type: 'DutchLimit',
+    type: 'Dutch',
     input: {
       endAmount: '30',
       startAmount: '30',
@@ -215,7 +215,7 @@ describe('Testing post order handler.', () => {
         { signature: '0xbad_signature' },
         '{"detail":"\\"signature\\" with value \\"0xbad_signature\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/","errorCode":"VALIDATION_ERROR"}',
       ],
-      [{ chainId: 0 }, '{"detail":"\\"chainId\\" must be one of [1, TENDERLY, 137]","errorCode":"VALIDATION_ERROR"}'],
+      [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 137, 12341234]","errorCode":"VALIDATION_ERROR"}`],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
       const invalidEvent = {

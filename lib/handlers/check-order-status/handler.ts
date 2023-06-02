@@ -1,4 +1,4 @@
-import { DutchLimitOrder, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderValidation } from '@uniswap/gouda-sdk'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
 import Joi from 'joi'
@@ -35,7 +35,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       'cannot find order by hash when updating order status'
     )
 
-    const parsedOrder = DutchLimitOrder.parse(order.encodedOrder, chainId)
+    const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
     log.info({ order: parsedOrder, signature: order.signature }, 'parsed order')
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()

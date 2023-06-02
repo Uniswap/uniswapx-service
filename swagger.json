@@ -277,7 +277,7 @@
       },
       "OrderType": {
         "type": "string",
-        "enum": ["DutchLimit"]
+        "enum": ["Dutch"]
       },
       "OrderEntity": {
         "type": "object",

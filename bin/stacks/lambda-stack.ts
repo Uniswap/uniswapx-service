@@ -116,6 +116,7 @@ export class LambdaStack extends cdk.NestedStack {
       },
       environment: {
         ...props.envVars,
+        stage: props.stage as STAGE,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
         STATE_MACHINE_ARN: sfnStack.statusTrackingStateMachine.attrArn,
