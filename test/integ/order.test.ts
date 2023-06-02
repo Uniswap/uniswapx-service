@@ -1,4 +1,4 @@
-import { DutchOrderBuilder, DutchOrder, REACTOR_ADDRESS_MAPPING, SignedOrder } from '@uniswap/gouda-sdk'
+import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedOrder } from '@uniswap/gouda-sdk'
 import { factories } from '@uniswap/gouda-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
@@ -92,8 +92,22 @@ describe('/dutch-auction/order', () => {
         await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
         await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
         // approve reactor for permit2
-        await permit2Contract.connect(wallet).approve(weth.address, REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'], ethers.utils.parseEther('100'), 281474976710655);
-        await permit2Contract.connect(wallet).approve(uni.address, REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'], ethers.utils.parseEther('100'), 281474976710655);
+        await permit2Contract
+          .connect(wallet)
+          .approve(
+            weth.address,
+            REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'],
+            ethers.utils.parseEther('100'),
+            281474976710655
+          )
+        await permit2Contract
+          .connect(wallet)
+          .approve(
+            uni.address,
+            REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'],
+            ethers.utils.parseEther('100'),
+            281474976710655
+          )
       }
     }
 
@@ -240,39 +254,32 @@ describe('/dutch-auction/order', () => {
     // if output token is ETH, then the value is the amount of ETH to send
     const value = order.info.outputs[0].token == ZERO_ADDRESS ? order.info.outputs[0].startAmount : 0
 
-    try {
-      const reactor = DutchLimitOrderReactor__factory.connect(execution.reactor, provider)
-      const fillerNonce = await filler.getTransactionCount()
-      const maxFeePerGas =
-          (await provider.getFeeData()).maxFeePerGas
+    const reactor = DutchLimitOrderReactor__factory.connect(execution.reactor, provider)
+    const fillerNonce = await filler.getTransactionCount()
+    const maxFeePerGas = (await provider.getFeeData()).maxFeePerGas
 
-      const populatedTx = await reactor.populateTransaction.executeBatch(
-        execution.orders.map((order) => {
-          return {
-            order: order.order.serialize(),
-            sig: order.signature,
-          }
-        }),
-        execution.fillContract,
-        execution.fillData,
-        {
-          gasLimit: BigNumber.from(700_000),
-          nonce: fillerNonce,
-          ...(maxFeePerGas && { maxFeePerGas }),
-          maxPriorityFeePerGas: ethers.utils.parseUnits('50', 'gwei'),
-          value
+    const populatedTx = await reactor.populateTransaction.executeBatch(
+      execution.orders.map((order) => {
+        return {
+          order: order.order.serialize(),
+          sig: order.signature,
         }
-      )
+      }),
+      execution.fillContract,
+      execution.fillData,
+      {
+        gasLimit: BigNumber.from(700_000),
+        nonce: fillerNonce,
+        ...(maxFeePerGas && { maxFeePerGas }),
+        maxPriorityFeePerGas: ethers.utils.parseUnits('50', 'gwei'),
+        value,
+      }
+    )
 
-      populatedTx.gasLimit = BigNumber.from(700_000)
-      const tx = await filler.sendTransaction(populatedTx)
-      const receipt = await tx.wait()
-      console.log(receipt.transactionHash)
-      return receipt.transactionHash
-    } catch (err) {
-      console.log(err)
-      throw err
-    }
+    populatedTx.gasLimit = BigNumber.from(700_000)
+    const tx = await filler.sendTransaction(populatedTx)
+    const receipt = await tx.wait()
+    return receipt.transactionHash
   }
 
   describe('checking expiry', () => {
@@ -310,7 +317,13 @@ describe('/dutch-auction/order', () => {
 
     it('erc20 to eth', async () => {
       const amount = ethers.utils.parseEther('1')
-      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
+      const { order, signature } = await buildAndSubmitOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        UNI,
+        ZERO_ADDRESS
+      )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
@@ -319,20 +332,56 @@ describe('/dutch-auction/order', () => {
   })
 
   describe('checking cancel', () => {
-    it('an offerer sending multiple orders with the same nonce cancels the first one', async () => {
+    it('updates status to cancelled when fill reverts due to nonce reuse', async () => {
       const amount = ethers.utils.parseEther('1')
-      const { order: order1 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
-      nonce = nonce.sub(1)
-      const { order: order2 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
-      expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('cancelled')
-      expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('open')
+      const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        WETH,
+        UNI
+      )
+      const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        UNI,
+        ZERO_ADDRESS
+      )
+      expect(order1.info.nonce.toString()).toEqual(order2.info.nonce.toString())
+      expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
+      // fill the first one
+      const txHash = await fillOrder(order1, sig1)
+      expect(txHash).toBeDefined()
+      expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
+      // try to fill the second one, expect revert
+      try {
+        await fillOrder(order2, sig2)
+        expect(true).toBeFalsy()
+      } catch (err: any) {
+        expect(err.message.includes('transaction failed')).toBeTruthy();
+      }
+      expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('cancelled')
     })
 
-    it('allows same offerer to post multiple orders with different nonces', async () => {
+    it('allows same offerer to post multiple orders with different nonces and be filled', async () => {
       const amount = ethers.utils.parseEther('1')
-      const { order: order1 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
-      const { order: order2 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
+      const { order: order1, signature: sig1 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      nonce = nonce.add(1)
+      const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        UNI,
+        ZERO_ADDRESS
+      )
       expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
+      const txHash = await fillOrder(order1, sig1)
+      expect(txHash).toBeDefined()
+      expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
+      const txHash2 = await fillOrder(order2, sig2)
+      expect(txHash2).toBeDefined()
+      expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('filled')
     })
   })
 })
