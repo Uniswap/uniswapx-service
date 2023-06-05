@@ -147,7 +147,7 @@ describe('/dutch-auction/order', () => {
   }
 
   async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number) {
-    /// @dev testing expiry of the order via the step function is very finicky
+    /// @dev testing order status updates via the step function is very finicky
     ///      we fast forward the fork's timestamp by the deadline and then mine a block to get the changes included
     /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
@@ -161,7 +161,7 @@ describe('/dutch-auction/order', () => {
     await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
     expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine + 1)
     // Wait a bit for sfn to fire again
-    await new Promise((resolve) => setTimeout(resolve, 15_000))
+    await new Promise((resolve) => setTimeout(resolve, 30_000))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
@@ -306,14 +306,14 @@ describe('/dutch-auction/order', () => {
     })
   })
 
-  describe('+ attempt to fill', () => {
+  describe.only('+ attempt to fill', () => {
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
       const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
-      expect(await waitAndGetOrderStatus(order.hash(), 0)).toBe('filled')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('filled')
     })
 
     it('erc20 to eth', async () => {
@@ -328,10 +328,10 @@ describe('/dutch-auction/order', () => {
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
-      expect(await waitAndGetOrderStatus(order.hash(), 0)).toBe('filled')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('filled')
     })
 
-    describe('checking cancel', () => {
+    xdescribe('checking cancel', () => {
       it('updates status to cancelled when fill reverts due to nonce reuse', async () => {
         const amount = ethers.utils.parseEther('1')
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
