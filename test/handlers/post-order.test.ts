@@ -182,20 +182,58 @@ describe('Testing post order handler.', () => {
   })
 
   describe('Test order submission blocking', () => {
-    it('should reject order submission for offerer when too many open orders exist', async () => {
-      countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
-      validatorMock.mockReturnValue({ valid: true })
-      expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
-        body: JSON.stringify({
-          errorCode: 'TOO_MANY_OPEN_ORDERS',
-          id: 'testRequest',
-        }),
-        statusCode: 403,
+    describe('Max open orders', () => {
+      it('should reject order submission for offerer when too many open orders exist', async () => {
+        countOrdersByOffererAndStatusMock.mockReturnValueOnce(6)
+        validatorMock.mockReturnValue({ valid: true })
+        expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+          body: JSON.stringify({
+            errorCode: 'TOO_MANY_OPEN_ORDERS',
+            id: 'testRequest',
+          }),
+          statusCode: 403,
+        })
+        expect(countOrdersByOffererAndStatusMock).toBeCalled()
+        expect(mainnetValidatorMock).toBeCalled()
+        expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
       })
-      expect(countOrdersByOffererAndStatusMock).toBeCalled()
-      expect(mainnetValidatorMock).toBeCalled()
-      expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
-    })
+
+      it('should allow more orders if in the high list', async () => {
+        countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
+        validatorMock.mockReturnValue({ valid: true })
+        parserMock.mockReturnValueOnce(Object.assign({}, DECODED_ORDER, {
+          info: Object.assign({}, ORDER_INFO, {
+            offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3'
+          })
+        }));
+        expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+          statusCode: 201,
+        })
+        expect(countOrdersByOffererAndStatusMock).toBeCalled()
+        expect(mainnetValidatorMock).toBeCalled()
+        expect(putOrderAndUpdateNonceTransactionMock).toBeCalled()
+      })
+
+      it('should reject order submission for offerer in high list at higher order count', async () => {
+        countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
+        validatorMock.mockReturnValue({ valid: true })
+        parserMock.mockReturnValueOnce(Object.assign({}, DECODED_ORDER, {
+          info: Object.assign({}, ORDER_INFO, {
+            offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3'
+          })
+        }));
+        expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+          body: JSON.stringify({
+            errorCode: 'TOO_MANY_OPEN_ORDERS',
+            id: 'testRequest',
+          }),
+          statusCode: 403,
+        })
+        expect(countOrdersByOffererAndStatusMock).toBeCalled()
+        expect(mainnetValidatorMock).toBeCalled()
+        expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
+      })
+    });
 
     it('should return 500 if DDB call throws', async () => {
       countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
