@@ -44,7 +44,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     switch (validation) {
       case OrderValidation.Expired: {
         // order could still be filled even when OrderQuoter.quote bubbled up 'expired' revert
-        const fromBlock = lastBlockNumber === 0 ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId) : lastBlockNumber
+        const fromBlock =
+          lastBlockNumber === 0 ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId) : lastBlockNumber
         const fillEvent = (await orderWatcher.getFillInfo(fromBlock, curBlockNumber)).find(
           (e) => e.orderHash === orderHash
         )
