@@ -13,9 +13,9 @@ import { CheckOrderStatusInputJoi } from './schema'
 const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
   switch (chainId) {
     case ChainId.MAINNET:
-      return 5
+      return 10
     case ChainId.POLYGON:
-      return 30
+      return 100
     default:
       return 5
   }
