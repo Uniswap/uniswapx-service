@@ -177,7 +177,7 @@ describe('Testing check order status handler', () => {
         retryCount: 1,
         retryWaitSeconds: 12,
         chainId: 1,
-        lastBlockNumber: 123,
+        startingBlockNumber: 123,
       })
     })
 
@@ -195,7 +195,7 @@ describe('Testing check order status handler', () => {
         retryCount: 302,
         retryWaitSeconds: 13,
         chainId: 1,
-        lastBlockNumber: 123,
+        startingBlockNumber: 123,
       })
     })
 
@@ -213,7 +213,7 @@ describe('Testing check order status handler', () => {
         retryCount: 501,
         retryWaitSeconds: 18000,
         chainId: 1,
-        lastBlockNumber: 123,
+        startingBlockNumber: 123,
       })
     })
   })
