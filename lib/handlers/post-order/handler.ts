@@ -10,8 +10,6 @@ import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Resp
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
-export const MAX_OPEN_ORDERS = 200
-
 type OrderTrackingSfnInput = {
   orderHash: string
   chainId: number
@@ -86,7 +84,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     try {
       const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
-      if (orderCount > MAX_OPEN_ORDERS) {
+      if (orderCount > getMaxOpenOrders(order.offerer)) {
         log.info(orderCount, `${order.offerer} has too many open orders`)
         return {
           statusCode: 403,
@@ -168,4 +166,17 @@ export class PostOrderHandler extends APIGLambdaHandler<
   protected responseBodySchema(): Joi.ObjectSchema | null {
     return PostOrderResponseJoi
   }
+}
+
+const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = ['0xa7152fad7467857dc2d4060fecaadf9f6b8227d3']
+export const DEFAULT_MAX_OPEN_ORDERS = 5
+export const HIGH_MAX_OPEN_ORDERS = 200
+
+// return the number of open orders the given swapper is allowed to have at a time
+function getMaxOpenOrders(swapper: string): number {
+  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(swapper.toLowerCase())) {
+    return HIGH_MAX_OPEN_ORDERS
+  }
+
+  return DEFAULT_MAX_OPEN_ORDERS
 }
