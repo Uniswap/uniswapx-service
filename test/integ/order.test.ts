@@ -24,7 +24,7 @@ type OrderExecution = {
 }
 
 describe('/dutch-auction/order', () => {
-  const DEFAULT_DEADLINE_SECONDS = 1000
+  const DEFAULT_DEADLINE_SECONDS = 500
   jest.setTimeout(60 * 1000)
   let alice: Wallet
   let filler: Wallet
@@ -161,7 +161,8 @@ describe('/dutch-auction/order', () => {
     await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
     expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine + 1)
     // Wait a bit for sfn to fire again
-    await new Promise((resolve) => setTimeout(resolve, 30_000))
+    // The next retry is in 12 seconds
+    await new Promise((resolve) => setTimeout(resolve, 15_000))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
@@ -306,7 +307,7 @@ describe('/dutch-auction/order', () => {
     })
   })
 
-  describe.only('+ attempt to fill', () => {
+  describe('+ attempt to fill', () => {
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
       const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
@@ -325,13 +326,14 @@ describe('/dutch-auction/order', () => {
         UNI,
         ZERO_ADDRESS
       )
+      console.log(order.hash());
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
-      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('filled')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS * 2)).toBe('filled')
     })
 
-    xdescribe('checking cancel', () => {
+    describe('checking cancel', () => {
       it('updates status to cancelled when fill reverts due to nonce reuse', async () => {
         const amount = ethers.utils.parseEther('1')
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
