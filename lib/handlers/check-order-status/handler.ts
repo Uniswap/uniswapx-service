@@ -10,14 +10,14 @@ import { SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { ContainerInjected, RequestInjected } from './injector'
 import { CheckOrderStatusInputJoi } from './schema'
 
-const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
+export const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
   switch (chainId) {
     case ChainId.MAINNET:
       return 10
     case ChainId.POLYGON:
       return 100
     default:
-      return 5
+      return 10
   }
 }
 
@@ -40,7 +40,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
     const fromBlock =
-          startingBlockNumber === 0 ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId) : startingBlockNumber
+          !startingBlockNumber ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId) : startingBlockNumber
 
     log.info({ validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash }, 'validating order')
     switch (validation) {
