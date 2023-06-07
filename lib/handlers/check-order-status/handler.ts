@@ -39,8 +39,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     log.info({ order: parsedOrder, signature: order.signature }, 'parsed order')
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
-    const fromBlock =
-          !startingBlockNumber ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId) : startingBlockNumber
+    const fromBlock = !startingBlockNumber
+      ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
+      : startingBlockNumber
 
     log.info({ validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash }, 'validating order')
     switch (validation) {
