@@ -198,28 +198,28 @@ describe('/dutch-auction/order', () => {
     }
   }
 
-  // describe('checking expiry', () => {
-  //   it('erc20 to erc20', async () => {
-  //     const amount = ethers.utils.parseEther('1')
-  //     const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
-  //     expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-  //     expect(await waitAndGetOrderStatus(orderHash, 1001)).toBe('expired')
-  //   })
-  //
-  //   it('erc20 to eth', async () => {
-  //     const amount = ethers.utils.parseEther('1')
-  //     const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
-  //     expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-  //     expect(await waitAndGetOrderStatus(orderHash, 1001)).toBe('expired')
-  //   })
-  //
-  //   it('does not expire order before deadline', async () => {
-  //     const amount = ethers.utils.parseEther('1')
-  //     const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
-  //     expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
-  //     expect(await waitAndGetOrderStatus(orderHash, 900)).toBe('open')
-  //   })
-  // })
+  xdescribe('checking expiry', () => {
+    it('erc20 to erc20', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, WETH, UNI)
+      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(orderHash, 1001)).toBe('expired')
+    })
+
+    it('erc20 to eth', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
+      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(orderHash, 1001)).toBe('expired')
+    })
+
+    it('does not expire order before deadline', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const orderHash = await buildAndSubmitOrder(aliceAddress, amount, 1000, UNI, ZERO_ADDRESS)
+      expect(await expectOrdersToBeOpen([orderHash])).toBeTruthy()
+      expect(await waitAndGetOrderStatus(orderHash, 900)).toBe('open')
+    })
+  })
 
   it('allows same offerer to post multiple orders', async () => {
     const amount = ethers.utils.parseEther('1')
