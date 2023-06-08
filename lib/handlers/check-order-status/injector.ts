@@ -10,7 +10,7 @@ export interface RequestInjected extends BaseRInj {
   chainId: number
   quoteId: string
   orderHash: string
-  lastBlockNumber: number
+  startingBlockNumber: number
   orderStatus: string
   retryCount: number
   provider: ethers.providers.JsonRpcProvider
@@ -47,7 +47,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       chainId: event.chainId as number,
       orderHash: event.orderHash as string,
       quoteId: event.quoteId as string,
-      lastBlockNumber: event.lastBlockNumber ? (event.lastBlockNumber as number) : 0,
+      startingBlockNumber: event.startingBlockNumber ? (event.startingBlockNumber as number) : 0,
       orderStatus: event.orderStatus as string,
       retryCount: event.retryCount ? (event.retryCount as number) : 0,
       provider: provider,
