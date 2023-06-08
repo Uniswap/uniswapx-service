@@ -1,24 +1,14 @@
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { SORT_FIELDS } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
-import { GetOrdersQueryParams } from './schema'
+import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
 
 export interface RequestInjected extends ApiRInj {
   limit: number
-  queryFilters: {
-    orderStatus?: string
-    orderHash?: string
-    offerer?: string
-    sortKey?: SORT_FIELDS
-    sort?: string
-    filler?: string
-    chainId?: number
-    desc?: boolean
-  }
+  queryFilters: GetOrdersQueryParams
   cursor?: string
 }
 
@@ -26,7 +16,7 @@ export interface ContainerInjected {
   dbInterface: BaseOrdersRepository
 }
 
-export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, GetOrdersQueryParams> {
+export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
       dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
@@ -36,7 +26,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
   public async getRequestInjected(
     containerInjected: ContainerInjected,
     _requestBody: void,
-    requestQueryParams: GetOrdersQueryParams,
+    requestQueryParams: RawGetOrdersQueryParams,
     _event: APIGatewayProxyEvent,
     context: Context,
     log: Logger
@@ -61,6 +51,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const cursor = requestQueryParams?.cursor
     const chainId = requestQueryParams?.chainId
     const desc = requestQueryParams?.desc
+    const orderHashes = requestQueryParams?.orderHashes?.split(',').map((orderHash: string) => orderHash.toLowerCase())
 
     return {
       limit: limit,
@@ -73,6 +64,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
         ...(sort && { sort: sort }),
         ...(chainId && { chainId: chainId }),
         ...(desc !== undefined && { desc: desc }),
+        ...(orderHashes && { orderHashes: [...new Set(orderHashes)] }),
       },
       requestId,
       log,

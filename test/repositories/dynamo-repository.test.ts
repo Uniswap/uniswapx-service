@@ -282,10 +282,9 @@ describe('OrdersRepository getOrders test', () => {
   })
 
   it('should return orders for limit', async () => {
-    const orders = await ordersRepository.getOrders(2, {})
-    expect(orders.orders.length).toEqual(2)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-    expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    await expect(ordersRepository.getOrders(2, {})).rejects.toThrow(
+      'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, offerer, filler]'
+    )
   })
 })
 
@@ -317,17 +316,6 @@ describe('OrdersRepository getOrders test with pagination', () => {
     orders = await ordersRepository.getOrders(2, { chainId: 137 }, orders.cursor)
     expect(orders.orders.length).toEqual(1)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-    expect(orders.cursor).toEqual(undefined)
-  })
-
-  it('should successfully page through orders with limit', async () => {
-    let orders = await ordersRepository.getOrders(2, {})
-    expect(orders.orders.length).toEqual(2)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-    expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    orders = await ordersRepository.getOrders(0, {}, orders.cursor)
-    expect(orders.orders.length).toEqual(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
     expect(orders.cursor).toEqual(undefined)
   })
 

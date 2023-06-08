@@ -345,6 +345,12 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         return { orders: order ? [order] : [] }
       }
 
+      case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASHES): {
+        const orderHashes = queryFilters['orderHashes'] as string[]
+        const orders = (await Promise.all(orderHashes.map((orderHash) => this.getByHash(orderHash)))) as OrderEntity[]
+        return { orders }
+      }
+
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
         return await this.getByOfferer(
           queryFilters['offerer'] as string,
@@ -386,16 +392,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         )
 
       default: {
-        const scanResult = await this.ordersTable.scan({
-          limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
-          execute: true,
-          ...(cursor && { startKey: this.getStartKey(cursor) }),
-        })
-
-        return {
-          orders: scanResult.Items as OrderEntity[],
-          ...(scanResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(scanResult.LastEvaluatedKey)) }),
-        }
+        throw new Error(
+          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, offerer, filler]'
+        )
       }
     }
   }

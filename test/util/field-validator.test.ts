@@ -238,4 +238,22 @@ describe('Testing each field on the FieldValidator class.', () => {
       )
     })
   })
+
+  describe('Testing orderHashes field.', () => {
+    it('should validate field.', async () => {
+      const orderHashes =
+        '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3,0xf8b7786fae9d7427aabf5f539121ffd55809855910c240d92c56cbe5b794af37'
+      expect(FieldValidator.isValidOrderHashes().validate(orderHashes)).toEqual({ value: orderHashes })
+    })
+
+    it('should invalidate field.', async () => {
+      const invalidOrderHashes =
+        '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3;0xf8b7786fae9d7427aabf5f539121ffd55809855910c240d92c56cbe5b794af37'
+      const validatedField = FieldValidator.isValidOrderHashes().validate(invalidOrderHashes)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual(
+        'Invalid input. Expected comma-separated order hashes, with a maximum of 50, each matching the pattern "^0x[0-9a-zA-Z]64$".'
+      )
+    })
+  })
 })
