@@ -110,31 +110,31 @@ describe('/dutch-auction/order', () => {
     return false
   }
 
-  async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number) {
-    /// @dev testing expiry of the order via the step function is very finicky
-    ///      we fast forward the fork's timestamp by the deadline and then mine a block to get the changes included
-    /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period,
-    ///      we can be sure that the order correctly expired based on the block.timestamp
-    const params = [
-      ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
-    ]
-    const blockNumber = (await provider.getBlock('latest')).number
+  // async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number) {
+  //   /// @dev testing expiry of the order via the step function is very finicky
+  //   ///      we fast forward the fork's timestamp by the deadline and then mine a block to get the changes included
+  //   /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period,
+  //   ///      we can be sure that the order correctly expired based on the block.timestamp
+  //   const params = [
+  //     ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
+  //   ]
+  //   const blockNumber = (await provider.getBlock('latest')).number
 
-    await provider.send('evm_increaseTime', params)
-    const blocksToMine = 1
-    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
-    expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine + 1)
-    // Wait a bit for sfn to fire again
-    await new Promise((resolve) => setTimeout(resolve, 15_000))
+  //   await provider.send('evm_increaseTime', params)
+  //   const blocksToMine = 1
+  //   await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
+  //   expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine + 1)
+  //   // Wait a bit for sfn to fire again
+  //   await new Promise((resolve) => setTimeout(resolve, 15_000))
 
-    const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
-    expect(resp.status).toEqual(200)
-    expect(resp.data.orders.length).toEqual(1)
-    const order = resp.data.orders[0]
-    expect(order).toBeDefined()
-    expect(order!.orderHash).toEqual(orderHash)
-    return order!.orderStatus
-  }
+  //   const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
+  //   expect(resp.status).toEqual(200)
+  //   expect(resp.data.orders.length).toEqual(1)
+  //   const order = resp.data.orders[0]
+  //   expect(order).toBeDefined()
+  //   expect(order!.orderHash).toEqual(orderHash)
+  //   return order!.orderStatus
+  // }
 
   const buildAndSubmitOrder = async (
     offerer: string,
