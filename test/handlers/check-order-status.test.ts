@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { OrderType, OrderValidation } from '@uniswap/gouda-sdk'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities'
-import { CheckOrderStatusHandler } from '../../lib/handlers/check-order-status/handler'
+import { CheckOrderStatusHandler, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
 
 const MOCK_ORDER_HASH = '0xc57af022b96e1cb0da0267c15f1d45cdfccf57cfeb8b33869bb50d7f478ab203'
 let MOCK_ENCODED_ORDER =
@@ -36,13 +36,14 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
 }
 
 describe('Testing check order status handler', () => {
+  const mockedBlockNumber = 123
   const validateMock = jest.fn()
   const getFillEventsMock = jest.fn()
   const getFillInfoMock = jest.fn()
 
   const getByHashMock = jest.fn().mockReturnValue(MOCK_ORDER_ENTITY)
   const updateOrderStatusMock = jest.fn().mockReturnValue(Promise<void>)
-  const providerMock = jest.fn().mockReturnValue(123)
+  const providerMock = jest.fn().mockReturnValue(mockedBlockNumber)
 
   const buildInjectorPromiseMock = (retryCount: number, orderStatus: string) => {
     return {
@@ -177,7 +178,7 @@ describe('Testing check order status handler', () => {
         retryCount: 1,
         retryWaitSeconds: 12,
         chainId: 1,
-        lastBlockNumber: 123,
+        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
       })
     })
 
@@ -195,7 +196,7 @@ describe('Testing check order status handler', () => {
         retryCount: 302,
         retryWaitSeconds: 13,
         chainId: 1,
-        lastBlockNumber: 123,
+        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
       })
     })
 
@@ -213,7 +214,7 @@ describe('Testing check order status handler', () => {
         retryCount: 501,
         retryWaitSeconds: 18000,
         chainId: 1,
-        lastBlockNumber: 123,
+        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
       })
     })
   })
