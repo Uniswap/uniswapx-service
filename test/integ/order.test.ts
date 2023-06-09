@@ -11,6 +11,7 @@ import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from '../abis/erc20.json'
 import * as PERMIT2_ABI from '../abis/permit2.json'
+import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
 const { abi } = ERC20_ABI
 const { abi: permit2Abi } = PERMIT2_ABI
 
@@ -21,6 +22,11 @@ type OrderExecution = {
   reactor: string
   fillContract: string
   fillData: string
+}
+
+// if the CLI argument runInBand is not provided, throw
+if (!process.argv.includes('--runInBand')) {
+  throw new Error('Integration tests must be run with --runInBand flag')
 }
 
 describe('/dutch-auction/order', () => {
@@ -38,6 +44,7 @@ describe('/dutch-auction/order', () => {
   // Fork management
   let snap: null | string = null
   let checkpointedBlock: ethers.providers.Block
+  let blockOffsetCounter: number = 0
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
@@ -49,6 +56,11 @@ describe('/dutch-auction/order', () => {
     URL = process.env.GOUDA_SERVICE_URL
 
     provider = new ethers.providers.JsonRpcProvider(process.env.RPC_12341234)
+
+    // advance blocks to avoid mixing fill events with previous test runs
+    const startingBlockNumber = (await provider.getBlock('latest')).number
+    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY))])
+    expect((await provider.getBlock('latest')).number).toEqual(startingBlockNumber + FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY))
 
     alice = ethers.Wallet.createRandom().connect(provider)
     filler = ethers.Wallet.createRandom().connect(provider)
@@ -157,12 +169,11 @@ describe('/dutch-auction/order', () => {
     const params = [
       ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
     ]
-    const blockNumber = (await provider.getBlock('latest')).number
-
     await provider.send('evm_increaseTime', params)
+    const blockNumber = (await provider.getBlock('latest')).number
     const blocksToMine = 1
     await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
-    expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine + 1)
+    expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine)
     // Wait a bit for sfn to fire again
     // The next retry is in 12 seconds
     await new Promise((resolve) => setTimeout(resolve, 15_000))
@@ -232,6 +243,8 @@ describe('/dutch-auction/order', () => {
       expect(newGetResponse.status).toEqual(200)
       const newNonce = BigNumber.from(newGetResponse.data.nonce)
       expect(newNonce.eq(nonce.add(1))).toBeTruthy()
+      
+      console.log("built order", order.hash())
 
       return { order, signature }
     } catch (err: any) {
@@ -283,11 +296,6 @@ describe('/dutch-auction/order', () => {
     
     const tx = await filler.sendTransaction(populatedTx)
     const receipt = await tx.wait()
-    // mine the next block
-    const blockNumber = (await provider.getBlock('latest')).number
-    const blocksToMine = 1
-    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
-    expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine)
     console.log(receipt.transactionHash)
     return receipt.transactionHash
   }
@@ -315,7 +323,29 @@ describe('/dutch-auction/order', () => {
     })
   })
 
+  const advanceBlocks = async (numBlocks: number) => {
+    if(numBlocks == 0) {
+      return
+    }
+    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(numBlocks)])
+    expect((await provider.getBlock('latest')).number).toEqual(checkpointedBlock.number + numBlocks)
+  }
+
   describe('+ attempt to fill', () => {
+    // The SFN will get fill logs for all orders that were filled in the last 10 blocks
+    // However, since we are performing a re-org by reverting the chain after every test,
+    // many of these orders will no longer exist (thus the provider call for the txnHash will fail)
+    // So, we keep a running total of the offset from the current block number to advance the chain by every time
+    beforeEach(async () => {
+      await advanceBlocks(blockOffsetCounter)
+    })
+
+    afterEach(async () => {
+      // Some reason we need extra buffer here ontop of the lookback block period
+      // Fails with 1, works with 10
+      blockOffsetCounter += (FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY) + 10)
+    })
+
     it('erc20 to eth', async () => {
       const amount = ethers.utils.parseEther('1')
       const { order, signature } = await buildAndSubmitOrder(
@@ -325,23 +355,23 @@ describe('/dutch-auction/order', () => {
         UNI,
         ZERO_ADDRESS
       )
-      console.log(order.hash());
-      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
-      const txHash = await fillOrder(order, signature)
-      expect(txHash).toBeDefined()
-      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS * 2)).toBe('filled')
-    })
-
-    it('erc20 to erc20', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('filled')
     })
 
-    xdescribe('checking cancel', () => {
+    it('erc20 to erc20', async () => {
+      const amount = ethers.utils.parseEther('1')
+      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      console.log("second order hash", order.hash())
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      const txHash = await fillOrder(order, signature)
+      expect(txHash).toBeDefined()
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('filled')
+    })
+
+    describe('checking cancel', () => {
       it('updates status to cancelled when fill reverts due to nonce reuse', async () => {
         const amount = ethers.utils.parseEther('1')
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
