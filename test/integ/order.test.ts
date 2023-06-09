@@ -221,6 +221,44 @@ describe('/dutch-auction/order', () => {
     })
   })
 
+  describe('endpoint sanity checks', () => {
+    it.each([
+      [{ orderStatus: 'open' }, null],
+      [{ chainId: 1 }, 100],
+      [{ orderStatus: 'expired' }, 100],
+      [{ offerer: '0x496d57839975e5c0bd36d39ffa27336b078b1b16' }, 100],
+      [{ filler: '0x0000000000000000000000000000000000000000' }, 100],
+      [{ orderStatus: 'expired', sortKey: 'createdAt', chainId: 137 }, 100],
+      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: false }, 100],
+      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: true }, 100],
+      [{ orderStatus: 'expired', offerer: '0x496d57839975e5c0bd36d39ffa27336b078b1b16' }, 100],
+      [{ orderStatus: 'expired', filler: '0x0000000000000000000000000000000000000000' }, 100],
+      [{ orderHash: '0x68eb57833b80254a0d917006a22b6bb8eca33276237408880de5bd76a97c8530' }, null],
+      [
+        {
+          orderHashes:
+            '0x68eb57833b80254a0d917006a22b6bb8eca33276237408880de5bd76a97c8530,0xf8b7786fae9d7427aabf5f539121ffd55809855910c240d92c56cbe5b794af37',
+        },
+        null,
+      ],
+    ])(
+      'Fetches orders with the following query param %p',
+      async (queryParam: { [key: string]: string | boolean | number }, length: number | null) => {
+        const params = Object.keys(queryParam)
+        const queryParams = params.reduce((acc, key) => {
+          const value = `${acc}${key}=${queryParam[key]}`
+          return key == params[params.length - 1] ? value : value + '&'
+        }, '')
+
+        const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders${queryParams}`)
+        expect(resp.status).toEqual(200)
+        if (length) {
+          expect(resp.data.orders.length).toBeGreaterThan(length)
+        }
+      }
+    )
+  })
+
   it('allows same offerer to post multiple orders', async () => {
     const amount = ethers.utils.parseEther('1')
     const orderHash1 = await buildAndSubmitOrder(aliceAddress, amount, 5, WETH, UNI)
