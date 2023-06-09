@@ -59,6 +59,9 @@
             "$ref": "#/components/parameters/orderHashParam"
           },
           {
+            "$ref": "#/components/parameters/orderHashesParam"
+          },
+          {
             "$ref": "#/components/parameters/offererParam"
           },
           {
@@ -155,6 +158,17 @@
         "required": false,
         "schema": {
           "$ref": "#/components/schemas/OrderHash"
+        }
+      },
+      "orderHashesParam": {
+        "name": "orderHashes",
+        "in": "query",
+        "description": "Filter by comma separated order hashes.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "pattern": "^(?=([^,]*,){0,49}[^,]*$)0x[0-9a-zA-Z]{64}(,0x[0-9a-zA-Z]{64})*$",
+          "example": "orderHash,orderHash,orderHash"
         }
       },
       "offererParam": {
@@ -385,6 +399,9 @@
         "enum": ["createdAt"]
       },
       "OrderHash": {
+        "type": "string"
+      },
+      "OrderHashes": {
         "type": "string"
       },
       "OrderStatus": {
