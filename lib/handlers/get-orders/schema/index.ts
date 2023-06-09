@@ -2,16 +2,12 @@ import Joi from 'joi'
 import { OrderEntity, SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 
-const indexKeyJoi = Joi.object({
-  orderStatus: FieldValidator.isValidOrderStatus(),
-  offerer: FieldValidator.isValidEthAddress(),
-  filler: FieldValidator.isValidEthAddress(),
-})
 const sortKeyJoi = FieldValidator.isValidSortKey()
 
 export const GetOrdersQueryParamsJoi = Joi.object({
   limit: FieldValidator.isValidLimit(),
   orderHash: FieldValidator.isValidOrderHash(),
+  orderHashes: FieldValidator.isValidOrderHashes(),
   sortKey: FieldValidator.isValidSortKey()
     .when('sort', {
       is: Joi.exist(),
@@ -26,21 +22,28 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   sort: FieldValidator.isValidSort(),
   cursor: FieldValidator.isValidCursor(),
   chainId: FieldValidator.isValidChainId(),
+  filler: FieldValidator.isValidEthAddress(),
+  offerer: FieldValidator.isValidEthAddress(),
+  orderStatus: FieldValidator.isValidOrderStatus(),
   desc: Joi.boolean(),
 })
-  .when('.sortKey', {
-    is: Joi.exist(),
-    then: indexKeyJoi.or('orderStatus', 'offerer', 'filler', 'chainId'),
-    otherwise: indexKeyJoi,
-  })
+  .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'offerer', 'filler')
   .when('.chainId', {
     is: Joi.exist(),
     then: Joi.object({
       offerer: Joi.forbidden().error(new Error('Querying with both offerer and chainId is not currently supported.')),
     }),
   })
+  .when('.sortKey', {
+    is: Joi.exist(),
+    then: Joi.object({
+      orderHashes: Joi.forbidden().error(
+        new Error('Querying with both orderHashes and sortKey is not currently supported.')
+      ),
+    }),
+  })
 
-export type GetOrdersQueryParams = {
+export type SharedGetOrdersQueryParams = {
   limit?: number
   orderStatus?: string
   orderHash?: string
@@ -52,6 +55,8 @@ export type GetOrdersQueryParams = {
   chainId?: number
   desc?: boolean
 }
+export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & { orderHashes: string }
+export type GetOrdersQueryParams = SharedGetOrdersQueryParams & { orderHashes: string[] }
 
 export type GetOrdersResponse = {
   orders: (OrderEntity | undefined)[]
@@ -103,6 +108,7 @@ export enum GET_QUERY_PARAMS {
   OFFERER = 'offerer',
   ORDER_STATUS = 'orderStatus',
   ORDER_HASH = 'orderHash',
+  ORDER_HASHES = 'orderHashes',
   SORT_KEY = 'sortKey',
   SORT = 'sort',
   FILLER = 'filler',

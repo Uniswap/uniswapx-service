@@ -12,6 +12,11 @@ export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
   private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
+  private static readonly ORDER_HASHES_JOI = Joi.string()
+    .regex(new RegExp(`^(?=([^,]*,){0,49}[^,]*$)0x[0-9a-zA-Z]{64}(,0x[0-9a-zA-Z]{64})*$`))
+    .message(
+      'Invalid input. Expected comma-separated order hashes, with a maximum of 50, each matching the pattern "^0x[0-9a-zA-Z]{64}$".'
+    )
   private static readonly TX_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
   private static readonly UUIDV4_JOI = Joi.string().guid({
     version: ['uuidv4'],
@@ -110,6 +115,10 @@ export default class FieldValidator {
 
   public static isValidAmount(): StringSchema {
     return this.BIG_NUMBER_JOI
+  }
+
+  public static isValidOrderHashes(): StringSchema {
+    return this.ORDER_HASHES_JOI
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {
