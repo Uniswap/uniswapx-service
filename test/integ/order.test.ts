@@ -39,7 +39,7 @@ const INTIAL_BLOCK_OFFSET = 200
 
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 500
-  jest.setTimeout(60 * 1000)
+  jest.setTimeout(90 * 1000)
   let alice: Wallet
   let filler: Wallet
   let provider: ethers.providers.JsonRpcProvider
@@ -188,8 +188,9 @@ describe('/dutch-auction/order', () => {
     await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
     expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine)
     // Wait a bit for sfn to fire again
-    // The next retry is in 12 seconds
-    await new Promise((resolve) => setTimeout(resolve, 15_000))
+    // The next retry is usually in 12 seconds but can take longer to complete
+    // If you start getting errors about orders that are supposed to be expired being open, increase this number
+    await new Promise((resolve) => setTimeout(resolve, 20_000))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
