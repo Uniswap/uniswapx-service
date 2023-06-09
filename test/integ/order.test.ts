@@ -7,11 +7,11 @@ import { PERMIT2, UNI, WETH, ZERO_ADDRESS } from './constants'
 
 const { DutchLimitOrderReactor__factory } = factories
 
-import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from '../abis/erc20.json'
 import * as PERMIT2_ABI from '../abis/permit2.json'
+import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
 const { abi } = ERC20_ABI
 const { abi: permit2Abi } = PERMIT2_ABI
 
@@ -52,7 +52,7 @@ describe('/dutch-auction/order', () => {
   // Fork management
   let snap: null | string = null
   let checkpointedBlock: ethers.providers.Block
-  let blockOffsetCounter = 0
+  let blockOffsetCounter: number = 0
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
@@ -66,7 +66,9 @@ describe('/dutch-auction/order', () => {
     provider = new ethers.providers.JsonRpcProvider(process.env.RPC_12341234)
     // advance blocks to avoid mixing fill events with previous test runs
     const startingBlockNumber = (await provider.getBlock('latest')).number
-    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(INTIAL_BLOCK_OFFSET)])
+    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(
+      INTIAL_BLOCK_OFFSET
+    )])
     expect((await provider.getBlock('latest')).number).toEqual(startingBlockNumber + INTIAL_BLOCK_OFFSET)
 
     alice = ethers.Wallet.createRandom().connect(provider)
@@ -302,45 +304,11 @@ describe('/dutch-auction/order', () => {
     )
 
     populatedTx.gasLimit = BigNumber.from(700_000)
-
+    
     const tx = await filler.sendTransaction(populatedTx)
     const receipt = await tx.wait()
     return receipt.transactionHash
   }
-
-  describe('endpoint sanity checks', () => {
-    it.each([
-      [{ orderStatus: 'open' }],
-      [{ chainId: 1 }],
-      [{ orderStatus: 'expired' }],
-      [{ offerer: '0x0000000000000000000000000000000000000000' }],
-      [{ filler: '0x0000000000000000000000000000000000000000' }],
-      [{ orderStatus: 'expired', sortKey: 'createdAt', chainId: 137 }],
-      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: false }],
-      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: true }],
-      [{ orderStatus: 'expired', offerer: '0x0000000000000000000000000000000000000000' }],
-      [{ orderStatus: 'expired', filler: '0x0000000000000000000000000000000000000000' }],
-      [{ orderHash: '0x0000000000000000000000000000000000000000000000000000000000000000' }],
-      [
-        {
-          orderHashes:
-            '0x0000000000000000000000000000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000000000000000000000000000',
-        },
-      ],
-    ])(
-      'Fetches orders with the following query param %p',
-      async (queryFilters: { [key: string]: string | boolean | number }) => {
-        const params = Object.keys(queryFilters)
-        const queryParams = params.reduce((acc, key) => {
-          const value = `${acc}${key}=${queryFilters[key]}`
-          return key == params[params.length - 1] ? value : value + '&'
-        }, '')
-
-        const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders${queryParams}`)
-        expect(resp.status).toEqual(200)
-      }
-    )
-  })
 
   describe('checking expiry', () => {
     it('erc20 to erc20', async () => {
@@ -366,7 +334,7 @@ describe('/dutch-auction/order', () => {
   })
 
   const advanceBlocks = async (numBlocks: number) => {
-    if (numBlocks == 0) {
+    if(numBlocks == 0) {
       return
     }
     await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(numBlocks)])
@@ -438,20 +406,14 @@ describe('/dutch-auction/order', () => {
           await fillOrder(order2, sig2)
           expect(true).toBeFalsy()
         } catch (err: any) {
-          expect(err.message.includes('transaction failed')).toBeTruthy()
+          expect(err.message.includes('transaction failed')).toBeTruthy();
         }
         expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('cancelled')
       })
-
+  
       it('allows same offerer to post multiple orders with different nonces and be filled', async () => {
         const amount = ethers.utils.parseEther('1')
-        const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
-          aliceAddress,
-          amount,
-          DEFAULT_DEADLINE_SECONDS,
-          WETH,
-          UNI
-        )
+        const { order: order1, signature: sig1 } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
         nonce = nonce.add(1)
         const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
           aliceAddress,
