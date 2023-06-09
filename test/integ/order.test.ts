@@ -336,7 +336,7 @@ describe('/dutch-auction/order', () => {
           return key == params[params.length - 1] ? value : value + '&'
         }, '')
 
-        const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders${queryParams}`)
+        const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?${queryParams}`)
         expect(resp.status).toEqual(200)
       }
     )
