@@ -2,17 +2,22 @@ import Joi from 'joi'
 
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
-import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, GetOrdersResponse, GetOrdersResponseJoi } from './schema/index'
+import {
+  GetOrdersQueryParamsJoi,
+  GetOrdersResponse,
+  GetOrdersResponseJoi,
+  RawGetOrdersQueryParams,
+} from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
   void,
-  GetOrdersQueryParams,
+  RawGetOrdersQueryParams,
   GetOrdersResponse
 > {
   public async handleRequest(
-    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, GetOrdersQueryParams>
+    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
   ): Promise<Response<GetOrdersResponse> | ErrorResponse> {
     const {
       requestInjected: { limit, queryFilters, cursor },

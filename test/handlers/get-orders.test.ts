@@ -109,6 +109,10 @@ describe('Testing get orders handler.', () => {
   describe('Testing invalid request validation.', () => {
     it.each([
       [{ orderHash: '0xbad_hash' }, 'orderHash\\" with value \\"0xbad_hash\\" fails to match the required pattern'],
+      [
+        { orderHashes: '0xbad_hash1,0xbad_hash2' },
+        'Invalid input. Expected comma-separated order hashes, with a maximum of 50, each matching the pattern \\"^0x[0-9a-zA-Z]64$\\".","errorCode":"VALIDATION_ERROR"',
+      ],
       [{ offerer: '0xbad_address' }, 'VALIDATION ERROR: Invalid address'],
       [{ orderStatus: 'bad_status' }, 'must be one of [open, filled, cancelled, expired, error, insufficient-funds]'],
       [{ limit: 'bad_limit' }, 'must be a number'],
@@ -116,7 +120,7 @@ describe('Testing get orders handler.', () => {
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
       [
         { sortKey: 'createdAt' },
-        '{"detail":"\\"value\\" must contain at least one of [orderStatus, offerer, filler, chainId]","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"\\"value\\" must contain at least one of [orderHash, orderHashes, chainId, orderStatus, offerer, filler]","errorCode":"VALIDATION_ERROR"}',
       ],
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],
