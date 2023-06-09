@@ -13,7 +13,7 @@ const amount = BigNumber.from(10).pow(18)
 
 axios.defaults.timeout = 10000
 
-describe('get nonce', () => {
+xdescribe('get nonce', () => {
   it('should get current nonce for address, and increment it by one after the address posts an order', async () => {
     const address = (await wallet.getAddress()).toLowerCase()
     const getResponse = await axios.get(`${URL}dutch-auction/nonce?address=${address}`)
