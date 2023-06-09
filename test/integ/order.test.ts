@@ -142,7 +142,7 @@ describe('/dutch-auction/order', () => {
   })
 
   afterAll(async () => {
-    // Do not revert to test slate, so next run should be strictly 200 blocks ahead of the previous run
+    // Do not revert to test slate, so next run should be roughly 200 blocks ahead of the previous run
   })
 
   beforeEach(async () => {
@@ -256,9 +256,6 @@ describe('/dutch-auction/order', () => {
       expect(newGetResponse.status).toEqual(200)
       const newNonce = BigNumber.from(newGetResponse.data.nonce)
       expect(newNonce.eq(nonce.add(1))).toBeTruthy()
-      
-      console.log("built order", order.hash())
-
       return { order, signature }
     } catch (err: any) {
       console.log(err)
@@ -309,11 +306,10 @@ describe('/dutch-auction/order', () => {
     
     const tx = await filler.sendTransaction(populatedTx)
     const receipt = await tx.wait()
-    console.log("fill txHash", receipt.transactionHash)
     return receipt.transactionHash
   }
 
-  xdescribe('checking expiry', () => {
+  describe('checking expiry', () => {
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
       const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
