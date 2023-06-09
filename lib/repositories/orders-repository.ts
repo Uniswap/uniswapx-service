@@ -347,8 +347,11 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASHES): {
         const orderHashes = queryFilters['orderHashes'] as string[]
-        const orders = (await Promise.all(orderHashes.map((orderHash) => this.getByHash(orderHash)))) as OrderEntity[]
-        return { orders }
+        const batchQuery = await this.ordersTable.batchGet(
+          orderHashes.map((orderHash) => this.orderEntity.getBatch({ orderHash })),
+          { execute: true }
+        )
+        return { orders: batchQuery.Responses.Orders }
       }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
