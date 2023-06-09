@@ -4,6 +4,7 @@ import { BigNumber, ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS, SORT_FIELDS } from '../entities'
 import { SUPPORTED_CHAINS } from './chain'
+import { DUTCH_LIMIT } from './order'
 
 export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
@@ -44,7 +45,10 @@ export default class FieldValidator {
   )
   private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
-  private static readonly ORDER_TYPE_JOI = Joi.string().valid(OrderType.Dutch)
+
+  // TODO: DutchLimit type is deprecated but we allow it in the response to remain backwards compatible.
+  // Remove this field from Joi once we have purge job to delete all DutchLimit orders from the database.
+  private static readonly ORDER_TYPE_JOI = Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT)
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.isAddress(value)) {
