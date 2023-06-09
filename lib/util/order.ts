@@ -2,6 +2,8 @@ import { DutchOrder, OrderType } from '@uniswap/gouda-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 
+export const DUTCH_LIMIT = 'DutchLimit'
+
 type ParsedOrder = {
   encodedOrder: string
   signature: string
