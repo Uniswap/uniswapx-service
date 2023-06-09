@@ -29,6 +29,14 @@ if (!process.argv.includes('--runInBand')) {
   throw new Error('Integration tests must be run with --runInBand flag')
 }
 
+// Some reason this fails with + 1, TODO:
+const FILL_EVENT_BLOCK_OFFSET = FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY) + 5
+// This needs to be greater than the sum of all fill event block offsets used
+// i.e. if we have 10 tests, we need to advance the block number before running any tests by at least 10 * FILL_EVENT_BLOCK_OFFSET
+// in the beginning of the test suite, or else the sfn will pick up old fill events that are no longer on the chain
+// If you start getting errors about orders that are supposed to be filled being open, increase this number
+const INTIAL_BLOCK_OFFSET = 200
+
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 500
   jest.setTimeout(60 * 1000)
@@ -56,11 +64,12 @@ describe('/dutch-auction/order', () => {
     URL = process.env.GOUDA_SERVICE_URL
 
     provider = new ethers.providers.JsonRpcProvider(process.env.RPC_12341234)
-
     // advance blocks to avoid mixing fill events with previous test runs
     const startingBlockNumber = (await provider.getBlock('latest')).number
-    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY))])
-    expect((await provider.getBlock('latest')).number).toEqual(startingBlockNumber + FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY))
+    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(
+      INTIAL_BLOCK_OFFSET
+    )])
+    expect((await provider.getBlock('latest')).number).toEqual(startingBlockNumber + INTIAL_BLOCK_OFFSET)
 
     alice = ethers.Wallet.createRandom().connect(provider)
     filler = ethers.Wallet.createRandom().connect(provider)
@@ -130,6 +139,10 @@ describe('/dutch-auction/order', () => {
     expect(getResponse.status).toEqual(200)
     nonce = BigNumber.from(getResponse.data.nonce)
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
+  })
+
+  afterAll(async () => {
+    // Do not revert to test slate, so next run should be strictly 200 blocks ahead of the previous run
   })
 
   beforeEach(async () => {
@@ -296,7 +309,7 @@ describe('/dutch-auction/order', () => {
     
     const tx = await filler.sendTransaction(populatedTx)
     const receipt = await tx.wait()
-    console.log(receipt.transactionHash)
+    console.log("fill txHash", receipt.transactionHash)
     return receipt.transactionHash
   }
 
@@ -341,9 +354,7 @@ describe('/dutch-auction/order', () => {
     })
 
     afterEach(async () => {
-      // Some reason we need extra buffer here ontop of the lookback block period
-      // Fails with 1, works with 10
-      blockOffsetCounter += (FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY) + 10)
+      blockOffsetCounter += FILL_EVENT_BLOCK_OFFSET
     })
 
     it('erc20 to eth', async () => {
@@ -358,17 +369,16 @@ describe('/dutch-auction/order', () => {
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
-      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('filled')
+      expect(await waitAndGetOrderStatus(order.hash(), 0)).toBe('filled')
     })
 
     it('erc20 to erc20', async () => {
       const amount = ethers.utils.parseEther('1')
       const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
-      console.log("second order hash", order.hash())
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
-      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('filled')
+      expect(await waitAndGetOrderStatus(order.hash(), 0)).toBe('filled')
     })
 
     describe('checking cancel', () => {
