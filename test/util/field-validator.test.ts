@@ -256,4 +256,17 @@ describe('Testing each field on the FieldValidator class.', () => {
       )
     })
   })
+
+  describe('Testing orderType field.', () => {
+    it.each([['Dutch'], ['DutchLimit']])('Validates orderType %p', async (orderType) => {
+      expect(FieldValidator.isValidOrderType().validate(orderType)).toEqual({ value: orderType })
+    })
+
+    it('should invalidate field.', async () => {
+      const orderType = 'LimitOrder'
+      const validatedField = FieldValidator.isValidOrderType().validate(orderType)
+      expect(validatedField.error).toBeTruthy()
+      expect(validatedField.error?.details[0].message).toEqual('"value" must be one of [Dutch, DutchLimit]')
+    })
+  })
 })
