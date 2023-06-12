@@ -13,7 +13,7 @@ export interface BaseOrdersRepository {
   getOrders: (limit: number, queryFilters: GetOrdersQueryParams, cursor?: string) => Promise<QueryResult>
   getByOfferer: (offerer: string, limit: number) => Promise<QueryResult>
   getByOrderStatus: (orderStatus: string, limit: number) => Promise<QueryResult>
-  getNonceByAddress: (address: string) => Promise<string>
+  getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string>
   updateOrderStatus: (
     orderHash: string,
     status: ORDER_STATUS,
