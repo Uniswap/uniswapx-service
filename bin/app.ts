@@ -231,6 +231,7 @@ envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'
 envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
+  env: { region: 'us-east-1' },
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
