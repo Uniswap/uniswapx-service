@@ -220,7 +220,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           createdAt: currentTimestampInSeconds(),
         }),
         this.nonceEntity.updateTransaction({
-          offerer: order.offerer,
+          offerer: `${order.offerer}-${order.chainId}`,
           nonce: order.nonce,
         }),
       ],
