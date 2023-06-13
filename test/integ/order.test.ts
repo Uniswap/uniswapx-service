@@ -39,7 +39,7 @@ const INTIAL_BLOCK_OFFSET = 200
 
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 500
-  jest.setTimeout(90 * 1000)
+  jest.setTimeout(180 * 1000)
   let alice: Wallet
   let filler: Wallet
   let provider: ethers.providers.JsonRpcProvider
@@ -172,7 +172,7 @@ describe('/dutch-auction/order', () => {
     return false
   }
 
-  async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number) {
+  async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number, waitTimeMs: number = 30_000) {
     /// @dev testing order status updates via the step function is very finicky
     ///      we fast forward the fork's timestamp by the deadline and then mine a block to get the changes included
     /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period,
@@ -188,7 +188,7 @@ describe('/dutch-auction/order', () => {
     // Wait a bit for sfn to fire again
     // The next retry is usually in 12 seconds but can take longer to complete
     // If you start getting errors about orders that are supposed to be expired being open, increase this number
-    await new Promise((resolve) => setTimeout(resolve, 20_000))
+    await new Promise((resolve) => setTimeout(resolve, waitTimeMs))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
