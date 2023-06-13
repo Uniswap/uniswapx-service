@@ -442,7 +442,7 @@ describe('OrdersRepository get nonce test', () => {
       ...MOCK_ORDER_1,
       nonce: '4',
     })
-    const nonce = await ordersRepository.getNonceByAddress('hayden.eth')
+    const nonce = await ordersRepository.getNonceByAddressAndChain('hayden.eth', MOCK_ORDER_1.chainId)
     expect(nonce).toEqual('4')
   })
 
@@ -453,15 +453,31 @@ describe('OrdersRepository get nonce test', () => {
       orderHash: '0x4',
     })
     // at this point, there are three orders in the DB, two with nonce 2
-    const nonce = await ordersRepository.getNonceByAddress('hayden.eth')
+    const nonce = await ordersRepository.getNonceByAddressAndChain('hayden.eth', MOCK_ORDER_1.chainId)
     expect(nonce).toEqual('2')
   })
 
   it('should generate random nonce for new address', async () => {
     const spy = jest.spyOn(nonceUtil, 'generateRandomNonce')
-    const res = await ordersRepository.getNonceByAddress('random.eth')
+    const res = await ordersRepository.getNonceByAddressAndChain('random.eth')
     expect(res).not.toBeUndefined()
     expect(spy).toHaveBeenCalled()
+  })
+
+  it('should track nonce for the same address on different chains separately', async () => {
+    await ordersRepository.putOrderAndUpdateNonceTransaction({
+      ...MOCK_ORDER_2,
+      nonce: '10',
+    })
+    await ordersRepository.putOrderAndUpdateNonceTransaction({
+      ...MOCK_ORDER_2,
+      chainId: 1,
+      nonce: '20',
+    })
+    const nonce = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.offerer, MOCK_ORDER_2.chainId)
+    expect(nonce).toEqual('10')
+    const nonce2 = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.offerer, 1)
+    expect(nonce2).toEqual('20')
   })
 })
 

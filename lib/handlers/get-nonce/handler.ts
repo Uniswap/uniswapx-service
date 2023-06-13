@@ -14,13 +14,13 @@ export class GetNonceHandler extends APIGLambdaHandler<
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, GetNonceQueryParams>
   ): Promise<ErrorResponse | Response<GetNonceResponse>> {
     const {
-      requestInjected: { address, log },
+      requestInjected: { address, chainId, log },
       containerInjected: { dbInterface },
     } = params
 
     try {
       log.info({ address: address }, 'Getting nonce for address')
-      const nonce = await dbInterface.getNonceByAddress(address)
+      const nonce = await dbInterface.getNonceByAddressAndChain(address, chainId)
       return {
         statusCode: 200,
         body: {
@@ -28,7 +28,7 @@ export class GetNonceHandler extends APIGLambdaHandler<
         },
       }
     } catch (e: unknown) {
-      log.error({ e }, 'Error getting nonce')
+      log.error({ e }, `Error getting nonce for address ${address} on chain ${chainId}`)
       return {
         statusCode: 500,
         ...(e instanceof Error && { errorCode: e.message }),

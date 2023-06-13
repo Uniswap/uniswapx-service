@@ -10,13 +10,14 @@ describe('Testing get nonce handler.', () => {
 
   const requestInjectedMock = {
     address: MOCK_ADDRESS,
+    chainId: 1,
     log: { info: () => jest.fn(), error: () => jest.fn() },
   }
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
       return {
         dbInterface: {
-          getNonceByAddress: getNonceByAddressMock,
+          getNonceByAddressAndChain: getNonceByAddressMock,
         },
       }
     },
@@ -25,6 +26,7 @@ describe('Testing get nonce handler.', () => {
   const event = {
     queryStringParameters: {
       address: MOCK_ADDRESS,
+      chainId: 1,
     },
     body: null,
   }
@@ -41,7 +43,7 @@ describe('Testing get nonce handler.', () => {
 
   it('Testing valid request and response.', async () => {
     const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-    expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address)
+    expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address, 1)
     expect(getNonceResponse).toMatchObject({
       body: JSON.stringify({ nonce: MOCK_NONCE }),
       statusCode: 200,
@@ -58,6 +60,7 @@ describe('Testing get nonce handler.', () => {
       [{ address: '' }, '"address\\" is not allowed to be empty"'],
       [{ address: '0xF53bDa7e0337BD456cDcDab0Ab24Db43E738065' }, 'VALIDATION ERROR: Invalid address'],
       [{}, '"address\\" is required'],
+      [{ address: MOCK_ADDRESS, chainId: 'foo' }, '\\"chainId\\" must be one of [1, 137, 12341234]'],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
         ...event,
@@ -77,7 +80,7 @@ describe('Testing get nonce handler.', () => {
       async (invalidResponseField) => {
         getNonceByAddressMock.mockReturnValue(invalidResponseField)
         const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-        expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address)
+        expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address, 1)
         expect(getNonceResponse.statusCode).toEqual(500)
         expect(getNonceResponse.body).toEqual(expect.stringContaining('INTERNAL_ERROR'))
       }
@@ -89,7 +92,7 @@ describe('Testing get nonce handler.', () => {
         throw error
       })
       const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-      expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address)
+      expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address, 1)
       expect(getNonceResponse).toMatchObject({
         body: JSON.stringify({ errorCode: error.message }),
         statusCode: 500,
