@@ -251,13 +251,13 @@ describe('/dutch-auction/order', () => {
         }
       )
       expect(postResponse.status).toEqual(201)
-      const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
+      const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}&chainId=12341234`)
       expect(newGetResponse.status).toEqual(200)
       const newNonce = BigNumber.from(newGetResponse.data.nonce)
       expect(newNonce.eq(nonce.add(1))).toBeTruthy()
       return { order, signature }
     } catch (err: any) {
-      console.log(err)
+      console.log(err.message)
       throw err
     }
   }
