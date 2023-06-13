@@ -122,7 +122,6 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               startingBlockNumber: fromBlock,
               chainId,
-              // TODO: maybe only do this on polygon
               // if there are no fill logs, retry one more time in case of node syncing issues
               orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
               getFillLogAttempts: getFillLogAttempts + 1,
@@ -224,7 +223,6 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               startingBlockNumber: fromBlock,
               chainId,
-              // TODO: maybe only do this on polygon
               // if there are no fill logs, retry one more time in case of node syncing issues
               orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
               getFillLogAttempts: getFillLogAttempts + 1,
