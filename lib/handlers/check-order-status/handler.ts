@@ -21,6 +21,17 @@ export const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
   }
 }
 
+export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
+  switch (chainId) {
+    case ChainId.MAINNET:
+      return 12
+    case ChainId.POLYGON:
+      return 2
+    default:
+      return 12
+  }
+}
+
 export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected, RequestInjected> {
   public async handleRequest(input: {
     containerInjected: ContainerInjected
@@ -276,7 +287,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       orderStatus: orderStatus,
       quoteId: quoteId,
       retryCount: retryCount + 1,
-      retryWaitSeconds: this.calculateRetryWaitSeconds(retryCount),
+      retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount),
       startingBlockNumber: startingBlockNumber,
       chainId: chainId,
       ...(settledAmounts && { settledAmounts }),
@@ -294,7 +305,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
    * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
    * All subsequent retries are at 6 hour intervals.
    */
-  private calculateRetryWaitSeconds(retryCount: number): number {
-    return retryCount <= 300 ? 12 : retryCount <= 450 ? Math.ceil(12 * Math.pow(1.05, retryCount - 300)) : 18000
+  private calculateRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
+    return retryCount <= 300 ? AVERAGE_BLOCK_TIME(chainId) : retryCount <= 450 ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300)) : 18000
   }
 }
