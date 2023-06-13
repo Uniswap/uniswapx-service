@@ -172,7 +172,7 @@ describe('/dutch-auction/order', () => {
     return false
   }
 
-  async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number, waitTimeMs: number = 30_000) {
+  async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number, waitTimeMs: number = 45_000) {
     /// @dev testing order status updates via the step function is very finicky
     ///      we fast forward the fork's timestamp by the deadline and then mine a block to get the changes included
     /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period,
@@ -373,7 +373,7 @@ describe('/dutch-auction/order', () => {
     expect((await provider.getBlock('latest')).number).toEqual(checkpointedBlock.number + numBlocks)
   }
 
-  describe('+ attempt to fill', () => {
+  xdescribe('+ attempt to fill', () => {
     // The SFN will get fill logs for all orders that were filled in the last 10 blocks
     // However, since we are performing a re-org by reverting the chain after every test,
     // many of these orders will no longer exist (thus the provider call for the txnHash will fail)

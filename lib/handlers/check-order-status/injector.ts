@@ -42,7 +42,6 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     // TODO: use different reactor address for different order type
     const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.Dutch])
 
-    log.info({ quoterAddr: quoter.orderQuoterAddress }, 'getRequestInjected')
     return {
       log,
       chainId: event.chainId as number,

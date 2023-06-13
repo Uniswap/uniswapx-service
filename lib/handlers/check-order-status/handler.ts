@@ -43,7 +43,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
       : startingBlockNumber
 
-    log.info({ validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash }, 'validating order')
+    log.info({ validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash }, 'validated order')
     switch (validation) {
       case OrderValidation.Expired: {
         // order could still be filled even when OrderQuoter.quote bubbled up 'expired' revert
@@ -267,7 +267,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     } = params
 
     log.info(
-      { orderHash, quoteId, retryCount, startingBlockNumber, chainId, orderStatus, txHash, settledAmounts },
+      { orderHash, quoteId, retryCount, startingBlockNumber, chainId, orderStatus, txHash, settledAmounts, getFillLogAttempts },
       'updating order status'
     )
     await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
