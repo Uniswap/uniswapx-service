@@ -8,6 +8,7 @@ import { GetNonceQueryParams } from './schema/index'
 
 export interface RequestInjected extends ApiRInj {
   address: string
+  chainId: number
 }
 
 export interface ContainerInjected {
@@ -41,6 +42,7 @@ export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInje
       log,
       requestId,
       address: requestQueryParams.address,
+      chainId: requestQueryParams.chainId ?? 1,
     }
   }
 }

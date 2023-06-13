@@ -182,8 +182,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return res.Item as OrderEntity
   }
 
-  public async getNonceByAddress(address: string): Promise<string> {
-    const res = await this.nonceEntity.query(address, {
+  public async getNonceByAddressAndChain(address: string, chainId: number): Promise<string> {
+    const res = await this.nonceEntity.query(`${address}-${chainId}`, {
       limit: 1,
       reverse: true,
       consistent: true,
@@ -220,7 +220,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           createdAt: currentTimestampInSeconds(),
         }),
         this.nonceEntity.updateTransaction({
-          offerer: order.offerer,
+          offerer: `${order.offerer}-${order.chainId}`,
           nonce: order.nonce,
         }),
       ],
