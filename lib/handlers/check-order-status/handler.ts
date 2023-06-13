@@ -27,7 +27,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     requestInjected: RequestInjected
   }): Promise<SfnStateInputOutput> {
     const { dbInterface } = input.containerInjected
-    const { log, chainId, quoteId, orderHash, startingBlockNumber, retryCount, provider, orderWatcher, orderQuoter } =
+    const { log, chainId, quoteId, orderHash, getFillLogAttempts, startingBlockNumber, retryCount, provider, orderWatcher, orderQuoter } =
       input.requestInjected
 
     const order = checkDefined(
@@ -96,6 +96,13 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             log
           )
         } else {
+          if(getFillLogAttempts == 0) {
+            log.info({
+              orderInfo: {
+                orderHash: orderHash,
+              },
+            }, 'failed to get fill log in expired case, retrying one more time')
+          }
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -104,7 +111,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               startingBlockNumber: fromBlock,
               chainId,
-              orderStatus: ORDER_STATUS.EXPIRED,
+              // TODO: maybe only do this on polygon
+              // if there are no fill logs, retry one more time in case of node syncing issues
+              orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
+              getFillLogAttempts: getFillLogAttempts + 1,
             },
             log
           )
@@ -192,10 +202,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         } else {
           log.info({
             orderInfo: {
-              orderStatus: ORDER_STATUS.CANCELLED,
               orderHash: orderHash,
             },
-          })
+          }, 'failed to get fill log in nonce used case, retrying one more time')
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -204,7 +213,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               startingBlockNumber: fromBlock,
               chainId,
-              orderStatus: ORDER_STATUS.CANCELLED,
+              // TODO: maybe only do this on polygon
+              // if there are no fill logs, retry one more time in case of node syncing issues
+              orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
+              getFillLogAttempts: getFillLogAttempts + 1,
             },
             log
           )
@@ -236,7 +248,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       chainId: number
       orderStatus: ORDER_STATUS
       txHash?: string
-      settledAmounts?: SettledAmount[]
+      settledAmounts?: SettledAmount[],
+      getFillLogAttempts?: number
     },
     log: Logger
   ): Promise<SfnStateInputOutput> {
@@ -250,6 +263,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       orderStatus,
       txHash,
       settledAmounts,
+      getFillLogAttempts
     } = params
 
     log.info(
@@ -267,6 +281,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       chainId: chainId,
       ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
+      ...(getFillLogAttempts && { getFillLogAttempts }),
     }
   }
 
