@@ -297,7 +297,7 @@ describe('Testing post order handler.', () => {
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
       expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ errorCode: 'database unavailable', id: 'testRequest' }),
+        body: JSON.stringify({ detail: 'database unavailable', errorCode: 'INTERNAL_ERROR', id: 'testRequest' }),
         statusCode: 500,
         headers: {
           'Access-Control-Allow-Credentials': true,
@@ -311,7 +311,7 @@ describe('Testing post order handler.', () => {
 
   describe('When validation fails', () => {
     it('off-chain validation failed; throws 400', async () => {
-      const errorCode = 'Invalid order'
+      const errorCode = 'INVALID_ORDER'
       const errorString = 'testing offchain validation'
       validatorMock.mockReturnValue({
         valid: false,
@@ -355,7 +355,7 @@ describe('Testing post order handler.', () => {
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({
           detail: `Onchain validation failed: ValidationFailed`,
-          errorCode: 'Invalid order',
+          errorCode: 'INVALID_ORDER',
           id: 'testRequest',
         }),
         statusCode: 400,
