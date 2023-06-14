@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
+import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
 import { GetNonceQueryParams, GetNonceQueryParamsJoi, GetNonceResponse, GetNonceResponseJoi } from './schema/index'
 
@@ -31,7 +31,8 @@ export class GetNonceHandler extends APIGLambdaHandler<
       log.error({ e }, `Error getting nonce for address ${address} on chain ${chainId}`)
       return {
         statusCode: 500,
-        ...(e instanceof Error && { errorCode: e.message }),
+        errorCode: ErrorCode.InternalError,
+        ...(e instanceof Error && { detail: e.message }),
       }
     }
   }
