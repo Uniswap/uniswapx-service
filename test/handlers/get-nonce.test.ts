@@ -94,7 +94,7 @@ describe('Testing get nonce handler.', () => {
       const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
       expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address, 1)
       expect(getNonceResponse).toMatchObject({
-        body: JSON.stringify({ errorCode: error.message }),
+        body: JSON.stringify({ detail: error.message, errorCode: 'INTERNAL_ERROR' }),
         statusCode: 500,
       })
 
