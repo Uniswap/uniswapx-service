@@ -26,7 +26,9 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
     case ChainId.MAINNET:
       return 12
     case ChainId.POLYGON:
-      return 2
+      // Keep this at the default 12 for now since we would have to do more retries
+      // if it was at 2 seconds
+      return 12
     default:
       return 12
   }
