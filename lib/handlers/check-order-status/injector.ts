@@ -12,6 +12,7 @@ export interface RequestInjected extends BaseRInj {
   orderHash: string
   startingBlockNumber: number
   orderStatus: string
+  getFillLogAttempts: number
   retryCount: number
   provider: ethers.providers.JsonRpcProvider
   orderWatcher: EventWatcher
@@ -41,7 +42,6 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     // TODO: use different reactor address for different order type
     const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.Dutch])
 
-    log.info({ quoterAddr: quoter.orderQuoterAddress }, 'getRequestInjected')
     return {
       log,
       chainId: event.chainId as number,
@@ -49,10 +49,11 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       quoteId: event.quoteId as string,
       startingBlockNumber: event.startingBlockNumber ? (event.startingBlockNumber as number) : 0,
       orderStatus: event.orderStatus as string,
+      getFillLogAttempts: event.getFillLogAttempts ? (event.getFillLogAttempts as number) : 0,
       retryCount: event.retryCount ? (event.retryCount as number) : 0,
       provider: provider,
       orderWatcher: watcher,
-      orderQuoter: quoter,
+      orderQuoter: quoter
     }
   }
 }
