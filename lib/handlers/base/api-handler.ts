@@ -6,13 +6,13 @@ import {
 } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
-import { BaseHandleRequestParams, BaseInjector, BaseLambdaHandler, BaseRInj } from './base'
+import { BaseHandleRequestParams, BaseInjector, BaseLambdaHandler, BaseRInj, ErrorCode } from './base'
 
 const INTERNAL_ERROR = (id?: string) => {
   return {
     statusCode: 500,
     body: JSON.stringify({
-      errorCode: 'INTERNAL_ERROR',
+      errorCode: ErrorCode.InternalError,
       detail: 'Unexpected error',
       id,
     }),
@@ -44,7 +44,7 @@ export type Response<Res> = {
 
 export type ErrorResponse = {
   statusCode: 400 | 403 | 404 | 408 | 409 | 500
-  errorCode?: string
+  errorCode?: ErrorCode
   detail?: string
 }
 
@@ -246,7 +246,7 @@ export abstract class APIGLambdaHandler<
             statusCode: 422,
             body: JSON.stringify({
               detail: 'Invalid JSON body',
-              errorCode: 'VALIDATION_ERROR',
+              errorCode: ErrorCode.ValidationError,
             }),
           },
         }
@@ -271,7 +271,7 @@ export abstract class APIGLambdaHandler<
             statusCode: 400,
             body: JSON.stringify({
               detail: queryParamsValidation.error.message,
-              errorCode: 'VALIDATION_ERROR',
+              errorCode: ErrorCode.ValidationError,
             }),
           },
         }
@@ -297,7 +297,7 @@ export abstract class APIGLambdaHandler<
             statusCode: 400,
             body: JSON.stringify({
               detail: bodyValidation.error.message,
-              errorCode: 'VALIDATION_ERROR',
+              errorCode: ErrorCode.ValidationError,
             }),
           },
         }
