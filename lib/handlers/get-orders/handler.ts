@@ -1,6 +1,6 @@
 import Joi from 'joi'
 
-import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
+import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
 import {
   GetOrdersQueryParamsJoi,
@@ -35,7 +35,8 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       // TODO: differentiate between input errors and add logging if unknown is not type Error
       return {
         statusCode: 500,
-        ...(e instanceof Error && { errorCode: e.message }),
+        errorCode: ErrorCode.InternalError,
+        ...(e instanceof Error && { detail: e.message }),
       }
     }
   }

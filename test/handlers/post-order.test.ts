@@ -5,6 +5,7 @@ import { DutchOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
+import { ErrorCode } from '../../lib/handlers/base';
 import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
 
 const MOCK_ARN = 'MOCK_ARN'
@@ -188,7 +189,7 @@ describe('Testing post order handler.', () => {
         validatorMock.mockReturnValue({ valid: true })
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
           body: JSON.stringify({
-            errorCode: 'TOO_MANY_OPEN_ORDERS',
+            errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
           }),
           statusCode: 403,
@@ -224,7 +225,7 @@ describe('Testing post order handler.', () => {
         }));
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
           body: JSON.stringify({
-            errorCode: 'TOO_MANY_OPEN_ORDERS',
+            errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
           }),
           statusCode: 403,
@@ -297,7 +298,7 @@ describe('Testing post order handler.', () => {
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
       expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ detail: 'database unavailable', errorCode: 'INTERNAL_ERROR', id: 'testRequest' }),
+        body: JSON.stringify({ detail: 'database unavailable', errorCode: ErrorCode.InternalError, id: 'testRequest' }),
         statusCode: 500,
         headers: {
           'Access-Control-Allow-Credentials': true,
@@ -311,7 +312,7 @@ describe('Testing post order handler.', () => {
 
   describe('When validation fails', () => {
     it('off-chain validation failed; throws 400', async () => {
-      const errorCode = 'INVALID_ORDER'
+      const errorCode = ErrorCode.InvalidOrder;
       const errorString = 'testing offchain validation'
       validatorMock.mockReturnValue({
         valid: false,
@@ -355,7 +356,7 @@ describe('Testing post order handler.', () => {
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({
           detail: `Onchain validation failed: ValidationFailed`,
-          errorCode: 'INVALID_ORDER',
+          errorCode: ErrorCode.InvalidOrder,
           id: 'testRequest',
         }),
         statusCode: 400,

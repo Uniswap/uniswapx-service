@@ -185,7 +185,7 @@ describe('Testing get orders handler.', () => {
         requestInjectedMock.cursor
       )
       expect(getOrdersResponse).toMatchObject({
-        body: JSON.stringify({ errorCode: error.message }),
+        body: JSON.stringify({ detail: error.message, errorCode: 'INTERNAL_ERROR' }),
         statusCode: 500,
       })
 

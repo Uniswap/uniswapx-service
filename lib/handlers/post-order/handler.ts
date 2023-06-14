@@ -6,7 +6,7 @@ import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { formatOrderEntity } from '../../util/order'
 import { currentTimestampInSeconds } from '../../util/time'
-import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base'
+import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
@@ -50,7 +50,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       log.error(e, 'Failed to parse order')
       return {
         statusCode: 400,
-        errorCode: 'ORDER_PARSE_FAIL',
+        errorCode: ErrorCode.OrderParseFail,
         ...(e instanceof Error && { detail: e.message }),
       }
     }
@@ -59,7 +59,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     if (!validationResponse.valid) {
       return {
         statusCode: 400,
-        errorCode: 'INVALID_ORDER',
+        errorCode: ErrorCode.InvalidOrder,
         detail: validationResponse.errorString,
       }
     }
@@ -68,7 +68,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     if (!onchainValidator) {
       return {
         statusCode: 500,
-        errorCode: 'INVALID_ORDER',
+        errorCode: ErrorCode.InternalError,
         detail: `No onchain validator for chain ${chainId}`,
       }
     }
@@ -76,7 +76,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     if (validation != OrderValidation.OK) {
       return {
         statusCode: 400,
-        errorCode: 'INVALID_ORDER',
+        errorCode: ErrorCode.InvalidOrder,
         detail: `Onchain validation failed: ${OrderValidation[validation]}`,
       }
     }
@@ -90,14 +90,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
         log.info(orderCount, `${order.offerer} has too many open orders`)
         return {
           statusCode: 403,
-          errorCode: 'TOO_MANY_OPEN_ORDERS',
+          errorCode: ErrorCode.TooManyOpenOrders,
         }
       }
     } catch (e) {
       log.error(e, `failed to fetch open order count for ${order.offerer}`)
       return {
         statusCode: 500,
-        errorCode: 'INTERNAL_ERROR',
+        errorCode: ErrorCode.InternalError,
         ...(e instanceof Error && { detail: e.message }),
       }
     }
@@ -111,7 +111,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       log.error(e, `Failed to insert order ${id} into DB`)
       return {
         statusCode: 500,
-        errorCode: 'INTERNAL_ERROR',
+        errorCode: ErrorCode.InternalError,
         ...(e instanceof Error && { detail: e.message }),
       }
     }

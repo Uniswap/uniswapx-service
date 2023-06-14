@@ -1,6 +1,6 @@
 import Joi from 'joi'
 import swagger from '../../../swagger.json'
-import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
+import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base/index'
 import { ContainerInjected, RequestInjected } from './GetDocsUIInjector'
 
 export class GetDocsHandler extends APIGLambdaHandler<ContainerInjected, RequestInjected, void, void, object> {
@@ -20,7 +20,8 @@ export class GetDocsHandler extends APIGLambdaHandler<ContainerInjected, Request
       log.error({ e }, 'Error getting api docs json.')
       return {
         statusCode: 500,
-        ...(e instanceof Error && { errorCode: e.message }),
+        errorCode: ErrorCode.InternalError,
+        ...(e instanceof Error && { detail: e.message }),
       }
     }
   }
