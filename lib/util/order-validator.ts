@@ -92,15 +92,10 @@ export class OrderValidator {
         errorString: 'Deadline must be in the future',
       }
     }
-    /*
-      We use AWS step function for status tracking
-      Step function last at most one year, so deadline can
-      be at most one year from now
-    */
     if (deadline > this.getCurrentTime() + THIRTY_MINUTES_IN_SECONDS) {
       return {
         valid: false,
-        errorString: `Deadline field invalid: Order expiry cannot be larger than one year`,
+        errorString: `Deadline field invalid: Order expiry cannot be larger than thirty minutes`,
       }
     }
     return {
