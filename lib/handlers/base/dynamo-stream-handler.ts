@@ -90,6 +90,7 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
     if (schema) {
       const inputValidation = schema.validate(input, {
         allowUnknown: true,
+        stripUnknown: true,
       })
       if (inputValidation.error) {
         log.info({ inputValidation }, 'Input failed validation')
