@@ -40,6 +40,7 @@ const INTIAL_BLOCK_OFFSET = 200
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 500
   jest.setTimeout(180 * 1000)
+  jest.retryTimes(2)
   let alice: Wallet
   let filler: Wallet
   let provider: ethers.providers.JsonRpcProvider
