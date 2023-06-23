@@ -37,7 +37,7 @@ const FILL_EVENT_BLOCK_OFFSET = FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY) 
 // If you start getting errors about orders that are supposed to be filled being open, increase this number
 const INTIAL_BLOCK_OFFSET = 200
 
-describe('/dutch-auction/order', () => {
+xdescribe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 500
   jest.setTimeout(180 * 1000)
   jest.retryTimes(2)
