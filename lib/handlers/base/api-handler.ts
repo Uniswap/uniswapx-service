@@ -236,11 +236,13 @@ export abstract class APIGLambdaHandler<
    * Note we only have access to the raw input 'event' and 'context', and not any of the injected
    * or parsed inputs, as it in possible for us to error out during request validation or creation of injected.
    */
+  /* eslint-disable @typescript-eslint/no-empty-function */
   protected afterResponseHook(
     _event: APIGatewayProxyEvent,
     _context: Context,
     _response: APIGatewayProxyResult
   ): void {}
+  /* eslint-enable @typescript-eslint/no-empty-function */
 
   private isError(result: Response<Res> | ErrorResponse): result is ErrorResponse {
     return result.statusCode < 200 || result.statusCode > 202
