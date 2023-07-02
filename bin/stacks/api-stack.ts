@@ -10,6 +10,7 @@ import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
 import { Construct } from 'constructs'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
+import { DashboardStack } from './dashboard-stack'
 import { LambdaStack } from './lambda-stack'
 
 export class APIStack extends cdk.Stack {
@@ -32,10 +33,15 @@ export class APIStack extends cdk.Stack {
 
     const {
       getOrdersLambdaAlias,
+      getOrdersLambda,
       getNonceLambdaAlias,
+      getNonceLambda,
       postOrderLambdaAlias,
+      postOrderLambda,
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
+      chainIdToStatusTrackingStateMachineArn,
+      checkStatusFunction,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       stage: stage as STAGE,
@@ -162,6 +168,15 @@ export class APIStack extends cdk.Stack {
     const nonce = dutchAuction.addResource('nonce')
     orders.addMethod('GET', getOrdersLambdaIntegration, {})
     nonce.addMethod('GET', getNonceLambdaIntegration, {})
+
+    new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
+      apiName: api.restApiName,
+      postOrderLambdaName: postOrderLambda.functionName,
+      getNonceLambdaName: getNonceLambda.functionName,
+      getOrdersLambdaName: getOrdersLambda.functionName,
+      chainIdToStatusTrackingStateMachineArn,
+      orderStatusLambdaName: checkStatusFunction.functionName,
+    })
 
     const apiAlarm5xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-5XXAlarm`, {
       metric: api.metricServerError({

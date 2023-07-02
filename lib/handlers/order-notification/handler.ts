@@ -4,6 +4,7 @@ import { eventRecordToOrder } from '../../util/order'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
+import { metrics } from '../../util/metrics'
 
 const WEBHOOK_TIMEOUT_MS = 500
 
@@ -68,6 +69,8 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
       }
     }
+
+    metrics.putMetric('OrderNotificationsSent', event.Records.length - failedRecords.length)
 
     // this lambda will be invoked again with the failed records
     return { batchItemFailures: failedRecords }

@@ -1,10 +1,13 @@
+import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
+import { setGlobalLogger } from '../../util/log'
 
 export interface RequestInjected extends ApiRInj {
   limit: number
@@ -29,7 +32,8 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     requestQueryParams: RawGetOrdersQueryParams,
     _event: APIGatewayProxyEvent,
     context: Context,
-    log: Logger
+    log: Logger,
+    metrics: MetricsLogger
   ): Promise<RequestInjected> {
     const requestId = context.awsRequestId
 
@@ -38,6 +42,12 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
       containerInjected: containerInjected,
       requestId,
     })
+
+    setGlobalLogger(log)
+
+    metrics.setNamespace('Uniswap')
+    metrics.setDimensions({ Service: 'GoudaService' })
+    setGlobalMetrics(metrics)
 
     // default to no limit
     const limit = requestQueryParams?.limit ?? 0

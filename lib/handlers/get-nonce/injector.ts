@@ -1,10 +1,13 @@
+import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
 import { GetNonceQueryParams } from './schema/index'
+import { setGlobalLogger } from '../../util/log'
 
 export interface RequestInjected extends ApiRInj {
   address: string
@@ -28,15 +31,22 @@ export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInje
     requestQueryParams: GetNonceQueryParams,
     _event: APIGatewayProxyEvent,
     context: Context,
-    log: Logger
+    log: Logger,
+    metrics: MetricsLogger
   ): Promise<RequestInjected> {
     const requestId = context.awsRequestId
+
+    metrics.setNamespace('Uniswap')
+    metrics.setDimensions({ Service: 'GoudaService' })
+    setGlobalMetrics(metrics)
 
     log = log.child({
       serializers: bunyan.stdSerializers,
       containerInjected: containerInjected,
       requestId,
     })
+
+    setGlobalLogger(log)
 
     return {
       log,
