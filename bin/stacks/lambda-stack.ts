@@ -8,6 +8,7 @@ import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
+import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { DynamoStack } from './dynamo-stack'
@@ -19,9 +20,9 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   envVars: { [key: string]: string }
 }
 export class LambdaStack extends cdk.NestedStack {
-  private readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
-  private readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
-  private readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsUILambda: aws_lambda_nodejs.NodejsFunction
@@ -31,6 +32,9 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly getDocsLambdaAlias: aws_lambda.Alias
   public readonly getDocsUILambdaAlias: aws_lambda.Alias
   private readonly orderNotificationLambdaAlias: aws_lambda.Alias
+
+  public readonly chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
+  public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -56,6 +60,8 @@ export class LambdaStack extends cdk.NestedStack {
       },
       lambdaRole: lambdaRole,
     })
+    this.chainIdToStatusTrackingStateMachineArn = sfnStack.chainIdToStatusTrackingStateMachineArn
+    this.checkStatusFunction = sfnStack.checkStatusFunction
 
     this.getOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetOrders${lambdaName}`, {
       role: lambdaRole,
@@ -104,6 +110,18 @@ export class LambdaStack extends cdk.NestedStack {
       })
     )
 
+    const postOrderEnv: any = {
+      ...props.envVars,
+      stage: props.stage as STAGE,
+      VERSION: '2',
+      NODE_OPTIONS: '--enable-source-maps',
+      REGION: this.region,
+    }
+
+    for (const chainId of SUPPORTED_CHAINS) {
+      postOrderEnv[`STATE_MACHINE_ARN_${chainId}`] = sfnStack.chainIdToStatusTrackingStateMachineArn[chainId]
+    }
+
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_16_X,
@@ -114,14 +132,7 @@ export class LambdaStack extends cdk.NestedStack {
         minify: true,
         sourceMap: true,
       },
-      environment: {
-        ...props.envVars,
-        stage: props.stage as STAGE,
-        VERSION: '2',
-        NODE_OPTIONS: '--enable-source-maps',
-        STATE_MACHINE_ARN: sfnStack.statusTrackingStateMachine.attrArn,
-        REGION: this.region,
-      },
+      environment: postOrderEnv,
     })
 
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
