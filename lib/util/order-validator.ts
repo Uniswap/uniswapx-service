@@ -23,7 +23,7 @@ export class OrderValidator {
       return deadlineValidation
     }
 
-    const decayStartTimeValidation = this.validatedecayStartTime(order.info.decayStartTime, order.info.deadline)
+    const decayStartTimeValidation = this.validateDecayStartTime(order.info.decayStartTime, order.info.deadline)
     if (!decayStartTimeValidation.valid) {
       return decayStartTimeValidation
     }
@@ -103,7 +103,7 @@ export class OrderValidator {
     }
   }
 
-  private validatedecayStartTime(decayStartTime: number, deadline: number): OrderValidationResponse {
+  private validateDecayStartTime(decayStartTime: number, deadline: number): OrderValidationResponse {
     if (decayStartTime > deadline) {
       return {
         valid: false,

@@ -172,7 +172,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
   }
 }
 
-const HIGH_MAX_OPEN_ORDERS_offererS: string[] = [
+const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
   '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
   '0xf82af5cd1f0d24cdcf9d35875107d5e43ce9b3d0',
   '0xa50dac48d61bb52b339c7ef0dcefa7688338d00a',
@@ -183,7 +183,7 @@ export const HIGH_MAX_OPEN_ORDERS = 200
 
 // return the number of open orders the given offerer is allowed to have at a time
 function getMaxOpenOrders(offerer: string): number {
-  if (HIGH_MAX_OPEN_ORDERS_offererS.includes(offerer.toLowerCase())) {
+  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(offerer.toLowerCase())) {
     return HIGH_MAX_OPEN_ORDERS
   }
 
