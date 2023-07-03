@@ -185,6 +185,14 @@ export class APIPipeline extends Stack {
             value: 'all/gouda-service/integ-test-rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          TEST_WALLET_PK: {
+            value: 'all/gouda-service/test-wallet-pk',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          TEST_FILLER_PK: {
+            value: 'all/gouda-service/test-filler-pk',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          }
         },
       },
       commands: [
@@ -192,6 +200,8 @@ export class APIPipeline extends Stack {
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
         'echo "RPC_5=${INTEG_TEST_RPC}" > .env',
+        'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" > .env',
+        'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" > .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
         'yarn build',
         'yarn run integ-test',
