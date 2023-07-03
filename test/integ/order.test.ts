@@ -34,7 +34,7 @@ const MIN_WETH_BALANCE = ethers.utils.parseEther('0.1')
 const MIN_UNI_BALANCE = ethers.utils.parseEther('1')
 const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff')
 
-xdescribe('/dutch-auction/order', () => {
+describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 24
   jest.setTimeout(180 * 1000)
   jest.retryTimes(2)
@@ -89,11 +89,13 @@ xdescribe('/dutch-auction/order', () => {
         // check approvals on Permit2
         const wethAllowance = await weth.allowance(wallet.address, PERMIT2)
         const uniAllowance = await uni.allowance(wallet.address, PERMIT2)
-        if (wethAllowance.lt(ethers.constants.MaxUint256)) {
-          await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+        if (wethAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+          const receipt = await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+          await receipt.wait()
         }
-        if (uniAllowance.lt(ethers.constants.MaxUint256)) {
-          await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+        if (uniAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+          const receipt = await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+          await receipt.wait()
         }
         // check approvals on reactor
         const reactorWethAllowance = await permit2Contract
@@ -102,9 +104,9 @@ xdescribe('/dutch-auction/order', () => {
             wallet.address,
             weth.address,
             REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
-          )          
-        if(reactorWethAllowance.amount != MAX_UINT_160) {
-          await permit2Contract
+          )   
+        if(!(reactorWethAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
+          const receipt = await permit2Contract
             .connect(wallet)
             .approve(
               weth.address,
@@ -112,6 +114,7 @@ xdescribe('/dutch-auction/order', () => {
               MAX_UINT_160,
               281474976710655 // max deadline too
             )
+          await receipt.wait()
         }
         const reactorUniAllowance = await permit2Contract
           .connect(wallet)
@@ -120,8 +123,8 @@ xdescribe('/dutch-auction/order', () => {
             uni.address,
             REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
           )
-        if(reactorUniAllowance.amount != MAX_UINT_160) {
-          await permit2Contract
+        if(!(reactorUniAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
+          const receipt = await permit2Contract
             .connect(wallet)
             .approve(
               uni.address,
@@ -129,6 +132,7 @@ xdescribe('/dutch-auction/order', () => {
               MAX_UINT_160,
               281474976710655
             )
+          await receipt.wait()
         }
       }
     }
@@ -139,15 +143,6 @@ xdescribe('/dutch-auction/order', () => {
     expect(getResponse.status).toEqual(200)
     nonce = BigNumber.from(getResponse.data.nonce)
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
-  })
-
-  afterAll(async () => {
-  })
-
-  beforeEach(async () => {
-  })
-
-  afterEach(async () => {
   })
 
   async function expectOrdersToBeOpen(orderHashes: string[]) {
@@ -219,6 +214,8 @@ xdescribe('/dutch-auction/order', () => {
     const { domain, types, values } = order.permitData()
     const signature = await alice._signTypedData(domain, types, values)
     const encodedOrder = order.serialize()
+
+    console.log(order.toJSON())
 
     try {
       const postResponse = await axios.post<any>(
@@ -293,7 +290,7 @@ xdescribe('/dutch-auction/order', () => {
     return receipt.transactionHash
   }
 
-  describe('endpoint sanity checks', () => {
+  xdescribe('endpoint sanity checks', () => {
     it.each([
       [{ orderStatus: 'open' }],
       [{ chainId: 1 }],
@@ -327,8 +324,8 @@ xdescribe('/dutch-auction/order', () => {
     )
   })
 
-  describe('checking expiry', () => {
-    it('erc20 to erc20', async () => {
+  describe.only('checking expiry', () => {
+    it.only('erc20 to erc20', async () => {
       const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
@@ -348,12 +345,6 @@ xdescribe('/dutch-auction/order', () => {
   })
 
   describe('+ attempt to fill', () => {
-    beforeEach(async () => {
-    })
-
-    afterEach(async () => {
-    })
-
     it('erc20 to eth', async () => {
       const { order, signature } = await buildAndSubmitOrder(
         aliceAddress,
