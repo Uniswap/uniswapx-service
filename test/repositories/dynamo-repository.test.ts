@@ -21,7 +21,7 @@ const dynamoConfig = {
 
 const MOCK_ORDER_1 = {
   orderHash: '0x1',
-  offerer: 'hayden.eth',
+  swapper: 'hayden.eth',
   encodedOrder: 'order1',
   signature: 'sig1',
   nonce: '1',
@@ -31,7 +31,7 @@ const MOCK_ORDER_1 = {
 
 const MOCK_ORDER_2 = {
   orderHash: '0x2',
-  offerer: 'riley.eth',
+  swapper: 'riley.eth',
   encodedOrder: 'order2',
   signature: 'sig2',
   nonce: '1',
@@ -41,7 +41,7 @@ const MOCK_ORDER_2 = {
 
 const MOCK_ORDER_3 = {
   orderHash: '0x3',
-  offerer: 'riley.eth',
+  swapper: 'riley.eth',
   encodedOrder: 'order3',
   signature: 'sig3',
   nonce: '2',
@@ -51,7 +51,7 @@ const MOCK_ORDER_3 = {
 
 const MOCK_ORDER_4 = {
   orderHash: '0x4',
-  offerer: 'hayden.eth',
+  swapper: 'hayden.eth',
   encodedOrder: 'order4',
   signature: 'sig4',
   nonce: '4',
@@ -133,15 +133,15 @@ describe('OrdersRepository getOrders test', () => {
     expect(orders.orders).toEqual([])
   })
 
-  it('should successfully get orders given an offerer', async () => {
-    const queryResult = await ordersRepository.getOrders(10, { offerer: MOCK_ORDER_2.offerer })
+  it('should successfully get orders given an swapper', async () => {
+    const queryResult = await ordersRepository.getOrders(10, { swapper: MOCK_ORDER_2.swapper })
     expect(queryResult.orders.length).toEqual(2)
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_3))
   })
 
-  it('should return no orders for offerer', async () => {
-    const orders = await ordersRepository.getOrders(10, { offerer: 'zach.eth' })
+  it('should return no orders for swapper', async () => {
+    const orders = await ordersRepository.getOrders(10, { swapper: 'zach.eth' })
     expect(orders.orders).toEqual([])
   })
 
@@ -236,80 +236,80 @@ describe('OrdersRepository getOrders test', () => {
     expect(queryResult.orders).toEqual([])
   })
 
-  it('should successfully get orders given a filler and offerer', async () => {
+  it('should successfully get orders given a filler and swapper', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       filler: ADDITIONAL_FIELDS_ORDER_3.filler,
-      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
+      swapper: ADDITIONAL_FIELDS_ORDER_3.swapper,
     })
     expect(queryResult.orders.length).toEqual(1)
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
   })
 
-  it('should return no orders for filler and offerer', async () => {
+  it('should return no orders for filler and swapper', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       filler: ADDITIONAL_FIELDS_ORDER_4.filler,
-      offerer: MOCK_ORDER_2.offerer,
+      swapper: MOCK_ORDER_2.swapper,
     })
     expect(queryResult.orders).toEqual([])
   })
 
-  it('should successfully get orders given a filler, offerer, orderStatus', async () => {
+  it('should successfully get orders given a filler, swapper, orderStatus', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       filler: ADDITIONAL_FIELDS_ORDER_3.filler,
-      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
+      swapper: ADDITIONAL_FIELDS_ORDER_3.swapper,
       orderStatus: ADDITIONAL_FIELDS_ORDER_3.orderStatus,
     })
     expect(queryResult.orders.length).toEqual(1)
     expect(queryResult.orders[0].orderHash).toEqual(MOCK_ORDER_3.orderHash)
-    expect(queryResult.orders[0].filler_offerer_orderStatus).toEqual(
-      `${ADDITIONAL_FIELDS_ORDER_3.filler}_${MOCK_ORDER_3.offerer}_${MOCK_ORDER_3.orderStatus}`
+    expect(queryResult.orders[0].filler_swapper_orderStatus).toEqual(
+      `${ADDITIONAL_FIELDS_ORDER_3.filler}_${MOCK_ORDER_3.swapper}_${MOCK_ORDER_3.orderStatus}`
     )
   })
 
-  it('should return no orders for filler, offerer, orderStatus', async () => {
+  it('should return no orders for filler, swapper, orderStatus', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       filler: ADDITIONAL_FIELDS_ORDER_3.filler,
-      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
+      swapper: ADDITIONAL_FIELDS_ORDER_3.swapper,
       orderStatus: ADDITIONAL_FIELDS_ORDER_1.orderStatus,
     })
     expect(queryResult.orders).toEqual([])
   })
 
-  it('should successfully get orders given an offerer and orderStatus', async () => {
+  it('should successfully get orders given an swapper and orderStatus', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       orderStatus: ORDER_STATUS.OPEN,
-      offerer: MOCK_ORDER_2.offerer,
+      swapper: MOCK_ORDER_2.swapper,
     })
     expect(queryResult.orders.length).toEqual(1)
     expect(queryResult.orders[0]).toEqual(
       expect.objectContaining({
         ...MOCK_ORDER_2,
-        offerer_orderStatus: `${MOCK_ORDER_2.offerer}_${MOCK_ORDER_2.orderStatus}`,
+        swapper_orderStatus: `${MOCK_ORDER_2.swapper}_${MOCK_ORDER_2.orderStatus}`,
       })
     )
   })
 
-  it('should return no orders for offerer and orderStatus', async () => {
+  it('should return no orders for swapper and orderStatus', async () => {
     const orders = await ordersRepository.getOrders(10, {
       orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
-      offerer: MOCK_ORDER_1.offerer,
+      swapper: MOCK_ORDER_1.swapper,
     })
     expect(orders.orders).toEqual([])
   })
 
   it('should return orders for limit', async () => {
     await expect(ordersRepository.getOrders(2, {})).rejects.toThrow(
-      'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, offerer, filler]'
+      'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler]'
     )
   })
 })
 
 describe('OrdersRepository getOrders test with pagination', () => {
-  it('should successfully page through orders with offerer', async () => {
-    let orders = await ordersRepository.getOrders(1, { offerer: 'riley.eth' })
+  it('should successfully page through orders with swapper', async () => {
+    let orders = await ordersRepository.getOrders(1, { swapper: 'riley.eth' })
     expect(orders.orders.length).toEqual(1)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    orders = await ordersRepository.getOrders(2, { offerer: 'riley.eth' }, orders.cursor)
+    orders = await ordersRepository.getOrders(2, { swapper: 'riley.eth' }, orders.cursor)
     expect(orders.orders.length).toEqual(1)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
     expect(orders.cursor).toEqual(undefined)
@@ -340,7 +340,7 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.orders.length).toEqual(2)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
     expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, orders.cursor)).rejects.toThrow(
+    expect(() => ordersRepository.getOrders(0, { swapper: 'riley.eth' }, orders.cursor)).rejects.toThrow(
       Error('Invalid cursor.')
     )
   })
@@ -350,16 +350,16 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.orders.length).toEqual(2)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
     expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, 'wrong_cursor')).rejects.toThrow(
+    expect(() => ordersRepository.getOrders(0, { swapper: 'riley.eth' }, 'wrong_cursor')).rejects.toThrow(
       Error('Invalid cursor.')
     )
   })
 })
 
 describe('OrdersRepository getOrders test with sorting', () => {
-  it('should successfully get order given an offerer and createdAt sort', async () => {
+  it('should successfully get order given an swapper and createdAt sort', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
-      offerer: MOCK_ORDER_2.offerer,
+      swapper: MOCK_ORDER_2.swapper,
       sortKey: SORT_FIELDS.CREATED_AT,
       sort: 'lte(2)',
     })
@@ -367,9 +367,9 @@ describe('OrdersRepository getOrders test with sorting', () => {
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
   })
 
-  it('should return no order given an offerer and createdAt sort', async () => {
+  it('should return no order given an swapper and createdAt sort', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
-      offerer: MOCK_ORDER_2.offerer,
+      swapper: MOCK_ORDER_2.swapper,
       sortKey: SORT_FIELDS.CREATED_AT,
       sort: 'lt(2)',
     })
@@ -474,21 +474,21 @@ describe('OrdersRepository get nonce test', () => {
       chainId: 1,
       nonce: '20',
     })
-    const nonce = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.offerer, MOCK_ORDER_2.chainId)
+    const nonce = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.swapper, MOCK_ORDER_2.chainId)
     expect(nonce).toEqual('10')
-    const nonce2 = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.offerer, 1)
+    const nonce2 = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.swapper, 1)
     expect(nonce2).toEqual('20')
   })
 })
 
-describe('OrdersRepository get order count by offerer test', () => {
-  it('should successfully return order count by existing offerer', async () => {
+describe('OrdersRepository get order count by swapper test', () => {
+  it('should successfully return order count by existing swapper', async () => {
     mockTime(4)
     await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_4)
-    expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_4.offerer, ORDER_STATUS.OPEN)).toEqual(2)
+    expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_4.swapper, ORDER_STATUS.OPEN)).toEqual(2)
   })
 
-  it('should return 0 for nonexistent offerer', async () => {
+  it('should return 0 for nonexistent swapper', async () => {
     expect(await ordersRepository.countOrdersByOffererAndStatus('nonexistent', ORDER_STATUS.OPEN)).toEqual(0)
   })
 })
@@ -500,7 +500,7 @@ describe('OrdersRepository update status test', () => {
     ])
     await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
       orderStatus: ORDER_STATUS.FILLED,
-      offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
+      swapper_orderStatus: `${MOCK_ORDER_1.swapper}_${ORDER_STATUS.FILLED}`,
       chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
       chainId_orderStatus_filler: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}_${MOCK_ORDER_1.filler}`,
       txHash: 'txHash',

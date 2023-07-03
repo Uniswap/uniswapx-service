@@ -23,7 +23,7 @@ describe('S3WebhookProvider test', () => {
         '0x1': [{ url: 'webhook.com/1' }],
       },
       orderStatus: { open: [{ url: 'webhook.com/2' }, { url: 'webhook.com/1' }] },
-      offerer: { '0x2': [{ url: 'webhook.com/4' }] },
+      swapper: { '0x2': [{ url: 'webhook.com/4' }] },
     },
     registeredWebhook: {}
   }
@@ -34,7 +34,7 @@ describe('S3WebhookProvider test', () => {
         '0x1': [{ url: 'webhook2.com/1' }],
       },
       orderStatus: { open: [{ url: 'webhook2.com/2' }, { url: 'webhook2.com/1' }] },
-      offerer: { '0x2': [{ url: 'webhook2.com/4' }] },
+      swapper: { '0x2': [{ url: 'webhook2.com/4' }] },
     },
     registeredWebhook: {}
   }
@@ -45,7 +45,7 @@ describe('S3WebhookProvider test', () => {
     const endpoints = await provider.getEndpoints({
       filler: '0x1',
       orderStatus: 'open',
-      offerer: '0x2',
+      swapper: '0x2',
     } as any)
     expect(endpoints).toEqual([{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }, { url: 'webhook.com/4' }])
   });
@@ -56,7 +56,7 @@ describe('S3WebhookProvider test', () => {
     let endpoints = await provider.getEndpoints({
       filler: '0x1',
       orderStatus: 'open',
-      offerer: '0x2',
+      swapper: '0x2',
     } as any)
     expect(endpoints).toEqual([{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }, { url: 'webhook.com/4' }])
   });
@@ -67,7 +67,7 @@ describe('S3WebhookProvider test', () => {
     let endpoints = await provider.getEndpoints({
       filler: '0x1',
       orderStatus: 'open',
-      offerer: '0x2',
+      swapper: '0x2',
     } as any)
     expect(endpoints).toEqual([{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }, { url: 'webhook.com/4' }])
 
@@ -78,7 +78,7 @@ describe('S3WebhookProvider test', () => {
     endpoints = await provider.getEndpoints({
       filler: '0x1',
       orderStatus: 'open',
-      offerer: '0x2',
+      swapper: '0x2',
     } as any)
     // should still equal old ones
     expect(endpoints).toEqual([{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }, { url: 'webhook.com/4' }])
@@ -89,7 +89,7 @@ describe('S3WebhookProvider test', () => {
     endpoints = await provider.getEndpoints({
       filler: '0x1',
       orderStatus: 'open',
-      offerer: '0x2',
+      swapper: '0x2',
     } as any)
     // should still equal old ones
     expect(endpoints).toEqual([{ url: 'webhook2.com/1' }, { url: 'webhook2.com/2' }, { url: 'webhook2.com/4' }])

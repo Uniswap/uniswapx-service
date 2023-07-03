@@ -37,10 +37,10 @@ export type OrderEntity = {
   orderHash: string
   orderStatus: ORDER_STATUS
   chainId: number
-  offerer: string
+  swapper: string
   reactor: string
-  startTime: number
-  endTime: number
+  decayStartTime: number
+  decayEndTime: number
   deadline: number
   input: OrderInput
   outputs: OrderOutput[]

@@ -5,24 +5,24 @@ module.exports = {
       KeySchema: [{ AttributeName: 'orderHash', KeyType: 'HASH' }],
       AttributeDefinitions: [
         { AttributeName: 'orderHash', AttributeType: 'S' },
-        { AttributeName: 'offerer', AttributeType: 'S' },
+        { AttributeName: 'swapper', AttributeType: 'S' },
         { AttributeName: 'filler', AttributeType: 'S' },
         { AttributeName: 'orderStatus', AttributeType: 'S' },
         { AttributeName: 'chainId', AttributeType: 'N' },
         { AttributeName: 'chainId_filler', AttributeType: 'S' },
         { AttributeName: 'chainId_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'offerer_orderStatus', AttributeType: 'S' },
+        { AttributeName: 'swapper_orderStatus', AttributeType: 'S' },
         { AttributeName: 'filler_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'filler_offerer', AttributeType: 'S' },
-        { AttributeName: 'filler_offerer_orderStatus', AttributeType: 'S' },
+        { AttributeName: 'filler_swapper', AttributeType: 'S' },
+        { AttributeName: 'filler_swapper_orderStatus', AttributeType: 'S' },
         { AttributeName: 'chainId_orderStatus_filler', AttributeType: 'S' },
         { AttributeName: 'createdAt', AttributeType: 'N' },
       ],
       GlobalSecondaryIndexes: [
         {
-          IndexName: 'offerer-createdAt-all',
+          IndexName: 'swapper-createdAt-all',
           KeySchema: [
-            { AttributeName: 'offerer', KeyType: 'HASH' },
+            { AttributeName: 'swapper', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -97,9 +97,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'offerer_orderStatus-createdAt-all',
+          IndexName: 'swapper_orderStatus-createdAt-all',
           KeySchema: [
-            { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
+            { AttributeName: 'swapper_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -119,9 +119,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'filler_offerer-createdAt-all',
+          IndexName: 'filler_swapper-createdAt-all',
           KeySchema: [
-            { AttributeName: 'filler_offerer', KeyType: 'HASH' },
+            { AttributeName: 'filler_swapper', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -130,9 +130,9 @@ module.exports = {
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
         {
-          IndexName: 'filler_offerer_orderStatus-createdAt-all',
+          IndexName: 'filler_swapper_orderStatus-createdAt-all',
           KeySchema: [
-            { AttributeName: 'filler_offerer_orderStatus', KeyType: 'HASH' },
+            { AttributeName: 'filler_swapper_orderStatus', KeyType: 'HASH' },
             { AttributeName: 'createdAt', KeyType: 'RANGE' },
           ],
           Projection: {
@@ -145,8 +145,8 @@ module.exports = {
     },
     {
       TableName: `Nonces`,
-      KeySchema: [{ AttributeName: 'offerer', KeyType: 'HASH' }],
-      AttributeDefinitions: [{ AttributeName: 'offerer', AttributeType: 'S' }],
+      KeySchema: [{ AttributeName: 'swapper', KeyType: 'HASH' }],
+      AttributeDefinitions: [{ AttributeName: 'swapper', AttributeType: 'S' }],
       ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
     },
   ],

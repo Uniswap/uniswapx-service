@@ -85,16 +85,16 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const id = order.orderHash
 
     try {
-      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
-      if (orderCount > getMaxOpenOrders(order.offerer)) {
-        log.info(orderCount, `${order.offerer} has too many open orders`)
+      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.swapper, ORDER_STATUS.OPEN)
+      if (orderCount > getMaxOpenOrders(order.swapper)) {
+        log.info(orderCount, `${order.swapper} has too many open orders`)
         return {
           statusCode: 403,
           errorCode: ErrorCode.TooManyOpenOrders,
         }
       }
     } catch (e) {
-      log.error(e, `failed to fetch open order count for ${order.offerer}`)
+      log.error(e, `failed to fetch open order count for ${order.swapper}`)
       return {
         statusCode: 500,
         errorCode: ErrorCode.InternalError,
@@ -122,8 +122,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
           quoteId: order.quoteId,
           createdAt: currentTimestampInSeconds(),
           orderHash: order.orderHash,
-          startTime: order.startTime,
-          endTime: order.endTime,
+          decayStartTime: order.decayStartTime,
+          decayEndTime: order.decayEndTime,
           deadline: order.deadline,
           chainId: order.chainId,
           inputStartAmount: order.input?.startAmount,

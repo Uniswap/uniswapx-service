@@ -201,7 +201,7 @@ xdescribe('/dutch-auction/order', () => {
   }
 
   const buildAndSubmitOrder = async (
-    offerer: string,
+    swapper: string,
     amount: BigNumber,
     deadlineSeconds: number,
     inputToken: string,
@@ -211,13 +211,13 @@ xdescribe('/dutch-auction/order', () => {
     signature: string
   }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
-    const startTime = Math.round(new Date().getTime() / 1000)
+    const decayStartTime = Math.round(new Date().getTime() / 1000)
     const nextNonce = nonce.add(1)
     const order = new DutchOrderBuilder(ChainId.MAINNET)
       .deadline(deadline)
-      .endTime(deadline)
-      .startTime(startTime)
-      .offerer(offerer)
+      .decayEndTime(deadline)
+      .decayStartTime(decayStartTime)
+      .swapper(swapper)
       .nonce(nextNonce)
       .input({
         token: inputToken,
@@ -228,7 +228,7 @@ xdescribe('/dutch-auction/order', () => {
         token: outputToken,
         startAmount: amount,
         endAmount: amount,
-        recipient: offerer,
+        recipient: swapper,
       })
       .build()
 
@@ -314,12 +314,12 @@ xdescribe('/dutch-auction/order', () => {
       [{ orderStatus: 'open' }],
       [{ chainId: 1 }],
       [{ orderStatus: 'expired' }],
-      [{ offerer: '0x0000000000000000000000000000000000000000' }],
+      [{ swapper: '0x0000000000000000000000000000000000000000' }],
       [{ filler: '0x0000000000000000000000000000000000000000' }],
       [{ orderStatus: 'expired', sortKey: 'createdAt', chainId: 137 }],
       [{ orderStatus: 'expired', sortKey: 'createdAt', desc: false }],
       [{ orderStatus: 'expired', sortKey: 'createdAt', desc: true }],
-      [{ orderStatus: 'expired', offerer: '0x0000000000000000000000000000000000000000' }],
+      [{ orderStatus: 'expired', swapper: '0x0000000000000000000000000000000000000000' }],
       [{ orderStatus: 'expired', filler: '0x0000000000000000000000000000000000000000' }],
       [{ orderHash: '0x0000000000000000000000000000000000000000000000000000000000000000' }],
       [
@@ -444,7 +444,7 @@ xdescribe('/dutch-auction/order', () => {
         expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('cancelled')
       })
 
-      it('allows same offerer to post multiple orders with different nonces and be filled', async () => {
+      it('allows same swapper to post multiple orders with different nonces and be filled', async () => {
         const amount = ethers.utils.parseEther('1')
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
           aliceAddress,

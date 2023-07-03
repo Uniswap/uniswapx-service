@@ -27,10 +27,10 @@ mockSfnClient
 
 const ORDER_INFO: DutchOrderInfo = {
   deadline: 10,
-  offerer: '0x0000000000000000000000000000000000000001',
+  swapper: '0x0000000000000000000000000000000000000001',
   reactor: '0x0000000000000000000000000000000000000002',
-  startTime: 20,
-  endTime: 25,
+  decayStartTime: 20,
+  decayEndTime: 25,
   input: {
     token: '0x0000000000000000000000000000000000000003',
     endAmount: BigNumber.from(30),
@@ -47,8 +47,8 @@ const ORDER_INFO: DutchOrderInfo = {
   ],
   exclusiveFiller: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
   exclusivityOverrideBps: BigNumber.from(5),
-  validationContract: '0x0000000000000000000000000000000000000000',
-  validationData: '0x',
+  additionalValidationContract: '0x0000000000000000000000000000000000000000',
+  additionalValidationData: '0x',
 }
 
 const DECODED_ORDER = {
@@ -103,10 +103,10 @@ describe('Testing post order handler.', () => {
     nonce: '40',
     orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
     orderStatus: ORDER_STATUS.OPEN,
-    offerer: '0x0000000000000000000000000000000000000001',
+    swapper: '0x0000000000000000000000000000000000000001',
     reactor: '0x0000000000000000000000000000000000000002',
-    startTime: 20,
-    endTime: 10,
+    decayStartTime: 20,
+    decayEndTime: 10,
     deadline: 10,
     quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
     type: 'Dutch',
@@ -184,7 +184,7 @@ describe('Testing post order handler.', () => {
 
   describe('Test order submission blocking', () => {
     describe('Max open orders', () => {
-      it('should reject order submission for offerer when too many open orders exist', async () => {
+      it('should reject order submission for swapper when too many open orders exist', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(6)
         validatorMock.mockReturnValue({ valid: true })
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
@@ -204,7 +204,7 @@ describe('Testing post order handler.', () => {
         validatorMock.mockReturnValue({ valid: true })
         parserMock.mockReturnValueOnce(Object.assign({}, DECODED_ORDER, {
           info: Object.assign({}, ORDER_INFO, {
-            offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3'
+            swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3'
           })
         }));
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
@@ -215,12 +215,12 @@ describe('Testing post order handler.', () => {
         expect(putOrderAndUpdateNonceTransactionMock).toBeCalled()
       })
 
-      it('should reject order submission for offerer in high list at higher order count', async () => {
+      it('should reject order submission for swapper in high list at higher order count', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
         validatorMock.mockReturnValue({ valid: true })
         parserMock.mockReturnValueOnce(Object.assign({}, DECODED_ORDER, {
           info: Object.assign({}, ORDER_INFO, {
-            offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3'
+            swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3'
           })
         }));
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
