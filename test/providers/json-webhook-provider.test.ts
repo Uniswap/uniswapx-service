@@ -8,14 +8,14 @@ describe('JsonWebHookProvider test', () => {
           '0x1': [{ url: 'webhook.com/1' }],
         },
         orderStatus: { open: [{ url: 'webhook.com/2' }, { url: 'webhook.com/1' }] },
-        swapper: { '0x2': [{ url: 'webhook.com/4' }] },
+        offerer: { '0x2': [{ url: 'webhook.com/4' }] },
       },
     } as any)
     expect(
       await webhookProvider.getEndpoints({
         filler: '0x1',
         orderStatus: 'open',
-        swapper: '0x2',
+        offerer: '0x2',
       } as any)
     ).toEqual([{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }, { url: 'webhook.com/4' }])
   })

@@ -24,7 +24,7 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
 
   try {
     return {
-      swapper: newOrder.swapper.S as string,
+      swapper: newOrder.offerer.S as string,
       orderStatus: newOrder.orderStatus.S as ORDER_STATUS,
       encodedOrder: newOrder.encodedOrder.S as string,
       signature: newOrder.signature.S as string,
@@ -55,7 +55,7 @@ export const formatOrderEntity = (
     orderHash: decodedOrder.hash().toLowerCase(),
     chainId: decodedOrder.chainId,
     orderStatus: orderStatus,
-    swapper: decodedOrder.info.swapper.toLowerCase(),
+    offerer: decodedOrder.info.swapper.toLowerCase(),
     input: {
       token: input.token,
       startAmount: input.startAmount.toString(),

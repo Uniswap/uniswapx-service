@@ -23,15 +23,15 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   cursor: FieldValidator.isValidCursor(),
   chainId: FieldValidator.isValidChainId(),
   filler: FieldValidator.isValidEthAddress(),
-  swapper: FieldValidator.isValidEthAddress(),
+  offerer: FieldValidator.isValidEthAddress(),
   orderStatus: FieldValidator.isValidOrderStatus(),
   desc: Joi.boolean(),
 })
-  .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler')
+  .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'offerer', 'filler')
   .when('.chainId', {
     is: Joi.exist(),
     then: Joi.object({
-      swapper: Joi.forbidden().error(new Error('Querying with both swapper and chainId is not currently supported.')),
+      offerer: Joi.forbidden().error(new Error('Querying with both offerer and chainId is not currently supported.')),
     }),
   })
   .when('.sortKey', {
@@ -47,7 +47,7 @@ export type SharedGetOrdersQueryParams = {
   limit?: number
   orderStatus?: string
   orderHash?: string
-  swapper?: string
+  offerer?: string
   sortKey?: SORT_FIELDS
   sort?: string
   filler?: string
@@ -89,7 +89,7 @@ export const OrderResponseEntryJoi = Joi.object({
   signature: FieldValidator.isValidSignature(),
   orderStatus: FieldValidator.isValidOrderStatus(),
   orderHash: FieldValidator.isValidOrderHash(),
-  swapper: FieldValidator.isValidEthAddress(),
+  offerer: FieldValidator.isValidEthAddress(),
   txHash: FieldValidator.isValidTxHash(),
   type: FieldValidator.isValidOrderType(),
   input: OrderInputJoi,
@@ -105,7 +105,7 @@ export const GetOrdersResponseJoi = Joi.object({
 
 export enum GET_QUERY_PARAMS {
   LIMIT = 'limit',
-  OFFERER = 'swapper',
+  OFFERER = 'offerer',
   ORDER_STATUS = 'orderStatus',
   ORDER_HASH = 'orderHash',
   ORDER_HASHES = 'orderHashes',

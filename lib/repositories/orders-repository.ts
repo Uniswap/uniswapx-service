@@ -72,7 +72,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
           partitionKey: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
-        swapperNonceIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.NONCE },
+        offererNonceIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.NONCE },
       },
     })
 
@@ -84,7 +84,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         signature: { type: DYNAMODB_TYPES.STRING, required: true },
         orderStatus: { type: DYNAMODB_TYPES.STRING, required: true },
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
-        swapper: { type: DYNAMODB_TYPES.STRING, required: true },
+        offerer: { type: DYNAMODB_TYPES.STRING, required: true },
         filler: { type: DYNAMODB_TYPES.STRING },
         decayStartTime: { type: DYNAMODB_TYPES.NUMBER },
         decayEndTime: { type: DYNAMODB_TYPES.NUMBER },
@@ -95,13 +95,13 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         chainId: { type: DYNAMODB_TYPES.NUMBER },
         input: { type: DYNAMODB_TYPES.MAP },
         outputs: { type: DYNAMODB_TYPES.LIST },
-        swapper_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         filler_orderStatus: { type: DYNAMODB_TYPES.STRING },
-        filler_swapper: { type: DYNAMODB_TYPES.STRING },
+        filler_offerer: { type: DYNAMODB_TYPES.STRING },
         chainId_filler: { type: DYNAMODB_TYPES.STRING },
         chainId_orderStatus: { type: DYNAMODB_TYPES.STRING },
         chainId_orderStatus_filler: { type: DYNAMODB_TYPES.STRING },
-        filler_swapper_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         quoteId: { type: DYNAMODB_TYPES.STRING },
         txHash: { type: DYNAMODB_TYPES.STRING },
         settledAmounts: { type: DYNAMODB_TYPES.LIST },
@@ -111,14 +111,14 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
     const nonceTable = new Table({
       name: 'Nonces',
-      partitionKey: 'swapper',
+      partitionKey: 'offerer',
       DocumentClient: documentClient,
     })
 
     const nonceEntity = new Entity({
       name: 'Nonce',
       attributes: {
-        swapper: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
+        offerer: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
       },
       table: nonceTable,
@@ -134,14 +134,14 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
   ) {}
 
   public async getByOfferer(
-    swapper: string,
+    offerer: string,
     limit: number,
     cursor?: string,
     sortKey?: SORT_FIELDS,
     sort?: string,
     desc?: boolean
   ): Promise<QueryResult> {
-    return await this.queryOrderEntity(swapper, TABLE_KEY.OFFERER, limit, cursor, sortKey, sort, desc)
+    return await this.queryOrderEntity(offerer, TABLE_KEY.OFFERER, limit, cursor, sortKey, sort, desc)
   }
 
   public async getByOrderStatus(
@@ -195,9 +195,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     return generateRandomNonce()
   }
 
-  public async countOrdersByOffererAndStatus(swapper: string, orderStatus: ORDER_STATUS): Promise<number> {
-    const res = await this.orderEntity.query(`${swapper}_${orderStatus}`, {
-      index: 'swapper_orderStatus-createdAt-all',
+  public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
+    const res = await this.orderEntity.query(`${offerer}_${orderStatus}`, {
+      index: 'offerer_orderStatus-createdAt-all',
       execute: true,
       select: 'COUNT',
     })
@@ -210,17 +210,17 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
       [
         this.orderEntity.putTransaction({
           ...order,
-          swapper_orderStatus: `${order.swapper}_${order.orderStatus}`,
+          offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
           filler_orderStatus: `${order.filler}_${order.orderStatus}`,
-          filler_swapper: `${order.filler}_${order.swapper}`,
+          filler_offerer: `${order.filler}_${order.offerer}`,
           chainId_filler: `${order.chainId}_${order.filler}`,
           chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
           chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
-          filler_swapper_orderStatus: `${order.filler}_${order.swapper}_${order.orderStatus}`,
+          filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
           createdAt: currentTimestampInSeconds(),
         }),
         this.nonceEntity.updateTransaction({
-          swapper: `${order.swapper}-${order.chainId}`,
+          offerer: `${order.offerer}-${order.chainId}`,
           nonce: order.nonce,
         }),
       ],
@@ -242,9 +242,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     await this.orderEntity.update({
       [TABLE_KEY.ORDER_HASH]: orderHash,
       orderStatus: status,
-      swapper_orderStatus: `${order.swapper}_${status}`,
+      offerer_orderStatus: `${order.offerer}_${status}`,
       filler_orderStatus: `${order.filler}_${status}`,
-      filler_swapper_orderStatus: `${order.filler}_${order.swapper}_${status}`,
+      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
       chainId_orderStatus: `${order.chainId}_${status}`,
       chainId_orderStatus_filler: `${order.chainId}_${status}_${order.filler}`,
       ...(txHash && { txHash }),
@@ -262,7 +262,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         requestedParams
       ):
         return await this.queryOrderEntity(
-          `${queryFilters['filler']}_${queryFilters['swapper']}_${queryFilters['orderStatus']}`,
+          `${queryFilters['filler']}_${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
           `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           limit,
           cursor,
@@ -320,7 +320,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER], requestedParams):
         return await this.queryOrderEntity(
-          `${queryFilters['filler']}_${queryFilters['swapper']}`,
+          `${queryFilters['filler']}_${queryFilters['offerer']}`,
           `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
           limit,
           cursor,
@@ -331,7 +331,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
         return await this.queryOrderEntity(
-          `${queryFilters['swapper']}_${queryFilters['orderStatus']}`,
+          `${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
           `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           limit,
           cursor,
@@ -356,7 +356,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
         return await this.getByOfferer(
-          queryFilters['swapper'] as string,
+          queryFilters['offerer'] as string,
           limit,
           cursor,
           queryFilters['sortKey'],
@@ -396,7 +396,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       default: {
         throw new Error(
-          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler]'
+          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, offerer, filler]'
         )
       }
     }

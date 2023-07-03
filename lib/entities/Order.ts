@@ -37,7 +37,7 @@ export type OrderEntity = {
   orderHash: string
   orderStatus: ORDER_STATUS
   chainId: number
-  swapper: string
+  offerer: string
   reactor: string
   decayStartTime: number
   decayEndTime: number

@@ -85,16 +85,16 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const id = order.orderHash
 
     try {
-      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.swapper, ORDER_STATUS.OPEN)
-      if (orderCount > getMaxOpenOrders(order.swapper)) {
-        log.info(orderCount, `${order.swapper} has too many open orders`)
+      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
+      if (orderCount > getMaxOpenOrders(order.offerer)) {
+        log.info(orderCount, `${order.offerer} has too many open orders`)
         return {
           statusCode: 403,
           errorCode: ErrorCode.TooManyOpenOrders,
         }
       }
     } catch (e) {
-      log.error(e, `failed to fetch open order count for ${order.swapper}`)
+      log.error(e, `failed to fetch open order count for ${order.offerer}`)
       return {
         statusCode: 500,
         errorCode: ErrorCode.InternalError,
@@ -172,7 +172,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
   }
 }
 
-const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
+const HIGH_MAX_OPEN_ORDERS_offererS: string[] = [
   '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
   '0xf82af5cd1f0d24cdcf9d35875107d5e43ce9b3d0',
   '0xa50dac48d61bb52b339c7ef0dcefa7688338d00a',
@@ -181,9 +181,9 @@ const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
 export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-// return the number of open orders the given swapper is allowed to have at a time
-function getMaxOpenOrders(swapper: string): number {
-  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(swapper.toLowerCase())) {
+// return the number of open orders the given offerer is allowed to have at a time
+function getMaxOpenOrders(offerer: string): number {
+  if (HIGH_MAX_OPEN_ORDERS_offererS.includes(offerer.toLowerCase())) {
     return HIGH_MAX_OPEN_ORDERS
   }
 

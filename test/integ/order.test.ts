@@ -201,7 +201,7 @@ xdescribe('/dutch-auction/order', () => {
   }
 
   const buildAndSubmitOrder = async (
-    swapper: string,
+    offerer: string,
     amount: BigNumber,
     deadlineSeconds: number,
     inputToken: string,
@@ -217,7 +217,7 @@ xdescribe('/dutch-auction/order', () => {
       .deadline(deadline)
       .decayEndTime(deadline)
       .decayStartTime(decayStartTime)
-      .swapper(swapper)
+      .offerer(offerer)
       .nonce(nextNonce)
       .input({
         token: inputToken,
@@ -228,7 +228,7 @@ xdescribe('/dutch-auction/order', () => {
         token: outputToken,
         startAmount: amount,
         endAmount: amount,
-        recipient: swapper,
+        recipient: offerer,
       })
       .build()
 
@@ -314,12 +314,12 @@ xdescribe('/dutch-auction/order', () => {
       [{ orderStatus: 'open' }],
       [{ chainId: 1 }],
       [{ orderStatus: 'expired' }],
-      [{ swapper: '0x0000000000000000000000000000000000000000' }],
+      [{ offerer: '0x0000000000000000000000000000000000000000' }],
       [{ filler: '0x0000000000000000000000000000000000000000' }],
       [{ orderStatus: 'expired', sortKey: 'createdAt', chainId: 137 }],
       [{ orderStatus: 'expired', sortKey: 'createdAt', desc: false }],
       [{ orderStatus: 'expired', sortKey: 'createdAt', desc: true }],
-      [{ orderStatus: 'expired', swapper: '0x0000000000000000000000000000000000000000' }],
+      [{ orderStatus: 'expired', offerer: '0x0000000000000000000000000000000000000000' }],
       [{ orderStatus: 'expired', filler: '0x0000000000000000000000000000000000000000' }],
       [{ orderHash: '0x0000000000000000000000000000000000000000000000000000000000000000' }],
       [
@@ -444,7 +444,7 @@ xdescribe('/dutch-auction/order', () => {
         expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('cancelled')
       })
 
-      it('allows same swapper to post multiple orders with different nonces and be filled', async () => {
+      it('allows same offerer to post multiple orders with different nonces and be filled', async () => {
         const amount = ethers.utils.parseEther('1')
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
           aliceAddress,

@@ -26,7 +26,7 @@ xdescribe('get nonce', () => {
       .deadline(deadline)
       .decayEndTime(deadline)
       .decayStartTime(deadline - 5)
-      .swapper(await wallet.getAddress())
+      .offerer(await wallet.getAddress())
       .nonce(nonce.add(1))
       .input({
         token: ZERO_ADDRESS,

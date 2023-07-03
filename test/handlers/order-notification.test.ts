@@ -20,7 +20,7 @@ describe('Testing new order Notification handler.', () => {
     signature: {
       S: '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
     },
-    swapper: {
+    offerer: {
       S: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
     },
     orderStatus: {
@@ -88,7 +88,7 @@ describe('Testing new order Notification handler.', () => {
     mockedAxios.post.mockReturnValue(Promise.resolve({ status: 200 }))
     const response = await orderNotificationHandler()
     expect(getEndpointsMock).toBeCalledWith({
-      swapper: MOCK_ORDER.swapper.S,
+      offerer: MOCK_ORDER.offerer.S,
       orderStatus: MOCK_ORDER.orderStatus.S,
       filler: MOCK_ORDER.filler.S,
     })
@@ -113,7 +113,7 @@ describe('Testing new order Notification handler.', () => {
     mockedAxios.post.mockReturnValue(Promise.resolve(failedResponse))
     const response = await orderNotificationHandler()
     expect(getEndpointsMock).toBeCalledWith({
-      swapper: MOCK_ORDER.swapper.S,
+      offerer: MOCK_ORDER.offerer.S,
       orderStatus: MOCK_ORDER.orderStatus.S,
       filler: MOCK_ORDER.filler.S,
     })

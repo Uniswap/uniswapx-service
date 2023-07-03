@@ -1,5 +1,5 @@
 export enum FILTER_FIELD {
-  OFFERER = 'swapper',
+  OFFERER = 'offerer',
   ORDER_STATUS = 'orderStatus',
   FILLER = 'filler',
 }

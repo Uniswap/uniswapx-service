@@ -13,7 +13,7 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
   signature: MOCK_SIGNATURE,
   nonce: '0xnonce',
   orderHash: MOCK_ORDER_HASH,
-  swapper: '0xswapper',
+  offerer: '0xofferer',
   orderStatus: ORDER_STATUS.OPEN,
   type: OrderType.Dutch,
   chainId: 1,

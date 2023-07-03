@@ -33,7 +33,7 @@ export class OrderValidator {
       return nonceValidation
     }
 
-    const swapperValidation = this.validateOfferer(order.info.swapper)
+    const swapperValidation = this.validateSwapper(order.info.swapper)
     if (!swapperValidation.valid) {
       return swapperValidation
     }
@@ -128,7 +128,7 @@ export class OrderValidator {
     }
   }
 
-  private validateOfferer(swapper: string): OrderValidationResponse {
+  private validateSwapper(swapper: string): OrderValidationResponse {
     const error = FieldValidator.isValidEthAddress().validate(swapper).error
     if (error) {
       return {

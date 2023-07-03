@@ -176,7 +176,7 @@ export class DynamoStack extends cdk.NestedStack {
     this.nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
       tableName: 'Nonces',
       partitionKey: {
-        name: 'swapper',
+        name: 'offerer',
         type: aws_dynamo.AttributeType.STRING,
       },
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,

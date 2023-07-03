@@ -62,7 +62,7 @@
             "$ref": "#/components/parameters/orderHashesParam"
           },
           {
-            "$ref": "#/components/parameters/swapperParam"
+            "$ref": "#/components/parameters/offererParam"
           },
           {
             "$ref": "#/components/parameters/sortKeyParam"
@@ -171,10 +171,10 @@
           "example": "orderHash,orderHash,orderHash"
         }
       },
-      "swapperParam": {
-        "name": "swapper",
+      "offererParam": {
+        "name": "offerer",
         "in": "query",
-        "description": "Filter by swapper address.",
+        "description": "Filter by offerer address.",
         "required": false,
         "schema": {
           "type": "string",
@@ -317,7 +317,7 @@
           "chainId": {
             "$ref": "#/components/schemas/ChainId"
           },
-          "swapper": {
+          "offerer": {
             "type": "string"
           },
           "reactor": {
@@ -368,7 +368,7 @@
           "orderHash",
           "orderStatus",
           "chainId",
-          "swapper",
+          "offerer",
           "reactor",
           "decayStartTime",
           "decayEndTime",
