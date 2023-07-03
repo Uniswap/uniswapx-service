@@ -3,7 +3,7 @@ import { factories } from '@uniswap/gouda-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { PERMIT2, UNI, WETH, ZERO_ADDRESS } from './constants'
+import { PERMIT2, UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
 
 const { DutchLimitOrderReactor__factory } = factories
 
@@ -35,7 +35,7 @@ const MIN_UNI_BALANCE = ethers.utils.parseEther('20')
 const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff')
 
 xdescribe('/dutch-auction/order', () => {
-  const DEFAULT_DEADLINE_SECONDS = 30
+  const DEFAULT_DEADLINE_SECONDS = 24
   jest.setTimeout(180 * 1000)
   jest.retryTimes(2)
   let alice: Wallet
@@ -68,8 +68,8 @@ xdescribe('/dutch-auction/order', () => {
     filler = new ethers.Wallet(process.env.TEST_FILLER_PK).connect(provider)
     aliceAddress = (await alice.getAddress()).toLowerCase()
 
-    weth = new Contract(WETH, abi, provider)
-    uni = new Contract(UNI, abi, provider)
+    weth = new Contract(WETH_GOERLI, abi, provider)
+    uni = new Contract(UNI_GOERLI, abi, provider)
     const permit2Contract = new Contract(PERMIT2, permit2Abi, provider)
 
     // make sure filler wallet has enough ETH
@@ -324,34 +324,28 @@ xdescribe('/dutch-auction/order', () => {
     )
   })
 
+  const amount = ethers.utils.parseEther('0.1')
   describe('checking expiry', () => {
     it('erc20 to erc20', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
     it('erc20 to eth', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI_GOERLI, ZERO_ADDRESS)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
     it('does not expire order before deadline', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI_GOERLI, ZERO_ADDRESS)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS - AVERAGE_BLOCK_TIME(ChainId.GÖRLI))).toBe('open')
     })
   })
 
   describe('+ attempt to fill', () => {
-    // The SFN will get fill logs for all orders that were filled in the last 10 blocks
-    // However, since we are performing a re-org by reverting the chain after every test,
-    // many of these orders will no longer exist (thus the provider call for the txnHash will fail)
-    // So, we keep a running total of the offset from the current block number to advance the chain by every time
     beforeEach(async () => {
     })
 
@@ -359,12 +353,11 @@ xdescribe('/dutch-auction/order', () => {
     })
 
     it('erc20 to eth', async () => {
-      const amount = ethers.utils.parseEther('1')
       const { order, signature } = await buildAndSubmitOrder(
         aliceAddress,
         amount,
         DEFAULT_DEADLINE_SECONDS,
-        UNI,
+        UNI_GOERLI,
         ZERO_ADDRESS
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
@@ -374,8 +367,7 @@ xdescribe('/dutch-auction/order', () => {
     })
 
     it('erc20 to erc20', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
@@ -384,19 +376,18 @@ xdescribe('/dutch-auction/order', () => {
 
     describe('checking cancel', () => {
       it('updates status to cancelled when fill reverts due to nonce reuse', async () => {
-        const amount = ethers.utils.parseEther('1')
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          WETH,
-          UNI
+          WETH_GOERLI,
+          UNI_GOERLI
         )
         const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          UNI,
+          UNI_GOERLI,
           ZERO_ADDRESS
         )
         expect(order1.info.nonce.toString()).toEqual(order2.info.nonce.toString())
@@ -416,20 +407,19 @@ xdescribe('/dutch-auction/order', () => {
       })
 
       it('allows same offerer to post multiple orders with different nonces and be filled', async () => {
-        const amount = ethers.utils.parseEther('1')
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          WETH,
-          UNI
+          WETH_GOERLI,
+          UNI_GOERLI
         )
         nonce = nonce.add(1)
         const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          UNI,
+          UNI_GOERLI,
           ZERO_ADDRESS
         )
         expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()

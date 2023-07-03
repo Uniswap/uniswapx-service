@@ -4,3 +4,5 @@ export const PERMIT2 = '0x000000000022d473030f116ddee9f6b43ac78ba3'
 
 export const WETH = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
 export const UNI = '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984'
+export const WETH_GOERLI = '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6'
+export const UNI_GOERLI = '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984'
