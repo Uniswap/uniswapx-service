@@ -3,12 +3,14 @@ var parserMock = jest.fn()
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
+import 'aws-sdk-client-mock-jest'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
-import { ErrorCode } from '../../lib/handlers/base';
+import { ErrorCode } from '../../lib/handlers/base'
 import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
 
-const MOCK_ARN = 'MOCK_ARN'
+const MOCK_ARN_1 = 'MOCK_ARN_1'
+const MOCK_ARN_12341234 = 'MOCK_ARN_12341234'
 const MOCK_HASH = '0xhash'
 const MOCK_START_EXECUTION_INPUT = JSON.stringify({
   orderHash: MOCK_HASH,
@@ -19,7 +21,15 @@ const MOCK_START_EXECUTION_INPUT = JSON.stringify({
 const mockSfnClient = mockClient(SFNClient)
 mockSfnClient
   .on(StartExecutionCommand, {
-    stateMachineArn: MOCK_ARN,
+    stateMachineArn: MOCK_ARN_1,
+    name: MOCK_HASH,
+    input: MOCK_START_EXECUTION_INPUT,
+  })
+  .resolves({})
+
+mockSfnClient
+  .on(StartExecutionCommand, {
+    stateMachineArn: MOCK_ARN_12341234,
     name: MOCK_HASH,
     input: MOCK_START_EXECUTION_INPUT,
   })
@@ -63,7 +73,7 @@ jest.mock('@uniswap/gouda-sdk', () => {
   return {
     ...originalSdk,
     DutchOrder: {
-      parse: parserMock
+      parse: parserMock,
     },
     OrderType: { Dutch: 'Dutch' },
   }
@@ -73,7 +83,7 @@ describe('Testing post order handler.', () => {
   const putOrderAndUpdateNonceTransactionMock = jest.fn()
   const countOrdersByOffererAndStatusMock = jest.fn()
   const validatorMock = jest.fn()
-  const mainnetValidatorMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
+  const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
   const encodedOrder = '0x01'
   const postRequestBody = {
@@ -137,7 +147,10 @@ describe('Testing post order handler.', () => {
         },
         onchainValidatorByChainId: {
           1: {
-            validate: mainnetValidatorMock,
+            validate: onchainValidationSucceededMock,
+          },
+          12341234: {
+            validate: onchainValidationSucceededMock,
           },
           137: {
             validate: validationFailedValidatorMock,
@@ -151,9 +164,10 @@ describe('Testing post order handler.', () => {
   const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
 
   beforeAll(() => {
-    process.env['STATE_MACHINE_ARN'] = MOCK_ARN
+    process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
+    process.env['STATE_MACHINE_ARN_12341234'] = MOCK_ARN_12341234
     process.env['REGION'] = 'region'
-    parserMock.mockReturnValue(DECODED_ORDER)
+    parserMock.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
   })
 
   afterEach(() => {
@@ -167,8 +181,38 @@ describe('Testing post order handler.', () => {
 
       const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
-      expect(mainnetValidatorMock).toBeCalled()
+      expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient).toHaveReceivedCommandWith(StartExecutionCommand, { stateMachineArn: MOCK_ARN_1 })
+      expect(postOrderResponse).toEqual({
+        body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
+        statusCode: 201,
+        headers: {
+          'Access-Control-Allow-Credentials': true,
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+      })
+    })
+
+    it('Testing valid request and response on another chain', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+
+      const postOrderResponse = await postOrderHandler.handler(
+        {
+          queryStringParameters: {},
+          body: JSON.stringify({ ...postRequestBody, chainId: 12341234 }),
+        } as any,
+        {} as any
+      )
+
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith({ ...ORDER, chainId: 12341234 })
+      expect(onchainValidationSucceededMock).toBeCalled()
+      expect(validatorMock).toBeCalledWith({ ...DECODED_ORDER, chainId: 12341234 })
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient).toHaveReceivedCommandWith(StartExecutionCommand, { stateMachineArn: MOCK_ARN_12341234 })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -195,34 +239,38 @@ describe('Testing post order handler.', () => {
           statusCode: 403,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
-        expect(mainnetValidatorMock).toBeCalled()
+        expect(onchainValidationSucceededMock).toBeCalled()
         expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
       })
 
       it('should allow more orders if in the high list', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
         validatorMock.mockReturnValue({ valid: true })
-        parserMock.mockReturnValueOnce(Object.assign({}, DECODED_ORDER, {
-          info: Object.assign({}, ORDER_INFO, {
-            swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3'
+        parserMock.mockReturnValueOnce(
+          Object.assign({}, DECODED_ORDER, {
+            info: Object.assign({}, ORDER_INFO, {
+              swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
+            }),
           })
-        }));
+        )
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
           statusCode: 201,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
-        expect(mainnetValidatorMock).toBeCalled()
+        expect(onchainValidationSucceededMock).toBeCalled()
         expect(putOrderAndUpdateNonceTransactionMock).toBeCalled()
       })
 
       it('should reject order submission for offerer in high list at higher order count', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
         validatorMock.mockReturnValue({ valid: true })
-        parserMock.mockReturnValueOnce(Object.assign({}, DECODED_ORDER, {
-          info: Object.assign({}, ORDER_INFO, {
-            offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3'
+        parserMock.mockReturnValueOnce(
+          Object.assign({}, DECODED_ORDER, {
+            info: Object.assign({}, ORDER_INFO, {
+              offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
+            }),
           })
-        }));
+        )
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
           body: JSON.stringify({
             errorCode: ErrorCode.TooManyOpenOrders,
@@ -231,10 +279,10 @@ describe('Testing post order handler.', () => {
           statusCode: 403,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
-        expect(mainnetValidatorMock).toBeCalled()
+        expect(onchainValidationSucceededMock).toBeCalled()
         expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
       })
-    });
+    })
 
     it('should return 500 if DDB call throws', async () => {
       countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
@@ -271,15 +319,13 @@ describe('Testing post order handler.', () => {
 
     it('should call StepFunctions.startExecution method with the correct params', async () => {
       const sfnInput = { orderHash: '0xhash', chainId: 1, quoteId: 'quoteId', orderStatus: ORDER_STATUS.OPEN }
-      expect(async () => await postOrderHandler['kickoffOrderTrackingSfn'](sfnInput, MOCK_ARN)).not.toThrow()
+      expect(async () => await postOrderHandler['kickoffOrderTrackingSfn'](sfnInput, MOCK_ARN_1)).not.toThrow()
       expect(mockSfnClient.calls()).toHaveLength(1)
-      expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
-        new StartExecutionCommand({
-          stateMachineArn: MOCK_ARN,
-          input: JSON.stringify(sfnInput),
-          name: sfnInput.orderHash,
-        }).input
-      )
+      expect(mockSfnClient).toHaveReceivedCommandWith(StartExecutionCommand, {
+        stateMachineArn: MOCK_ARN_1,
+        input: JSON.stringify(sfnInput),
+        name: sfnInput.orderHash,
+      })
     })
   })
 
@@ -312,7 +358,7 @@ describe('Testing post order handler.', () => {
 
   describe('When validation fails', () => {
     it('off-chain validation failed; throws 400', async () => {
-      const errorCode = ErrorCode.InvalidOrder;
+      const errorCode = ErrorCode.InvalidOrder
       const errorString = 'testing offchain validation'
       validatorMock.mockReturnValue({
         valid: false,

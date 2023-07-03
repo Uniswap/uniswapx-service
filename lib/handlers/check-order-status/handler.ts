@@ -6,9 +6,14 @@ import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { ChainId } from '../../util/chain'
+import { metrics } from '../../util/metrics'
 import { SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { ContainerInjected, RequestInjected } from './injector'
 import { CheckOrderStatusInputJoi } from './schema'
+
+export const IS_TERMINAL_STATE = (state: ORDER_STATUS): boolean => {
+  return [ORDER_STATUS.CANCELLED, ORDER_STATUS.FILLED, ORDER_STATUS.EXPIRED, ORDER_STATUS.ERROR].includes(state)
+}
 
 export const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
   switch (chainId) {
@@ -40,8 +45,18 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     requestInjected: RequestInjected
   }): Promise<SfnStateInputOutput> {
     const { dbInterface } = input.containerInjected
-    const { log, chainId, quoteId, orderHash, getFillLogAttempts, startingBlockNumber, retryCount, provider, orderWatcher, orderQuoter } =
-      input.requestInjected
+    const {
+      log,
+      chainId,
+      quoteId,
+      orderHash,
+      getFillLogAttempts,
+      startingBlockNumber,
+      retryCount,
+      provider,
+      orderWatcher,
+      orderQuoter,
+    } = input.requestInjected
 
     const order = checkDefined(
       await dbInterface.getByHash(orderHash),
@@ -105,16 +120,20 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               orderStatus: ORDER_STATUS.FILLED,
               txHash: fillEvent.txHash,
               settledAmounts,
+              validation,
             },
             log
           )
         } else {
-          if(getFillLogAttempts == 0) {
-            log.info({
-              orderInfo: {
-                orderHash: orderHash,
+          if (getFillLogAttempts == 0) {
+            log.info(
+              {
+                orderInfo: {
+                  orderHash: orderHash,
+                },
               },
-            }, 'failed to get fill log in expired case, retrying one more time')
+              'failed to get fill log in expired case, retrying one more time'
+            )
           }
           return this.updateStatusAndReturn(
             {
@@ -127,6 +146,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               // if there are no fill logs, retry one more time in case of node syncing issues
               orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
               getFillLogAttempts: getFillLogAttempts + 1,
+              validation,
             },
             log
           )
@@ -142,6 +162,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             startingBlockNumber: fromBlock,
             chainId,
             orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+            validation,
           },
           log
         )
@@ -157,6 +178,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             startingBlockNumber: fromBlock,
             chainId,
             orderStatus: ORDER_STATUS.ERROR,
+            validation,
           },
           log
         )
@@ -208,15 +230,19 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               orderStatus: ORDER_STATUS.FILLED,
               txHash: fillEvent.txHash,
               settledAmounts,
+              validation,
             },
             log
           )
         } else {
-          log.info({
-            orderInfo: {
-              orderHash: orderHash,
+          log.info(
+            {
+              orderInfo: {
+                orderHash: orderHash,
+              },
             },
-          }, 'failed to get fill log in nonce used case, retrying one more time')
+            'failed to get fill log in nonce used case, retrying one more time'
+          )
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -228,6 +254,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               // if there are no fill logs, retry one more time in case of node syncing issues
               orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
               getFillLogAttempts: getFillLogAttempts + 1,
+              validation,
             },
             log
           )
@@ -243,6 +270,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             startingBlockNumber: fromBlock,
             chainId,
             orderStatus: ORDER_STATUS.OPEN,
+            validation,
           },
           log
         )
@@ -258,8 +286,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       startingBlockNumber: number
       chainId: number
       orderStatus: ORDER_STATUS
+      validation: OrderValidation
       txHash?: string
-      settledAmounts?: SettledAmount[],
+      settledAmounts?: SettledAmount[]
       getFillLogAttempts?: number
     },
     log: Logger
@@ -274,14 +303,47 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       orderStatus,
       txHash,
       settledAmounts,
-      getFillLogAttempts
+      getFillLogAttempts,
+      validation
     } = params
 
     log.info(
-      { orderHash, quoteId, retryCount, startingBlockNumber, chainId, orderStatus, txHash, settledAmounts, getFillLogAttempts },
+      {
+        orderHash,
+        quoteId,
+        retryCount,
+        startingBlockNumber,
+        chainId,
+        orderStatus,
+        txHash,
+        settledAmounts,
+        getFillLogAttempts,
+      },
       'updating order status'
     )
     await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
+
+    if (IS_TERMINAL_STATE(orderStatus)) {
+      metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
+      metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
+      log.info({
+        terminalOrderInfo: {
+          orderStatus,
+          orderHash,
+          quoteId: quoteId,
+          getFillLogAttempts,
+          startingBlockNumber,
+          chainId: chainId,
+          settledAmounts: settledAmounts
+            ?.map((s) => JSON.stringify(s))
+            .join(',')
+            .toString(),
+          retryCount,
+          validation
+        },
+      })
+    }
+
     return {
       orderHash: orderHash,
       orderStatus: orderStatus,
@@ -306,6 +368,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
    * All subsequent retries are at 6 hour intervals.
    */
   private calculateRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
-    return retryCount <= 300 ? AVERAGE_BLOCK_TIME(chainId) : retryCount <= 450 ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300)) : 18000
+    return retryCount <= 300
+      ? AVERAGE_BLOCK_TIME(chainId)
+      : retryCount <= 450
+      ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
+      : 18000
   }
 }

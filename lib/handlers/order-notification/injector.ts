@@ -5,6 +5,7 @@ import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provi
 import { PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
 import { DynamoStreamInjector } from '../base/dynamo-stream-handler'
 import { BaseRInj } from '../base/index'
+import { setGlobalLogger } from '../../util/log'
 
 export interface RequestInjected extends BaseRInj {
   event: DynamoDBStreamEvent
@@ -33,6 +34,8 @@ export class OrderNotificationInjector extends DynamoStreamInjector<ContainerInj
       serializers: bunyan.stdSerializers,
       containerInjected: containerInjected,
     })
+
+    setGlobalLogger(log);
 
     return {
       log,

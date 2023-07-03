@@ -1,9 +1,12 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/gouda-sdk'
+import { Unit } from 'aws-embedded-metrics'
+import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Logger from 'bunyan'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
+import { metrics } from '../../util/metrics'
 import { formatOrderEntity } from '../../util/order'
 import { currentTimestampInSeconds } from '../../util/time'
 import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
@@ -102,7 +105,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const stateMachineArn = checkDefined(process.env['STATE_MACHINE_ARN'])
+    const stateMachineArn = checkDefined(process.env[`STATE_MACHINE_ARN_${chainId}`])
 
     try {
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
@@ -115,6 +118,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { detail: e.message }),
       }
     }
+
+    // Log used for cw dashboard and redshift metrics, do not modify
     order.outputs?.forEach((output) => {
       log?.info({
         eventType: 'OrderPosted',
@@ -169,6 +174,33 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
   protected responseBodySchema(): Joi.ObjectSchema | null {
     return PostOrderResponseJoi
+  }
+
+  protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
+    const { statusCode } = response
+
+    // Try and extract the chain id from the raw json.
+    let chainId = '0'
+    try {
+      const rawBody = JSON.parse(event.body!)
+      chainId = rawBody.chainId
+    } catch (err) {
+      // no-op. If we can't get chainId still log the metric as chain 0
+    }
+
+    const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
+
+    const postOrderByChainMetricName = `PostOrderChainId${chainId.toString()}Status${statusCodeMod}`
+    metrics.putMetric(postOrderByChainMetricName, 1, Unit.Count)
+
+    const postOrderMetricName = `PostOrderStatus${statusCodeMod}`
+    metrics.putMetric(postOrderMetricName, 1, Unit.Count)
+
+    const postOrderRequestMetricName = `PostOrderRequest`
+    metrics.putMetric(postOrderRequestMetricName, 1, Unit.Count)
+
+    const postOrderRequestByChainIdMetricName = `PostOrderRequestChainId${chainId.toString()}`
+    metrics.putMetric(postOrderRequestByChainIdMetricName, 1, Unit.Count)
   }
 }
 

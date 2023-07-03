@@ -1,7 +1,10 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
+import * as chatbot from 'aws-cdk-lib/aws-chatbot'
 import { BuildEnvironmentVariableType, BuildSpec, ComputeType } from 'aws-cdk-lib/aws-codebuild'
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
+
+import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
@@ -61,6 +64,10 @@ export class APIPipeline extends Stack {
           GH_TOKEN: {
             value: 'github-token-2',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          VERSION: {
+            value: '1',
+            type: BuildEnvironmentVariableType.PLAINTEXT,
           },
         },
       },
@@ -151,6 +158,16 @@ export class APIPipeline extends Stack {
     this.addIntegTests(code, prodUsEast2Stage, prodUsEast2AppStage, STAGE.PROD)
 
     pipeline.buildPipeline()
+
+    const slackChannel = chatbot.SlackChannelConfiguration.fromSlackChannelConfigurationArn(
+      this,
+      'SlackChannel',
+      'arn:aws:chatbot::644039819003:chat-configuration/slack-channel/eng-ops-protocols-slack-chatbot'
+    )
+
+    pipeline.pipeline.notifyOn('NotifySlack', slackChannel, {
+      events: [PipelineNotificationEvents.PIPELINE_EXECUTION_FAILED],
+    })
   }
 
   private addIntegTests(
