@@ -30,8 +30,8 @@ if (!process.argv.includes('--runInBand')) {
 }
 
 // constants
-const MIN_WETH_BALANCE = ethers.utils.parseEther('1')
-const MIN_UNI_BALANCE = ethers.utils.parseEther('20')
+const MIN_WETH_BALANCE = ethers.utils.parseEther('0.1')
+const MIN_UNI_BALANCE = ethers.utils.parseEther('1')
 const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff')
 
 xdescribe('/dutch-auction/order', () => {
@@ -47,6 +47,9 @@ xdescribe('/dutch-auction/order', () => {
   // Token contracts
   let weth: Contract
   let uni: Contract
+  
+  // trade amount for every test
+  const amount = ethers.utils.parseEther('0.01')
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
@@ -324,7 +327,6 @@ xdescribe('/dutch-auction/order', () => {
     )
   })
 
-  const amount = ethers.utils.parseEther('0.1')
   describe('checking expiry', () => {
     it('erc20 to erc20', async () => {
       const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
