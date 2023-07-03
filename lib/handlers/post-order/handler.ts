@@ -36,7 +36,9 @@ export class PostOrderHandler extends APIGLambdaHandler<
     log.info('Handling POST order request', params)
     log.info(
       {
-        onchainValidatorByChainId
+        onchainValidatorByChainId: Object.keys(onchainValidatorByChainId).map(
+          (chainId) => onchainValidatorByChainId[Number(chainId)].orderQuoterAddress
+        ),
       },
       'onchain validators'
     )
