@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib'
+import * as aws_backup from 'aws-cdk-lib/aws-backup'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
 import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 
@@ -27,11 +28,12 @@ export class DynamoStack extends cdk.NestedStack {
       },
       stream: aws_dynamo.StreamViewType.NEW_IMAGE,
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
+      deletionProtection: true,
+      pointInTimeRecovery: true,
     })
     this.ordersTable = ordersTable
 
     // Create global secondary indexes with createdAt sort key
-
     this.ordersTable.addGlobalSecondaryIndex({
       indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
       partitionKey: {
@@ -188,11 +190,25 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.STRING,
       },
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
+      deletionProtection: true,
+      pointInTimeRecovery: true,
     })
     this.nonceTable = nonceTable
 
     this.alarmsPerTable(this.nonceTable, 'Nonces', chatbotSNSArn)
     this.alarmsPerTable(this.ordersTable, 'Orders', chatbotSNSArn)
+
+    // Dynamos built-in PointInTimeRecovery retention is max 35 days.
+    // In addition to PITR being enabled on the tables we do a monthly backup
+    // in case we need to recover to a point older than 35 months.
+    const plan = aws_backup.BackupPlan.dailyWeeklyMonthly5YearRetention(this, 'DDBBackupPlan')
+    plan.addRule(aws_backup.BackupPlanRule.monthly1Year())
+    plan.addSelection('DDBBackupSelection', {
+      resources: [
+        aws_backup.BackupResource.fromDynamoDbTable(nonceTable),
+        aws_backup.BackupResource.fromDynamoDbTable(ordersTable),
+      ],
+    })
   }
 
   private alarmsPerTable(table: aws_dynamo.Table, name: string, chatbotSNSArn?: string): void {
