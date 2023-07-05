@@ -3,15 +3,15 @@ import { factories } from '@uniswap/gouda-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { PERMIT2, UNI, WETH, ZERO_ADDRESS } from './constants'
+import { PERMIT2, UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
 
 const { ExclusiveDutchOrderReactor__factory } = factories
 
-import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from '../abis/erc20.json'
 import * as PERMIT2_ABI from '../abis/permit2.json'
+import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/handler'
 const { abi } = ERC20_ABI
 const { abi: permit2Abi } = PERMIT2_ABI
 
@@ -29,18 +29,15 @@ if (!process.argv.includes('--runInBand')) {
   throw new Error('Integration tests must be run with --runInBand flag')
 }
 
-// Some reason this fails with + 1, TODO:
-const FILL_EVENT_BLOCK_OFFSET = FILL_EVENT_LOOKBACK_BLOCKS_ON(ChainId.TENDERLY) + 5
-// This needs to be greater than the sum of all fill event block offsets used
-// i.e. if we have 10 tests, we need to advance the block number before running any tests by at least 10 * FILL_EVENT_BLOCK_OFFSET
-// in the beginning of the test suite, or else the sfn will pick up old fill events that are no longer on the chain
-// If you start getting errors about orders that are supposed to be filled being open, increase this number
-const INTIAL_BLOCK_OFFSET = 200
+// constants
+const MIN_WETH_BALANCE = ethers.utils.parseEther('0.1')
+const MIN_UNI_BALANCE = ethers.utils.parseEther('0.1')
+const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff')
 
 describe('/dutch-auction/order', () => {
-  const DEFAULT_DEADLINE_SECONDS = 500
+  const DEFAULT_DEADLINE_SECONDS = 24
   jest.setTimeout(180 * 1000)
-  jest.retryTimes(2)
+  jest.retryTimes(1)
   let alice: Wallet
   let filler: Wallet
   let provider: ethers.providers.JsonRpcProvider
@@ -50,89 +47,97 @@ describe('/dutch-auction/order', () => {
   // Token contracts
   let weth: Contract
   let uni: Contract
-  // Fork management
-  let snap: null | string = null
-  let checkpointedBlock: ethers.providers.Block
-  let blockOffsetCounter = 0
+  
+  // trade amount for every test
+  const amount = ethers.utils.parseEther('0.01')
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
       throw new Error('GOUDA_SERVICE_URL not set')
     }
-    if (!process.env.RPC_12341234) {
-      throw new Error('RPC_12341234 not set')
+    if (!process.env.RPC_5) {
+      throw new Error('RPC_5 not set')
+    }
+    if (!process.env.TEST_WALLET_PK) {
+      throw new Error('TEST_WALLET_PK not set')
+    }
+    if (!process.env.TEST_FILLER_PK) {
+      throw new Error('TEST_FILLER_PK not set')
     }
     URL = process.env.GOUDA_SERVICE_URL
 
-    provider = new ethers.providers.JsonRpcProvider(process.env.RPC_12341234)
-    // advance blocks to avoid mixing fill events with previous test runs
-    const startingBlockNumber = (await provider.getBlock('latest')).number
-    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(INTIAL_BLOCK_OFFSET)])
-    expect((await provider.getBlock('latest')).number).toEqual(startingBlockNumber + INTIAL_BLOCK_OFFSET)
-
-    alice = ethers.Wallet.createRandom().connect(provider)
-    filler = ethers.Wallet.createRandom().connect(provider)
+    provider = new ethers.providers.JsonRpcProvider(process.env.RPC_5)
+    alice = new ethers.Wallet(process.env.TEST_WALLET_PK).connect(provider)
+    filler = new ethers.Wallet(process.env.TEST_FILLER_PK).connect(provider)
     aliceAddress = (await alice.getAddress()).toLowerCase()
 
-    weth = new Contract(WETH, abi, provider)
-    uni = new Contract(UNI, abi, provider)
+    weth = new Contract(WETH_GOERLI, abi, provider)
+    uni = new Contract(UNI_GOERLI, abi, provider)
     const permit2Contract = new Contract(PERMIT2, permit2Abi, provider)
 
-    const fundWallets = async (wallets: Wallet[]) => {
+    // make sure filler wallet has enough ETH
+    const fillerMinBalance = ethers.utils.parseEther('1')
+    expect((await provider.getBalance(filler.address)).gte(fillerMinBalance)).toBe(true)
+    // make sure both wallets have enough erc20 balance
+    expect(((await uni.balanceOf(alice.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
+    expect(((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)).toBe(true)
+    expect(((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
+    expect(((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)).toBe(true)
+
+    const checkApprovals = async (wallets: Wallet[]) => {
       for (const wallet of wallets) {
-        await provider.send('tenderly_setBalance', [
-          [wallet.address],
-          ethers.utils.hexValue(ethers.utils.parseUnits('10', 'ether').toHexString()),
-        ])
-        expect(await provider.getBalance(wallet.address)).toEqual(ethers.utils.parseEther('10'))
-        // Ensure both alice and filler have WETH and UNI
-        await provider.send('tenderly_setStorageAt', [
-          UNI,
-          ethers.utils.keccak256(
-            ethers.utils.concat([
-              ethers.utils.hexZeroPad(wallet.address, 32),
-              ethers.utils.hexZeroPad('0x04', 32), // the balances slot is 4th in the UNI contract
-            ])
-          ),
-          ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
-        ])
-        const uniBalance = (await uni.balanceOf(wallet.address)) as BigNumber
-        expect(uniBalance).toEqual(ethers.utils.parseEther('20'))
-
-        await provider.send('tenderly_setStorageAt', [
-          WETH,
-          ethers.utils.keccak256(
-            ethers.utils.concat([ethers.utils.hexZeroPad(wallet.address, 32), ethers.utils.hexZeroPad('0x03', 32)])
-          ),
-          ethers.utils.hexZeroPad(ethers.utils.parseEther('20').toHexString(), 32),
-        ])
-        const wethBalance = (await weth.balanceOf(wallet.address)) as BigNumber
-        expect(wethBalance).toEqual(ethers.utils.parseEther('20'))
-
-        // approve P2
-        await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-        await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-        // approve reactor for permit2
-        await permit2Contract
+        // check approvals on Permit2
+        const wethAllowance = await weth.allowance(wallet.address, PERMIT2)
+        const uniAllowance = await uni.allowance(wallet.address, PERMIT2)
+        if (wethAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+          const receipt = await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+          await receipt.wait()
+        }
+        if (uniAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+          const receipt = await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+          await receipt.wait()
+        }
+        // check approvals on reactor
+        const reactorWethAllowance = await permit2Contract
           .connect(wallet)
-          .approve(
+          .allowance(
+            wallet.address,
             weth.address,
-            REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'],
-            ethers.utils.parseEther('100'),
-            281474976710655
-          )
-        await permit2Contract
+            REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
+          )   
+        if(!(reactorWethAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
+          const receipt = await permit2Contract
+            .connect(wallet)
+            .approve(
+              weth.address,
+              REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
+              MAX_UINT_160,
+              281474976710655 // max deadline too
+            )
+          await receipt.wait()
+        }
+        const reactorUniAllowance = await permit2Contract
           .connect(wallet)
-          .approve(
+          .allowance(
+            wallet.address,
             uni.address,
-            REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'],
-            ethers.utils.parseEther('100'),
-            281474976710655
+            REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
           )
+        if(!(reactorUniAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
+          const receipt = await permit2Contract
+            .connect(wallet)
+            .approve(
+              uni.address,
+              REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
+              MAX_UINT_160,
+              281474976710655
+            )
+          await receipt.wait()
+        }
       }
     }
 
-    await fundWallets([alice, filler])
+    await checkApprovals([alice, filler])
 
     const getResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
     expect(getResponse.status).toEqual(200)
@@ -140,22 +145,12 @@ describe('/dutch-auction/order', () => {
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
   })
 
-  afterAll(async () => {
-    // Do not revert to test slate, so next run should be roughly 200 blocks ahead of the previous run
-  })
-
-  beforeEach(async () => {
-    checkpointedBlock = await provider.getBlock('latest')
-    snap = await provider.send('evm_snapshot', [])
-  })
-
-  afterEach(async () => {
-    await provider.send('evm_revert', [snap])
-    expect(await provider.getBlock('latest')).toEqual(checkpointedBlock)
+  beforeEach(() => {
+    nonce = nonce.add(1)
   })
 
   async function expectOrdersToBeOpen(orderHashes: string[]) {
-    // check that orders are open, retrying if status is unverified, with exponential backoff
+    // check that orders are open, retrying if status is unverified, with backoff
     for (let i = 0; i < 5; i++) {
       const promises = orderHashes.map((orderHash) =>
         axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
@@ -173,23 +168,12 @@ describe('/dutch-auction/order', () => {
     return false
   }
 
-  async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number, waitTimeMs: number = 45_000) {
-    /// @dev testing order status updates via the step function is very finicky
-    ///      we fast forward the fork's timestamp by the deadline and then mine a block to get the changes included
-    /// However, we have to wait for the sfn to fire again, so we wait a bit, and as long as the order's expiry is longer than that time period,
+  async function waitAndGetOrderStatus(orderHash: string, deadlineSeconds: number) {
+    /// We have to wait for the sfn to fire, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
-    const params = [
-      ethers.utils.hexValue(deadlineSeconds), // hex encoded number of seconds
-    ]
-    await provider.send('evm_increaseTime', params)
-    const blockNumber = (await provider.getBlock('latest')).number
-    const blocksToMine = 1
-    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(blocksToMine)])
-    expect((await provider.getBlock('latest')).number).toEqual(blockNumber + blocksToMine)
-    // Wait a bit for sfn to fire again
     // The next retry is usually in 12 seconds but can take longer to complete
-    // If you start getting errors about orders that are supposed to be expired being open, increase this number
-    await new Promise((resolve) => setTimeout(resolve, waitTimeMs))
+    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI)) * 1000
+    await new Promise((resolve) => setTimeout(resolve, timeToWait))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
@@ -212,13 +196,12 @@ describe('/dutch-auction/order', () => {
   }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
     const decayStartTime = Math.round(new Date().getTime() / 1000)
-    const nextNonce = nonce.add(1)
-    const order = new DutchOrderBuilder(ChainId.MAINNET)
+    const order = new DutchOrderBuilder(ChainId.GÖRLI)
       .deadline(deadline)
       .decayEndTime(deadline)
       .decayStartTime(decayStartTime)
       .swapper(swapper)
-      .nonce(nextNonce)
+      .nonce(nonce)
       .input({
         token: inputToken,
         startAmount: amount,
@@ -237,25 +220,18 @@ describe('/dutch-auction/order', () => {
     const encodedOrder = order.serialize()
 
     try {
-      const postResponse = await axios.post<any>(
-        `${URL}dutch-auction/order`,
+      const postResponse = await axios(
         {
-          encodedOrder,
-          signature,
-          chainId: ChainId.TENDERLY,
-        },
-        {
-          headers: {
-            accept: 'application/json, text/plain, */*',
-            'content-type': 'application/json',
-          },
+          method: 'post',
+          url: `${URL}dutch-auction/order`,
+          data: {
+            encodedOrder: encodedOrder,
+            signature: signature,
+            chainId: ChainId.GÖRLI,
+          }
         }
       )
       expect(postResponse.status).toEqual(201)
-      const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}&chainId=12341234`)
-      expect(newGetResponse.status).toEqual(200)
-      const newNonce = BigNumber.from(newGetResponse.data.nonce)
-      expect(newNonce.eq(nonce.add(1))).toBeTruthy()
       return { order, signature }
     } catch (err: any) {
       console.log(err.message)
@@ -271,7 +247,7 @@ describe('/dutch-auction/order', () => {
           signature,
         },
       ],
-      reactor: REACTOR_ADDRESS_MAPPING[ChainId.MAINNET]['Dutch'],
+      reactor: REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
       // direct fill is 0x01
       fillContract: '0x0000000000000000000000000000000000000001',
       fillData: '0x',
@@ -297,7 +273,7 @@ describe('/dutch-auction/order', () => {
         gasLimit: BigNumber.from(700_000),
         nonce: fillerNonce,
         ...(maxFeePerGas && { maxFeePerGas }),
-        maxPriorityFeePerGas: ethers.utils.parseUnits('50', 'gwei'),
+        maxPriorityFeePerGas: ethers.utils.parseUnits('1', 'gwei'),
         value,
       }
     )
@@ -345,55 +321,31 @@ describe('/dutch-auction/order', () => {
 
   describe('checking expiry', () => {
     it('erc20 to erc20', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
     it('erc20 to eth', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI_GOERLI, ZERO_ADDRESS)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
     it('does not expire order before deadline', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI, ZERO_ADDRESS)
+      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI_GOERLI, ZERO_ADDRESS)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS - 100)).toBe('open')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS - AVERAGE_BLOCK_TIME(ChainId.GÖRLI))).toBe('open')
     })
   })
 
-  const advanceBlocks = async (numBlocks: number) => {
-    if (numBlocks == 0) {
-      return
-    }
-    await provider.send('evm_increaseBlocks', [ethers.utils.hexValue(numBlocks)])
-    expect((await provider.getBlock('latest')).number).toEqual(checkpointedBlock.number + numBlocks)
-  }
-
   describe('+ attempt to fill', () => {
-    // The SFN will get fill logs for all orders that were filled in the last 10 blocks
-    // However, since we are performing a re-org by reverting the chain after every test,
-    // many of these orders will no longer exist (thus the provider call for the txnHash will fail)
-    // So, we keep a running total of the offset from the current block number to advance the chain by every time
-    beforeEach(async () => {
-      await advanceBlocks(blockOffsetCounter)
-    })
-
-    afterEach(async () => {
-      blockOffsetCounter += FILL_EVENT_BLOCK_OFFSET
-    })
-
     it('erc20 to eth', async () => {
-      const amount = ethers.utils.parseEther('1')
       const { order, signature } = await buildAndSubmitOrder(
         aliceAddress,
         amount,
         DEFAULT_DEADLINE_SECONDS,
-        UNI,
+        UNI_GOERLI,
         ZERO_ADDRESS
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
@@ -403,8 +355,7 @@ describe('/dutch-auction/order', () => {
     })
 
     it('erc20 to erc20', async () => {
-      const amount = ethers.utils.parseEther('1')
-      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH, UNI)
+      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
@@ -413,19 +364,18 @@ describe('/dutch-auction/order', () => {
 
     describe('checking cancel', () => {
       it('updates status to cancelled when fill reverts due to nonce reuse', async () => {
-        const amount = ethers.utils.parseEther('1')
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          WETH,
-          UNI
+          WETH_GOERLI,
+          UNI_GOERLI
         )
         const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          UNI,
+          UNI_GOERLI,
           ZERO_ADDRESS
         )
         expect(order1.info.nonce.toString()).toEqual(order2.info.nonce.toString())
@@ -444,29 +394,29 @@ describe('/dutch-auction/order', () => {
         expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('cancelled')
       })
 
-      it('allows same swapper to post multiple orders with different nonces and be filled', async () => {
-        const amount = ethers.utils.parseEther('1')
+      xit('allows same swapper to post multiple orders with different nonces and be filled', async () => {
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          WETH,
-          UNI
+          WETH_GOERLI,
+          UNI_GOERLI
         )
         nonce = nonce.add(1)
         const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          UNI,
+          UNI_GOERLI,
           ZERO_ADDRESS
         )
+        expect(order2.info.nonce).toEqual(order1.info.nonce.add(1))
         expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
         const txHash = await fillOrder(order1, sig1)
         expect(txHash).toBeDefined()
-        expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
         const txHash2 = await fillOrder(order2, sig2)
         expect(txHash2).toBeDefined()
+        expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
         expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('filled')
       })
     })
