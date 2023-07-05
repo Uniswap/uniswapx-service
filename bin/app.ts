@@ -204,11 +204,11 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TEST_WALLET_PK: {
-            value: 'all/gouda-service/test-wallet-pk',
+            value: 'all/gouda-service/integ-test/test-wallet-pk',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TEST_FILLER_PK: {
-            value: 'all/gouda-service/test-filler-pk',
+            value: 'all/gouda-service/integ-test/test-filler-pk',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           }
         },
