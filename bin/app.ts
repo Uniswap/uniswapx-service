@@ -200,7 +200,7 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           RPC_5: {
-            value: 'all/gouda-service/integ-test-rpc',
+            value: 'all/gouda-service/integ-test/rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TEST_WALLET_PK: {
