@@ -24,9 +24,9 @@ xdescribe('get nonce', () => {
     const deadline = Math.round(new Date().getTime() / 1000) + 10
     const order = new DutchOrderBuilder(1)
       .deadline(deadline)
-      .endTime(deadline)
-      .startTime(deadline - 5)
-      .offerer(await wallet.getAddress())
+      .decayEndTime(deadline)
+      .decayStartTime(deadline - 5)
+      .swapper(await wallet.getAddress())
       .nonce(nonce.add(1))
       .input({
         token: ZERO_ADDRESS,

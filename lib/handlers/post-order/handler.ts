@@ -1,9 +1,12 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/gouda-sdk'
+import { Unit } from 'aws-embedded-metrics'
+import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Logger from 'bunyan'
 import Joi from 'joi'
 import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
+import { metrics } from '../../util/metrics'
 import { formatOrderEntity } from '../../util/order'
 import { currentTimestampInSeconds } from '../../util/time'
 import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
@@ -102,7 +105,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const stateMachineArn = checkDefined(process.env['STATE_MACHINE_ARN'])
+    const stateMachineArn = checkDefined(process.env[`STATE_MACHINE_ARN_${chainId}`])
 
     try {
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
@@ -115,6 +118,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { detail: e.message }),
       }
     }
+
+    // Log used for cw dashboard and redshift metrics, do not modify
     order.outputs?.forEach((output) => {
       log?.info({
         eventType: 'OrderPosted',
@@ -122,8 +127,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
           quoteId: order.quoteId,
           createdAt: currentTimestampInSeconds(),
           orderHash: order.orderHash,
-          startTime: order.startTime,
-          endTime: order.endTime,
+          decayStartTime: order.decayStartTime,
+          decayEndTime: order.decayEndTime,
           deadline: order.deadline,
           chainId: order.chainId,
           inputStartAmount: order.input?.startAmount,
@@ -170,20 +175,47 @@ export class PostOrderHandler extends APIGLambdaHandler<
   protected responseBodySchema(): Joi.ObjectSchema | null {
     return PostOrderResponseJoi
   }
+
+  protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
+    const { statusCode } = response
+
+    // Try and extract the chain id from the raw json.
+    let chainId = '0'
+    try {
+      const rawBody = JSON.parse(event.body!)
+      chainId = rawBody.chainId
+    } catch (err) {
+      // no-op. If we can't get chainId still log the metric as chain 0
+    }
+
+    const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
+
+    const postOrderByChainMetricName = `PostOrderChainId${chainId.toString()}Status${statusCodeMod}`
+    metrics.putMetric(postOrderByChainMetricName, 1, Unit.Count)
+
+    const postOrderMetricName = `PostOrderStatus${statusCodeMod}`
+    metrics.putMetric(postOrderMetricName, 1, Unit.Count)
+
+    const postOrderRequestMetricName = `PostOrderRequest`
+    metrics.putMetric(postOrderRequestMetricName, 1, Unit.Count)
+
+    const postOrderRequestByChainIdMetricName = `PostOrderRequestChainId${chainId.toString()}`
+    metrics.putMetric(postOrderRequestByChainIdMetricName, 1, Unit.Count)
+  }
 }
 
 const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
   '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
   '0xf82af5cd1f0d24cdcf9d35875107d5e43ce9b3d0',
   '0xa50dac48d61bb52b339c7ef0dcefa7688338d00a',
-  '0x5b062dc717983be67f7e1b44a6557d7da7d399bd'
+  '0x5b062dc717983be67f7e1b44a6557d7da7d399bd',
 ]
 export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-// return the number of open orders the given swapper is allowed to have at a time
-function getMaxOpenOrders(swapper: string): number {
-  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(swapper.toLowerCase())) {
+// return the number of open orders the given offerer is allowed to have at a time
+function getMaxOpenOrders(offerer: string): number {
+  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(offerer.toLowerCase())) {
     return HIGH_MAX_OPEN_ORDERS
   }
 

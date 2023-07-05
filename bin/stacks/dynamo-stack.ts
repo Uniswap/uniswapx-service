@@ -1,10 +1,13 @@
 import * as cdk from 'aws-cdk-lib'
+import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
 import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
+
+import { Operation } from 'aws-cdk-lib/aws-dynamodb'
 import { Construct } from 'constructs'
 import { TABLE_KEY } from '../../lib/config/dynamodb'
 import { SERVICE_NAME } from '../constants'
 
-export type DynamoStackProps = cdk.NestedStackProps
+export type DynamoStackProps = { chatbotSNSArn?: string } & cdk.NestedStackProps
 
 export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
@@ -13,8 +16,10 @@ export class DynamoStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
 
+    const { chatbotSNSArn } = props
+
     /* orders table */
-    this.ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}OrdersTable`, {
+    const ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}OrdersTable`, {
       tableName: 'Orders',
       partitionKey: {
         name: TABLE_KEY.ORDER_HASH,
@@ -23,6 +28,7 @@ export class DynamoStack extends cdk.NestedStack {
       stream: aws_dynamo.StreamViewType.NEW_IMAGE,
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
     })
+    this.ordersTable = ordersTable
 
     // Create global secondary indexes with createdAt sort key
 
@@ -169,11 +175,13 @@ export class DynamoStack extends cdk.NestedStack {
       projectionType: aws_dynamo.ProjectionType.ALL,
     })
 
+    this.ordersTable = ordersTable
+
     /* Nonces Table
      * This is needed because we want to do strongly-consistent reads on the nonce value,
      *  which is not possible to do on secondary indexes (if we work with only the Orders table).
      */
-    this.nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
+    const nonceTable = new aws_dynamo.Table(this, `${SERVICE_NAME}NoncesTable`, {
       tableName: 'Nonces',
       partitionKey: {
         name: 'offerer',
@@ -181,5 +189,90 @@ export class DynamoStack extends cdk.NestedStack {
       },
       billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
     })
+    this.nonceTable = nonceTable
+
+    this.alarmsPerTable(this.nonceTable, 'Nonces', chatbotSNSArn)
+    this.alarmsPerTable(this.ordersTable, 'Orders', chatbotSNSArn)
+  }
+
+  private alarmsPerTable(table: aws_dynamo.Table, name: string, chatbotSNSArn?: string): void {
+    const readCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-ReadCapacityAlarm`, {
+      metric: table.metricConsumedReadCapacityUnits(),
+      threshold: 80,
+      evaluationPeriods: 2,
+    })
+
+    const writeCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-WriteCapacityAlarm`, {
+      metric: table.metricConsumedWriteCapacityUnits(),
+      threshold: 80,
+      evaluationPeriods: 2,
+    })
+
+    const readThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-ReadThrottlesAlarm`, {
+      metric: table.metricThrottledRequestsForOperations({
+        operations: [
+          Operation.GET_ITEM,
+          Operation.BATCH_GET_ITEM,
+          Operation.BATCH_WRITE_ITEM,
+          Operation.PUT_ITEM,
+          Operation.QUERY,
+          Operation.SCAN,
+          Operation.UPDATE_ITEM,
+          Operation.DELETE_ITEM,
+        ],
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+    })
+
+    const writeThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-WriteThrottlesAlarm`, {
+      metric: table.metricThrottledRequestsForOperations({
+        operations: [
+          Operation.GET_ITEM,
+          Operation.BATCH_GET_ITEM,
+          Operation.BATCH_WRITE_ITEM,
+          Operation.PUT_ITEM,
+          Operation.QUERY,
+          Operation.SCAN,
+          Operation.UPDATE_ITEM,
+          Operation.DELETE_ITEM,
+        ],
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+    })
+
+    const systemErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-SystemErrorsAlarm`, {
+      metric: table.metricSystemErrorsForOperations({
+        operations: [
+          Operation.GET_ITEM,
+          Operation.BATCH_GET_ITEM,
+          Operation.BATCH_WRITE_ITEM,
+          Operation.PUT_ITEM,
+          Operation.QUERY,
+          Operation.SCAN,
+          Operation.UPDATE_ITEM,
+          Operation.DELETE_ITEM,
+        ],
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+    })
+
+    const userErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-UserErrorsAlarm`, {
+      metric: table.metricUserErrors(),
+      threshold: 10,
+      evaluationPeriods: 2,
+    })
+
+    if (chatbotSNSArn) {
+      const chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, 'ChatbotTopic', chatbotSNSArn)
+      userErrorsAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      systemErrorsAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      writeThrottleAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      readThrottleAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      writeCapacityAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      readCapacityAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+    }
   }
 }

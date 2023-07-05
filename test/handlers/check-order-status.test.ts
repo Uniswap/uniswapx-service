@@ -18,8 +18,8 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
   type: OrderType.Dutch,
   chainId: 1,
   reactor: '0x1',
-  startTime: 1,
-  endTime: 2,
+  decayStartTime: 1,
+  decayEndTime: 2,
   deadline: 3,
   input: {
     token: '0xinput',

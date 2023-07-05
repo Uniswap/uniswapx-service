@@ -8,7 +8,7 @@ const INPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000022'
 const OUTPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000033'
 const EXCLUSIVE_FILLER = '0x0000000000000000000000000000000000000044'
 const THIRTY_MINUTES = 60 * 30
-const OFFERER = '0x0000000000000000000000000000000000032100'
+const SWAPPER = '0x0000000000000000000000000000000000032100'
 const RECIPIENT = '0x0000000000000000000000000000000000045600'
 const INPUT = { token: INPUT_TOKEN_ADDRESS, startAmount: BigNumber.from('1'), endAmount: BigNumber.from('2') }
 const OUTPUT = {
@@ -22,33 +22,33 @@ const VALIDATION_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000'
 const VALIDATION_DATA = '0x'
 
 function newOrder({
-  startTime = 5,
+  decayStartTime = 5,
   deadline = 20,
   exclusiveFiller = EXCLUSIVE_FILLER,
   exclusivityOverrideBps = BigNumber.from(0),
   nonce = BigNumber.from(30),
-  offerer = OFFERER,
+  swapper = SWAPPER,
   input = INPUT,
   output = OUTPUT,
   reactor = REACTOR,
   chainId = 1,
-  validationContract = VALIDATION_CONTRACT_ADDRESS,
-  validationData = VALIDATION_DATA,
+  additionalValidationContract = VALIDATION_CONTRACT_ADDRESS,
+  additionalValidationData = VALIDATION_DATA,
 }): DutchOrder {
   return new DutchOrder(
     {
-      startTime,
-      endTime: deadline,
+      decayStartTime,
+      decayEndTime: deadline,
       exclusiveFiller,
       exclusivityOverrideBps,
       deadline,
       nonce,
-      offerer,
+      swapper,
       input,
       outputs: [output],
       reactor,
-      validationContract,
-      validationData,
+      additionalValidationContract,
+      additionalValidationData,
     },
     chainId
   )
@@ -76,31 +76,31 @@ describe('Testing off chain validation', () => {
     })
   })
 
-  describe('Testing startTime', () => {
-    it('Testing parsed startTime > deadline.', async () => {
-      const order = newOrder({ deadline: 20, startTime: 21 })
+  describe('Testing decayStartTime', () => {
+    it('Testing parsed decayStartTime > deadline.', async () => {
+      const order = newOrder({ deadline: 20, decayStartTime: 21 })
       const validationResp = validationProvider.validate(order)
-      expect(validationResp).toEqual({ errorString: 'Invalid startTime: startTime > deadline', valid: false })
+      expect(validationResp).toEqual({ errorString: 'Invalid decayStartTime: decayStartTime > deadline', valid: false })
     })
-    it('Testing parsed startTime == deadline.', async () => {
-      const order = newOrder({ deadline: 20, startTime: 20 })
+    it('Testing parsed decayStartTime == deadline.', async () => {
+      const order = newOrder({ deadline: 20, decayStartTime: 20 })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({ valid: true })
     })
-    it('Testing parsed startTime < deadline.', async () => {
-      const order = newOrder({ deadline: 20, startTime: 10 })
+    it('Testing parsed decayStartTime < deadline.', async () => {
+      const order = newOrder({ deadline: 20, decayStartTime: 10 })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({ valid: true })
     })
   })
 
-  describe('Testing offerer', () => {
-    it('Testing invalid parsed offerer.', async () => {
-      const order = newOrder({ offerer: '0xbad_actor' })
+  describe('Testing swapper', () => {
+    it('Testing invalid parsed swapper.', async () => {
+      const order = newOrder({ swapper: '0xbad_actor' })
       const validationResp = validationProvider.validate(order)
 
       expect(validationResp).toEqual({
-        errorString: 'Invalid offerer: ValidationError: VALIDATION ERROR: Invalid address',
+        errorString: 'Invalid swapper: ValidationError: VALIDATION ERROR: Invalid address',
         valid: false,
       })
     })

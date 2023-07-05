@@ -1,4 +1,5 @@
 import { OrderValidator as OnchainValidator } from '@uniswap/gouda-sdk'
+import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
@@ -6,6 +7,8 @@ import { ethers } from 'ethers'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { SUPPORTED_CHAINS } from '../../util/chain'
+import { setGlobalLogger } from '../../util/log'
+import { setGlobalMetrics } from '../../util/metrics'
 import { OrderValidator } from '../../util/order-validator'
 import { ApiInjector, ApiRInj } from '../base'
 import { PostOrderRequestBody } from './schema'
@@ -40,8 +43,14 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
     _requestQueryParams: void,
     _event: APIGatewayEvent,
     context: Context,
-    log: Logger
+    log: Logger,
+    metrics: MetricsLogger
   ): Promise<ApiRInj> {
+    metrics.setNamespace('Uniswap')
+    metrics.setDimensions({ Service: 'GoudaService' })
+    setGlobalMetrics(metrics)
+    setGlobalLogger(log)
+
     return {
       requestId: context.awsRequestId,
       log,

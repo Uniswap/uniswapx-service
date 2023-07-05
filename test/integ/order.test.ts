@@ -5,7 +5,7 @@ import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
 import { PERMIT2, UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
 
-const { DutchLimitOrderReactor__factory } = factories
+const { ExclusiveDutchOrderReactor__factory } = factories
 
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
@@ -180,7 +180,7 @@ describe('/dutch-auction/order', () => {
   }
 
   const buildAndSubmitOrder = async (
-    offerer: string,
+    swapper: string,
     amount: BigNumber,
     deadlineSeconds: number,
     inputToken: string,
@@ -190,13 +190,13 @@ describe('/dutch-auction/order', () => {
     signature: string
   }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
-    const startTime = Math.round(new Date().getTime() / 1000)
+    const decayStartTime = Math.round(new Date().getTime() / 1000)
     const nextNonce = nonce.add(1)
     const order = new DutchOrderBuilder(ChainId.GÖRLI)
       .deadline(deadline)
-      .endTime(deadline)
-      .startTime(startTime)
-      .offerer(offerer)
+      .decayEndTime(deadline)
+      .decayStartTime(decayStartTime)
+      .swapper(swapper)
       .nonce(nextNonce)
       .input({
         token: inputToken,
@@ -207,7 +207,7 @@ describe('/dutch-auction/order', () => {
         token: outputToken,
         startAmount: amount,
         endAmount: amount,
-        recipient: offerer,
+        recipient: swapper,
       })
       .build()
 
@@ -261,7 +261,7 @@ describe('/dutch-auction/order', () => {
     // if output token is ETH, then the value is the amount of ETH to send
     const value = order.info.outputs[0].token == ZERO_ADDRESS ? order.info.outputs[0].startAmount : 0
 
-    const reactor = DutchLimitOrderReactor__factory.connect(execution.reactor, provider)
+    const reactor = ExclusiveDutchOrderReactor__factory.connect(execution.reactor, provider)
     const fillerNonce = await filler.getTransactionCount()
     const maxFeePerGas = (await provider.getFeeData()).maxFeePerGas
 

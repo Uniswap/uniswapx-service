@@ -86,8 +86,8 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
         offerer: { type: DYNAMODB_TYPES.STRING, required: true },
         filler: { type: DYNAMODB_TYPES.STRING },
-        startTime: { type: DYNAMODB_TYPES.NUMBER },
-        endTime: { type: DYNAMODB_TYPES.NUMBER },
+        decayStartTime: { type: DYNAMODB_TYPES.NUMBER },
+        decayEndTime: { type: DYNAMODB_TYPES.NUMBER },
         deadline: { type: DYNAMODB_TYPES.NUMBER },
         createdAt: { type: DYNAMODB_TYPES.NUMBER },
         reactor: { type: DYNAMODB_TYPES.STRING },
@@ -396,7 +396,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       default: {
         throw new Error(
-          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, offerer, filler]'
+          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler]'
         )
       }
     }

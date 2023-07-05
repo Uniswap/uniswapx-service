@@ -23,15 +23,15 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   cursor: FieldValidator.isValidCursor(),
   chainId: FieldValidator.isValidChainId(),
   filler: FieldValidator.isValidEthAddress(),
-  offerer: FieldValidator.isValidEthAddress(),
+  swapper: FieldValidator.isValidEthAddress(),
   orderStatus: FieldValidator.isValidOrderStatus(),
   desc: Joi.boolean(),
 })
-  .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'offerer', 'filler')
+  .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler')
   .when('.chainId', {
     is: Joi.exist(),
     then: Joi.object({
-      offerer: Joi.forbidden().error(new Error('Querying with both offerer and chainId is not currently supported.')),
+      swapper: Joi.forbidden().error(new Error('Querying with both swapper and chainId is not currently supported.')),
     }),
   })
   .when('.sortKey', {
@@ -47,7 +47,6 @@ export type SharedGetOrdersQueryParams = {
   limit?: number
   orderStatus?: string
   orderHash?: string
-  offerer?: string
   sortKey?: SORT_FIELDS
   sort?: string
   filler?: string
@@ -55,8 +54,14 @@ export type SharedGetOrdersQueryParams = {
   chainId?: number
   desc?: boolean
 }
-export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & { orderHashes: string }
-export type GetOrdersQueryParams = SharedGetOrdersQueryParams & { orderHashes: string[] }
+export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
+  swapper?: string
+  orderHashes: string
+}
+export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
+  offerer?: string
+  orderHashes: string[]
+}
 
 export type GetOrdersResponse = {
   orders: (OrderEntity | undefined)[]
@@ -89,7 +94,7 @@ export const OrderResponseEntryJoi = Joi.object({
   signature: FieldValidator.isValidSignature(),
   orderStatus: FieldValidator.isValidOrderStatus(),
   orderHash: FieldValidator.isValidOrderHash(),
-  offerer: FieldValidator.isValidEthAddress(),
+  swapper: FieldValidator.isValidEthAddress(),
   txHash: FieldValidator.isValidTxHash(),
   type: FieldValidator.isValidOrderType(),
   input: OrderInputJoi,
