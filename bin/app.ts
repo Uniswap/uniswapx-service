@@ -217,7 +217,7 @@ export class APIPipeline extends Stack {
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
-        'echo "RPC_5=${INTEG_TEST_RPC}" > .env',
+        'echo "RPC_5=${RPC_5}" > .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" > .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" > .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
