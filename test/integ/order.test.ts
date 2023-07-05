@@ -49,7 +49,7 @@ describe('/dutch-auction/order', () => {
   let uni: Contract
   
   // trade amount for every test
-  const amount = ethers.utils.parseEther('0.01')
+  const amount = ethers.utils.parseEther('1')
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
