@@ -215,8 +215,6 @@ describe('/dutch-auction/order', () => {
     const signature = await alice._signTypedData(domain, types, values)
     const encodedOrder = order.serialize()
 
-    console.log(order.toJSON())
-
     try {
       const postResponse = await axios.post<any>(
         `${URL}dutch-auction/order`,
