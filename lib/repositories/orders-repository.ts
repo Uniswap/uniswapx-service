@@ -396,7 +396,7 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
 
       default: {
         throw new Error(
-          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, offerer, filler]'
+          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler]'
         )
       }
     }

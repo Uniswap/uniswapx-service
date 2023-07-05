@@ -4,10 +4,10 @@ import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
 import { GetNonceQueryParams } from './schema/index'
-import { setGlobalLogger } from '../../util/log'
 
 export interface RequestInjected extends ApiRInj {
   address: string
