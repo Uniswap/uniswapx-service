@@ -323,10 +323,10 @@
           "reactor": {
             "type": "string"
           },
-          "startTime": {
+          "decayStartTime": {
             "type": "number"
           },
-          "endTime": {
+          "decayEndTime": {
             "type": "number"
           },
           "deadline": {
@@ -370,8 +370,8 @@
           "chainId",
           "offerer",
           "reactor",
-          "startTime",
-          "endTime",
+          "decayStartTime",
+          "decayEndTime",
           "deadline",
           "input",
           "outputs",
