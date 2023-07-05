@@ -66,10 +66,11 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           VERSION: {
-            value: '1',
+            value: '3',
             type: BuildEnvironmentVariableType.PLAINTEXT,
           },
         },
+        computeType: ComputeType.LARGE,
       },
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',

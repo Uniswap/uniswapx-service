@@ -3,7 +3,6 @@ var parserMock = jest.fn()
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
-import 'aws-sdk-client-mock-jest'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
 import { ErrorCode } from '../../lib/handlers/base'
@@ -184,7 +183,9 @@ describe('Testing post order handler.', () => {
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
       expect(mockSfnClient.calls()).toHaveLength(1)
-      expect(mockSfnClient).toHaveReceivedCommandWith(StartExecutionCommand, { stateMachineArn: MOCK_ARN_1 })
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_1,
+      })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -212,7 +213,9 @@ describe('Testing post order handler.', () => {
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith({ ...DECODED_ORDER, chainId: 12341234 })
       expect(mockSfnClient.calls()).toHaveLength(1)
-      expect(mockSfnClient).toHaveReceivedCommandWith(StartExecutionCommand, { stateMachineArn: MOCK_ARN_12341234 })
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_12341234,
+      })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -321,11 +324,14 @@ describe('Testing post order handler.', () => {
       const sfnInput = { orderHash: '0xhash', chainId: 1, quoteId: 'quoteId', orderStatus: ORDER_STATUS.OPEN }
       expect(async () => await postOrderHandler['kickoffOrderTrackingSfn'](sfnInput, MOCK_ARN_1)).not.toThrow()
       expect(mockSfnClient.calls()).toHaveLength(1)
-      expect(mockSfnClient).toHaveReceivedCommandWith(StartExecutionCommand, {
-        stateMachineArn: MOCK_ARN_1,
-        input: JSON.stringify(sfnInput),
-        name: sfnInput.orderHash,
-      })
+
+      expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
+        new StartExecutionCommand({
+          stateMachineArn: MOCK_ARN_1,
+          input: JSON.stringify(sfnInput),
+          name: sfnInput.orderHash,
+        }).input
+      )
     })
   })
 
