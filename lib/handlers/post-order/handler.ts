@@ -127,8 +127,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
           quoteId: order.quoteId,
           createdAt: currentTimestampInSeconds(),
           orderHash: order.orderHash,
-          startTime: order.startTime,
-          endTime: order.endTime,
+          decayStartTime: order.decayStartTime,
+          decayEndTime: order.decayEndTime,
           deadline: order.deadline,
           chainId: order.chainId,
           inputStartAmount: order.input?.startAmount,
@@ -213,9 +213,9 @@ const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
 export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-// return the number of open orders the given swapper is allowed to have at a time
-function getMaxOpenOrders(swapper: string): number {
-  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(swapper.toLowerCase())) {
+// return the number of open orders the given offerer is allowed to have at a time
+function getMaxOpenOrders(offerer: string): number {
+  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(offerer.toLowerCase())) {
     return HIGH_MAX_OPEN_ORDERS
   }
 

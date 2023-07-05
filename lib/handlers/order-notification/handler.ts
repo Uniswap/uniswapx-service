@@ -24,7 +24,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         const newOrder = eventRecordToOrder(record)
 
         const registeredEndpoints = await webhookProvider.getEndpoints({
-          offerer: newOrder.offerer,
+          offerer: newOrder.swapper,
           orderStatus: newOrder.orderStatus,
           filler: newOrder.filler,
         })
@@ -36,7 +36,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
               orderHash: newOrder.orderHash,
               createdAt: newOrder.createdAt,
               signature: newOrder.signature,
-              offerer: newOrder.offerer,
+              offerer: newOrder.swapper,
               orderStatus: newOrder.orderStatus,
               encodedOrder: newOrder.encodedOrder,
               chainId: newOrder.chainId,

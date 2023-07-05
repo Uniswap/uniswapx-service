@@ -211,12 +211,12 @@ describe('/dutch-auction/order', () => {
     signature: string
   }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
-    const startTime = Math.round(new Date().getTime() / 1000)
+    const decayStartTime = Math.round(new Date().getTime() / 1000)
     const nextNonce = nonce.add(1)
     const order = new DutchOrderBuilder(ChainId.MAINNET)
       .deadline(deadline)
-      .endTime(deadline)
-      .startTime(startTime)
+      .decayEndTime(deadline)
+      .decayStartTime(decayStartTime)
       .offerer(offerer)
       .nonce(nextNonce)
       .input({

@@ -39,8 +39,8 @@ export type OrderEntity = {
   chainId: number
   offerer: string
   reactor: string
-  startTime: number
-  endTime: number
+  decayStartTime: number
+  decayEndTime: number
   deadline: number
   input: OrderInput
   outputs: OrderOutput[]
