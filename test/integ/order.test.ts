@@ -192,13 +192,13 @@ describe('/dutch-auction/order', () => {
   }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
     const decayStartTime = Math.round(new Date().getTime() / 1000)
-    const nextNonce = nonce.add(1)
+    nonce = nonce.add(1)
     const order = new DutchOrderBuilder(ChainId.GÖRLI)
       .deadline(deadline)
       .decayEndTime(deadline)
       .decayStartTime(decayStartTime)
       .swapper(swapper)
-      .nonce(nextNonce)
+      .nonce(nonce)
       .input({
         token: inputToken,
         startAmount: amount,
@@ -270,7 +270,7 @@ describe('/dutch-auction/order', () => {
         gasLimit: BigNumber.from(700_000),
         nonce: fillerNonce,
         ...(maxFeePerGas && { maxFeePerGas }),
-        maxPriorityFeePerGas: ethers.utils.parseUnits('5', 'gwei'),
+        maxPriorityFeePerGas: ethers.utils.parseUnits('1', 'gwei'),
         value,
       }
     )
