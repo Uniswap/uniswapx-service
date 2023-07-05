@@ -53,6 +53,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const limit = requestQueryParams?.limit ?? 0
     const orderStatus = requestQueryParams?.orderStatus
     const orderHash = requestQueryParams?.orderHash?.toLowerCase()
+    // externally we use swapper
     const offerer = requestQueryParams?.swapper?.toLowerCase()
     const sortKey = requestQueryParams?.sortKey
     const defaultSort = sortKey ? 'gt(0)' : undefined
