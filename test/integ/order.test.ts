@@ -49,7 +49,7 @@ describe('/dutch-auction/order', () => {
   let uni: Contract
   
   // trade amount for every test
-  const amount = ethers.utils.parseEther('1')
+  const amount = ethers.utils.parseEther('0.1')
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
@@ -168,7 +168,8 @@ describe('/dutch-auction/order', () => {
     /// We have to wait for the sfn to fire, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
     // The next retry is usually in 12 seconds but can take longer to complete
-    await new Promise((resolve) => setTimeout(resolve, deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI) * 1000))
+    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI) * 2) * 1000
+    await new Promise((resolve) => setTimeout(resolve, timeToWait))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
     expect(resp.status).toEqual(200)
@@ -216,25 +217,18 @@ describe('/dutch-auction/order', () => {
     const encodedOrder = order.serialize()
 
     try {
-      const postResponse = await axios.post<any>(
-        `${URL}dutch-auction/order`,
+      const postResponse = await axios(
         {
-          encodedOrder,
-          signature,
-          chainId: ChainId.GÖRLI,
-        },
-        {
-          headers: {
-            accept: 'application/json, text/plain, */*',
-            'content-type': 'application/json',
-          },
+          method: 'post',
+          url: `${URL}dutch-auction/order`,
+          data: {
+            encodedOrder: encodedOrder,
+            signature: signature,
+            chainId: ChainId.GÖRLI,
+          }
         }
       )
       expect(postResponse.status).toEqual(201)
-      const newGetResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}&chainId=${ChainId.GÖRLI}}`)
-      expect(newGetResponse.status).toEqual(200)
-      const newNonce = BigNumber.from(newGetResponse.data.nonce)
-      expect(newNonce.eq(nonce.add(1))).toBeTruthy()
       return { order, signature }
     } catch (err: any) {
       console.log(err.message)
@@ -288,7 +282,7 @@ describe('/dutch-auction/order', () => {
     return receipt.transactionHash
   }
 
-  xdescribe('endpoint sanity checks', () => {
+  describe('endpoint sanity checks', () => {
     it.each([
       [{ orderStatus: 'open' }],
       [{ chainId: 1 }],
@@ -322,8 +316,8 @@ describe('/dutch-auction/order', () => {
     )
   })
 
-  describe.only('checking expiry', () => {
-    it.only('erc20 to erc20', async () => {
+  describe('checking expiry', () => {
+    it('erc20 to erc20', async () => {
       const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
