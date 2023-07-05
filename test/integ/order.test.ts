@@ -49,7 +49,7 @@ describe('/dutch-auction/order', () => {
   let uni: Contract
   
   // trade amount for every test
-  const amount = ethers.utils.parseEther('0.1')
+  const amount = ethers.utils.parseEther('0.01')
 
   beforeAll(async () => {
     if (!process.env.GOUDA_SERVICE_URL) {
@@ -145,6 +145,10 @@ describe('/dutch-auction/order', () => {
     expect(nonce.lt(ethers.constants.MaxUint256)).toBeTruthy()
   })
 
+  beforeEach(() => {
+    nonce = nonce.add(1)
+  })
+
   async function expectOrdersToBeOpen(orderHashes: string[]) {
     // check that orders are open, retrying if status is unverified, with backoff
     for (let i = 0; i < 5; i++) {
@@ -192,7 +196,6 @@ describe('/dutch-auction/order', () => {
   }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
     const decayStartTime = Math.round(new Date().getTime() / 1000)
-    nonce = nonce.add(1)
     const order = new DutchOrderBuilder(ChainId.GÖRLI)
       .deadline(deadline)
       .decayEndTime(deadline)
