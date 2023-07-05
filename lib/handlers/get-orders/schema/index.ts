@@ -43,7 +43,6 @@ export const GetOrdersQueryParamsJoi = Joi.object({
     }),
   })
 
-
 export type SharedGetOrdersQueryParams = {
   limit?: number
   orderStatus?: string
@@ -55,13 +54,13 @@ export type SharedGetOrdersQueryParams = {
   chainId?: number
   desc?: boolean
 }
-export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & { 
+export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
   swapper?: string
-  orderHashes: string 
+  orderHashes: string
 }
-export type GetOrdersQueryParams = SharedGetOrdersQueryParams & { 
+export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
   offerer?: string
-  orderHashes: string[] 
+  orderHashes: string[]
 }
 
 export type GetOrdersResponse = {

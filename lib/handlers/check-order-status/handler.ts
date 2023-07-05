@@ -304,7 +304,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       txHash,
       settledAmounts,
       getFillLogAttempts,
-      validation
+      validation,
     } = params
 
     log.info(
@@ -339,7 +339,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             .join(',')
             .toString(),
           retryCount,
-          validation
+          validation,
         },
       })
     }

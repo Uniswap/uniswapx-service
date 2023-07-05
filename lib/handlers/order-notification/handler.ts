@@ -1,10 +1,10 @@
 import axios, { AxiosResponse } from 'axios'
 import Joi from 'joi'
+import { metrics } from '../../util/metrics'
 import { eventRecordToOrder } from '../../util/order'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
-import { metrics } from '../../util/metrics'
 
 const WEBHOOK_TIMEOUT_MS = 500
 
