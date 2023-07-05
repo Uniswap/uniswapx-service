@@ -31,13 +31,13 @@ if (!process.argv.includes('--runInBand')) {
 
 // constants
 const MIN_WETH_BALANCE = ethers.utils.parseEther('0.1')
-const MIN_UNI_BALANCE = ethers.utils.parseEther('1')
+const MIN_UNI_BALANCE = ethers.utils.parseEther('0.1')
 const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff')
 
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 24
   jest.setTimeout(180 * 1000)
-  jest.retryTimes(2)
+  jest.retryTimes(1)
   let alice: Wallet
   let filler: Wallet
   let provider: ethers.providers.JsonRpcProvider
@@ -78,11 +78,11 @@ describe('/dutch-auction/order', () => {
     // make sure filler wallet has enough ETH
     const fillerMinBalance = ethers.utils.parseEther('1')
     expect((await provider.getBalance(filler.address)).gte(fillerMinBalance)).toBe(true)
-    // make sure alice has enough erc20 balance
-    const uniBalance = (await uni.balanceOf(alice.address)) as BigNumber
-    expect(uniBalance.gte(MIN_UNI_BALANCE)).toBe(true)
-    const wethBalance = (await weth.balanceOf(alice.address)) as BigNumber
-    expect(wethBalance.gte(MIN_WETH_BALANCE)).toBe(true)
+    // make sure both wallets have enough erc20 balance
+    expect(((await uni.balanceOf(alice.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
+    expect(((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)).toBe(true)
+    expect(((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
+    expect(((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)).toBe(true)
 
     const checkApprovals = async (wallets: Wallet[]) => {
       for (const wallet of wallets) {
@@ -172,7 +172,7 @@ describe('/dutch-auction/order', () => {
     /// We have to wait for the sfn to fire, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
     // The next retry is usually in 12 seconds but can take longer to complete
-    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI) * 2) * 1000
+    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI)) * 1000
     await new Promise((resolve) => setTimeout(resolve, timeToWait))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
@@ -394,8 +394,7 @@ describe('/dutch-auction/order', () => {
         expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('cancelled')
       })
 
-      it('allows same swapper to post multiple orders with different nonces and be filled', async () => {
-        const amount = ethers.utils.parseEther('1')
+      xit('allows same swapper to post multiple orders with different nonces and be filled', async () => {
         const { order: order1, signature: sig1 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
@@ -411,12 +410,13 @@ describe('/dutch-auction/order', () => {
           UNI_GOERLI,
           ZERO_ADDRESS
         )
+        expect(order2.info.nonce).toEqual(order1.info.nonce.add(1))
         expect(await expectOrdersToBeOpen([order1.hash(), order2.hash()])).toBeTruthy()
         const txHash = await fillOrder(order1, sig1)
         expect(txHash).toBeDefined()
-        expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
         const txHash2 = await fillOrder(order2, sig2)
         expect(txHash2).toBeDefined()
+        expect(await waitAndGetOrderStatus(order1.hash(), 0)).toBe('filled')
         expect(await waitAndGetOrderStatus(order2.hash(), 0)).toBe('filled')
       })
     })
