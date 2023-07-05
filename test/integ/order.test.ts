@@ -172,7 +172,7 @@ describe('/dutch-auction/order', () => {
     /// We have to wait for the sfn to fire, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
     // The next retry is usually in 12 seconds but can take longer to complete
-    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI)) * 1000
+    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI) * 2) * 1000
     await new Promise((resolve) => setTimeout(resolve, timeToWait))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
