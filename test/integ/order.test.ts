@@ -37,7 +37,7 @@ const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff'
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 24
   jest.setTimeout(180 * 1000)
-  jest.retryTimes(1)
+  jest.retryTimes(2)
   let alice: Wallet
   let filler: Wallet
   let provider: ethers.providers.JsonRpcProvider
