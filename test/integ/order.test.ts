@@ -5,7 +5,7 @@ import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
 import { PERMIT2, UNI, WETH, ZERO_ADDRESS } from './constants'
 
-const { DutchLimitOrderReactor__factory } = factories
+const { ExclusiveDutchOrderReactor__factory } = factories
 
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
@@ -201,7 +201,7 @@ describe('/dutch-auction/order', () => {
   }
 
   const buildAndSubmitOrder = async (
-    offerer: string,
+    swapper: string,
     amount: BigNumber,
     deadlineSeconds: number,
     inputToken: string,
@@ -217,7 +217,7 @@ describe('/dutch-auction/order', () => {
       .deadline(deadline)
       .decayEndTime(deadline)
       .decayStartTime(decayStartTime)
-      .offerer(offerer)
+      .swapper(swapper)
       .nonce(nextNonce)
       .input({
         token: inputToken,
@@ -228,7 +228,7 @@ describe('/dutch-auction/order', () => {
         token: outputToken,
         startAmount: amount,
         endAmount: amount,
-        recipient: offerer,
+        recipient: swapper,
       })
       .build()
 
@@ -280,7 +280,7 @@ describe('/dutch-auction/order', () => {
     // if output token is ETH, then the value is the amount of ETH to send
     const value = order.info.outputs[0].token == ZERO_ADDRESS ? order.info.outputs[0].startAmount : 0
 
-    const reactor = DutchLimitOrderReactor__factory.connect(execution.reactor, provider)
+    const reactor = ExclusiveDutchOrderReactor__factory.connect(execution.reactor, provider)
     const fillerNonce = await filler.getTransactionCount()
     const maxFeePerGas = (await provider.getFeeData()).maxFeePerGas
 
