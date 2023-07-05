@@ -4,10 +4,10 @@ import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
-import { setGlobalLogger } from '../../util/log'
 
 export interface RequestInjected extends ApiRInj {
   limit: number
@@ -53,7 +53,8 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     const limit = requestQueryParams?.limit ?? 0
     const orderStatus = requestQueryParams?.orderStatus
     const orderHash = requestQueryParams?.orderHash?.toLowerCase()
-    const offerer = requestQueryParams?.offerer?.toLowerCase()
+    // externally we use swapper
+    const offerer = requestQueryParams?.swapper?.toLowerCase()
     const sortKey = requestQueryParams?.sortKey
     const defaultSort = sortKey ? 'gt(0)' : undefined
     const sort = requestQueryParams?.sort ?? defaultSort

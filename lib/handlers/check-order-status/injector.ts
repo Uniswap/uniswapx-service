@@ -53,7 +53,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       retryCount: event.retryCount ? (event.retryCount as number) : 0,
       provider: provider,
       orderWatcher: watcher,
-      orderQuoter: quoter
+      orderQuoter: quoter,
     }
   }
 }
