@@ -199,17 +199,27 @@ export class APIPipeline extends Stack {
             value: `${stage}/gouda-service/url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          TENDERLY_FORK_RPC: {
-            value: 'all/gouda-tenderly-fork/rpc',
+          INTEG_TEST_RPC: {
+            value: 'all/gouda-service/integ-test-rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          TEST_WALLET_PK: {
+            value: 'all/gouda-service/test-wallet-pk',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          TEST_FILLER_PK: {
+            value: 'all/gouda-service/test-filler-pk',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          }
         },
       },
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
-        'echo "RPC_12341234=${TENDERLY_FORK_RPC}" > .env',
+        'echo "RPC_5=${INTEG_TEST_RPC}" > .env',
+        'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" > .env',
+        'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" > .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
         'yarn build',
         'yarn run integ-test',
