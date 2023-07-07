@@ -46,7 +46,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     setGlobalLogger(log)
 
     metrics.setNamespace('Uniswap')
-    metrics.setDimensions({ Service: 'GoudaService' })
+    metrics.setDimensions({ Service: 'UniswapXService' })
     setGlobalMetrics(metrics)
 
     // default to no limit

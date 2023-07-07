@@ -1,4 +1,4 @@
-import { DutchOrder, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
 import Joi from 'joi'

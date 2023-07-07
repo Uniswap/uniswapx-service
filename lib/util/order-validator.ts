@@ -1,4 +1,4 @@
-import { DutchOrder, DutchOutput } from '@uniswap/gouda-sdk'
+import { DutchOrder, DutchOutput } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import FieldValidator from './field-validator'
 

@@ -1,5 +1,5 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchOrder, OrderType, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Logger from 'bunyan'

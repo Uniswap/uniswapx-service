@@ -1,4 +1,4 @@
-import { OrderType } from '@uniswap/gouda-sdk'
+import { OrderType } from '@uniswap/uniswapx-sdk'
 
 export enum ORDER_STATUS {
   OPEN = 'open',
