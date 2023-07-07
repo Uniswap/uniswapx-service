@@ -2,7 +2,7 @@ import { ethers } from 'ethers'
 
 /**
  * uses crypto.randomBytes() under the hood to generate a 'cryptographically strong'
- *  random data of 28 bytes and prefix that with gouda specific 3-byte value
+ *  random data of 28 bytes and prefix that with uniswapx specific 3-byte value
  * (in total 248 bits, which is the number of words in the Permit2 unorderd nonceBitmap).
  *  We then left shin total ift by 8 bits to form the complete uint256 nonce value; we do
  *    this because we want the first nonce to land on the word boundary to save gas (clean sstore

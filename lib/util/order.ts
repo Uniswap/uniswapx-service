@@ -1,4 +1,4 @@
-import { DutchOrder, OrderType } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 

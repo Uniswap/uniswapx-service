@@ -1,4 +1,4 @@
-import { DutchOrder } from '@uniswap/gouda-sdk'
+import { DutchOrder } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { OrderValidator } from '../../lib/util/order-validator'
 

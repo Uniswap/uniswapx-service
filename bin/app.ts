@@ -48,7 +48,7 @@ export class APIPipeline extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props)
 
-    const code = CodePipelineSource.gitHub('Uniswap/gouda-service', 'main', {
+    const code = CodePipelineSource.gitHub('Uniswap/uniswapx-service', 'main', {
       authentication: SecretValue.secretsManager('github-token-2'),
     })
 
@@ -195,7 +195,7 @@ export class APIPipeline extends Stack {
             value: 'github-token-2',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          GOUDA_SERVICE_URL: {
+          UNISWAPX_SERVICE_URL: {
             value: `${stage}/gouda-service/url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
