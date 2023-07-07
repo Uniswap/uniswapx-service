@@ -1,5 +1,5 @@
-import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedOrder } from '@uniswap/gouda-sdk'
-import { factories } from '@uniswap/gouda-sdk/dist/src/contracts/index'
+import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedOrder } from '@uniswap/uniswapx-sdk'
+import { factories } from '@uniswap/uniswapx-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
@@ -52,8 +52,8 @@ describe('/dutch-auction/order', () => {
   const amount = ethers.utils.parseEther('0.01')
 
   beforeAll(async () => {
-    if (!process.env.GOUDA_SERVICE_URL) {
-      throw new Error('GOUDA_SERVICE_URL not set')
+    if (!process.env.UNISWAPX_SERVICE_URL) {
+      throw new Error('UNISWAPX_SERVICE_URL not set')
     }
     if (!process.env.RPC_5) {
       throw new Error('RPC_5 not set')
@@ -64,7 +64,7 @@ describe('/dutch-auction/order', () => {
     if (!process.env.TEST_FILLER_PK) {
       throw new Error('TEST_FILLER_PK not set')
     }
-    URL = process.env.GOUDA_SERVICE_URL
+    URL = process.env.UNISWAPX_SERVICE_URL
 
     provider = new ethers.providers.JsonRpcProvider(process.env.RPC_5)
     alice = new ethers.Wallet(process.env.TEST_WALLET_PK).connect(provider)

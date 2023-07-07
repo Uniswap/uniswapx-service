@@ -37,7 +37,7 @@ export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInje
     const requestId = context.awsRequestId
 
     metrics.setNamespace('Uniswap')
-    metrics.setDimensions({ Service: 'GoudaService' })
+    metrics.setDimensions({ Service: 'UniswapXService' })
     setGlobalMetrics(metrics)
 
     log = log.child({

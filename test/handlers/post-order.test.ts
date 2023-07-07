@@ -1,7 +1,7 @@
 var parserMock = jest.fn()
 
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrderInfo, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
@@ -67,8 +67,8 @@ const DECODED_ORDER = {
   chainId: 1,
 }
 
-jest.mock('@uniswap/gouda-sdk', () => {
-  const originalSdk = jest.requireActual('@uniswap/gouda-sdk')
+jest.mock('@uniswap/uniswapx-sdk', () => {
+  const originalSdk = jest.requireActual('@uniswap/uniswapx-sdk')
   return {
     ...originalSdk,
     DutchOrder: {

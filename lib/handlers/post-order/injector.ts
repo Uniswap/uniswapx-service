@@ -1,4 +1,4 @@
-import { OrderValidator as OnchainValidator } from '@uniswap/gouda-sdk'
+import { OrderValidator as OnchainValidator } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
@@ -47,7 +47,7 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
     metrics: MetricsLogger
   ): Promise<ApiRInj> {
     metrics.setNamespace('Uniswap')
-    metrics.setDimensions({ Service: 'GoudaService' })
+    metrics.setDimensions({ Service: 'UniswapXService' })
     setGlobalMetrics(metrics)
     setGlobalLogger(log)
 
