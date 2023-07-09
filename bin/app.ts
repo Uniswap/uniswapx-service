@@ -48,7 +48,7 @@ export class APIPipeline extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props)
 
-    const code = CodePipelineSource.gitHub('Uniswap/gouda-service', 'main', {
+    const code = CodePipelineSource.gitHub('Uniswap/uniswapx-service', 'main', {
       authentication: SecretValue.secretsManager('github-token-2'),
     })
 
@@ -195,21 +195,31 @@ export class APIPipeline extends Stack {
             value: 'github-token-2',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          GOUDA_SERVICE_URL: {
+          UNISWAPX_SERVICE_URL: {
             value: `${stage}/gouda-service/url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          TENDERLY_FORK_RPC: {
-            value: 'all/gouda-tenderly-fork/rpc',
+          RPC_5: {
+            value: 'all/gouda-service/integ-test/rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          TEST_WALLET_PK: {
+            value: 'all/gouda-service/integ-test/test-wallet-pk',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          TEST_FILLER_PK: {
+            value: 'all/gouda-service/integ-test/test-filler-pk',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          }
         },
       },
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
-        'echo "RPC_12341234=${TENDERLY_FORK_RPC}" > .env',
+        'echo "RPC_5=${RPC_5}" > .env',
+        'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" > .env',
+        'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" > .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
         'yarn build',
         'yarn run integ-test',

@@ -3,9 +3,9 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { WebhookProvider } from '../../providers/base'
 import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
 import { PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
+import { setGlobalLogger } from '../../util/log'
 import { DynamoStreamInjector } from '../base/dynamo-stream-handler'
 import { BaseRInj } from '../base/index'
-import { setGlobalLogger } from '../../util/log'
 
 export interface RequestInjected extends BaseRInj {
   event: DynamoDBStreamEvent
@@ -35,7 +35,7 @@ export class OrderNotificationInjector extends DynamoStreamInjector<ContainerInj
       containerInjected: containerInjected,
     })
 
-    setGlobalLogger(log);
+    setGlobalLogger(log)
 
     return {
       log,

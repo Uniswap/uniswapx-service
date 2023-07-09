@@ -1,7 +1,7 @@
 var parserMock = jest.fn()
 
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchOrderInfo, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrderInfo, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
@@ -36,10 +36,10 @@ mockSfnClient
 
 const ORDER_INFO: DutchOrderInfo = {
   deadline: 10,
-  offerer: '0x0000000000000000000000000000000000000001',
+  swapper: '0x0000000000000000000000000000000000000001',
   reactor: '0x0000000000000000000000000000000000000002',
-  startTime: 20,
-  endTime: 25,
+  decayStartTime: 20,
+  decayEndTime: 25,
   input: {
     token: '0x0000000000000000000000000000000000000003',
     endAmount: BigNumber.from(30),
@@ -56,8 +56,8 @@ const ORDER_INFO: DutchOrderInfo = {
   ],
   exclusiveFiller: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
   exclusivityOverrideBps: BigNumber.from(5),
-  validationContract: '0x0000000000000000000000000000000000000000',
-  validationData: '0x',
+  additionalValidationContract: '0x0000000000000000000000000000000000000000',
+  additionalValidationData: '0x',
 }
 
 const DECODED_ORDER = {
@@ -67,8 +67,8 @@ const DECODED_ORDER = {
   chainId: 1,
 }
 
-jest.mock('@uniswap/gouda-sdk', () => {
-  const originalSdk = jest.requireActual('@uniswap/gouda-sdk')
+jest.mock('@uniswap/uniswapx-sdk', () => {
+  const originalSdk = jest.requireActual('@uniswap/uniswapx-sdk')
   return {
     ...originalSdk,
     DutchOrder: {
@@ -114,8 +114,8 @@ describe('Testing post order handler.', () => {
     orderStatus: ORDER_STATUS.OPEN,
     offerer: '0x0000000000000000000000000000000000000001',
     reactor: '0x0000000000000000000000000000000000000002',
-    startTime: 20,
-    endTime: 10,
+    decayStartTime: 20,
+    decayEndTime: 10,
     deadline: 10,
     quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
     type: 'Dutch',
@@ -252,7 +252,7 @@ describe('Testing post order handler.', () => {
         parserMock.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
-              offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
+              swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
             }),
           })
         )
@@ -305,7 +305,7 @@ describe('Testing post order handler.', () => {
         { signature: '0xbad_signature' },
         '{"detail":"\\"signature\\" with value \\"0xbad_signature\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/","errorCode":"VALIDATION_ERROR"}',
       ],
-      [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 137, 12341234]","errorCode":"VALIDATION_ERROR"}`],
+      [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 5, 137, 12341234]","errorCode":"VALIDATION_ERROR"}`],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
       const invalidEvent = {

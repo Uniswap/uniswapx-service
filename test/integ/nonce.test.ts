@@ -1,4 +1,4 @@
-import { DutchOrderBuilder } from '@uniswap/gouda-sdk'
+import { DutchOrderBuilder } from '@uniswap/uniswapx-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, ethers } from 'ethers'
@@ -6,7 +6,7 @@ import { checkDefined } from '../../lib/preconditions/preconditions'
 import { ANVIL_TEST_WALLET_PK, ZERO_ADDRESS } from './constants'
 dotenv.config()
 
-const URL = checkDefined(process.env.GOUDA_SERVICE_URL, 'GOUDA_SERVICE_URL must be defined')
+const URL = checkDefined(process.env.UNISWAPX_SERVICE_URL, 'UNISWAPX_SERVICE_URL must be defined')
 
 const wallet = new ethers.Wallet(ANVIL_TEST_WALLET_PK)
 const amount = BigNumber.from(10).pow(18)
@@ -24,9 +24,9 @@ xdescribe('get nonce', () => {
     const deadline = Math.round(new Date().getTime() / 1000) + 10
     const order = new DutchOrderBuilder(1)
       .deadline(deadline)
-      .endTime(deadline)
-      .startTime(deadline - 5)
-      .offerer(await wallet.getAddress())
+      .decayEndTime(deadline)
+      .decayStartTime(deadline - 5)
+      .swapper(await wallet.getAddress())
       .nonce(nonce.add(1))
       .input({
         token: ZERO_ADDRESS,

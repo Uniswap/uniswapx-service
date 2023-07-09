@@ -1,10 +1,10 @@
 import axios, { AxiosResponse } from 'axios'
 import Joi from 'joi'
+import { metrics } from '../../util/metrics'
 import { eventRecordToOrder } from '../../util/order'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
-import { metrics } from '../../util/metrics'
 
 const WEBHOOK_TIMEOUT_MS = 500
 
@@ -24,7 +24,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         const newOrder = eventRecordToOrder(record)
 
         const registeredEndpoints = await webhookProvider.getEndpoints({
-          offerer: newOrder.offerer,
+          offerer: newOrder.swapper,
           orderStatus: newOrder.orderStatus,
           filler: newOrder.filler,
         })
@@ -36,7 +36,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
               orderHash: newOrder.orderHash,
               createdAt: newOrder.createdAt,
               signature: newOrder.signature,
-              offerer: newOrder.offerer,
+              offerer: newOrder.swapper,
               orderStatus: newOrder.orderStatus,
               encodedOrder: newOrder.encodedOrder,
               chainId: newOrder.chainId,

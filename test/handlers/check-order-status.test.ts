@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { OrderType, OrderValidation } from '@uniswap/gouda-sdk'
+import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities'
 import { CheckOrderStatusHandler, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
 
@@ -18,8 +18,8 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
   type: OrderType.Dutch,
   chainId: 1,
   reactor: '0x1',
-  startTime: 1,
-  endTime: 2,
+  decayStartTime: 1,
+  decayEndTime: 2,
   deadline: 3,
   input: {
     token: '0xinput',
@@ -118,7 +118,7 @@ describe('Testing check order status handler', () => {
           orderStatus: ORDER_STATUS.OPEN as string,
           chainId: 2022,
         } as any)
-      ).rejects.toThrowError(`"chainId" must be one of [1, 137, 12341234]`)
+      ).rejects.toThrowError(`"chainId" must be one of [1, 5, 137, 12341234]`)
     })
   })
 

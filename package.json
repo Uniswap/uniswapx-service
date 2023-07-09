@@ -1,11 +1,11 @@
 {
-  "name": "@uniswap/gouda-service",
+  "name": "@uniswap/uniswapx-service",
   "version": "0.1.0",
   "bin": {
     "app": "./dist/bin/app.js"
   },
   "license": "GPL",
-  "repository": "https://github.com/Uniswap/gouda-service",
+  "repository": "https://github.com/Uniswap/uniswapx-service",
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist cdk.out",
@@ -52,7 +52,7 @@
     "@aws-sdk/client-s3": "^3.341.0",
     "@aws-sdk/client-sfn": "^3.341.0",
     "@types/sinon": "^10.0.13",
-    "@uniswap/gouda-sdk": "^1.0.0-alpha.2",
+    "@uniswap/uniswapx-sdk": "^1.0.0",
     "aws-cdk-lib": "2.85.0",
     "aws-embedded-metrics": "^4.1.0",
     "aws-sdk": "^2.1238.0",

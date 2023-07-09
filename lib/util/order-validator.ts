@@ -1,4 +1,4 @@
-import { DutchOrder, DutchOutput } from '@uniswap/gouda-sdk'
+import { DutchOrder, DutchOutput } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import FieldValidator from './field-validator'
 
@@ -23,9 +23,9 @@ export class OrderValidator {
       return deadlineValidation
     }
 
-    const startTimeValidation = this.validateStartTime(order.info.startTime, order.info.deadline)
-    if (!startTimeValidation.valid) {
-      return startTimeValidation
+    const decayStartTimeValidation = this.validateDecayStartTime(order.info.decayStartTime, order.info.deadline)
+    if (!decayStartTimeValidation.valid) {
+      return decayStartTimeValidation
     }
 
     const nonceValidation = this.validateNonce(order.info.nonce)
@@ -33,9 +33,9 @@ export class OrderValidator {
       return nonceValidation
     }
 
-    const offererValidation = this.validateOfferer(order.info.offerer)
-    if (!offererValidation.valid) {
-      return offererValidation
+    const swapperValidation = this.validateSwapper(order.info.swapper)
+    if (!swapperValidation.valid) {
+      return swapperValidation
     }
 
     const reactorValidation = this.validateReactor(order.info.reactor)
@@ -103,11 +103,11 @@ export class OrderValidator {
     }
   }
 
-  private validateStartTime(startTime: number, deadline: number): OrderValidationResponse {
-    if (startTime > deadline) {
+  private validateDecayStartTime(decayStartTime: number, deadline: number): OrderValidationResponse {
+    if (decayStartTime > deadline) {
       return {
         valid: false,
-        errorString: 'Invalid startTime: startTime > deadline',
+        errorString: 'Invalid decayStartTime: decayStartTime > deadline',
       }
     }
     return {
@@ -128,12 +128,12 @@ export class OrderValidator {
     }
   }
 
-  private validateOfferer(offerer: string): OrderValidationResponse {
-    const error = FieldValidator.isValidEthAddress().validate(offerer).error
+  private validateSwapper(swapper: string): OrderValidationResponse {
+    const error = FieldValidator.isValidEthAddress().validate(swapper).error
     if (error) {
       return {
         valid: false,
-        errorString: `Invalid offerer: ${error}`,
+        errorString: `Invalid swapper: ${error}`,
       }
     }
     return {

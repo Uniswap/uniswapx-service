@@ -1,4 +1,4 @@
-import { DutchOrder, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
 import Joi from 'joi'
@@ -91,7 +91,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
                 quoteId: quoteId,
                 filler: fillEvent.filler,
                 nonce: fillEvent.nonce.toString(),
-                offerer: fillEvent.offerer,
+                offerer: fillEvent.swapper,
                 tokenOut: output.token,
                 amountOut: output.amount.toString(),
                 blockNumber: fillEvent.blockNumber,
@@ -199,7 +199,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
                 quoteId: quoteId,
                 filler: fillEvent.filler,
                 nonce: fillEvent.nonce.toString(),
-                offerer: fillEvent.offerer,
+                offerer: fillEvent.swapper,
                 tokenOut: output.token,
                 amountOut: output.amount.toString(),
                 blockNumber: fillEvent.blockNumber,
@@ -304,7 +304,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       txHash,
       settledAmounts,
       getFillLogAttempts,
-      validation
+      validation,
     } = params
 
     log.info(
@@ -339,7 +339,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             .join(',')
             .toString(),
           retryCount,
-          validation
+          validation,
         },
       })
     }

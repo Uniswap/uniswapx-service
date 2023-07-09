@@ -1,4 +1,4 @@
-import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from '@uniswap/gouda-sdk'
+import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
@@ -53,7 +53,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       retryCount: event.retryCount ? (event.retryCount as number) : 0,
       provider: provider,
       orderWatcher: watcher,
-      orderQuoter: quoter
+      orderQuoter: quoter,
     }
   }
 }

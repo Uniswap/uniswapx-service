@@ -1,4 +1,4 @@
-import { DutchOrder, OrderType } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 
@@ -9,7 +9,7 @@ type ParsedOrder = {
   signature: string
   orderHash: string
   orderStatus: ORDER_STATUS
-  offerer: string
+  swapper: string
   createdAt: number
   chainId: number
   filler?: string
@@ -24,7 +24,7 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
 
   try {
     return {
-      offerer: newOrder.offerer.S as string,
+      swapper: newOrder.offerer.S as string,
       orderStatus: newOrder.orderStatus.S as ORDER_STATUS,
       encodedOrder: newOrder.encodedOrder.S as string,
       signature: newOrder.signature.S as string,
@@ -55,7 +55,7 @@ export const formatOrderEntity = (
     orderHash: decodedOrder.hash().toLowerCase(),
     chainId: decodedOrder.chainId,
     orderStatus: orderStatus,
-    offerer: decodedOrder.info.offerer.toLowerCase(),
+    offerer: decodedOrder.info.swapper.toLowerCase(),
     input: {
       token: input.token,
       startAmount: input.startAmount.toString(),
@@ -68,8 +68,8 @@ export const formatOrderEntity = (
       recipient: output.recipient.toLowerCase(),
     })),
     reactor: decodedOrder.info.reactor.toLowerCase(),
-    startTime: decodedOrder.info.startTime,
-    endTime: decodedOrder.info.deadline,
+    decayStartTime: decodedOrder.info.decayStartTime,
+    decayEndTime: decodedOrder.info.deadline,
     deadline: decodedOrder.info.deadline,
     filler: decodedOrder.info?.exclusiveFiller?.toLowerCase(),
     ...(quoteId && { quoteId: quoteId }),

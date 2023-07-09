@@ -1,5 +1,5 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchOrder, OrderType, OrderValidation } from '@uniswap/gouda-sdk'
+import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Logger from 'bunyan'
@@ -127,8 +127,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
           quoteId: order.quoteId,
           createdAt: currentTimestampInSeconds(),
           orderHash: order.orderHash,
-          startTime: order.startTime,
-          endTime: order.endTime,
+          decayStartTime: order.decayStartTime,
+          decayEndTime: order.decayEndTime,
           deadline: order.deadline,
           chainId: order.chainId,
           inputStartAmount: order.input?.startAmount,
@@ -205,17 +205,21 @@ export class PostOrderHandler extends APIGLambdaHandler<
 }
 
 const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
+  // canaries
   '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
   '0xf82af5cd1f0d24cdcf9d35875107d5e43ce9b3d0',
   '0xa50dac48d61bb52b339c7ef0dcefa7688338d00a',
-  '0x5b062dc717983be67f7e1b44a6557d7da7d399bd'
+  '0x5b062dc717983be67f7e1b44a6557d7da7d399bd',
+  // integ tests
+  '0xe001e6f6879c07b9ac24291a490f2795106d348c',
+  '0x8943ea25bbfe135450315ab8678f2f79559f4630',
 ]
 export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-// return the number of open orders the given swapper is allowed to have at a time
-function getMaxOpenOrders(swapper: string): number {
-  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(swapper.toLowerCase())) {
+// return the number of open orders the given offerer is allowed to have at a time
+function getMaxOpenOrders(offerer: string): number {
+  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(offerer.toLowerCase())) {
     return HIGH_MAX_OPEN_ORDERS
   }
 
