@@ -66,7 +66,7 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           VERSION: {
-            value: '3',
+            value: '2',
             type: BuildEnvironmentVariableType.PLAINTEXT,
           },
         },
