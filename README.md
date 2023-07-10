@@ -1,9 +1,5 @@
 # UniswapX Service
 
-## Prerequisite
-
-1. New to AWS CDK, please refer to [api-template](https://github.com/Uniswap/api-template)
-
 ## Getting Started
 
 1. Install and build the package
@@ -46,11 +42,11 @@ To test your changes you must redeploy your service. The dev cycle is thus:
 1. Make code changes. Make sure all env variables are present in the .env file:
 
 ```
-FIREHOSE_ARN_LOCAL=<>
-RPC_12341234=<>
+FAILED_EVENT_DESTINATION_ARN=<>
+RPC_5=<>
 
 # Only need these if testing against custom contract deployments
-REACTOR_TENDERLY=<>
+DL_REACTOR_TENDERLY=<>
 QUOTER_TENDERLY=<>
 PERMIT_TENDERLY=<>
 ```
@@ -62,7 +58,3 @@ PERMIT_TENDERLY=<>
 1. If failures, look at logs in Cloudwatch Insights
 
 1. Repeat
-
-## Productionizing your service
-
-Refer to Notion for how to create a deployment pipeline for your service and add it to `api.uniswap.org`
