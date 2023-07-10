@@ -88,6 +88,10 @@ export const SettledAmount = Joi.object({
   amountIn: FieldValidator.isValidAmount(),
 })
 
+const OrderRepsonseEntryJoiMigrations = {
+  chainId: FieldValidator.isValidChainId().valid(12341234)
+}
+
 export const OrderResponseEntryJoi = Joi.object({
   createdAt: FieldValidator.isValidCreatedAt(),
   encodedOrder: FieldValidator.isValidEncodedOrder(),
@@ -101,6 +105,8 @@ export const OrderResponseEntryJoi = Joi.object({
   outputs: Joi.array().items(OrderOutputJoi),
   settledAmounts: Joi.array().items(SettledAmount),
   chainId: FieldValidator.isValidChainId(),
+}).keys({
+  ...OrderRepsonseEntryJoiMigrations
 })
 
 export const GetOrdersResponseJoi = Joi.object({

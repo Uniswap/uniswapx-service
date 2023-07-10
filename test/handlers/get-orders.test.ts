@@ -194,4 +194,19 @@ describe('Testing get orders handler.', () => {
       headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
     })
   })
+
+  describe('Testing valid but deprecated response fields', () => {
+    it.each([
+      [{ chainId: 12341234 }],
+    ])(`Returns 200 with deprecated field %p in the response`, async (deprecatedField) => {
+      getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...deprecatedField }] })
+      const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
+      expect(getOrdersMock).toBeCalledWith(
+        requestInjectedMock.limit,
+        requestInjectedMock.queryFilters,
+        requestInjectedMock.cursor
+      )
+      expect(getOrdersResponse.statusCode).toEqual(200)
+    })
+  })
 })
