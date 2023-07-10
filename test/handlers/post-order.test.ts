@@ -9,7 +9,7 @@ import { ErrorCode } from '../../lib/handlers/base'
 import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
-const MOCK_ARN_12341234 = 'MOCK_ARN_12341234'
+const MOCK_ARN_5 = 'MOCK_ARN_5'
 const MOCK_HASH = '0xhash'
 const MOCK_START_EXECUTION_INPUT = JSON.stringify({
   orderHash: MOCK_HASH,
@@ -28,7 +28,7 @@ mockSfnClient
 
 mockSfnClient
   .on(StartExecutionCommand, {
-    stateMachineArn: MOCK_ARN_12341234,
+    stateMachineArn: MOCK_ARN_5,
     name: MOCK_HASH,
     input: MOCK_START_EXECUTION_INPUT,
   })
@@ -148,7 +148,7 @@ describe('Testing post order handler.', () => {
           1: {
             validate: onchainValidationSucceededMock,
           },
-          12341234: {
+          5: {
             validate: onchainValidationSucceededMock,
           },
           137: {
@@ -164,7 +164,7 @@ describe('Testing post order handler.', () => {
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
-    process.env['STATE_MACHINE_ARN_12341234'] = MOCK_ARN_12341234
+    process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
     process.env['REGION'] = 'region'
     parserMock.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
   })
@@ -204,17 +204,17 @@ describe('Testing post order handler.', () => {
       const postOrderResponse = await postOrderHandler.handler(
         {
           queryStringParameters: {},
-          body: JSON.stringify({ ...postRequestBody, chainId: 12341234 }),
+          body: JSON.stringify({ ...postRequestBody, chainId: 5 }),
         } as any,
         {} as any
       )
 
-      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith({ ...ORDER, chainId: 12341234 })
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith({ ...ORDER, chainId: 5 })
       expect(onchainValidationSucceededMock).toBeCalled()
-      expect(validatorMock).toBeCalledWith({ ...DECODED_ORDER, chainId: 12341234 })
+      expect(validatorMock).toBeCalledWith({ ...DECODED_ORDER, chainId: 5 })
       expect(mockSfnClient.calls()).toHaveLength(1)
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
-        stateMachineArn: MOCK_ARN_12341234,
+        stateMachineArn: MOCK_ARN_5,
       })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
@@ -305,7 +305,7 @@ describe('Testing post order handler.', () => {
         { signature: '0xbad_signature' },
         '{"detail":"\\"signature\\" with value \\"0xbad_signature\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/","errorCode":"VALIDATION_ERROR"}',
       ],
-      [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 5, 137, 12341234]","errorCode":"VALIDATION_ERROR"}`],
+      [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 5, 137]","errorCode":"VALIDATION_ERROR"}`],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
       const invalidEvent = {
