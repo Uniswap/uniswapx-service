@@ -7,11 +7,11 @@ import { PERMIT2, UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
 
 const { ExclusiveDutchOrderReactor__factory } = factories
 
+import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/handler'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from '../abis/erc20.json'
 import * as PERMIT2_ABI from '../abis/permit2.json'
-import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/handler'
 const { abi } = ERC20_ABI
 const { abi: permit2Abi } = PERMIT2_ABI
 
@@ -47,7 +47,7 @@ describe('/dutch-auction/order', () => {
   // Token contracts
   let weth: Contract
   let uni: Contract
-  
+
   // trade amount for every test
   const amount = ethers.utils.parseEther('0.01')
 
@@ -100,38 +100,23 @@ describe('/dutch-auction/order', () => {
         // check approvals on reactor
         const reactorWethAllowance = await permit2Contract
           .connect(wallet)
-          .allowance(
-            wallet.address,
+          .allowance(wallet.address, weth.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'])
+        if (!(reactorWethAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
+          const receipt = await permit2Contract.connect(wallet).approve(
             weth.address,
             REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
-          )   
-        if(!(reactorWethAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
-          const receipt = await permit2Contract
-            .connect(wallet)
-            .approve(
-              weth.address,
-              REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
-              MAX_UINT_160,
-              281474976710655 // max deadline too
-            )
+            MAX_UINT_160,
+            281474976710655 // max deadline too
+          )
           await receipt.wait()
         }
         const reactorUniAllowance = await permit2Contract
           .connect(wallet)
-          .allowance(
-            wallet.address,
-            uni.address,
-            REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
-          )
-        if(!(reactorUniAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
+          .allowance(wallet.address, uni.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'])
+        if (!(reactorUniAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
           const receipt = await permit2Contract
             .connect(wallet)
-            .approve(
-              uni.address,
-              REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
-              MAX_UINT_160,
-              281474976710655
-            )
+            .approve(uni.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'], MAX_UINT_160, 281474976710655)
           await receipt.wait()
         }
       }
@@ -184,16 +169,13 @@ describe('/dutch-auction/order', () => {
     return order!.orderStatus
   }
 
-  const buildAndSubmitOrder = async (
+  const buildOrder = async (
     swapper: string,
     amount: BigNumber,
     deadlineSeconds: number,
     inputToken: string,
     outputToken: string
-  ): Promise<{
-    order: DutchOrder
-    signature: string
-  }> => {
+  ): Promise<{ order: DutchOrder; payload: { encodedOrder: string; signature: string; chainId: ChainId } }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
     const decayStartTime = Math.round(new Date().getTime() / 1000)
     const order = new DutchOrderBuilder(ChainId.GÖRLI)
@@ -219,24 +201,50 @@ describe('/dutch-auction/order', () => {
     const signature = await alice._signTypedData(domain, types, values)
     const encodedOrder = order.serialize()
 
+    return {
+      order,
+      payload: { encodedOrder: encodedOrder, signature: signature, chainId: ChainId.GÖRLI },
+    }
+  }
+
+  const submitOrder = async (
+    order: DutchOrder,
+    payload: {
+      encodedOrder: string
+      signature: string
+      chainId: ChainId
+    }
+  ): Promise<{
+    order: DutchOrder
+    signature: string
+  }> => {
     try {
-      const postResponse = await axios(
-        {
-          method: 'post',
-          url: `${URL}dutch-auction/order`,
-          data: {
-            encodedOrder: encodedOrder,
-            signature: signature,
-            chainId: ChainId.GÖRLI,
-          }
-        }
-      )
+      const postResponse = await axios({
+        method: 'post',
+        url: `${URL}dutch-auction/order`,
+        data: payload,
+      })
       expect(postResponse.status).toEqual(201)
-      return { order, signature }
+      return { order, signature: payload.signature }
     } catch (err: any) {
       console.log(err.message)
       throw err
     }
+  }
+
+  const buildAndSubmitOrder = async (
+    swapper: string,
+    amount: BigNumber,
+    deadlineSeconds: number,
+    inputToken: string,
+    outputToken: string
+  ): Promise<{
+    order: DutchOrder
+    signature: string
+  }> => {
+    const { order, payload } = await buildOrder(swapper, amount, deadlineSeconds, inputToken, outputToken)
+
+    return submitOrder(order, payload)
   }
 
   const fillOrder = async (order: DutchOrder, signature: string) => {
@@ -285,57 +293,110 @@ describe('/dutch-auction/order', () => {
     return receipt.transactionHash
   }
 
-  describe('endpoint sanity checks', () => {
+  describe('orders endpoint sanity checks', () => {
     it.each([
-      [{ orderStatus: 'open' }],
-      [{ chainId: 1 }],
-      [{ orderStatus: 'expired' }],
-      [{ swapper: '0x0000000000000000000000000000000000000000' }],
-      [{ filler: '0x0000000000000000000000000000000000000000' }],
-      [{ orderStatus: 'expired', sortKey: 'createdAt', chainId: 137 }],
-      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: false }],
-      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: true }],
-      [{ orderStatus: 'expired', swapper: '0x0000000000000000000000000000000000000000' }],
-      [{ orderStatus: 'expired', filler: '0x0000000000000000000000000000000000000000' }],
-      [{ orderHash: '0x0000000000000000000000000000000000000000000000000000000000000000' }],
+      [{ orderStatus: 'open' }, 200],
+      [{ chainId: 1 }, 200],
+      [{ orderStatus: 'expired' }, 200],
+      [{ swapper: '0x0000000000000000000000000000000000000000' }, 200],
+      [{ filler: '0x0000000000000000000000000000000000000000' }, 200],
+      [{ orderStatus: 'expired', sortKey: 'createdAt', chainId: 137 }, 200],
+      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: false }, 200],
+      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: true }, 200],
+      [{ orderStatus: 'expired', swapper: '0x0000000000000000000000000000000000000000' }, 200],
+      [{ orderStatus: 'expired', filler: '0x0000000000000000000000000000000000000000' }, 200],
+      [{ orderHash: '0x0000000000000000000000000000000000000000000000000000000000000000' }, 200],
       [
         {
           orderHashes:
             '0x0000000000000000000000000000000000000000000000000000000000000000,0x0000000000000000000000000000000000000000000000000000000000000000',
         },
+        200,
       ],
+      [{ x: '0x0000000000000000000000000000000000000000000000000000000000000000' }, 400],
     ])(
       'Fetches orders with the following query param %p',
-      async (queryFilters: { [key: string]: string | boolean | number }) => {
+      async (queryFilters: { [key: string]: string | boolean | number }, status: number) => {
         const params = Object.keys(queryFilters)
         const queryParams = params.reduce((acc, key) => {
           const value = `${acc}${key}=${queryFilters[key]}`
           return key == params[params.length - 1] ? value : value + '&'
         }, '')
 
-        const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?${queryParams}`)
-        expect(resp.status).toEqual(200)
+        if (status == 200) {
+          const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?${queryParams}`)
+          expect(resp.status).toEqual(200)
+        } else {
+          await expect(axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?${queryParams}`)).rejects.toMatchObject(
+            {
+              response: {
+                status,
+              },
+            }
+          )
+        }
       }
     )
   })
 
+  describe('order endpoint sanity checks', () => {
+    it('2xx', async () => {
+      await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
+    })
+
+    it('4xx', async () => {
+      const { order, payload } = await buildOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        WETH_GOERLI,
+        UNI_GOERLI
+      )
+      await expect(submitOrder(order, { ...payload, chainId: 'xyz' } as any)).rejects.toMatchObject({
+        response: {
+          status: 400,
+        },
+      })
+    })
+  })
+
   describe('checking expiry', () => {
     it('erc20 to erc20', async () => {
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
+      const { order } = await buildAndSubmitOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        WETH_GOERLI,
+        UNI_GOERLI
+      )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
     it('erc20 to eth', async () => {
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI_GOERLI, ZERO_ADDRESS)
+      const { order } = await buildAndSubmitOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        UNI_GOERLI,
+        ZERO_ADDRESS
+      )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
     it('does not expire order before deadline', async () => {
-      const { order } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, UNI_GOERLI, ZERO_ADDRESS)
+      const { order } = await buildAndSubmitOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        UNI_GOERLI,
+        ZERO_ADDRESS
+      )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS - AVERAGE_BLOCK_TIME(ChainId.GÖRLI))).toBe('open')
+      expect(
+        await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS - AVERAGE_BLOCK_TIME(ChainId.GÖRLI))
+      ).toBe('open')
     })
   })
 
@@ -355,7 +416,13 @@ describe('/dutch-auction/order', () => {
     })
 
     it('erc20 to erc20', async () => {
-      const { order, signature } = await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
+      const { order, signature } = await buildAndSubmitOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        WETH_GOERLI,
+        UNI_GOERLI
+      )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
       expect(txHash).toBeDefined()
