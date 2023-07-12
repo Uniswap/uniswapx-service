@@ -72,7 +72,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     let chainId = '0'
     try {
       const rawBody = JSON.parse(event.body!)
-      chainId = rawBody.chainId
+      chainId = rawBody.chainId ?? chainId
     } catch (err) {
       // no-op. If we can't get chainId still log the metric as chain 0
     }
