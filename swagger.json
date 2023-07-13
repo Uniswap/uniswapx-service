@@ -3,7 +3,7 @@
   "servers": [
     {
       "description": "Uniswap Trade APIs",
-      "url": "https://6q5qkya37k.execute-api.us-east-2.amazonaws.com"
+      "url": "https://api.uniswap.org/v2/order"
     }
   ],
   "info": {
