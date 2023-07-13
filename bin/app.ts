@@ -114,7 +114,7 @@ export class APIPipeline extends Stack {
     })
 
     const internalApiKey = sm.Secret.fromSecretAttributes(this, 'internal-api-key', {
-      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:uniswapx-service-internal-api-key-P7FxAD',
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:uniswapx-internal-api-key-new-RaBmoM',
     })
 
     const jsonRpcUrls: { [chain: string]: string } = {}
