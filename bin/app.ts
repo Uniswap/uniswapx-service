@@ -25,17 +25,19 @@ export class APIStage extends Stage {
     props: StageProps & {
       provisionedConcurrency: number
       chatbotSNSArn?: string
+      internalApiKey?: string;
       stage: string
       envVars: { [key: string]: string }
     }
   ) {
     super(scope, id, props)
-    const { provisionedConcurrency, chatbotSNSArn, stage, env, envVars } = props
+    const { provisionedConcurrency, chatbotSNSArn, internalApiKey, stage, env, envVars } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
       throttlingOverride: envVars.THROTTLE_PER_FIVE_MINS,
       env,
       provisionedConcurrency,
+      internalApiKey,
       chatbotSNSArn,
       stage,
       envVars,
@@ -111,6 +113,10 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-resource-arns-wF51FW',
     })
 
+    const internalApiKey = sm.Secret.fromSecretAttributes(this, 'internal-api-key', {
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:uniswapx-service-internal-api-key-P7FxAD',
+    })
+
     const jsonRpcUrls: { [chain: string]: string } = {}
     Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
       const key = `RPC_${chainId}`
@@ -125,6 +131,7 @@ export class APIPipeline extends Stack {
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 2,
+      internalApiKey: internalApiKey.secretValue.toString(),
       stage: STAGE.BETA,
       envVars: {
         ...jsonRpcUrls,
@@ -145,6 +152,7 @@ export class APIPipeline extends Stack {
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
       env: { account: '316116520258', region: 'us-east-2' },
       provisionedConcurrency: 5,
+      internalApiKey: internalApiKey.secretValue.toString(),
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
       envVars: {
@@ -261,6 +269,7 @@ envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
   throttlingOverride: process.env.THROTTLE_PER_FIVE_MINS,
+  internalApiKey: 'test-api-key',
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
   stage: STAGE.LOCAL,
   envVars: envVars,
