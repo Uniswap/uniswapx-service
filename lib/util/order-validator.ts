@@ -1,4 +1,4 @@
-import { DutchOrder, DutchOutput, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, DutchOutput, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import FieldValidator from './field-validator'
 
@@ -91,7 +91,7 @@ export class OrderValidator {
   }
 
   private validateReactorAddress(reactor: string, chainId: number): OrderValidationResponse {
-    if (reactor.toLowerCase() != REACTOR_ADDRESS_MAPPING[chainId]['Dutch'].toLowerCase()) {
+    if (reactor.toLowerCase() != REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch].toLowerCase()) {
       return {
         valid: false,
         errorString: `Invalid reactor address`,
