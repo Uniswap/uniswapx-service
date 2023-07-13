@@ -1,4 +1,4 @@
-import { DutchOrder, DutchOutput } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, DutchOutput, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import FieldValidator from './field-validator'
 
@@ -16,6 +16,11 @@ export class OrderValidator {
     const chainIdValidation = this.validateChainId(order.chainId)
     if (!chainIdValidation.valid) {
       return chainIdValidation
+    }
+
+    const reactorAddressValidation = this.validateReactorAddress(order.info.reactor, order.chainId)
+    if (!reactorAddressValidation.valid) {
+      return reactorAddressValidation
     }
 
     const deadlineValidation = this.validateDeadline(order.info.deadline)
@@ -78,6 +83,18 @@ export class OrderValidator {
       return {
         valid: false,
         errorString: error.message,
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  private validateReactorAddress(reactor: string, chainId: number): OrderValidationResponse {
+    if (reactor.toLowerCase() != REACTOR_ADDRESS_MAPPING[chainId]['Dutch'].toLowerCase()) {
+      return {
+        valid: false,
+        errorString: `Invalid reactor address`,
       }
     }
     return {
