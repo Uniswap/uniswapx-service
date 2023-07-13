@@ -22,6 +22,7 @@ export class APIStack extends cdk.Stack {
     props: cdk.StackProps & {
       provisionedConcurrency: number
       throttlingOverride?: string
+      internalApiKey?: string;
       chatbotSNSArn?: string
       stage: string
       envVars: { [key: string]: string }
@@ -29,7 +30,7 @@ export class APIStack extends cdk.Stack {
   ) {
     super(parent, name, props)
 
-    const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency } = props
+    const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency, internalApiKey } = props
 
     const {
       getOrdersLambdaAlias,
@@ -104,6 +105,27 @@ export class APIStack extends cdk.Stack {
               forwardedIpConfig: {
                 headerName: 'X-Forwarded-For',
                 fallbackBehavior: 'MATCH',
+              },
+              scopeDownStatement: {
+                notStatement: {
+                  statement: {
+                    byteMatchStatement: {
+                      fieldToMatch: {
+                        singleHeader: {
+                          name: 'x-api-key',
+                        },
+                      },
+                      positionalConstraint: 'EXACTLY',
+                      searchString: internalApiKey,
+                      textTransformations: [
+                        {
+                          type: 'NONE',
+                          priority: 0,
+                        },
+                      ],
+                    },
+                  },
+                },
               },
             },
           },
