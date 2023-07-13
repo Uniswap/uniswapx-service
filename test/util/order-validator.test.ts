@@ -1,4 +1,4 @@
-import { DutchOrder } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { OrderValidator } from '../../lib/util/order-validator'
 
@@ -17,7 +17,7 @@ const OUTPUT = {
   endAmount: BigNumber.from('2'),
   recipient: RECIPIENT,
 }
-const REACTOR = '0x1111111111111111111111111111111111111111'
+const REACTOR = REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch]
 const VALIDATION_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000'
 const VALIDATION_DATA = '0x'
 
@@ -108,10 +108,10 @@ describe('Testing off chain validation', () => {
 
   describe('Testing reactor', () => {
     it('Testing invalid parsed reactor.', async () => {
-      const order = newOrder({ reactor: '0xbad_actor' })
+      const order = newOrder({ reactor: '0x0000000000000000000000000000000000000000' })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
-        errorString: 'Invalid reactor: ValidationError: VALIDATION ERROR: Invalid address',
+        errorString: 'Invalid reactor address',
         valid: false,
       })
     })

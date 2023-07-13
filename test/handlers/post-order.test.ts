@@ -1,7 +1,7 @@
 var parserMock = jest.fn()
 
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchOrderInfo, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { DutchOrderInfo, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../lib/entities'
@@ -37,7 +37,7 @@ mockSfnClient
 const ORDER_INFO: DutchOrderInfo = {
   deadline: 10,
   swapper: '0x0000000000000000000000000000000000000001',
-  reactor: '0x0000000000000000000000000000000000000002',
+  reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch].toLowerCase(),
   decayStartTime: 20,
   decayEndTime: 25,
   input: {
@@ -113,7 +113,7 @@ describe('Testing post order handler.', () => {
     orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
     orderStatus: ORDER_STATUS.OPEN,
     offerer: '0x0000000000000000000000000000000000000001',
-    reactor: '0x0000000000000000000000000000000000000002',
+    reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch].toLowerCase(),
     decayStartTime: 20,
     decayEndTime: 10,
     deadline: 10,

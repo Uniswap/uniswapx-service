@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities'
 import { CheckOrderStatusHandler, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
 
@@ -17,7 +17,7 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
   orderStatus: ORDER_STATUS.OPEN,
   type: OrderType.Dutch,
   chainId: 1,
-  reactor: '0x1',
+  reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch],
   decayStartTime: 1,
   decayEndTime: 2,
   deadline: 3,
