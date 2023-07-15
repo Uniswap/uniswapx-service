@@ -8,7 +8,16 @@ import { Construct } from 'constructs'
 import { TABLE_KEY } from '../../lib/config/dynamodb'
 import { SERVICE_NAME } from '../constants'
 
-export type DynamoStackProps = { chatbotSNSArn?: string } & cdk.NestedStackProps
+export type TableCapacityOptions = {
+  billingMode: aws_dynamo.BillingMode
+  readCapacity?: number
+  writeCapacity?: number
+}
+
+export type DynamoStackProps = {
+  chatbotSNSArn?: string
+  tableCapacityOptions: TableCapacityOptions
+} & cdk.NestedStackProps
 
 export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
@@ -17,7 +26,7 @@ export class DynamoStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
 
-    const { chatbotSNSArn } = props
+    const { chatbotSNSArn, tableCapacityOptions } = props
 
     /* orders table */
     const ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}OrdersTable`, {
@@ -27,9 +36,9 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.STRING,
       },
       stream: aws_dynamo.StreamViewType.NEW_IMAGE,
-      billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
       deletionProtection: true,
       pointInTimeRecovery: true,
+      ...tableCapacityOptions,
     })
     this.ordersTable = ordersTable
 

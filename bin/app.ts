@@ -13,6 +13,7 @@ import { SUPPORTED_CHAINS } from '../lib/util/chain'
 import { STAGE } from '../lib/util/stage'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
+import { TableCapacityOptions } from './stacks/dynamo-stack'
 
 dotenv.config()
 
@@ -25,13 +26,14 @@ export class APIStage extends Stage {
     props: StageProps & {
       provisionedConcurrency: number
       chatbotSNSArn?: string
-      internalApiKey?: string;
+      internalApiKey?: string
       stage: string
       envVars: { [key: string]: string }
+      tableCapacityOptions: TableCapacityOptions
     }
   ) {
     super(scope, id, props)
-    const { provisionedConcurrency, chatbotSNSArn, internalApiKey, stage, env, envVars } = props
+    const { provisionedConcurrency, chatbotSNSArn, internalApiKey, stage, env, envVars, tableCapacityOptions } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
       throttlingOverride: envVars.THROTTLE_PER_FIVE_MINS,
@@ -41,6 +43,7 @@ export class APIStage extends Stage {
       chatbotSNSArn,
       stage,
       envVars,
+      tableCapacityOptions,
     })
     this.url = url
   }
@@ -142,6 +145,9 @@ export class APIPipeline extends Stack {
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
       },
+      tableCapacityOptions: {
+        billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+      },
     })
 
     const betaUsEast2AppStage = pipeline.addStage(betaUsEast2Stage)
@@ -160,6 +166,11 @@ export class APIPipeline extends Stack {
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
+      },
+      tableCapacityOptions: {
+        billingMode: cdk.aws_dynamodb.BillingMode.PROVISIONED,
+        readCapacity: 5000,
+        writeCapacity: 1000,
       },
     })
 
@@ -218,7 +229,7 @@ export class APIPipeline extends Stack {
           TEST_FILLER_PK: {
             value: 'all/gouda-service/integ-test/test-filler-pk',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
-          }
+          },
         },
       },
       commands: [
@@ -273,6 +284,9 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
   stage: STAGE.LOCAL,
   envVars: envVars,
+  tableCapacityOptions: {
+    billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+  },
 })
 
 new APIPipeline(app, `${SERVICE_NAME}PipelineStack`, {

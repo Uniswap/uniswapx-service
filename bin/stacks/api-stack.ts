@@ -11,6 +11,7 @@ import { Construct } from 'constructs'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { DashboardStack } from './dashboard-stack'
+import { TableCapacityOptions } from './dynamo-stack'
 import { LambdaStack } from './lambda-stack'
 
 export class APIStack extends cdk.Stack {
@@ -26,11 +27,13 @@ export class APIStack extends cdk.Stack {
       chatbotSNSArn?: string
       stage: string
       envVars: { [key: string]: string }
+      tableCapacityOptions: TableCapacityOptions
     }
   ) {
     super(parent, name, props)
 
-    const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency, internalApiKey } = props
+    const { throttlingOverride, chatbotSNSArn, stage, provisionedConcurrency, internalApiKey, tableCapacityOptions } =
+      props
 
     const {
       getOrdersLambdaAlias,
@@ -47,6 +50,7 @@ export class APIStack extends cdk.Stack {
       provisionedConcurrency,
       stage: stage as STAGE,
       envVars: props.envVars,
+      tableCapacityOptions,
     })
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
