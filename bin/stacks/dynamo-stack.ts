@@ -201,7 +201,7 @@ export class DynamoStack extends cdk.NestedStack {
     // Dynamos built-in PointInTimeRecovery retention is max 35 days.
     // In addition to PITR being enabled on the tables we do a monthly backup
     // in case we need to recover to a point older than 35 months.
-    const plan = aws_backup.BackupPlan.dailyWeeklyMonthly5YearRetention(this, 'DDBBackupPlan2')
+    const plan = aws_backup.BackupPlan.dailyWeeklyMonthly5YearRetention(this, 'DDBBackupPlan')
     plan.addRule(aws_backup.BackupPlanRule.monthly1Year())
     plan.addSelection('DDBBackupSelection', {
       resources: [
