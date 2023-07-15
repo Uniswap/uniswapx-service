@@ -54,6 +54,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -67,6 +69,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -80,6 +84,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -93,6 +99,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -106,6 +114,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -119,6 +129,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -132,6 +144,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -145,6 +159,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -158,6 +174,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -171,6 +189,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
@@ -184,6 +204,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { readCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable = ordersTable
@@ -198,9 +220,9 @@ export class DynamoStack extends cdk.NestedStack {
         name: 'offerer',
         type: aws_dynamo.AttributeType.STRING,
       },
-      billingMode: aws_dynamo.BillingMode.PAY_PER_REQUEST,
       deletionProtection: true,
       pointInTimeRecovery: true,
+      ...tableCapacityOptions,
     })
     this.nonceTable = nonceTable
 
