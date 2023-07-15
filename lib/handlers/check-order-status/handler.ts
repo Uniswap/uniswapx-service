@@ -111,7 +111,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           }))
 
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
-          metrics.putMetric(`OrderSfn-PercentDecayedUntilFill`, percentDecayed, Unit.Percent)
+          metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
 
           return this.updateStatusAndReturn(
             {
@@ -224,7 +224,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           }))
 
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
-          metrics.putMetric(`OrderSfn-PercentDecayedUntilFill`, percentDecayed, Unit.Percent)
+          metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
 
           return this.updateStatusAndReturn(
             {
