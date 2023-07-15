@@ -205,6 +205,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const apiAlarm5xxSev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-5XXAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV2-5XXAlarm`,
       metric: api.metricServerError({
         period: Duration.minutes(5),
         // For this metric 'avg' represents error rate.
@@ -216,6 +217,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const apiAlarm5xxSev3 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-5XXAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV3-5XXAlarm`,
       metric: api.metricServerError({
         period: Duration.minutes(5),
         // For this metric 'avg' represents error rate.
@@ -228,6 +230,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const apiAlarm4xxSev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-4XXAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV2-4XXAlarm`,
       metric: api.metricClientError({
         period: Duration.minutes(5),
         statistic: 'avg',
@@ -237,6 +240,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const apiAlarm4xxSev3 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-4XXAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV3-4XXAlarm`,
       metric: api.metricClientError({
         period: Duration.minutes(5),
         statistic: 'avg',
@@ -246,6 +250,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const apiAlarmLatencySev3 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-Latency`, {
+      alarmName: `${SERVICE_NAME}-SEV3-Latency`,
       metric: api.metricLatency({
         period: Duration.minutes(5),
         statistic: 'p90',
@@ -255,6 +260,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const apiAlarmLatencySev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-Latency`, {
+      alarmName: `${SERVICE_NAME}-SEV2-Latency`,
       metric: api.metricLatency({
         period: Duration.minutes(5),
         statistic: 'p90',
