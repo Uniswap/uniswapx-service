@@ -212,19 +212,19 @@ export class DynamoStack extends cdk.NestedStack {
   }
 
   private alarmsPerTable(table: aws_dynamo.Table, name: string, chatbotSNSArn?: string): void {
-    const readCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-ReadCapacityAlarm`, {
+    const readCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`, {
       metric: table.metricConsumedReadCapacityUnits(),
       threshold: 80,
       evaluationPeriods: 2,
     })
 
-    const writeCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-WriteCapacityAlarm`, {
+    const writeCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-WriteCapacityAlarm`, {
       metric: table.metricConsumedWriteCapacityUnits(),
       threshold: 80,
       evaluationPeriods: 2,
     })
 
-    const readThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-ReadThrottlesAlarm`, {
+    const readThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadThrottlesAlarm`, {
       metric: table.metricThrottledRequestsForOperations({
         operations: [
           Operation.GET_ITEM,
@@ -241,7 +241,7 @@ export class DynamoStack extends cdk.NestedStack {
       evaluationPeriods: 2,
     })
 
-    const writeThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-WriteThrottlesAlarm`, {
+    const writeThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-WriteThrottlesAlarm`, {
       metric: table.metricThrottledRequestsForOperations({
         operations: [
           Operation.GET_ITEM,
@@ -258,7 +258,7 @@ export class DynamoStack extends cdk.NestedStack {
       evaluationPeriods: 2,
     })
 
-    const systemErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-SystemErrorsAlarm`, {
+    const systemErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-SystemErrorsAlarm`, {
       metric: table.metricSystemErrorsForOperations({
         operations: [
           Operation.GET_ITEM,
@@ -275,7 +275,7 @@ export class DynamoStack extends cdk.NestedStack {
       evaluationPeriods: 2,
     })
 
-    const userErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-${name}-SEV3-UserErrorsAlarm`, {
+    const userErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-UserErrorsAlarm`, {
       metric: table.metricUserErrors(),
       threshold: 10,
       evaluationPeriods: 2,

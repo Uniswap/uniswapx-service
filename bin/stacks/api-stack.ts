@@ -22,7 +22,7 @@ export class APIStack extends cdk.Stack {
     props: cdk.StackProps & {
       provisionedConcurrency: number
       throttlingOverride?: string
-      internalApiKey?: string;
+      internalApiKey?: string
       chatbotSNSArn?: string
       stage: string
       envVars: { [key: string]: string }
@@ -200,7 +200,7 @@ export class APIStack extends cdk.Stack {
       orderStatusLambdaName: checkStatusFunction.functionName,
     })
 
-    const apiAlarm5xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-5XXAlarm`, {
+    const apiAlarm5xxSev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-5XXAlarm`, {
       metric: api.metricServerError({
         period: Duration.minutes(5),
         // For this metric 'avg' represents error rate.
@@ -211,7 +211,19 @@ export class APIStack extends cdk.Stack {
       evaluationPeriods: stage == STAGE.BETA ? 5 : 3,
     })
 
-    const apiAlarm4xx = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-4XXAlarm`, {
+    const apiAlarm5xxSev3 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-5XXAlarm`, {
+      metric: api.metricServerError({
+        period: Duration.minutes(5),
+        // For this metric 'avg' represents error rate.
+        statistic: 'avg',
+      }),
+      threshold: 0.05,
+      // Beta has much less traffic so is more susceptible to transient errors.
+      evaluationPeriods: stage == STAGE.BETA ? 10 : 8,
+      datapointsToAlarm: 3,
+    })
+
+    const apiAlarm4xxSev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-4XXAlarm`, {
       metric: api.metricClientError({
         period: Duration.minutes(5),
         statistic: 'avg',
@@ -220,7 +232,16 @@ export class APIStack extends cdk.Stack {
       evaluationPeriods: 3,
     })
 
-    const apiAlarmLatency = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-Latency`, {
+    const apiAlarm4xxSev3 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-4XXAlarm`, {
+      metric: api.metricClientError({
+        period: Duration.minutes(5),
+        statistic: 'avg',
+      }),
+      threshold: 0.5,
+      evaluationPeriods: 3,
+    })
+
+    const apiAlarmLatencySev3 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-Latency`, {
       metric: api.metricLatency({
         period: Duration.minutes(5),
         statistic: 'p90',
@@ -229,11 +250,23 @@ export class APIStack extends cdk.Stack {
       evaluationPeriods: 3,
     })
 
+    const apiAlarmLatencySev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-Latency`, {
+      metric: api.metricLatency({
+        period: Duration.minutes(5),
+        statistic: 'p90',
+      }),
+      threshold: 10000,
+      evaluationPeriods: 3,
+    })
+
     if (chatbotSNSArn) {
       const chatBotTopic = aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
-      apiAlarm5xx.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarm4xx.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarmLatency.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      apiAlarm5xxSev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      apiAlarm5xxSev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      apiAlarm4xxSev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      apiAlarm4xxSev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      apiAlarmLatencySev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      apiAlarmLatencySev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
     }
 
     this.url = new CfnOutput(this, 'Url', {
