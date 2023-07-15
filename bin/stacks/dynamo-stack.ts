@@ -222,6 +222,7 @@ export class DynamoStack extends cdk.NestedStack {
       },
       deletionProtection: true,
       pointInTimeRecovery: true,
+      ...tableCapacityOptions,
     })
     this.nonceTable = nonceTable
 
