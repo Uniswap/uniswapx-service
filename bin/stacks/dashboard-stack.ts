@@ -111,17 +111,17 @@ export class DashboardStack extends cdk.NestedStack {
               metrics: [
                 [{ expression: '(por5xx/por) * 100', label: 'PostOrder5XXErrorRate', id: 'r11', region, stat: 'Sum' }],
                 [{ expression: '(por4xx/por) * 100', label: 'PostOrder4XXErrorRate', id: 'r21', region, stat: 'Sum' }],
-                ['Uniswap', 'PostOrderRequest', 'Service', `${SERVICE_NAME}`, { id: 'por', visible: false, region }],
+                ['Uniswap', 'PostOrderRequest', 'Service', 'UniswapXService', { id: 'por', visible: false, region }],
                 ['.', 'PostOrderStatus4XX', '.', '.', { id: 'por4xx', visible: false, region }],
                 ['.', 'PostOrderStatus5XX', '.', '.', { id: 'por5xx', visible: false, region }],
                 [{ expression: '(por5xx/gor) * 100', label: 'GetOrders5XXErrorRate', id: 'r31', region, stat: 'Sum' }],
                 [{ expression: '(por4xx/gor) * 100', label: 'GetOrders4XXErrorRate', id: 'r41', region, stat: 'Sum' }],
-                ['Uniswap', 'GetOrdersRequest', 'Service', `${SERVICE_NAME}`, { id: 'gor', visible: false, region }],
+                ['Uniswap', 'GetOrdersRequest', 'Service', 'UniswapXService', { id: 'gor', visible: false, region }],
                 ['.', 'GetOrdersStatus4XX', '.', '.', { id: 'gor4xx', visible: false, region }],
                 ['.', 'GetOrdersStatus5XX', '.', '.', { id: 'gor5xx', visible: false, region }],
                 [{ expression: '(gnr5xx/gnr) * 100', label: 'GetNonce5XXErrorRate', id: 'r51', region, stat: 'Sum' }],
                 [{ expression: '(gnr4xx/gnr) * 100', label: 'GetNonce4XXErrorRate', id: 'r61', region, stat: 'Sum' }],
-                ['Uniswap', 'GetNonceRequest', 'Service', `${SERVICE_NAME}`, { id: 'gnr', visible: false, region }],
+                ['Uniswap', 'GetNonceRequest', 'Service', 'UniswapXService', { id: 'gnr', visible: false, region }],
                 ['.', 'GetNonceStatus4XX', '.', '.', { id: 'gnr4xx', visible: false, region }],
                 ['.', 'GetNonceStatus5XX', '.', '.', { id: 'gnr5xx', visible: false, region }],
               ],
@@ -143,7 +143,7 @@ export class DashboardStack extends cdk.NestedStack {
               view: 'timeSeries',
               stacked: false,
               metrics: [
-                ['Uniswap', 'GetOrdersRequest', 'Service', `${SERVICE_NAME}`],
+                ['Uniswap', 'GetOrdersRequest', 'Service', 'UniswapXService'],
                 ['.', 'GetOrdersStatus5XX', '.', '.'],
                 ['.', 'GetOrdersStatus4XX', '.', '.'],
                 ['.', 'PostOrderRequest', '.', '.'],
@@ -193,7 +193,7 @@ export class DashboardStack extends cdk.NestedStack {
             type: 'metric',
             properties: {
               metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
-                ['Uniswap', `PostOrderChainId${chainId}Status2XX`, 'Service', `${SERVICE_NAME}`],
+                ['Uniswap', `PostOrderChainId${chainId}Status2XX`, 'Service', 'UniswapXService'],
               ]),
               view: 'timeSeries',
               stacked: false,
@@ -210,23 +210,32 @@ export class DashboardStack extends cdk.NestedStack {
             x: 16,
             type: 'metric',
             properties: {
-              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
-                [{ expression: '(m1/m2)*100', label: `Chain${chainId} Error Rate`, id: 'e1' }],
-                [
-                  'Uniswap',
-                  `PostOrderChainId${chainId}Status5XX`,
-                  'Service',
-                  `${SERVICE_NAME}`,
-                  { region, label: `ChainId${chainId}Status5XX`, id: 'm1', visible: false },
-                ],
-                [
-                  '.',
-                  `PostOrderRequestChainId${chainId}`,
-                  '.',
-                  '.',
-                  { id: 'm2', label: `RequestChainId${chainId}`, visible: false },
-                ],
-              ]),
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => {
+                const prefix = `c${chainId}`
+                return [
+                  [
+                    {
+                      expression: `(${prefix}m1/${prefix}m2)*100`,
+                      label: `Chain${chainId} Error Rate`,
+                      id: `${prefix}e1`,
+                    },
+                  ],
+                  [
+                    'Uniswap',
+                    `PostOrderChainId${chainId}Status5XX`,
+                    'Service',
+                    'UniswapXService',
+                    { region, label: `ChainId${chainId}Status5XX`, id: `${prefix}m1`, visible: false },
+                  ],
+                  [
+                    '.',
+                    `PostOrderRequestChainId${chainId}`,
+                    '.',
+                    '.',
+                    { id: `${prefix}m2`, label: `RequestChainId${chainId}`, visible: false },
+                  ],
+                ]
+              }),
               view: 'timeSeries',
               stacked: false,
               region,
@@ -280,19 +289,29 @@ export class DashboardStack extends cdk.NestedStack {
             x: 8,
             type: 'metric',
             properties: {
-              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
-                [{ expression: '(m2+m3+m4)/(m1)*100', label: `Error Rate Chain ${chainId}`, id: 'e1', stat: 'Sum' }],
-                [
-                  'AWS/States',
-                  'ExecutionsStarted',
-                  'StateMachineArn',
-                  chainIdToStatusTrackingStateMachineArn[chainId],
-                  { region, id: 'm1', visible: false },
-                ],
-                ['.', 'ExecutionsFailed', '.', '.', { region, id: 'm2', visible: false }],
-                ['.', 'ExecutionsTimedOut', '.', '.', { region, id: 'm3', visible: false }],
-                ['.', 'ExecutionsAborted', '.', '.', { region, id: 'm4', visible: false }],
-              ]),
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => {
+                const prefix = `c${chainId}`
+                return [
+                  [
+                    {
+                      expression: `(${prefix}m2+${prefix}m3+${prefix}m4)/(${prefix}m1)*100`,
+                      label: `Error Rate Chain ${chainId}`,
+                      id: `${prefix}e1`,
+                      stat: 'Sum',
+                    },
+                  ],
+                  [
+                    'AWS/States',
+                    'ExecutionsStarted',
+                    'StateMachineArn',
+                    chainIdToStatusTrackingStateMachineArn[chainId],
+                    { region, id: `${prefix}m1`, visible: false },
+                  ],
+                  ['.', 'ExecutionsFailed', '.', '.', { region, id: `${prefix}m2`, visible: false }],
+                  ['.', 'ExecutionsTimedOut', '.', '.', { region, id: `${prefix}m3`, visible: false }],
+                  ['.', 'ExecutionsAborted', '.', '.', { region, id: `${prefix}m4`, visible: false }],
+                ]
+              }),
               view: 'timeSeries',
               stacked: false,
               region,
