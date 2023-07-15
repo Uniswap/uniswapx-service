@@ -244,18 +244,21 @@ export class DynamoStack extends cdk.NestedStack {
 
   private alarmsPerTable(table: aws_dynamo.Table, name: string, chatbotSNSArn?: string): void {
     const readCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`,
       metric: table.metricConsumedReadCapacityUnits(),
       threshold: 80,
       evaluationPeriods: 2,
     })
 
     const writeCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-WriteCapacityAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV3-${name}-WriteCapacityAlarm`,
       metric: table.metricConsumedWriteCapacityUnits(),
       threshold: 80,
       evaluationPeriods: 2,
     })
 
     const readThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadThrottlesAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV3-${name}-ReadThrottlesAlarm`,
       metric: table.metricThrottledRequestsForOperations({
         operations: [
           Operation.GET_ITEM,
@@ -273,6 +276,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     const writeThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-WriteThrottlesAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV3-${name}-WriteThrottlesAlarm`,
       metric: table.metricThrottledRequestsForOperations({
         operations: [
           Operation.GET_ITEM,
@@ -290,6 +294,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     const systemErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-SystemErrorsAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV3-${name}-SystemErrorsAlarm`,
       metric: table.metricSystemErrorsForOperations({
         operations: [
           Operation.GET_ITEM,
@@ -307,6 +312,7 @@ export class DynamoStack extends cdk.NestedStack {
     })
 
     const userErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-UserErrorsAlarm`, {
+      alarmName: `${SERVICE_NAME}-SEV3-${name}-UserErrorsAlarm`,
       metric: table.metricUserErrors(),
       threshold: 10,
       evaluationPeriods: 2,
