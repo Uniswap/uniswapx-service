@@ -46,7 +46,6 @@ export class StepFunctionStack extends cdk.NestedStack {
         minify: true,
         sourceMap: true,
       },
-      retryAttempts: 2,
       timeout: Duration.seconds(60),
       environment: {
         VERSION: '2',

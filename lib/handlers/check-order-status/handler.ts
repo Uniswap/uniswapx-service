@@ -113,6 +113,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
           metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
 
+          // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
+          const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId))
+          metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
+
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -225,6 +229,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
 
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
           metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
+
+          // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
+          const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId))
+          metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
 
           return this.updateStatusAndReturn(
             {

@@ -210,23 +210,32 @@ export class DashboardStack extends cdk.NestedStack {
             x: 16,
             type: 'metric',
             properties: {
-              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
-                [{ expression: '(m1/m2)*100', label: `Chain${chainId} Error Rate`, id: 'e1' }],
-                [
-                  'Uniswap',
-                  `PostOrderChainId${chainId}Status5XX`,
-                  'Service',
-                  'UniswapXService',
-                  { region, label: `ChainId${chainId}Status5XX`, id: 'm1', visible: false },
-                ],
-                [
-                  '.',
-                  `PostOrderRequestChainId${chainId}`,
-                  '.',
-                  '.',
-                  { id: 'm2', label: `RequestChainId${chainId}`, visible: false },
-                ],
-              ]),
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => {
+                const prefix = `c${chainId}`
+                return [
+                  [
+                    {
+                      expression: `(${prefix}m1/${prefix}m2)*100`,
+                      label: `Chain${chainId} Error Rate`,
+                      id: `${prefix}e1`,
+                    },
+                  ],
+                  [
+                    'Uniswap',
+                    `PostOrderChainId${chainId}Status5XX`,
+                    'Service',
+                    'UniswapXService',
+                    { region, label: `ChainId${chainId}Status5XX`, id: `${prefix}m1`, visible: false },
+                  ],
+                  [
+                    '.',
+                    `PostOrderRequestChainId${chainId}`,
+                    '.',
+                    '.',
+                    { id: `${prefix}m2`, label: `RequestChainId${chainId}`, visible: false },
+                  ],
+                ]
+              }),
               view: 'timeSeries',
               stacked: false,
               region,
@@ -280,56 +289,35 @@ export class DashboardStack extends cdk.NestedStack {
             x: 8,
             type: 'metric',
             properties: {
-              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
-                [{ expression: '(m2+m3+m4)/(m1)*100', label: `Error Rate Chain ${chainId}`, id: 'e1', stat: 'Sum' }],
-                [
-                  'AWS/States',
-                  'ExecutionsStarted',
-                  'StateMachineArn',
-                  chainIdToStatusTrackingStateMachineArn[chainId],
-                  { region, id: 'm1', visible: false },
-                ],
-                ['.', 'ExecutionsFailed', '.', '.', { region, id: 'm2', visible: false }],
-                ['.', 'ExecutionsTimedOut', '.', '.', { region, id: 'm3', visible: false }],
-                ['.', 'ExecutionsAborted', '.', '.', { region, id: 'm4', visible: false }],
-              ]),
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => {
+                const prefix = `c${chainId}`
+                return [
+                  [
+                    {
+                      expression: `(${prefix}m2+${prefix}m3+${prefix}m4)/(${prefix}m1)*100`,
+                      label: `Error Rate Chain ${chainId}`,
+                      id: `${prefix}e1`,
+                      stat: 'Sum',
+                    },
+                  ],
+                  [
+                    'AWS/States',
+                    'ExecutionsStarted',
+                    'StateMachineArn',
+                    chainIdToStatusTrackingStateMachineArn[chainId],
+                    { region, id: `${prefix}m1`, visible: false },
+                  ],
+                  ['.', 'ExecutionsFailed', '.', '.', { region, id: `${prefix}m2`, visible: false }],
+                  ['.', 'ExecutionsTimedOut', '.', '.', { region, id: `${prefix}m3`, visible: false }],
+                  ['.', 'ExecutionsAborted', '.', '.', { region, id: `${prefix}m4`, visible: false }],
+                ]
+              }),
               view: 'timeSeries',
               stacked: false,
               region,
               title: 'Order Status Sfn Error Rates by Chain',
               period: 300,
               stat: 'Sum',
-            },
-          },
-          {
-            height: 6,
-            width: 8,
-            y: 26,
-            x: 16,
-            type: 'metric',
-            properties: {
-              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
-                ['Uniswap', `OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, 'Service', `UniswapXService`],
-                [
-                  'Uniswap',
-                  `OrderSfn-PercentDecayedUntilFill-chain-${chainId}`,
-                  'Service',
-                  `UniswapXService`,
-                  { stat: 'p99' },
-                ],
-                [
-                  'Uniswap',
-                  `OrderSfn-PercentDecayedUntilFill-chain-${chainId}`,
-                  'Service',
-                  `UniswapXService`,
-                  { stat: 'p50' },
-                ],
-              ]),
-              view: 'timeSeries',
-              region,
-              title: 'Order Percent Decay Until Fill by Chain',
-              period: 300,
-              stat: 'p90',
             },
           },
           {
@@ -359,6 +347,44 @@ export class DashboardStack extends cdk.NestedStack {
               title: 'Order Status Sfn Terminal States by Chain',
               period: 300,
               stat: 'Sum',
+            },
+          },
+          {
+            height: 6,
+            width: 12,
+            y: 32,
+            x: 0,
+            type: 'metric',
+            properties: {
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
+                ['Uniswap', `OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, 'Service', `UniswapXService`],
+                ['.', '.', '.', `.`, { stat: 'p99' }],
+                ['.', '.', '.', `.`, { stat: 'p50' }],
+              ]),
+              view: 'timeSeries',
+              region,
+              title: 'Order Percent Decay Until Fill by Chain',
+              period: 300,
+              stat: 'p90',
+            },
+          },
+          {
+            height: 6,
+            width: 12,
+            y: 32,
+            x: 12,
+            type: 'metric',
+            properties: {
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
+                ['Uniswap', `OrderSfn-BlocksUntilFill-chain-${chainId}`, 'Service', `UniswapXService`],
+                ['.', '.', '.', `.`, { stat: 'p99' }],
+                ['.', '.', '.', `.`, { stat: 'p50' }],
+              ]),
+              view: 'timeSeries',
+              region,
+              title: 'Blocks Until Fill by Chain',
+              period: 300,
+              stat: 'p90',
             },
           },
           {
