@@ -1,4 +1,5 @@
 import { DutchOrder, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { Unit } from 'aws-embedded-metrics'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
 import Joi from 'joi'
@@ -109,6 +110,13 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             amountOut: output.amount.toString(),
           }))
 
+          const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
+          metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
+
+          // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
+          const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId))
+          metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
+
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -218,6 +226,13 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             tokenOut: output.token,
             amountOut: output.amount.toString(),
           }))
+
+          const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
+          metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
+
+          // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
+          const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId))
+          metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
 
           return this.updateStatusAndReturn(
             {
