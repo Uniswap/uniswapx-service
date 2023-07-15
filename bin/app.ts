@@ -169,7 +169,7 @@ export class APIPipeline extends Stack {
       },
       tableCapacityOptions: {
         billingMode: cdk.aws_dynamodb.BillingMode.PROVISIONED,
-        readCapacity: 5000,
+        readCapacity: 2000,
         writeCapacity: 1000,
       },
     })
