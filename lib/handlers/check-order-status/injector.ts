@@ -1,9 +1,11 @@
 import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import { MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { setGlobalMetrics } from '../../util/metrics'
 import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
 
 export interface RequestInjected extends BaseRInj {
@@ -30,7 +32,15 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     }
   }
 
-  public async getRequestInjected(event: SfnStateInputOutput, log: Logger): Promise<RequestInjected> {
+  public async getRequestInjected(
+    event: SfnStateInputOutput,
+    log: Logger,
+    metrics: MetricsLogger
+  ): Promise<RequestInjected> {
+    metrics.setNamespace('Uniswap')
+    metrics.setDimensions({ Service: 'UniswapXService' })
+    setGlobalMetrics(metrics)
+
     log = log.child({
       serializers: bunyan.stdSerializers,
     })

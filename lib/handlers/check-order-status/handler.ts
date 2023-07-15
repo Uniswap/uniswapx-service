@@ -1,4 +1,5 @@
 import { DutchOrder, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { Unit } from 'aws-embedded-metrics'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
 import Joi from 'joi'
@@ -109,6 +110,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             amountOut: output.amount.toString(),
           }))
 
+          const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
+          metrics.putMetric(`OrderSfn-PercentDecayedUntilFill`, percentDecayed, Unit.Percent)
+
           return this.updateStatusAndReturn(
             {
               dbInterface,
@@ -218,6 +222,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             tokenOut: output.token,
             amountOut: output.amount.toString(),
           }))
+
+          const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
+          metrics.putMetric(`OrderSfn-PercentDecayedUntilFill`, percentDecayed, Unit.Percent)
 
           return this.updateStatusAndReturn(
             {
