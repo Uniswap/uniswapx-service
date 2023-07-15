@@ -159,6 +159,8 @@ export class DynamoStack extends cdk.NestedStack {
         type: aws_dynamo.AttributeType.NUMBER,
       },
       projectionType: aws_dynamo.ProjectionType.ALL,
+      ...(tableCapacityOptions.readCapacity && { readCapacity: tableCapacityOptions.readCapacity }),
+      ...(tableCapacityOptions.writeCapacity && { writeCapacity: tableCapacityOptions.writeCapacity }),
     })
 
     this.ordersTable.addGlobalSecondaryIndex({
