@@ -154,6 +154,7 @@ export class DashboardStack extends cdk.NestedStack {
                 ['.', 'GetNonceStatus4XX', '.', '.'],
               ],
               region,
+              stat: 'Sum',
               title: 'Requests/Responses by Endpoint',
             },
           },
