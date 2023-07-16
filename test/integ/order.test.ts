@@ -32,6 +32,7 @@ if (!process.argv.includes('--runInBand')) {
 /// @dev these integration tests require two wallets with enough ETH and erc20 balance to fill orders
 /// if tests are failing in the beforeAll hook, it's likely because their balances have fallen
 /// below the minimum balances below
+/// Addresses on goerli:
 ///   alice address: 0xE001E6F6879c07b9Ac24291A490F2795106D348C
 ///   filler address: 0x8943EA25bBfe135450315ab8678f2F79559F4630 (also needs to have at least 0.1 ETH)
 // constants
