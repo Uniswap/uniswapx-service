@@ -129,7 +129,7 @@ export class APIStack extends cdk.Stack {
           priority: 1,
           statement: {
             rateBasedStatement: {
-              limit: throttlingOverride ? parseInt(throttlingOverride) : 100,
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 300,
               aggregateKeyType: 'FORWARDED_IP',
               scopeDownStatement: {
                 regexMatchStatement: {
@@ -170,7 +170,7 @@ export class APIStack extends cdk.Stack {
           priority: 2,
           statement: {
             rateBasedStatement: {
-              limit: throttlingOverride ? parseInt(throttlingOverride) : 600,
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 900,
               aggregateKeyType: 'FORWARDED_IP',
               scopeDownStatement: {
                 byteMatchStatement: {
@@ -212,7 +212,7 @@ export class APIStack extends cdk.Stack {
           priority: 3,
           statement: {
             rateBasedStatement: {
-              limit: throttlingOverride ? parseInt(throttlingOverride) : 150,
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 450,
               aggregateKeyType: 'FORWARDED_IP',
               scopeDownStatement: {
                 byteMatchStatement: {
@@ -256,6 +256,21 @@ export class APIStack extends cdk.Stack {
             rateBasedStatement: {
               limit: throttlingOverride ? parseInt(throttlingOverride) : 100,
               aggregateKeyType: 'FORWARDED_IP',
+              scopeDownStatement: {
+                byteMatchStatement: {
+                  searchString: 'docs',
+                  fieldToMatch: {
+                    uriPath: {},
+                  },
+                  textTransformations: [
+                    {
+                      priority: 0,
+                      type: 'NONE',
+                    },
+                  ],
+                  positionalConstraint: 'CONTAINS',
+                },
+              },
               forwardedIpConfig: {
                 headerName: 'X-Forwarded-For',
                 fallbackBehavior: 'MATCH',
