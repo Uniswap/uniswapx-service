@@ -11,14 +11,15 @@ import * as path from 'path'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
-import { DynamoStack, TableCapacityOptions } from './dynamo-stack'
+import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { StepFunctionStack } from './step-function-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
   stage: STAGE
   envVars: { [key: string]: string }
-  tableCapacityOptions: TableCapacityOptions
+  tableCapacityConfig: TableCapacityConfig
+  indexCapacityConfig?: IndexCapacityConfig
 }
 export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
@@ -39,7 +40,7 @@ export class LambdaStack extends cdk.NestedStack {
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
-    const { provisionedConcurrency, tableCapacityOptions } = props
+    const { provisionedConcurrency, tableCapacityConfig, indexCapacityConfig } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
 
@@ -52,7 +53,10 @@ export class LambdaStack extends cdk.NestedStack {
       ],
     })
 
-    const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, { tableCapacityOptions })
+    const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {
+      tableCapacityConfig,
+      indexCapacityConfig,
+    })
 
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
       stage: props.stage as STAGE,
