@@ -29,9 +29,15 @@ if (!process.argv.includes('--runInBand')) {
   throw new Error('Integration tests must be run with --runInBand flag')
 }
 
+/// @dev these integration tests require two wallets with enough ETH and erc20 balance to fill orders
+/// if tests are failing in the beforeAll hook, it's likely because their balances have fallen
+/// below the minimum balances below
+/// Addresses on goerli:
+///   alice address: 0xE001E6F6879c07b9Ac24291A490F2795106D348C
+///   filler address: 0x8943EA25bBfe135450315ab8678f2F79559F4630 (also needs to have at least 0.1 ETH)
 // constants
-const MIN_WETH_BALANCE = ethers.utils.parseEther('0.1')
-const MIN_UNI_BALANCE = ethers.utils.parseEther('0.1')
+const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
+const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
 const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff')
 
 describe('/dutch-auction/order', () => {
@@ -75,8 +81,8 @@ describe('/dutch-auction/order', () => {
     uni = new Contract(UNI_GOERLI, abi, provider)
     const permit2Contract = new Contract(PERMIT2, permit2Abi, provider)
 
-    // make sure filler wallet has enough ETH
-    const fillerMinBalance = ethers.utils.parseEther('1')
+    // make sure filler wallet has enough ETH for gas
+    const fillerMinBalance = ethers.utils.parseEther('0.1')
     expect((await provider.getBalance(filler.address)).gte(fillerMinBalance)).toBe(true)
     // make sure both wallets have enough erc20 balance
     expect(((await uni.balanceOf(alice.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
