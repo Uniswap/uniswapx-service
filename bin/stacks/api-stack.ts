@@ -96,40 +96,58 @@ export class APIStack extends cdk.Stack {
       name: `${SERVICE_NAME}IPThrottling`,
       rules: [
         {
-          name: 'ip',
+          name: 'allow-api-key',
           priority: 0,
           statement: {
+            byteMatchStatement: {
+              searchString: internalApiKey,
+              fieldToMatch: {
+                singleHeader: {
+                  name: 'x-api-key',
+                },
+              },
+              textTransformations: [
+                {
+                  priority: 0,
+                  type: 'NONE',
+                },
+              ],
+              positionalConstraint: 'EXACTLY',
+            },
+          },
+          action: {
+            allow: {},
+          },
+          visibilityConfig: {
+            sampledRequestsEnabled: true,
+            cloudWatchMetricsEnabled: true,
+            metricName: 'allow-api-key',
+          },
+        },
+        {
+          name: 'ip-post-order',
+          priority: 1,
+          statement: {
             rateBasedStatement: {
-              // Limit is per 5 mins, i.e. 1200 requests every 5 mins
-              limit: throttlingOverride ? parseInt(throttlingOverride) : 1200,
-              // API is of type EDGE so is fronted by Cloudfront as a proxy.
-              // Use the ip set in X-Forwarded-For by Cloudfront, not the regular IP
-              // which would just resolve to Cloudfronts IP.
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 100,
               aggregateKeyType: 'FORWARDED_IP',
+              scopeDownStatement: {
+                regexMatchStatement: {
+                  regexString: 'order[^s]|order$',
+                  fieldToMatch: {
+                    uriPath: {},
+                  },
+                  textTransformations: [
+                    {
+                      priority: 0,
+                      type: 'NONE',
+                    },
+                  ],
+                },
+              },
               forwardedIpConfig: {
                 headerName: 'X-Forwarded-For',
                 fallbackBehavior: 'MATCH',
-              },
-              scopeDownStatement: {
-                notStatement: {
-                  statement: {
-                    byteMatchStatement: {
-                      fieldToMatch: {
-                        singleHeader: {
-                          name: 'x-api-key',
-                        },
-                      },
-                      positionalConstraint: 'EXACTLY',
-                      searchString: internalApiKey,
-                      textTransformations: [
-                        {
-                          type: 'NONE',
-                          priority: 0,
-                        },
-                      ],
-                    },
-                  },
-                },
               },
             },
           },
@@ -137,14 +155,125 @@ export class APIStack extends cdk.Stack {
             block: {
               customResponse: {
                 responseCode: 429,
-                customResponseBodyKey: `${SERVICE_NAME}ThrottledResponseBody`,
+                customResponseBodyKey: 'GoudaServiceThrottledResponseBody',
               },
             },
           },
           visibilityConfig: {
             sampledRequestsEnabled: true,
             cloudWatchMetricsEnabled: true,
-            metricName: `${SERVICE_NAME}IPBasedThrottlingRule`,
+            metricName: 'ip-post-order',
+          },
+        },
+        {
+          name: 'ip-get-orders',
+          priority: 2,
+          statement: {
+            rateBasedStatement: {
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 600,
+              aggregateKeyType: 'FORWARDED_IP',
+              scopeDownStatement: {
+                byteMatchStatement: {
+                  searchString: 'orders',
+                  fieldToMatch: {
+                    uriPath: {},
+                  },
+                  textTransformations: [
+                    {
+                      priority: 0,
+                      type: 'NONE',
+                    },
+                  ],
+                  positionalConstraint: 'CONTAINS',
+                },
+              },
+              forwardedIpConfig: {
+                headerName: 'X-Forwarded-For',
+                fallbackBehavior: 'MATCH',
+              },
+            },
+          },
+          action: {
+            block: {
+              customResponse: {
+                responseCode: 429,
+                customResponseBodyKey: 'GoudaServiceThrottledResponseBody',
+              },
+            },
+          },
+          visibilityConfig: {
+            sampledRequestsEnabled: true,
+            cloudWatchMetricsEnabled: true,
+            metricName: 'ip-get-orders',
+          },
+        },
+        {
+          name: 'ip-nonce',
+          priority: 3,
+          statement: {
+            rateBasedStatement: {
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 150,
+              aggregateKeyType: 'FORWARDED_IP',
+              scopeDownStatement: {
+                byteMatchStatement: {
+                  searchString: 'nonce',
+                  fieldToMatch: {
+                    uriPath: {},
+                  },
+                  textTransformations: [
+                    {
+                      priority: 0,
+                      type: 'NONE',
+                    },
+                  ],
+                  positionalConstraint: 'CONTAINS',
+                },
+              },
+              forwardedIpConfig: {
+                headerName: 'X-Forwarded-For',
+                fallbackBehavior: 'MATCH',
+              },
+            },
+          },
+          action: {
+            block: {
+              customResponse: {
+                responseCode: 429,
+                customResponseBodyKey: 'GoudaServiceThrottledResponseBody',
+              },
+            },
+          },
+          visibilityConfig: {
+            sampledRequestsEnabled: true,
+            cloudWatchMetricsEnabled: true,
+            metricName: 'ip-nonce',
+          },
+        },
+        {
+          name: 'ip-docs',
+          priority: 4,
+          statement: {
+            rateBasedStatement: {
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 100,
+              aggregateKeyType: 'FORWARDED_IP',
+              forwardedIpConfig: {
+                headerName: 'X-Forwarded-For',
+                fallbackBehavior: 'MATCH',
+              },
+            },
+          },
+          action: {
+            block: {
+              customResponse: {
+                responseCode: 429,
+                customResponseBodyKey: 'GoudaServiceThrottledResponseBody',
+              },
+            },
+          },
+          visibilityConfig: {
+            sampledRequestsEnabled: true,
+            cloudWatchMetricsEnabled: true,
+            metricName: 'ip-docs',
           },
         },
       ],
