@@ -11,9 +11,10 @@ import dotenv from 'dotenv'
 import 'source-map-support/register'
 import { SUPPORTED_CHAINS } from '../lib/util/chain'
 import { STAGE } from '../lib/util/stage'
+import { PROD_INDEX_CAPACITY, PROD_TABLE_CAPACITY } from './config'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
-import { TableCapacityOptions } from './stacks/dynamo-stack'
+import { IndexCapacityConfig, TableCapacityConfig } from './stacks/dynamo-stack'
 
 dotenv.config()
 
@@ -29,11 +30,21 @@ export class APIStage extends Stage {
       internalApiKey?: string
       stage: string
       envVars: { [key: string]: string }
-      tableCapacityOptions: TableCapacityOptions
+      tableCapacityConfig: TableCapacityConfig
+      indexCapacityConfig?: IndexCapacityConfig
     }
   ) {
     super(scope, id, props)
-    const { provisionedConcurrency, chatbotSNSArn, internalApiKey, stage, env, envVars, tableCapacityOptions } = props
+    const {
+      provisionedConcurrency,
+      chatbotSNSArn,
+      internalApiKey,
+      stage,
+      env,
+      envVars,
+      tableCapacityConfig,
+      indexCapacityConfig,
+    } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
       throttlingOverride: envVars.THROTTLE_PER_FIVE_MINS,
@@ -43,7 +54,8 @@ export class APIStage extends Stage {
       chatbotSNSArn,
       stage,
       envVars,
-      tableCapacityOptions,
+      tableCapacityConfig,
+      indexCapacityConfig,
     })
     this.url = url
   }
@@ -145,8 +157,9 @@ export class APIPipeline extends Stack {
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
       },
-      tableCapacityOptions: {
-        billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+      tableCapacityConfig: {
+        order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
+        nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
       },
     })
 
@@ -167,11 +180,8 @@ export class APIPipeline extends Stack {
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
       },
-      tableCapacityOptions: {
-        billingMode: cdk.aws_dynamodb.BillingMode.PROVISIONED,
-        readCapacity: 2000,
-        writeCapacity: 1000,
-      },
+      tableCapacityConfig: PROD_TABLE_CAPACITY,
+      indexCapacityConfig: PROD_INDEX_CAPACITY,
     })
 
     const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
@@ -284,8 +294,9 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   chatbotSNSArn: process.env.CHATBOT_SNS_ARN,
   stage: STAGE.LOCAL,
   envVars: envVars,
-  tableCapacityOptions: {
-    billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+  tableCapacityConfig: {
+    order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
+    nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   },
 })
 
