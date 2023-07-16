@@ -16,6 +16,6 @@ export const PROD_INDEX_CAPACITY: IndexCapacityConfig = {
 }
 
 export const PROD_TABLE_CAPACITY: TableCapacityConfig = {
-  order: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 1000 },
+  order: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 100 },
   nonce: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 1000 },
 }
