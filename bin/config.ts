@@ -12,7 +12,7 @@ export const PROD_INDEX_CAPACITY: IndexCapacityConfig = {
   chainId: { readCapacity: 20000, writeCapacity: 1000 },
   chainIdFiller: { readCapacity: 2000, writeCapacity: 1000 },
   chaindIdOrderStatus: { readCapacity: 2000, writeCapacity: 1000 },
-  chainIdFillerOrderStatus: { readCapacity: 2000, writeCapacity: 1000 },
+  chainIdFillerOrderStatus: { readCapacity: 2000, writeCapacity: 100 },
 }
 
 export const PROD_TABLE_CAPACITY: TableCapacityConfig = {
