@@ -7,7 +7,7 @@ export const PROD_INDEX_CAPACITY: IndexCapacityConfig = {
   filler: { readCapacity: 2000, writeCapacity: 1000 },
   fillerOrderStatus: { readCapacity: 2000, writeCapacity: 1000 },
   fillerOfferer: { readCapacity: 2000, writeCapacity: 1000 },
-  fillerOrderStatusOfferer: { readCapacity: 2000, writeCapacity: 1000 },
+  fillerOrderStatusOfferer: { readCapacity: 2000, writeCapacity: 100 },
   offererOrderStatus: { readCapacity: 2000, writeCapacity: 1000 },
   chainId: { readCapacity: 2000, writeCapacity: 1000 },
   chainIdFiller: { readCapacity: 2000, writeCapacity: 1000 },
