@@ -12,7 +12,7 @@ import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
-export const MAX_ORDERS = 500
+export const MAX_ORDERS = 50
 
 export class DynamoOrdersRepository implements BaseOrdersRepository {
   static log: Logger
