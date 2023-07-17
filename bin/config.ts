@@ -3,16 +3,16 @@ import { IndexCapacityConfig, TableCapacityConfig } from './stacks/dynamo-stack'
 
 export const PROD_INDEX_CAPACITY: IndexCapacityConfig = {
   orderStatus: { readCapacity: 20000, writeCapacity: 100 },
-  offerer: { readCapacity: 2000, writeCapacity: 1000 },
-  filler: { readCapacity: 2000, writeCapacity: 1000 },
-  fillerOrderStatus: { readCapacity: 2000, writeCapacity: 1000 },
-  fillerOfferer: { readCapacity: 2000, writeCapacity: 1000 },
-  fillerOrderStatusOfferer: { readCapacity: 2000, writeCapacity: 1000 },
-  offererOrderStatus: { readCapacity: 2000, writeCapacity: 1000 },
-  chainId: { readCapacity: 2000, writeCapacity: 1000 },
+  fillerOrderStatus: { readCapacity: 2000, writeCapacity: 100 },
+  filler: { readCapacity: 2000, writeCapacity: 100 },
+  offerer: { readCapacity: 2000, writeCapacity: 100 },
+  fillerOfferer: { readCapacity: 2000, writeCapacity: 100 },
+  fillerOrderStatusOfferer: { readCapacity: 2000, writeCapacity: 100 },
+  offererOrderStatus: { readCapacity: 2000, writeCapacity: 100 },
+  chainId: { readCapacity: 20000, writeCapacity: 100 },
   chainIdFiller: { readCapacity: 2000, writeCapacity: 100 },
-  chaindIdOrderStatus: { readCapacity: 2000, writeCapacity: 1000 },
-  chainIdFillerOrderStatus: { readCapacity: 2000, writeCapacity: 1000 },
+  chaindIdOrderStatus: { readCapacity: 2000, writeCapacity: 100 },
+  chainIdFillerOrderStatus: { readCapacity: 2000, writeCapacity: 100 },
 }
 
 export const PROD_TABLE_CAPACITY: TableCapacityConfig = {
