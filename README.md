@@ -1,5 +1,9 @@
 # UniswapX Service
 
+[![Unit Tests](https://github.com/Uniswap/uniswapx-service/actions/workflows/CI.yml/badge.svg)](https://github.com/Uniswap/uniswapx-service/actions/workflows/CI.yml)
+
+UniswapX Service is an API to propagate signed, executable UniswapX orders. Swappers can post their signed orders which can be fetched by fillers for execution.
+
 ## Getting Started
 
 1. Install and build the package
