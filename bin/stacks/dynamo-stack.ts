@@ -61,6 +61,7 @@ export class DynamoStack extends cdk.NestedStack {
       stream: aws_dynamo.StreamViewType.NEW_IMAGE,
       deletionProtection: true,
       pointInTimeRecovery: true,
+      contributorInsightsEnabled: true,
       ...tableCapacityConfig.order,
     })
     this.ordersTable = ordersTable
@@ -234,6 +235,7 @@ export class DynamoStack extends cdk.NestedStack {
       },
       deletionProtection: true,
       pointInTimeRecovery: true,
+      contributorInsightsEnabled: true,
       ...tableCapacityConfig.nonce,
     })
     this.nonceTable = nonceTable
