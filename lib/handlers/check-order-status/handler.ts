@@ -227,7 +227,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             amountOut: output.amount.toString(),
           }))
 
-          const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
+          const percentDecayed =
+            order.decayEndTime === order.decayStartTime
+              ? 0
+              : (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
           metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
 
           // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
