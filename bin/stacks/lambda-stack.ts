@@ -97,6 +97,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
+        stage: props.stage as STAGE,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },

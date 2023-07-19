@@ -1,5 +1,6 @@
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { checkDefined } from '../../preconditions/preconditions'
 import { WebhookProvider } from '../../providers/base'
 import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
 import { PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
@@ -17,7 +18,7 @@ export interface ContainerInjected {
 
 export class OrderNotificationInjector extends DynamoStreamInjector<ContainerInjected, RequestInjected> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    const stage = process.env['stage']
+    const stage = checkDefined(process.env['stage'])
     const webhookProvider = new S3WebhookConfigurationProvider(
       `${WEBHOOK_CONFIG_BUCKET}-${stage}`,
       PRODUCTION_WEBHOOK_CONFIG_KEY
