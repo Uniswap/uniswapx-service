@@ -1,3 +1,4 @@
+import { MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -5,6 +6,7 @@ import { WebhookProvider } from '../../providers/base'
 import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
 import { PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
 import { setGlobalLogger } from '../../util/log'
+import { setGlobalMetrics } from '../../util/metrics'
 import { DynamoStreamInjector } from '../base/dynamo-stream-handler'
 import { BaseRInj } from '../base/index'
 
@@ -29,13 +31,16 @@ export class OrderNotificationInjector extends DynamoStreamInjector<ContainerInj
   public async getRequestInjected(
     containerInjected: ContainerInjected,
     event: DynamoDBStreamEvent,
-    log: Logger
+    log: Logger,
+    metrics: MetricsLogger
   ): Promise<RequestInjected> {
     log = log.child({
       serializers: bunyan.stdSerializers,
       containerInjected: containerInjected,
     })
-
+    metrics.setNamespace('Uniswap')
+    metrics.setDimensions({ Service: 'UniswapXService' })
+    setGlobalMetrics(metrics)
     setGlobalLogger(log)
 
     return {
