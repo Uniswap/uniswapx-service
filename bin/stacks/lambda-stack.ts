@@ -80,6 +80,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
+        stage: props.stage as STAGE,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -155,6 +156,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
+        stage: props.stage as STAGE,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -171,6 +173,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
+        stage: props.stage as STAGE,
         ...props.envVars,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
@@ -188,6 +191,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
+        stage: props.stage as STAGE,
         ...props.envVars,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
