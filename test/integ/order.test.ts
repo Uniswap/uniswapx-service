@@ -189,6 +189,7 @@ describe('/dutch-auction/order', () => {
       .decayEndTime(deadline)
       .decayStartTime(decayStartTime)
       .swapper(swapper)
+      .exclusiveFiller(filler.address, BigNumber.from(100))
       .nonce(nonce)
       .input({
         token: inputToken,
