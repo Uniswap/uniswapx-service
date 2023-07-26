@@ -11,9 +11,7 @@ import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/handle
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from '../abis/erc20.json'
-import * as PERMIT2_ABI from '../abis/permit2.json'
 const { abi } = ERC20_ABI
-const { abi: permit2Abi } = PERMIT2_ABI
 
 dotenv.config()
 
@@ -38,7 +36,6 @@ if (!process.argv.includes('--runInBand')) {
 // constants
 const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
 const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
-const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff')
 
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 24
@@ -79,7 +76,6 @@ describe('/dutch-auction/order', () => {
 
     weth = new Contract(WETH_GOERLI, abi, provider)
     uni = new Contract(UNI_GOERLI, abi, provider)
-    const permit2Contract = new Contract(PERMIT2, permit2Abi, provider)
 
     // make sure filler wallet has enough ETH for gas
     const fillerMinBalance = ethers.utils.parseEther('0.1')
