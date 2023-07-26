@@ -103,14 +103,27 @@ describe('/dutch-auction/order', () => {
           const receipt = await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
           await receipt.wait()
         }
+
+        const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'];
+        // check approvals on reactor
+        const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
+        const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
+        if (wethReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+          const receipt = await weth.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
+          await receipt.wait()
+        }
+        if (uniReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+          const receipt = await uni.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
+          await receipt.wait()
+        }
         // check approvals on reactor
         const reactorWethAllowance = await permit2Contract
           .connect(wallet)
-          .allowance(wallet.address, weth.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'])
+          .allowance(wallet.address, weth.address, reactorAddress)
         if (!(reactorWethAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
           const receipt = await permit2Contract.connect(wallet).approve(
             weth.address,
-            REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
+            reactorAddress,
             MAX_UINT_160,
             281474976710655 // max deadline too
           )
@@ -118,11 +131,11 @@ describe('/dutch-auction/order', () => {
         }
         const reactorUniAllowance = await permit2Contract
           .connect(wallet)
-          .allowance(wallet.address, uni.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'])
+          .allowance(wallet.address, uni.address, reactorAddress)
         if (!(reactorUniAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
           const receipt = await permit2Contract
             .connect(wallet)
-            .approve(uni.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'], MAX_UINT_160, 281474976710655)
+            .approve(uni.address, reactorAddress, MAX_UINT_160, 281474976710655)
           await receipt.wait()
         }
       }
@@ -282,8 +295,6 @@ describe('/dutch-auction/order', () => {
           sig: order.signature,
         }
       }),
-      execution.fillContract,
-      execution.fillData,
       {
         gasLimit: BigNumber.from(700_000),
         nonce: fillerNonce,
