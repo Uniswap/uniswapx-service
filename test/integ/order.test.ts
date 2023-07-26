@@ -116,28 +116,6 @@ describe('/dutch-auction/order', () => {
           const receipt = await uni.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
           await receipt.wait()
         }
-        // check approvals on reactor
-        const reactorWethAllowance = await permit2Contract
-          .connect(wallet)
-          .allowance(wallet.address, weth.address, reactorAddress)
-        if (!(reactorWethAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
-          const receipt = await permit2Contract.connect(wallet).approve(
-            weth.address,
-            reactorAddress,
-            MAX_UINT_160,
-            281474976710655 // max deadline too
-          )
-          await receipt.wait()
-        }
-        const reactorUniAllowance = await permit2Contract
-          .connect(wallet)
-          .allowance(wallet.address, uni.address, reactorAddress)
-        if (!(reactorUniAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
-          const receipt = await permit2Contract
-            .connect(wallet)
-            .approve(uni.address, reactorAddress, MAX_UINT_160, 281474976710655)
-          await receipt.wait()
-        }
       }
     }
 
