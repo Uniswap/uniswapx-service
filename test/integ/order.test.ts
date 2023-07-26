@@ -11,9 +11,7 @@ import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/handle
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from '../abis/erc20.json'
-import * as PERMIT2_ABI from '../abis/permit2.json'
 const { abi } = ERC20_ABI
-const { abi: permit2Abi } = PERMIT2_ABI
 
 dotenv.config()
 
@@ -38,7 +36,6 @@ if (!process.argv.includes('--runInBand')) {
 // constants
 const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
 const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
-const MAX_UINT_160 = BigNumber.from('0xffffffffffffffffffffffffffffffffffffffff')
 
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 24
@@ -79,7 +76,6 @@ describe('/dutch-auction/order', () => {
 
     weth = new Contract(WETH_GOERLI, abi, provider)
     uni = new Contract(UNI_GOERLI, abi, provider)
-    const permit2Contract = new Contract(PERMIT2, permit2Abi, provider)
 
     // make sure filler wallet has enough ETH for gas
     const fillerMinBalance = ethers.utils.parseEther('0.1')
@@ -103,26 +99,17 @@ describe('/dutch-auction/order', () => {
           const receipt = await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
           await receipt.wait()
         }
+
+        const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'];
         // check approvals on reactor
-        const reactorWethAllowance = await permit2Contract
-          .connect(wallet)
-          .allowance(wallet.address, weth.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'])
-        if (!(reactorWethAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
-          const receipt = await permit2Contract.connect(wallet).approve(
-            weth.address,
-            REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
-            MAX_UINT_160,
-            281474976710655 // max deadline too
-          )
+        const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
+        const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
+        if (wethReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+          const receipt = await weth.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
           await receipt.wait()
         }
-        const reactorUniAllowance = await permit2Contract
-          .connect(wallet)
-          .allowance(wallet.address, uni.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'])
-        if (!(reactorUniAllowance[0] as BigNumber).eq(MAX_UINT_160)) {
-          const receipt = await permit2Contract
-            .connect(wallet)
-            .approve(uni.address, REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'], MAX_UINT_160, 281474976710655)
+        if (uniReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+          const receipt = await uni.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
           await receipt.wait()
         }
       }
@@ -282,8 +269,6 @@ describe('/dutch-auction/order', () => {
           sig: order.signature,
         }
       }),
-      execution.fillContract,
-      execution.fillData,
       {
         gasLimit: BigNumber.from(700_000),
         nonce: fillerNonce,
