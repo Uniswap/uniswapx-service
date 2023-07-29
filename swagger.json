@@ -2,21 +2,21 @@
   "openapi": "3.0.0",
   "servers": [
     {
-      "description": "Uniswap Trade APIs",
-      "url": "https://api.uniswap.org/v2/order"
+      "description": "UniswapX APIs",
+      "url": "https://api.uniswap.org/v2"
     }
   ],
   "info": {
     "version": "1.0.0",
-    "title": "Fungibles",
+    "title": "UniswapX",
     "description": "Rest API for orders."
   },
   "paths": {
-    "/prod/dutch-auction/order": {
+    "/order": {
       "post": {
-        "tags": ["Dutch Auction"],
+        "tags": ["Dutch Order"],
         "summary": "Submit order",
-        "description": "Submits a new signed order to the trading API.",
+        "description": "Submits a new signed order to the UniswapX server. Upon submission the order will be broadcasted to a network of fillers.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -43,9 +43,9 @@
         }
       }
     },
-    "/prod/dutch-auction/orders": {
+    "/orders": {
       "get": {
-        "tags": ["Dutch Auction"],
+        "tags": ["Dutch Order"],
         "summary": "Retrieve orders",
         "description": "Retrieve orders filtered by query param(s). Some fields on the order can be used as query param.",
         "parameters": [
@@ -71,6 +71,9 @@
             "$ref": "#/components/parameters/sortParam"
           },
           {
+            "$ref": "#/components/parameters/descParam"
+          },
+          {
             "$ref": "#/components/parameters/fillerParam"
           },
           {
@@ -91,14 +94,14 @@
         }
       }
     },
-    "/prod/dutch-auction/nonce": {
+    "/nonce": {
       "get": {
-        "tags": ["Dutch Auction"],
+        "tags": ["Dutch Order"],
         "summary": "Get nonce",
         "description": "Get current nonce for dutch auction orders. Given an address this endpoint will return the next valid nonce to be used in order creation.",
         "parameters": [
           {
-            "$ref": "#/components/parameters/limitParam"
+            "$ref": "#/components/parameters/addressParam"
           }
         ],
         "responses": {
@@ -223,16 +226,21 @@
       "descParam": {
         "name": "desc",
         "in": "query",
-        "description": "Cursor for paginated queries.",
+        "description": "Boolean to sort query results by descending sort key.",
         "required": false,
         "schema": {
-          "type": "string"
+          "type": "boolean"
         }
       }
     },
     "schemas": {
       "Nonce": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string"
+          }
+        }
       },
       "OrderInput": {
         "type": "object",
@@ -422,6 +430,7 @@
       },
       "PostOrderRequest": {
         "type": "object",
+        "required": ["encodedOrder", "signature", "chainId"],
         "properties": {
           "encodedOrder": {
             "type": "string"
