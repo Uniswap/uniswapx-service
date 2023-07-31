@@ -36,7 +36,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       containerInjected: { dbInterface, orderValidator, onchainValidatorByChainId },
     } = params
 
-    log.info('Handling POST order request', params)
+    log.info({ params }, 'Handling POST order request')
     log.info(
       {
         onchainValidatorByChainId: Object.keys(onchainValidatorByChainId).map(
@@ -57,6 +57,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { detail: e.message }),
       }
     }
+    log.info({ decodedOrder: decodedOrder.toJSON() }, 'Parsed order')
 
     const validationResponse = orderValidator.validate(decodedOrder)
     if (!validationResponse.valid) {
@@ -83,12 +84,15 @@ export class PostOrderHandler extends APIGLambdaHandler<
         detail: `Onchain validation failed: ${OrderValidation[validation]}`,
       }
     }
+    log.info({ validation }, 'Onchain validation succeeded')
 
     const order: OrderEntity = formatOrderEntity(decodedOrder, signature, OrderType.Dutch, ORDER_STATUS.OPEN, quoteId)
     const id = order.orderHash
 
     try {
       const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
+      log.info({ offerer: order.offerer, orderCount }, `Counted open orders for ${order.offerer}: ${orderCount}`)
+
       if (orderCount > getMaxOpenOrders(order.offerer)) {
         log.info(orderCount, `${order.offerer} has too many open orders`)
         return {
@@ -109,7 +113,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     try {
       await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`Successfully inserted Order ${id} into DB`)
+      log.info({ order }, `Successfully inserted Order ${id} into DB`)
     } catch (e: unknown) {
       log.error(e, `Failed to insert order ${id} into DB`)
       return {
@@ -146,6 +150,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
       stateMachineArn,
       log
     )
+    log.info(`Successfully kicked off SFN order with name: ${id}`)
+
     return {
       statusCode: 201,
       body: { hash: id },
