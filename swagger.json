@@ -2,21 +2,21 @@
   "openapi": "3.0.0",
   "servers": [
     {
-      "description": "Uniswap Trade APIs",
-      "url": "https://api.uniswap.org/v2/order"
+      "description": "UniswapX APIs",
+      "url": "https://api.uniswap.org/v2"
     }
   ],
   "info": {
     "version": "1.0.0",
-    "title": "Fungibles",
+    "title": "UniswapX",
     "description": "Rest API for orders."
   },
   "paths": {
-    "/prod/dutch-auction/order": {
+    "/order": {
       "post": {
-        "tags": ["Dutch Auction"],
+        "tags": ["Dutch Order"],
         "summary": "Submit order",
-        "description": "Submits a new signed order to the trading API.",
+        "description": "Submits a new signed order to the UniswapX server. Upon submission the order will be broadcasted to a network of fillers.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -43,9 +43,9 @@
         }
       }
     },
-    "/prod/dutch-auction/orders": {
+    "/orders": {
       "get": {
-        "tags": ["Dutch Auction"],
+        "tags": ["Dutch Order"],
         "summary": "Retrieve orders",
         "description": "Retrieve orders filtered by query param(s). Some fields on the order can be used as query param.",
         "parameters": [
@@ -71,10 +71,16 @@
             "$ref": "#/components/parameters/sortParam"
           },
           {
+            "$ref": "#/components/parameters/descParam"
+          },
+          {
             "$ref": "#/components/parameters/fillerParam"
           },
           {
             "$ref": "#/components/parameters/cursorParam"
+          },
+          {
+            "$ref": "#/components/parameters/chainId"
           }
         ],
         "responses": {
@@ -91,14 +97,17 @@
         }
       }
     },
-    "/prod/dutch-auction/nonce": {
+    "/nonce": {
       "get": {
-        "tags": ["Dutch Auction"],
+        "tags": ["Dutch Order"],
         "summary": "Get nonce",
         "description": "Get current nonce for dutch auction orders. Given an address this endpoint will return the next valid nonce to be used in order creation.",
         "parameters": [
           {
-            "$ref": "#/components/parameters/limitParam"
+            "$ref": "#/components/parameters/addressParam"
+          },
+          {
+            "$ref": "#/components/parameters/chainId"
           }
         ],
         "responses": {
@@ -130,6 +139,16 @@
           "type": "string",
           "pattern": "^(0x)?[0-9a-fA-F]{40}$",
           "example": "0x50EC05ADe8280758E2077fcBC08D878D4aef79C3"
+        },
+        "required": false
+      },
+      "chainId": {
+        "name": "chainId",
+        "in": "query",
+        "schema": {
+          "type": "number",
+          "enum": [1, 137],
+          "example": 1
         },
         "required": false
       },
@@ -211,19 +230,19 @@
           "type": "string"
         }
       },
-      "cursorParam": {
-        "name": "cursor",
+      "descParam": {
+        "name": "desc",
         "in": "query",
-        "description": "Sort query results by sortKey in descending order.",
+        "description": "Boolean to sort query results by descending sort key.",
         "required": false,
         "schema": {
           "type": "boolean"
         }
       },
-      "descParam": {
-        "name": "desc",
+      "cursorParam": {
+        "name": "cursor",
         "in": "query",
-        "description": "Cursor for paginated queries.",
+        "description": "Cursor param to page through results. This will be returned in the previous query if the results have been paginated.",
         "required": false,
         "schema": {
           "type": "string"
@@ -232,7 +251,12 @@
     },
     "schemas": {
       "Nonce": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string"
+          }
+        }
       },
       "OrderInput": {
         "type": "object",
@@ -422,6 +446,7 @@
       },
       "PostOrderRequest": {
         "type": "object",
+        "required": ["encodedOrder", "signature", "chainId"],
         "properties": {
           "encodedOrder": {
             "type": "string"
