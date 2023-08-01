@@ -454,7 +454,6 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     try {
       lastEvaluatedKey = JSON.parse(decode(cursor))
     } catch (e) {
-      DynamoOrdersRepository.log.error('Error parsing json cursor.', { cursor, error: e })
       throw new Error('Invalid cursor.')
     }
     const keys = Object.keys(lastEvaluatedKey)

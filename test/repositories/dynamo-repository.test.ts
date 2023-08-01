@@ -59,16 +59,6 @@ const MOCK_ORDER_4 = {
   orderStatus: ORDER_STATUS.OPEN,
 }
 
-const MOCK_ORDER_5 = {
-  orderHash: '0x5',
-  offerer: 'hayden.eth',
-  encodedOrder: 'order1',
-  signature: 'sig1',
-  nonce: '1',
-  chainId: 1,
-  orderStatus: ORDER_STATUS.OPEN,
-}
-
 const ADDITIONAL_FIELDS_ORDER_1 = {
   ...MOCK_ORDER_1,
   filler: '0x1',
@@ -87,11 +77,6 @@ const ADDITIONAL_FIELDS_ORDER_3 = {
 const ADDITIONAL_FIELDS_ORDER_4 = {
   ...MOCK_ORDER_4,
   filler: '0x4',
-}
-
-const ADDITIONAL_FIELDS_ORDER_5 = {
-  ...MOCK_ORDER_5,
-  filler: '0x1',
 }
 
 const mockedGetCurrentTime = jest.mocked(currentTimestampInSeconds)
@@ -350,22 +335,11 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.cursor).toEqual(undefined)
   })
 
-  it('should successfully page through orders with chainId, orderStatus', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_5)
-    let orders = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 })
-    expect(orders.orders.length).toEqual(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
-    orders = await ordersRepository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 }, orders.cursor)
-    expect(orders.orders.length).toEqual(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(orders.cursor).toEqual(undefined)
-  })
-
   it('should throw an Error for cursor with the wrong index', async () => {
     const orders = await ordersRepository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN })
     expect(orders.orders.length).toEqual(2)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, orders.cursor)).rejects.toThrow(
       Error('Invalid cursor.')
     )
@@ -374,8 +348,8 @@ describe('OrdersRepository getOrders test with pagination', () => {
   it('should throw an Error for cursor with the wrong cursor', async () => {
     const orders = await ordersRepository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN })
     expect(orders.orders.length).toEqual(2)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, 'wrong_cursor')).rejects.toThrow(
       Error('Invalid cursor.')
     )
@@ -428,10 +402,9 @@ describe('OrdersRepository getOrders test with sorting', () => {
       sort: 'between(1,3)',
       desc: true,
     })
-    expect(queryResult.orders.length).toEqual(3)
+    expect(queryResult.orders.length).toEqual(2)
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders[2]).toEqual(expect.objectContaining(MOCK_ORDER_5))
   })
 
   it('should return all orders for OPEN status and between 1,3 time ascending order', async () => {
@@ -441,10 +414,9 @@ describe('OrdersRepository getOrders test with sorting', () => {
       sort: 'between(1,3)',
       desc: false,
     })
-    expect(queryResult.orders.length).toEqual(3)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders[2]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders.length).toEqual(2)
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
   })
 })
 
@@ -513,7 +485,7 @@ describe('OrdersRepository get order count by offerer test', () => {
   it('should successfully return order count by existing offerer', async () => {
     mockTime(4)
     await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_4)
-    expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_4.offerer, ORDER_STATUS.OPEN)).toEqual(3)
+    expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_4.offerer, ORDER_STATUS.OPEN)).toEqual(2)
   })
 
   it('should return 0 for nonexistent offerer', async () => {

@@ -22,13 +22,4 @@ export enum TABLE_KEY {
   FILLER = 'filler',
   TX_HASH = 'txHash',
   CHAIN_ID = 'chainId',
-
-  // compound table keys
-  CHAIN_ID_FILLER = 'chainId_filler',
-  CHAIN_ID_ORDER_STATUS = 'chainId_orderStatus',
-  CHAIN_ID_ORDER_STATUS_FILLER = 'chainId_orderStatus_filler',
-  FILLER_OFFERER = 'filler_offerer',
-  FILLER_OFFERER_ORDER_STATUS = 'filler_offerer_orderStatus',
-  FILLER_ORDER_STATUS = 'filler_orderStatus',
-  OFFERER_ORDER_STATUS = 'offerer_orderStatus',
 }
