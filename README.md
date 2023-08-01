@@ -62,3 +62,21 @@ PERMIT_TENDERLY=<>
 1. If failures, look at logs in Cloudwatch Insights
 
 1. Repeat
+
+## Order Notification Schema
+
+Depending on the filler preferences, the notification webhook can POST orders with a specific exclusive filler address or all new orders. The following schema is what the filler execution endpoint can expect to receive.
+
+```
+{
+   orderHash: string,
+   createdAt: number,
+   signature: string,
+   offerer: string,
+   orderStatus: string,
+   encodedOrder: string,
+   chainId: number,
+   quoteId?: string,
+   filler?: string,
+}
+```
