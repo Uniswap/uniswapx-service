@@ -230,15 +230,6 @@
           "type": "string"
         }
       },
-      "cursorParam": {
-        "name": "cursor",
-        "in": "query",
-        "description": "Sort query results by sortKey in descending order.",
-        "required": false,
-        "schema": {
-          "type": "boolean"
-        }
-      },
       "descParam": {
         "name": "desc",
         "in": "query",
@@ -246,6 +237,15 @@
         "required": false,
         "schema": {
           "type": "boolean"
+        }
+      },
+      "cursorParam": {
+        "name": "cursor",
+        "in": "query",
+        "description": "Cursor param to page through results. This will be returned in the previous query if the results have been paginated.",
+        "required": false,
+        "schema": {
+          "type": "string"
         }
       }
     },
