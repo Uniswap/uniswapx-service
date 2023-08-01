@@ -78,6 +78,9 @@
           },
           {
             "$ref": "#/components/parameters/cursorParam"
+          },
+          {
+            "$ref": "#/components/parameters/chainId"
           }
         ],
         "responses": {
@@ -102,6 +105,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/addressParam"
+          },
+          {
+            "$ref": "#/components/parameters/chainId"
           }
         ],
         "responses": {
@@ -133,6 +139,16 @@
           "type": "string",
           "pattern": "^(0x)?[0-9a-fA-F]{40}$",
           "example": "0x50EC05ADe8280758E2077fcBC08D878D4aef79C3"
+        },
+        "required": false
+      },
+      "chainId": {
+        "name": "chainId",
+        "in": "query",
+        "schema": {
+          "type": "number",
+          "enum": [1, 137],
+          "example": 1
         },
         "required": false
       },
