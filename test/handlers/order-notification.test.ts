@@ -95,7 +95,11 @@ describe('Testing new order Notification handler.', () => {
     expect(logInfoMock).toBeCalledTimes(2)
     expect(logInfoMock).toBeCalledWith(
       { result: { status: 200 } },
-      'Success: New order record sent to registered webhook.'
+      'Success: New order record sent to registered webhook webhook.com/1.'
+    )
+    expect(logInfoMock).toBeCalledWith(
+      { result: { status: 200 } },
+      'Success: New order record sent to registered webhook webhook.com/2.'
     )
     expect(response).toMatchObject({ batchItemFailures: [] })
   })

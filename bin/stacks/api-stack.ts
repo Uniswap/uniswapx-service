@@ -60,6 +60,7 @@ export class APIStack extends cdk.Stack {
       envVars: props.envVars,
       tableCapacityConfig,
       indexCapacityConfig,
+      chatbotSNSArn,
     })
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)

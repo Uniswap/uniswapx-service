@@ -22,7 +22,6 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
     for (const record of event.Records) {
       try {
         const newOrder = eventRecordToOrder(record)
-        metrics.putMetric(`OrderNotificationAttempt-chain-${newOrder.chainId}`, 1)
 
         const registeredEndpoints = await webhookProvider.getEndpoints({
           offerer: newOrder.swapper,
@@ -57,13 +56,16 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         const results = await Promise.allSettled(requests)
 
         results.forEach((result, index) => {
-          const order = eventRecordToOrder(event.Records[index])
+          metrics.putMetric(`OrderNotificationAttempt-chain-${newOrder.chainId}`, 1)
           if (result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202) {
-            log.info({ result: result.value }, 'Success: New order record sent to registered webhook.')
-            metrics.putMetric(`OrderNotificationSendSuccess-chain-${order.chainId}`, 1)
+            log.info(
+              { result: result.value },
+              `Success: New order record sent to registered webhook ${registeredEndpoints[index].url}.`
+            )
+            metrics.putMetric(`OrderNotificationSendSuccess-chain-${newOrder.chainId}`, 1)
           } else {
             failedRequests.push(result)
-            metrics.putMetric(`OrderNotificationSendFailure-chain-${order.chainId}`, 1)
+            metrics.putMetric(`OrderNotificationSendFailure-chain-${newOrder.chainId}`, 1)
           }
         })
 
