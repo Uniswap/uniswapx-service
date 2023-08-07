@@ -285,14 +285,11 @@
           "endAmount": {
             "type": "string"
           },
-          "isFeeOutput": {
-            "type": "boolean"
-          },
           "recipient": {
             "type": "string"
           }
         },
-        "required": ["startAmount", "endAmount", "isFeeOutput", "recipient"]
+        "required": ["startAmount", "endAmount", "recipient"]
       },
       "SettledAmount": {
         "type": "object",

@@ -267,7 +267,7 @@ export class APIStack extends cdk.Stack {
               aggregateKeyType: 'FORWARDED_IP',
               scopeDownStatement: {
                 byteMatchStatement: {
-                  searchString: 'docs',
+                  searchString: 'docs.json',
                   fieldToMatch: {
                     uriPath: {},
                   },
@@ -300,6 +300,48 @@ export class APIStack extends cdk.Stack {
             metricName: 'ip-docs',
           },
         },
+        {
+          name: 'ip-api-docs',
+          priority: 5,
+          statement: {
+            rateBasedStatement: {
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 100,
+              aggregateKeyType: 'FORWARDED_IP',
+              scopeDownStatement: {
+                byteMatchStatement: {
+                  searchString: 'api-docs',
+                  fieldToMatch: {
+                    uriPath: {},
+                  },
+                  textTransformations: [
+                    {
+                      priority: 0,
+                      type: 'NONE',
+                    },
+                  ],
+                  positionalConstraint: 'CONTAINS',
+                },
+              },
+              forwardedIpConfig: {
+                headerName: 'X-Forwarded-For',
+                fallbackBehavior: 'MATCH',
+              },
+            },
+          },
+          action: {
+            block: {
+              customResponse: {
+                responseCode: 429,
+                customResponseBodyKey: 'GoudaServiceThrottledResponseBody',
+              },
+            },
+          },
+          visibilityConfig: {
+            sampledRequestsEnabled: true,
+            cloudWatchMetricsEnabled: true,
+            metricName: 'ip-api-docs',
+          },
+        },
       ],
     })
 
@@ -324,7 +366,7 @@ export class APIStack extends cdk.Stack {
       },
     })
 
-    const apiDocs = api.root.addResource('docs', {
+    const apiDocs = api.root.addResource('docs.json', {
       defaultCorsPreflightOptions: {
         allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
         allowMethods: aws_apigateway.Cors.ALL_METHODS,
