@@ -137,6 +137,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
           outputStartAmount: output.startAmount,
           outputEndAmount: output.endAmount,
           tokenOut: output.token,
+          filler: order.filler,
         },
       })
     })
