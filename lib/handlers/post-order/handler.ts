@@ -132,6 +132,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
           outputStartAmount: output.startAmount,
           outputEndAmount: output.endAmount,
           tokenOut: output.token,
+          filler: order.filler,
         },
       })
     })
@@ -176,7 +177,7 @@ const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
   '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
   '0xf82af5cd1f0d24cdcf9d35875107d5e43ce9b3d0',
   '0xa50dac48d61bb52b339c7ef0dcefa7688338d00a',
-  '0x5b062dc717983be67f7e1b44a6557d7da7d399bd'
+  '0x5b062dc717983be67f7e1b44a6557d7da7d399bd',
 ]
 export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const HIGH_MAX_OPEN_ORDERS = 200
