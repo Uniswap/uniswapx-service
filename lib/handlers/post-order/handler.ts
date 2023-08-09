@@ -1,9 +1,12 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
+import { getAddress } from '@ethersproject/address'
+import { AddressZero } from '@ethersproject/constants'
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Logger from 'bunyan'
 import Joi from 'joi'
+
 import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { metrics } from '../../util/metrics'
@@ -137,7 +140,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
           outputStartAmount: output.startAmount,
           outputEndAmount: output.endAmount,
           tokenOut: output.token,
-          filler: order.filler,
+          filler: getAddress(order.filler ?? AddressZero),
         },
       })
     })
