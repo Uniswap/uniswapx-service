@@ -12,37 +12,6 @@
     "description": "Rest API for orders."
   },
   "paths": {
-    "/order": {
-      "post": {
-        "tags": ["Dutch Order"],
-        "summary": "Submit order",
-        "description": "Submits a new signed order to the UniswapX server. Upon submission the order will be broadcasted to a network of fillers.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PostOrderRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Order submission successful.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostOrderResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/400InvalidOrder"
-          }
-        }
-      }
-    },
     "/orders": {
       "get": {
         "tags": ["Dutch Order"],
@@ -432,32 +401,6 @@
       "ChainId": {
         "type": "number",
         "enum": [1, 137]
-      },
-      "PostOrderResponse": {
-        "type": "object",
-        "properties": {
-          "hash": {
-            "type": "string"
-          }
-        }
-      },
-      "PostOrderRequest": {
-        "type": "object",
-        "required": ["encodedOrder", "signature", "chainId"],
-        "properties": {
-          "encodedOrder": {
-            "type": "string"
-          },
-          "signature": {
-            "type": "string"
-          },
-          "chainId": {
-            "$ref": "#/components/schemas/ChainId"
-          },
-          "quoteId": {
-            "type": "string"
-          }
-        }
       }
     }
   }
