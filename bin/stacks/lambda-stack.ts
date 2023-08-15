@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
+import { Alarm, ComparisonOperator, MathExpression, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
@@ -20,6 +21,7 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   envVars: { [key: string]: string }
   tableCapacityConfig: TableCapacityConfig
   indexCapacityConfig?: IndexCapacityConfig
+  chatbotSNSArn?: string
 }
 export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
@@ -40,7 +42,7 @@ export class LambdaStack extends cdk.NestedStack {
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
-    const { provisionedConcurrency, tableCapacityConfig, indexCapacityConfig } = props
+    const { provisionedConcurrency, tableCapacityConfig, indexCapacityConfig, chatbotSNSArn } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
 
@@ -334,6 +336,59 @@ export class LambdaStack extends cdk.NestedStack {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
+    }
+
+    let chatBotTopic: cdk.aws_sns.ITopic | undefined
+    if (chatbotSNSArn) {
+      chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
+    }
+
+    for (const chainId of SUPPORTED_CHAINS) {
+      const orderNotificationErrorRateMetric = new MathExpression({
+        expression: '100*(errors/attempts)',
+        period: Duration.minutes(5),
+        usingMetrics: {
+          errors: new Metric({
+            namespace: 'Uniswap',
+            metricName: `OrderNotificationSendFailure-chain-${chainId}`,
+            dimensionsMap: { Service: 'UniswapXService' },
+            unit: cdk.aws_cloudwatch.Unit.COUNT,
+            statistic: 'sum',
+          }),
+          attempts: new Metric({
+            namespace: 'Uniswap',
+            metricName: `OrderNotificationAttempt-chain-${chainId}`,
+            dimensionsMap: { Service: 'UniswapXService' },
+            unit: cdk.aws_cloudwatch.Unit.COUNT,
+            statistic: 'sum',
+          }),
+        },
+      })
+
+      const sev2OrderNotificationErrorRate = new Alarm(this, `OrderNotificationSev2ErrorRate-chain-${chainId}`, {
+        alarmName: `${SERVICE_NAME}-SEV2-${props.stage}-OrderNotificationErrorRate-chain-${chainId}`,
+        metric: orderNotificationErrorRateMetric,
+        threshold: 30,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: TreatMissingData.IGNORE,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      })
+
+      const sev3OrderNotificationErrorRate = new Alarm(this, `OrderNotificationSev3ErrorRate-chain-${chainId}`, {
+        alarmName: `${SERVICE_NAME}-SEV3-${props.stage}-OrderNotificationErrorRate-chain-${chainId}`,
+        metric: orderNotificationErrorRateMetric,
+        threshold: 10,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: TreatMissingData.IGNORE,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      })
+
+      if (chatBotTopic) {
+        sev2OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+        sev3OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      }
     }
   }
 }

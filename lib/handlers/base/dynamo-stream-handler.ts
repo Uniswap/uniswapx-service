@@ -1,3 +1,4 @@
+import { metricScope, MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
@@ -24,7 +25,12 @@ export abstract class DynamoStreamInjector<CInj, RInj extends BaseRInj> extends 
     super(injectorName)
   }
 
-  public abstract getRequestInjected(containerInjected: CInj, event: DynamoDBStreamEvent, log: Logger): Promise<RInj>
+  public abstract getRequestInjected(
+    containerInjected: CInj,
+    event: DynamoDBStreamEvent,
+    log: Logger,
+    metrics: MetricsLogger
+  ): Promise<RInj>
 }
 
 /*
@@ -59,29 +65,36 @@ export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> ext
    * call the handler with this data.
    */
   protected buildHandler(): DynamoStreamHandler {
-    return async (streamInput: DynamoDBStreamEvent): Promise<BatchFailureResponse> => {
-      const log: Logger = bunyan.createLogger({
-        name: this.handlerName,
-        serializers: bunyan.stdSerializers,
-        level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
-      })
+    return metricScope((metrics: MetricsLogger) => {
+      const handle = async (streamInput: DynamoDBStreamEvent): Promise<BatchFailureResponse> => {
+        const log: Logger = bunyan.createLogger({
+          name: this.handlerName,
+          serializers: bunyan.stdSerializers,
+          level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
+        })
 
-      await this.validateInput(streamInput, log)
+        await this.validateInput(streamInput, log)
 
-      const injector = await this.injectorPromise
+        const injector = await this.injectorPromise
 
-      const containerInjected = injector.getContainerInjected()
+        const containerInjected = injector.getContainerInjected()
 
-      let requestInjected: RInj
-      try {
-        requestInjected = await injector.getRequestInjected(containerInjected, streamInput, log)
-      } catch (err) {
-        log.error({ err, streamInput }, 'Unexpected error building request injected.')
-        throw new InjectionError(`Unexpected error building request injected:\n${err}`)
+        let requestInjected: RInj
+        try {
+          requestInjected = await injector.getRequestInjected(containerInjected, streamInput, log, metrics)
+        } catch (err) {
+          log.error({ err, streamInput }, 'Unexpected error building request injected.')
+          throw new InjectionError(`Unexpected error building request injected:\n${err}`)
+        }
+
+        return await this.handleRequest({ containerInjected, requestInjected })
       }
+      return async (streamInput: DynamoDBStreamEvent): Promise<BatchFailureResponse> => {
+        const response = await handle(streamInput)
 
-      return await this.handleRequest({ containerInjected, requestInjected })
-    }
+        return response
+      }
+    })
   }
 
   private async validateInput(input: DynamoDBStreamEvent, log: Logger): Promise<DynamoDBStreamEvent> {

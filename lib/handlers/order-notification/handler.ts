@@ -54,11 +54,20 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         // note we try each webhook once and only once, so guarantee to MM is _at most once_
         const failedRequests: PromiseSettledResult<AxiosResponse>[] = []
         const results = await Promise.allSettled(requests)
-        results.forEach((result) =>
-          result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202
-            ? log.info({ result: result.value }, 'Success: New order record sent to registered webhook.')
-            : failedRequests.push(result)
-        )
+
+        results.forEach((result, index) => {
+          metrics.putMetric(`OrderNotificationAttempt-chain-${newOrder.chainId}`, 1)
+          if (result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202) {
+            log.info(
+              { result: result.value },
+              `Success: New order record sent to registered webhook ${registeredEndpoints[index].url}.`
+            )
+            metrics.putMetric(`OrderNotificationSendSuccess-chain-${newOrder.chainId}`, 1)
+          } else {
+            failedRequests.push(result)
+            metrics.putMetric(`OrderNotificationSendFailure-chain-${newOrder.chainId}`, 1)
+          }
+        })
 
         if (failedRequests.length > 0) {
           log.error({ failedRequests: failedRequests }, 'Error: Failed to notify registered webhooks.')
@@ -67,10 +76,9 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
       } catch (e: unknown) {
         log.error(e instanceof Error ? e.message : e, 'Unexpected failure in handler.')
         failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
+        metrics.putMetric('OrderNotificationHandlerFailure', 1)
       }
     }
-
-    metrics.putMetric('OrderNotificationsSent', event.Records.length - failedRecords.length)
 
     // this lambda will be invoked again with the failed records
     return { batchItemFailures: failedRecords }

@@ -95,7 +95,11 @@ describe('Testing new order Notification handler.', () => {
     expect(logInfoMock).toBeCalledTimes(2)
     expect(logInfoMock).toBeCalledWith(
       { result: { status: 200 } },
-      'Success: New order record sent to registered webhook.'
+      'Success: New order record sent to registered webhook webhook.com/1.'
+    )
+    expect(logInfoMock).toBeCalledWith(
+      { result: { status: 200 } },
+      'Success: New order record sent to registered webhook webhook.com/2.'
     )
     expect(response).toMatchObject({ batchItemFailures: [] })
   })
@@ -108,9 +112,9 @@ describe('Testing new order Notification handler.', () => {
     )
   })
 
-  it('Testing failed webhook notification.', async () => {
+  it('Testing failed webhook notification 5xx.', async () => {
     const failedResponse = { status: 500 }
-    mockedAxios.post.mockReturnValue(Promise.resolve(failedResponse))
+    mockedAxios.post.mockReturnValue(Promise.reject(failedResponse))
     const response = await orderNotificationHandler()
     expect(getEndpointsMock).toBeCalledWith({
       offerer: MOCK_ORDER.offerer.S,
@@ -120,8 +124,29 @@ describe('Testing new order Notification handler.', () => {
     expect(logErrorMock).toBeCalledWith(
       {
         failedRequests: [
-          { status: 'fulfilled', value: failedResponse },
-          { status: 'fulfilled', value: failedResponse },
+          { status: 'rejected', reason: failedResponse },
+          { status: 'rejected', reason: failedResponse },
+        ],
+      },
+      'Error: Failed to notify registered webhooks.'
+    )
+    expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
+  })
+
+  it('Testing failed webhook notification 4xx.', async () => {
+    const failedResponse = { status: 400 }
+    mockedAxios.post.mockReturnValue(Promise.reject(failedResponse))
+    const response = await orderNotificationHandler()
+    expect(getEndpointsMock).toBeCalledWith({
+      offerer: MOCK_ORDER.offerer.S,
+      orderStatus: MOCK_ORDER.orderStatus.S,
+      filler: MOCK_ORDER.filler.S,
+    })
+    expect(logErrorMock).toBeCalledWith(
+      {
+        failedRequests: [
+          { status: 'rejected', reason: failedResponse },
+          { status: 'rejected', reason: failedResponse },
         ],
       },
       'Error: Failed to notify registered webhooks.'
