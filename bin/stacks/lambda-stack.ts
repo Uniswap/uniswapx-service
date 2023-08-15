@@ -338,52 +338,57 @@ export class LambdaStack extends cdk.NestedStack {
       })
     }
 
-    // TODO: add more chains when we support them
-    const orderNotificationErrorRateMetric = new MathExpression({
-      expression: '100*(errors/attempts)',
-      period: Duration.minutes(5),
-      usingMetrics: {
-        errors: new Metric({
-          namespace: 'Uniswap',
-          metricName: 'OrderNotificationSendFailure-chain-1',
-          dimensionsMap: { Service: 'UniswapXService' },
-          unit: cdk.aws_cloudwatch.Unit.COUNT,
-          statistic: 'sum',
-        }),
-        attempts: new Metric({
-          namespace: 'Uniswap',
-          metricName: 'OrderNotificationAttempt-chain-1',
-          dimensionsMap: { Service: 'UniswapXService' },
-          unit: cdk.aws_cloudwatch.Unit.COUNT,
-          statistic: 'sum',
-        }),
-      },
-    })
-
-    const sev2OrderNotificationErrorRate = new Alarm(this, `OrderNotificationSev2ErrorRate-chain-1`, {
-      alarmName: `${SERVICE_NAME}-SEV2-${props.stage}-OrderNotificationErrorRate-chain-1`,
-      metric: orderNotificationErrorRateMetric,
-      threshold: 30,
-      evaluationPeriods: 1,
-      datapointsToAlarm: 1,
-      treatMissingData: TreatMissingData.IGNORE,
-      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-    })
-
-    const sev3OrderNotificationErrorRate = new Alarm(this, `OrderNotificationSev3ErrorRate-chain-1`, {
-      alarmName: `${SERVICE_NAME}-SEV3-${props.stage}-OrderNotificationErrorRate-chain-1`,
-      metric: orderNotificationErrorRateMetric,
-      threshold: 10,
-      evaluationPeriods: 1,
-      datapointsToAlarm: 1,
-      treatMissingData: TreatMissingData.IGNORE,
-      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
-    })
-
+    let chatBotTopic: cdk.aws_sns.ITopic | undefined
     if (chatbotSNSArn) {
-      const chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
-      sev2OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      sev3OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
+    }
+
+    for (const chainId of SUPPORTED_CHAINS) {
+      const orderNotificationErrorRateMetric = new MathExpression({
+        expression: '100*(errors/attempts)',
+        period: Duration.minutes(5),
+        usingMetrics: {
+          errors: new Metric({
+            namespace: 'Uniswap',
+            metricName: `OrderNotificationSendFailure-chain-${chainId}`,
+            dimensionsMap: { Service: 'UniswapXService' },
+            unit: cdk.aws_cloudwatch.Unit.COUNT,
+            statistic: 'sum',
+          }),
+          attempts: new Metric({
+            namespace: 'Uniswap',
+            metricName: `OrderNotificationAttempt-chain-${chainId}`,
+            dimensionsMap: { Service: 'UniswapXService' },
+            unit: cdk.aws_cloudwatch.Unit.COUNT,
+            statistic: 'sum',
+          }),
+        },
+      })
+
+      const sev2OrderNotificationErrorRate = new Alarm(this, `OrderNotificationSev2ErrorRate-chain-${chainId}`, {
+        alarmName: `${SERVICE_NAME}-SEV2-${props.stage}-OrderNotificationErrorRate-chain-${chainId}`,
+        metric: orderNotificationErrorRateMetric,
+        threshold: 30,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: TreatMissingData.IGNORE,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      })
+
+      const sev3OrderNotificationErrorRate = new Alarm(this, `OrderNotificationSev3ErrorRate-chain-${chainId}`, {
+        alarmName: `${SERVICE_NAME}-SEV3-${props.stage}-OrderNotificationErrorRate-chain-${chainId}`,
+        metric: orderNotificationErrorRateMetric,
+        threshold: 10,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: TreatMissingData.IGNORE,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      })
+
+      if (chatBotTopic) {
+        sev2OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+        sev3OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      }
     }
   }
 }
