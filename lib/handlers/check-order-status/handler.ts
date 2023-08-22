@@ -1,4 +1,4 @@
-import { DutchOrder, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, FillInfo, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
@@ -84,26 +84,15 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           const receipt = await tx.wait()
           const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
-          fillEvent.outputs.forEach((output) => {
-            log.info({
-              orderInfo: {
-                orderStatus: ORDER_STATUS.FILLED,
-                orderHash: fillEvent.orderHash,
-                quoteId: quoteId,
-                filler: fillEvent.filler,
-                nonce: fillEvent.nonce.toString(),
-                offerer: fillEvent.swapper,
-                tokenOut: output.token,
-                amountOut: output.amount.toString(),
-                blockNumber: fillEvent.blockNumber,
-                txHash: fillEvent.txHash,
-                fillTimestamp: timestamp,
-                gasPriceWei: receipt.effectiveGasPrice.toString(),
-                gasUsed: receipt.gasUsed.toString(),
-                gasCostInETH: gasCostInETH,
-              },
-            })
-          })
+          this.logFillInfo(
+            log,
+            fillEvent,
+            quoteId,
+            timestamp,
+            gasCostInETH,
+            receipt.effectiveGasPrice.toString(),
+            receipt.gasUsed.toString()
+          )
 
           const settledAmounts = fillEvent.outputs.map((output) => ({
             tokenOut: output.token,
@@ -199,28 +188,15 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           const receipt = await tx.wait()
           const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
-          fillEvent.outputs.forEach((output) => {
-            log.info({
-              orderInfo: {
-                orderStatus: ORDER_STATUS.FILLED,
-                orderHash: fillEvent.orderHash,
-                quoteId: quoteId,
-                filler: fillEvent.filler,
-                nonce: fillEvent.nonce.toString(),
-                offerer: fillEvent.swapper,
-                tokenOut: output.token,
-                amountOut: output.amount.toString(),
-                blockNumber: fillEvent.blockNumber,
-                txHash: fillEvent.txHash,
-                fillTimestamp: timestamp,
-                gasPriceWei: receipt.effectiveGasPrice.toString(),
-                gasUsed: receipt.gasUsed.toString(),
-                gasCostInETH: gasCostInETH,
-                tokenInChainId: chainId,
-                tokenOutChainId: chainId,
-              },
-            })
-          })
+          this.logFillInfo(
+            log,
+            fillEvent,
+            quoteId,
+            timestamp,
+            gasCostInETH,
+            receipt.effectiveGasPrice.toString(),
+            receipt.gasUsed.toString()
+          )
 
           const settledAmounts = fillEvent.outputs.map((output) => ({
             tokenOut: output.token,
@@ -391,5 +367,39 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       : retryCount <= 450
       ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
       : 18000
+  }
+
+  private logFillInfo(
+    log: Logger,
+    fill: FillInfo,
+    quoteId: string,
+    timestamp: number,
+    gasCostInETH: string,
+    gasPriceWei: string,
+    gasUsed: string
+  ): void {
+    // TODO: handle multiple input tokens
+    fill.outputs.forEach((output) => {
+      log.info({
+        orderInfo: {
+          orderStatus: ORDER_STATUS.FILLED,
+          orderHash: fill.orderHash,
+          quoteId: quoteId,
+          filler: fill.filler,
+          nonce: fill.nonce.toString(),
+          offerer: fill.swapper,
+          tokenIn: fill.inputs[0].token,
+          amountIn: fill.inputs[0].amount.toString(),
+          tokenOut: output.token,
+          amountOut: output.amount.toString(),
+          blockNumber: fill.blockNumber,
+          txHash: fill.txHash,
+          fillTimestamp: timestamp,
+          gasPriceWei: gasPriceWei,
+          gasUsed: gasUsed,
+          gasCostInETH: gasCostInETH,
+        },
+      })
+    })
   }
 }
