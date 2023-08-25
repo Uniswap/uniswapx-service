@@ -91,7 +91,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             timestamp,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
-            receipt.gasUsed.toString()
+            receipt.gasUsed.toString(),
+            parsedOrder
           )
 
           const settledAmounts = fillEvent.outputs.map((output) => ({
@@ -195,7 +196,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             timestamp,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
-            receipt.gasUsed.toString()
+            receipt.gasUsed.toString(),
+            parsedOrder
           )
 
           const settledAmounts = fillEvent.outputs.map((output) => ({
@@ -376,9 +378,23 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     timestamp: number,
     gasCostInETH: string,
     gasPriceWei: string,
-    gasUsed: string
+    gasUsed: string,
+    parsedOrder: DutchOrder
   ): void {
-    // TODO: handle multiple input tokens
+    let amountIn: string | undefined
+
+    if (parsedOrder.info.input.endAmount === parsedOrder.info.input.startAmount) {
+      // If the order is EXACT_INPUT then the input will not decay and resolves to the startAmount/endAmount.
+      amountIn = parsedOrder.info.input.startAmount.toString()
+    } else {
+      // If the order is EXACT_OUTPUT we will have all the token transfers in the fill logs,
+      // only log the input that matches the order input token.
+      const input = fill.inputs.find(
+        (input) => input.token.toLowerCase() === parsedOrder.info.input.token.toLowerCase()
+      )
+      amountIn = input?.amount.toString()
+    }
+
     fill.outputs.forEach((output) => {
       log.info({
         orderInfo: {
@@ -388,8 +404,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           filler: fill.filler,
           nonce: fill.nonce.toString(),
           offerer: fill.swapper,
-          tokenIn: fill.inputs[0].token,
-          amountIn: fill.inputs[0].amount.toString(),
+          tokenIn: parsedOrder.info.input.token,
+          amountIn,
           tokenOut: output.token,
           amountOut: output.amount.toString(),
           blockNumber: fill.blockNumber,
