@@ -85,7 +85,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           const receipt = await tx.wait()
           const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
-          const settledAmounts = await this.getSettledAmounts(fillEvent, parsedOrder, provider)
+          const settledAmounts = this.getSettledAmounts(fillEvent, timestamp, parsedOrder)
 
           this.logFillInfo(
             log,
@@ -187,7 +187,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           const receipt = await tx.wait()
           const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
-          const settledAmounts = await this.getSettledAmounts(fillEvent, parsedOrder, provider)
+          const settledAmounts = this.getSettledAmounts(fillEvent, timestamp, parsedOrder)
 
           this.logFillInfo(
             log,
@@ -400,22 +400,17 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     })
   }
 
-  private async getSettledAmounts(
-    fill: FillInfo,
-    parsedOrder: DutchOrder,
-    provider: ethers.providers.JsonRpcProvider
-  ): Promise<SettledAmount[]> {
+  public getSettledAmounts(fill: FillInfo, fillTimestamp: number, parsedOrder: DutchOrder): SettledAmount[] {
     const nativeOutputs = parsedOrder.info.outputs.filter((output) => output.token.toLowerCase() === NATIVE_ADDRESS)
     const settledAmounts: SettledAmount[] = []
     let amountIn: string | undefined
-    if (parsedOrder.info.input.endAmount === parsedOrder.info.input.startAmount) {
+    if (parsedOrder.info.input.endAmount.eq(parsedOrder.info.input.startAmount)) {
       // If the order is EXACT_INPUT then the input will not decay and resolves to the startAmount/endAmount.
       amountIn = parsedOrder.info.input.startAmount.toString()
 
-      // Resolve the native outputs using the timestamp and filler address from the fill log.
+      // Resolve the native outputs using the fill timestamp and filler address from the fill log.
       // This will give us a minimum resolved amount for native out swaps.
-      const timestamp = (await provider.getBlock(fill.blockNumber)).timestamp
-      const resolvedOrder = parsedOrder.resolve({ timestamp, filler: fill.filler })
+      const resolvedOrder = parsedOrder.resolve({ timestamp: fillTimestamp, filler: fill.filler })
       const resolvedNativeOutputs = resolvedOrder.outputs.filter(
         (output) => output.token.toLowerCase() === NATIVE_ADDRESS
       )
