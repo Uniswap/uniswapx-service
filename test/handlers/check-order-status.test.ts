@@ -1,7 +1,17 @@
 /* eslint-disable */
-import { OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import {
+  DutchInput,
+  DutchOutput,
+  OrderType,
+  OrderValidation,
+  REACTOR_ADDRESS_MAPPING,
+  TokenTransfer,
+} from '@uniswap/uniswapx-sdk'
+import { BigNumber } from 'ethers'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities'
 import { CheckOrderStatusHandler, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
+import { NATIVE_ADDRESS } from '../../lib/util/constants'
+import { ORDER_INFO } from '../fixtures'
 
 const MOCK_ORDER_HASH = '0xc57af022b96e1cb0da0267c15f1d45cdfccf57cfeb8b33869bb50d7f478ab203'
 let MOCK_ENCODED_ORDER =
@@ -216,6 +226,170 @@ describe('Testing check order status handler', () => {
         chainId: 1,
         startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
       })
+    })
+  })
+
+  describe('Test getSettledAmounts', () => {
+    const injectorPromiseMock: any = buildInjectorPromiseMock(500, ORDER_STATUS.OPEN)
+    const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
+
+    const getMockFillInfo = (inputs: TokenTransfer[], outputs: TokenTransfer[]) => ({
+      blockNumber: 1,
+      txHash: '0x456',
+      inputs,
+      outputs,
+      orderHash: '0x123',
+      filler: '0x123',
+      nonce: BigNumber.from(1),
+      swapper: '0x123',
+    })
+
+    const getMockDutchOrder = (input: DutchInput, outputs: DutchOutput[], resolvedOutput?: TokenTransfer): any => ({
+      info: { ...ORDER_INFO, input, outputs },
+      resolve: () => {
+        return {
+          input: { token: input.token, amount: input.startAmount },
+          outputs: [resolvedOutput ?? { token: outputs[0].token, amount: outputs[0].endAmount }],
+        }
+      },
+    })
+
+    it('exact input', () => {
+      const resolvedInput = {
+        token: 'weth',
+        amount: BigNumber.from(1),
+      } as TokenTransfer
+      const resolvedOutput = {
+        token: 'usdc',
+        amount: BigNumber.from(90),
+      } as TokenTransfer
+
+      const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+      const mockDutchOrder = getMockDutchOrder(
+        { token: resolvedInput.token, startAmount: resolvedInput.amount, endAmount: resolvedInput.amount },
+        [
+          {
+            token: resolvedOutput.token,
+            startAmount: BigNumber.from(100),
+            endAmount: resolvedOutput.amount,
+            recipient: '0x123',
+          },
+        ]
+      )
+
+      const settledAmounts = checkOrderStatusHandler.getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      expect(settledAmounts).toEqual([
+        {
+          tokenIn: resolvedInput.token,
+          amountIn: resolvedInput.amount.toString(),
+          tokenOut: resolvedOutput.token,
+          amountOut: resolvedOutput.amount.toString(),
+        },
+      ])
+    })
+
+    it('exact output', () => {
+      const resolvedInput = {
+        token: 'weth',
+        amount: BigNumber.from(1),
+      } as TokenTransfer
+      const resolvedOutput = {
+        token: 'usdc',
+        amount: BigNumber.from(90),
+      } as TokenTransfer
+
+      const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+      const mockDutchOrder = getMockDutchOrder(
+        { token: resolvedInput.token, startAmount: BigNumber.from(2), endAmount: resolvedInput.amount },
+        [
+          {
+            token: resolvedOutput.token,
+            startAmount: resolvedOutput.amount,
+            endAmount: resolvedOutput.amount,
+            recipient: '0x123',
+          },
+        ]
+      )
+
+      const settledAmounts = checkOrderStatusHandler.getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      expect(settledAmounts).toEqual([
+        {
+          tokenIn: resolvedInput.token,
+          amountIn: resolvedInput.amount.toString(),
+          tokenOut: resolvedOutput.token,
+          amountOut: resolvedOutput.amount.toString(),
+        },
+      ])
+    })
+
+    it('exact input ETH out', () => {
+      const resolvedInput = {
+        token: 'usdc',
+        amount: BigNumber.from(100),
+      } as TokenTransfer
+      const resolvedOutput = {
+        token: NATIVE_ADDRESS,
+        amount: BigNumber.from(1),
+      } as TokenTransfer
+
+      const mockFillInfo = getMockFillInfo([resolvedInput], [])
+      const mockDutchOrder = getMockDutchOrder(
+        { token: resolvedInput.token, startAmount: resolvedInput.amount, endAmount: resolvedInput.amount },
+        [
+          {
+            token: resolvedOutput.token,
+            startAmount: BigNumber.from(2),
+            endAmount: resolvedOutput.amount,
+            recipient: '0x123',
+          },
+        ],
+        { token: resolvedOutput.token, amount: resolvedOutput.amount }
+      )
+
+      const settledAmounts = checkOrderStatusHandler.getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      expect(settledAmounts).toEqual([
+        {
+          tokenIn: resolvedInput.token,
+          amountIn: resolvedInput.amount.toString(),
+          tokenOut: resolvedOutput.token,
+          amountOut: resolvedOutput.amount.toString(),
+        },
+      ])
+    })
+
+    it('exact output ETH out', () => {
+      const resolvedInput = {
+        token: 'usdc',
+        amount: BigNumber.from(100),
+      } as TokenTransfer
+      const resolvedOutput = {
+        token: NATIVE_ADDRESS,
+        amount: BigNumber.from(1),
+      } as TokenTransfer
+
+      const mockFillInfo = getMockFillInfo([resolvedInput], [])
+      const mockDutchOrder = getMockDutchOrder(
+        { token: resolvedInput.token, startAmount: BigNumber.from(200), endAmount: resolvedInput.amount },
+        [
+          {
+            token: resolvedOutput.token,
+            startAmount: resolvedOutput.amount,
+            endAmount: resolvedOutput.amount,
+            recipient: '0x123',
+          },
+        ],
+        { token: resolvedOutput.token, amount: resolvedOutput.amount }
+      )
+
+      const settledAmounts = checkOrderStatusHandler.getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      expect(settledAmounts).toEqual([
+        {
+          tokenIn: resolvedInput.token,
+          amountIn: resolvedInput.amount.toString(),
+          tokenOut: resolvedOutput.token,
+          amountOut: resolvedOutput.amount.toString(),
+        },
+      ])
     })
   })
 })

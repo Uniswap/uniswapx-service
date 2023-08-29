@@ -7,6 +7,7 @@ import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { ChainId } from '../../util/chain'
+import { NATIVE_ADDRESS } from '../../util/constants'
 import { metrics } from '../../util/metrics'
 import { SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { ContainerInjected, RequestInjected } from './injector'
@@ -84,6 +85,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           const receipt = await tx.wait()
           const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
+          const settledAmounts = this.getSettledAmounts(fillEvent, timestamp, parsedOrder)
+
           this.logFillInfo(
             log,
             fillEvent,
@@ -91,13 +94,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             timestamp,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
-            receipt.gasUsed.toString()
+            receipt.gasUsed.toString(),
+            settledAmounts
           )
-
-          const settledAmounts = fillEvent.outputs.map((output) => ({
-            tokenOut: output.token,
-            amountOut: output.amount.toString(),
-          }))
 
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
           metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
@@ -188,6 +187,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           const receipt = await tx.wait()
           const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
           const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
+          const settledAmounts = this.getSettledAmounts(fillEvent, timestamp, parsedOrder)
+
           this.logFillInfo(
             log,
             fillEvent,
@@ -195,13 +196,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             timestamp,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
-            receipt.gasUsed.toString()
+            receipt.gasUsed.toString(),
+            settledAmounts
           )
-
-          const settledAmounts = fillEvent.outputs.map((output) => ({
-            tokenOut: output.token,
-            amountOut: output.amount.toString(),
-          }))
 
           const percentDecayed =
             order.decayEndTime === order.decayStartTime
@@ -376,10 +373,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     timestamp: number,
     gasCostInETH: string,
     gasPriceWei: string,
-    gasUsed: string
+    gasUsed: string,
+    settledAmounts: SettledAmount[]
   ): void {
-    // TODO: handle multiple input tokens
-    fill.outputs.forEach((output) => {
+    settledAmounts.forEach((settledAmount) => {
       log.info({
         orderInfo: {
           orderStatus: ORDER_STATUS.FILLED,
@@ -388,10 +385,10 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           filler: fill.filler,
           nonce: fill.nonce.toString(),
           offerer: fill.swapper,
-          tokenIn: fill.inputs[0].token,
-          amountIn: fill.inputs[0].amount.toString(),
-          tokenOut: output.token,
-          amountOut: output.amount.toString(),
+          tokenIn: settledAmount.tokenIn,
+          amountIn: settledAmount.amountIn,
+          tokenOut: settledAmount.tokenOut,
+          amountOut: settledAmount.amountOut,
           blockNumber: fill.blockNumber,
           txHash: fill.txHash,
           fillTimestamp: timestamp,
@@ -401,5 +398,61 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         },
       })
     })
+  }
+
+  public getSettledAmounts(fill: FillInfo, fillTimestamp: number, parsedOrder: DutchOrder): SettledAmount[] {
+    const nativeOutputs = parsedOrder.info.outputs.filter((output) => output.token.toLowerCase() === NATIVE_ADDRESS)
+    const settledAmounts: SettledAmount[] = []
+    let amountIn: string | undefined
+    if (parsedOrder.info.input.endAmount.eq(parsedOrder.info.input.startAmount)) {
+      // If the order is EXACT_INPUT then the input will not decay and resolves to the startAmount/endAmount.
+      amountIn = parsedOrder.info.input.startAmount.toString()
+
+      // Resolve the native outputs using the fill timestamp and filler address from the fill log.
+      // This will give us a minimum resolved amount for native out swaps.
+      const resolvedOrder = parsedOrder.resolve({ timestamp: fillTimestamp, filler: fill.filler })
+      const resolvedNativeOutputs = resolvedOrder.outputs.filter(
+        (output) => output.token.toLowerCase() === NATIVE_ADDRESS
+      )
+
+      // Add all the resolved native outputs to the settledAmounts as they are not included in the fill logs.
+      resolvedNativeOutputs.forEach((resolvedNativeOutput) => {
+        settledAmounts.push({
+          tokenIn: parsedOrder.info.input.token,
+          amountIn,
+          tokenOut: resolvedNativeOutput.token,
+          amountOut: resolvedNativeOutput.amount.toString(),
+        })
+      })
+    } else {
+      // If the order is EXACT_OUTPUT we will have all the ERC20 transfers in the fill logs,
+      // only log the amountIn that matches the order input token.
+      const input = fill.inputs.find(
+        (input) => input.token.toLowerCase() === parsedOrder.info.input.token.toLowerCase()
+      )
+      amountIn = input?.amount.toString()
+
+      // Add all the native outputs to the settledAmounts as they are not included in the fill logs.
+      // The amount is just the startAmount because the order is EXACT_OUTPUT so there is no decay on the outputs.
+      nativeOutputs.forEach((nativeOutput) => {
+        settledAmounts.push({
+          tokenIn: parsedOrder.info.input.token,
+          amountIn,
+          tokenOut: nativeOutput.token,
+          amountOut: nativeOutput.startAmount.toString(),
+        })
+      })
+    }
+
+    fill.outputs.forEach((output) => {
+      settledAmounts.push({
+        tokenIn: parsedOrder.info.input.token,
+        amountIn,
+        tokenOut: output.token,
+        amountOut: output.amount.toString(),
+      })
+    })
+
+    return settledAmounts
   }
 }
