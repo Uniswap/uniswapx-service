@@ -95,7 +95,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
             receipt.gasUsed.toString(),
-            settledAmounts
+            settledAmounts,
+            chainId
           )
 
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
@@ -197,7 +198,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
             receipt.gasUsed.toString(),
-            settledAmounts
+            settledAmounts,
+            chainId
           )
 
           const percentDecayed =
@@ -374,7 +376,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     gasCostInETH: string,
     gasPriceWei: string,
     gasUsed: string,
-    settledAmounts: SettledAmount[]
+    settledAmounts: SettledAmount[],
+    chainId: number
   ): void {
     settledAmounts.forEach((settledAmount) => {
       log.info({
@@ -395,6 +398,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           gasPriceWei: gasPriceWei,
           gasUsed: gasUsed,
           gasCostInETH: gasCostInETH,
+          tokenInChainId: chainId,
+          tokenOutChainId: chainId,
         },
       })
     })
