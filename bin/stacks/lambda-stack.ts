@@ -73,7 +73,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetOrders${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getOrdersHandler',
       timeout: Duration.seconds(29),
@@ -91,7 +91,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.orderNotificationLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrderNotification${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'orderNotificationHandler',
       memorySize: 256,
@@ -135,7 +135,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'postOrderHandler',
       timeout: Duration.seconds(29),
@@ -149,7 +149,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getNonceHandler',
       memorySize: 256,
@@ -167,7 +167,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getDocsHandler',
       memorySize: 512,
@@ -185,7 +185,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getDocsUILambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocsUI${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getDocsUIHandler',
       memorySize: 512,

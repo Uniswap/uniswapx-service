@@ -37,7 +37,7 @@ export class StepFunctionStack extends cdk.NestedStack {
     })
 
     const checkStatusFunction = new NodejsFunction(this, `${SERVICE_NAME}-${stage}-CheckOrderStatusLambda`, {
-      runtime: aws_lambda.Runtime.NODEJS_16_X,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
       role: props.lambdaRole,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'checkOrderStatusHandler',
