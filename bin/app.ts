@@ -100,7 +100,7 @@ export class APIPipeline extends Stack {
         phases: {
           install: {
             'runtime-versions': {
-              nodejs: '16',
+              nodejs: '18',
             },
           },
         },
