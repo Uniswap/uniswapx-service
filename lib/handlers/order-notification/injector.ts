@@ -22,7 +22,7 @@ export class OrderNotificationInjector extends DynamoStreamInjector<ContainerInj
   public async buildContainerInjected(): Promise<ContainerInjected> {
     const stage = checkDefined(process.env['stage'], 'stage should be defined in the .env')
     const webhookProvider = new S3WebhookConfigurationProvider(
-      `${WEBHOOK_CONFIG_BUCKET}-${stage}`,
+      `${WEBHOOK_CONFIG_BUCKET}-${stage}-1`,
       PRODUCTION_WEBHOOK_CONFIG_KEY
     )
     return { webhookProvider }
