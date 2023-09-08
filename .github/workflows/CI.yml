@@ -21,9 +21,9 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
 
       - name: Set up node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
-          node-version: 16.x
+          node-version: 18.x
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
@@ -42,8 +42,8 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          distribution: "temurin"
-          java-version: "17"
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Check test coverage
         run: yarn coverage
