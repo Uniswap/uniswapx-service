@@ -94,7 +94,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'orderNotificationHandler',
-      memorySize: 256,
+      memorySize: 512,
       timeout: Duration.seconds(29),
       bundling: {
         minify: true,
@@ -152,7 +152,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getNonceHandler',
-      memorySize: 256,
+      memorySize: 512,
       timeout: Duration.seconds(29),
       bundling: {
         minify: true,
