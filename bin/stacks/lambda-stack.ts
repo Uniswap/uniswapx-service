@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import { Alarm, ComparisonOperator, MathExpression, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
+import { CfnEIP, NatProvider, Vpc } from 'aws-cdk-lib/aws-ec2'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
@@ -56,6 +57,32 @@ export class LambdaStack extends cdk.NestedStack {
       ],
     })
 
+    lambdaRole.addToPolicy(
+      new aws_iam.PolicyStatement({
+        actions: ['ec2:CreateNetworkInterface', 'ec2:DescribeNetworkInterfaces', 'ec2:DeleteNetworkInterface'],
+        resources: ['*'],
+      })
+    )
+
+    const notificationElasticIp = new CfnEIP(this, `NotificationLambdaElasticIp`, {
+      domain: 'vpc',
+      tags: [
+        {
+          key: 'Name',
+          value: 'NotificationLambdaElasticIp',
+        },
+      ],
+    })
+
+    const vpc = new Vpc(this, 'NotificationLambdaVpc', {
+      vpcName: 'NotificationLambdaVpc',
+      natGateways: 1,
+      natGatewayProvider: NatProvider.gateway({
+        eipAllocationIds: [notificationElasticIp.attrAllocationId],
+      }),
+      maxAzs: 3,
+    })
+
     const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {
       tableCapacityConfig,
       indexCapacityConfig,
@@ -104,6 +131,10 @@ export class LambdaStack extends cdk.NestedStack {
         stage: props.stage as STAGE,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
+      },
+      vpc,
+      vpcSubnets: {
+        subnets: [...vpc.privateSubnets],
       },
     })
 
