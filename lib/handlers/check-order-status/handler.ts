@@ -395,7 +395,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           gasPriceWei: gasPriceWei,
           gasUsed: gasUsed,
           gasCostInETH: gasCostInETH,
-          logTime: Math.floor(Date.now() / 1000),
+          logTime: Math.floor(Date.now() / 1000).toString(),
         },
       })
     })
