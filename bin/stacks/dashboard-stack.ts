@@ -217,7 +217,7 @@ export class DashboardStack extends cdk.NestedStack {
                   [
                     {
                       expression: `(${prefix}m1/${prefix}m2)*100`,
-                      label: `Chain${chainId} Error Rate`,
+                      label: `Chain${chainId} 5XX Error Rate`,
                       id: `${prefix}e1`,
                     },
                   ],
@@ -242,7 +242,13 @@ export class DashboardStack extends cdk.NestedStack {
               region,
               stat: 'Sum',
               period: 300,
-              title: 'Orders Posted Error Rates by Chain',
+              title: 'Post Order Handler 5XX Error Rates by Chain',
+              yAxis: {
+                left: {
+                  showUnits: false,
+                  label: '%',
+                },
+              },
             },
           },
           {
