@@ -1,4 +1,4 @@
-import { OrderEntity, ORDER_STATUS, SettledAmount } from '../entities/index'
+import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities/index'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export type QueryResult = {
@@ -12,7 +12,14 @@ export interface BaseOrdersRepository {
   countOrdersByOffererAndStatus: (offerer: string, orderStatus: ORDER_STATUS) => Promise<number>
   getOrders: (limit: number, queryFilters: GetOrdersQueryParams, cursor?: string) => Promise<QueryResult>
   getByOfferer: (offerer: string, limit: number) => Promise<QueryResult>
-  getByOrderStatus: (orderStatus: string, limit: number) => Promise<QueryResult>
+  getByOrderStatus: (
+    orderStatus: string,
+    limit: number,
+    cursor?: string,
+    sortKey?: SORT_FIELDS,
+    sort?: string,
+    desc?: boolean
+  ) => Promise<QueryResult>
   getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string>
   updateOrderStatus: (
     orderHash: string,
@@ -20,4 +27,5 @@ export interface BaseOrdersRepository {
     txHash?: string,
     settledAmounts?: SettledAmount[]
   ) => Promise<void>
+  deleteOrders: (orderHashes: string[]) => Promise<void>
 }

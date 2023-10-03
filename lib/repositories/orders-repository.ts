@@ -252,6 +252,13 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
     })
   }
 
+  public async deleteOrders(orderHashes: string[]): Promise<void> {
+    await this.ordersTable.batchWrite(
+      orderHashes.map((hash) => this.orderEntity.deleteBatch({ orderHash: hash })),
+      { execute: true }
+    )
+  }
+
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
     const requestedParams = this.getRequestedParams(queryFilters)
 
