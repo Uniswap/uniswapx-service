@@ -39,5 +39,17 @@ export class CronStack extends cdk.NestedStack {
       schedule: aws_events.Schedule.rate(cdk.Duration.days(1)),
       targets: [new cdk.aws_events_targets.LambdaFunction(this.gsReaperCronLambda)],
     })
+
+    new cdk.aws_cloudwatch.Alarm(this, `ReaperErrorAlarmSev3`, {
+      alarmName: `${SERVICE_NAME}-SEV3-ReaperError`,
+      metric: new cdk.aws_cloudwatch.Metric({
+        period: cdk.Duration.days(1),
+        metricName: 'DeleteStaleOrdersError',
+        namespace: 'Uniswap',
+        statistic: 'sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+    })
   }
 }
