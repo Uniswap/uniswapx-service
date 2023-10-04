@@ -542,3 +542,25 @@ describe('OrdersRepository update status test', () => {
     )
   })
 })
+
+describe('OrdersRepository delete test', () => {
+  it('should delete orders by list of orderHashes', async () => {
+    await ordersRepository.putOrderAndUpdateNonceTransaction({
+      ...MOCK_ORDER_1,
+      nonce: '1',
+    })
+    await ordersRepository.putOrderAndUpdateNonceTransaction({
+      ...MOCK_ORDER_2,
+      nonce: '2',
+    })
+    let order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
+    expect(order).toBeDefined()
+    order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
+    expect(order).toBeDefined()
+    await ordersRepository.deleteOrders([MOCK_ORDER_1.orderHash, MOCK_ORDER_2.orderHash])
+    order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
+    expect(order).not.toBeDefined()
+    order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
+    expect(order).not.toBeDefined()
+  })
+})

@@ -13,6 +13,7 @@ import * as path from 'path'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
+import { CronStack } from './cron-stack'
 import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { StepFunctionStack } from './step-function-stack'
 
@@ -421,5 +422,8 @@ export class LambdaStack extends cdk.NestedStack {
         sev3OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
       }
     }
+
+    /* cron stack */
+    new CronStack(this, `${SERVICE_NAME}CronStack`, { lambdaRole })
   }
 }
