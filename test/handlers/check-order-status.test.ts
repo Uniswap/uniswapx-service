@@ -41,6 +41,7 @@ const MOCK_ORDER_ENTITY: OrderEntity = {
       token: '0xoutput',
       startAmount: '2000000000000000000',
       endAmount: '1000000000000000000',
+      recipient: '0xrecipient',
     },
   ],
 }
