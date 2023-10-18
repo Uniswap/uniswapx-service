@@ -123,26 +123,26 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
 
     // Log used for cw dashboard and redshift metrics, do not modify
-    order.outputs?.forEach((output) => {
-      log?.info({
-        eventType: 'OrderPosted',
-        body: {
-          quoteId: order.quoteId,
-          createdAt: currentTimestampInSeconds(),
-          orderHash: order.orderHash,
-          startTime: order.decayStartTime,
-          endTime: order.decayEndTime,
-          deadline: order.deadline,
-          chainId: order.chainId,
-          inputStartAmount: order.input?.startAmount,
-          inputEndAmount: order.input?.endAmount,
-          tokenIn: order.input?.token,
-          outputStartAmount: output.startAmount,
-          outputEndAmount: output.endAmount,
-          tokenOut: output.token,
-          filler: getAddress(order.filler ?? AddressZero),
-        },
-      })
+    // skip fee output logging
+    const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
+    log?.info({
+      eventType: 'OrderPosted',
+      body: {
+        quoteId: order.quoteId,
+        createdAt: currentTimestampInSeconds(),
+        orderHash: order.orderHash,
+        startTime: order.decayStartTime,
+        endTime: order.decayEndTime,
+        deadline: order.deadline,
+        chainId: order.chainId,
+        inputStartAmount: order.input?.startAmount,
+        inputEndAmount: order.input?.endAmount,
+        tokenIn: order.input?.token,
+        outputStartAmount: userOutput.startAmount,
+        outputEndAmount: userOutput.endAmount,
+        tokenOut: userOutput.token,
+        filler: getAddress(order.filler ?? AddressZero),
+      },
     })
 
     await this.kickoffOrderTrackingSfn(

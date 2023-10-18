@@ -76,9 +76,9 @@ export const OrderInputJoi = Joi.object({
 
 export const OrderOutputJoi = Joi.object({
   token: FieldValidator.isValidEthAddress().required(),
-  startAmount: FieldValidator.isValidAmount(),
-  endAmount: FieldValidator.isValidAmount(),
-  recipient: FieldValidator.isValidEthAddress(),
+  startAmount: FieldValidator.isValidAmount().required(),
+  endAmount: FieldValidator.isValidAmount().required(),
+  recipient: FieldValidator.isValidEthAddress().required(),
 })
 
 export const SettledAmount = Joi.object({
