@@ -199,6 +199,12 @@ export class OrderValidator {
   }
 
   private validateOutputs(dutchOutputs: DutchOutput[]): OrderValidationResponse {
+    if (dutchOutputs.length == 0) {
+      return {
+        valid: false,
+        errorString: `Invalid number of outputs: 0`,
+      }
+    }
     for (const output of dutchOutputs) {
       const { token, recipient, startAmount, endAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {

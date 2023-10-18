@@ -17,9 +17,9 @@ export type OrderInput = {
 
 export type OrderOutput = {
   token: string
-  startAmount?: string
-  endAmount?: string
-  recipient?: string
+  startAmount: string
+  endAmount: string
+  recipient: string
 }
 
 export type SettledAmount = {
