@@ -23,10 +23,10 @@ export type OrderOutput = {
 }
 
 export type SettledAmount = {
-  tokenOut?: string
-  amountOut?: string
-  tokenIn?: string
-  amountIn?: string
+  tokenOut: string
+  amountOut: string
+  tokenIn: string
+  amountIn: string
 }
 
 export type OrderEntity = {

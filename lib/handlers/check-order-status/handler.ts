@@ -1,4 +1,5 @@
 import { DutchOrder, FillInfo, OrderValidation } from '@uniswap/uniswapx-sdk'
+
 import { Unit } from 'aws-embedded-metrics'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
@@ -95,7 +96,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
             receipt.gasUsed.toString(),
-            settledAmounts
+            settledAmounts.reduce((prev, cur) => (prev && prev.amountOut > cur.amountOut ? prev : cur))
           )
 
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
@@ -197,7 +198,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
             receipt.gasUsed.toString(),
-            settledAmounts
+            settledAmounts.reduce((prev, cur) => (prev && prev.amountOut > cur.amountOut ? prev : cur))
           )
 
           const percentDecayed =
@@ -374,37 +375,35 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     gasCostInETH: string,
     gasPriceWei: string,
     gasUsed: string,
-    settledAmounts: SettledAmount[]
+    userAmount: SettledAmount
   ): void {
-    settledAmounts.forEach((settledAmount) => {
-      log.info({
-        orderInfo: {
-          orderStatus: ORDER_STATUS.FILLED,
-          orderHash: fill.orderHash,
-          quoteId: quoteId,
-          filler: fill.filler,
-          nonce: fill.nonce.toString(),
-          offerer: fill.swapper,
-          tokenIn: settledAmount.tokenIn,
-          amountIn: settledAmount.amountIn,
-          tokenOut: settledAmount.tokenOut,
-          amountOut: settledAmount.amountOut,
-          blockNumber: fill.blockNumber,
-          txHash: fill.txHash,
-          fillTimestamp: timestamp,
-          gasPriceWei: gasPriceWei,
-          gasUsed: gasUsed,
-          gasCostInETH: gasCostInETH,
-          logTime: Math.floor(Date.now() / 1000).toString(),
-        },
-      })
+    log.info({
+      orderInfo: {
+        orderStatus: ORDER_STATUS.FILLED,
+        orderHash: fill.orderHash,
+        quoteId: quoteId,
+        filler: fill.filler,
+        nonce: fill.nonce.toString(),
+        offerer: fill.swapper,
+        tokenIn: userAmount.tokenIn,
+        amountIn: userAmount.amountIn,
+        tokenOut: userAmount.tokenOut,
+        amountOut: userAmount.amountOut,
+        blockNumber: fill.blockNumber,
+        txHash: fill.txHash,
+        fillTimestamp: timestamp,
+        gasPriceWei: gasPriceWei,
+        gasUsed: gasUsed,
+        gasCostInETH: gasCostInETH,
+        logTime: Math.floor(Date.now() / 1000).toString(),
+      },
     })
   }
 
   public getSettledAmounts(fill: FillInfo, fillTimestamp: number, parsedOrder: DutchOrder): SettledAmount[] {
     const nativeOutputs = parsedOrder.info.outputs.filter((output) => output.token.toLowerCase() === NATIVE_ADDRESS)
     const settledAmounts: SettledAmount[] = []
-    let amountIn: string | undefined
+    let amountIn: string
     if (parsedOrder.info.input.endAmount.eq(parsedOrder.info.input.startAmount)) {
       // If the order is EXACT_INPUT then the input will not decay and resolves to the startAmount/endAmount.
       amountIn = parsedOrder.info.input.startAmount.toString()
@@ -428,10 +427,12 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     } else {
       // If the order is EXACT_OUTPUT we will have all the ERC20 transfers in the fill logs,
       // only log the amountIn that matches the order input token.
+
+      // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
       const input = fill.inputs.find(
         (input) => input.token.toLowerCase() === parsedOrder.info.input.token.toLowerCase()
-      )
-      amountIn = input?.amount.toString()
+      )!
+      amountIn = input.amount.toString()
 
       // Add all the native outputs to the settledAmounts as they are not included in the fill logs.
       // The amount is just the startAmount because the order is EXACT_OUTPUT so there is no decay on the outputs.
