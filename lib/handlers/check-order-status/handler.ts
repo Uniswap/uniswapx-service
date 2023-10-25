@@ -2,7 +2,7 @@ import { DutchOrder, FillInfo, OrderValidation } from '@uniswap/uniswapx-sdk'
 
 import { Unit } from 'aws-embedded-metrics'
 import { default as Logger } from 'bunyan'
-import { ethers } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import Joi from 'joi'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -96,7 +96,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
             receipt.gasUsed.toString(),
-            settledAmounts.reduce((prev, cur) => (prev && prev.amountOut > cur.amountOut ? prev : cur))
+            settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
           )
 
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
@@ -198,7 +198,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
             receipt.gasUsed.toString(),
-            settledAmounts.reduce((prev, cur) => (prev && prev.amountOut > cur.amountOut ? prev : cur))
+            settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
           )
 
           const percentDecayed =
