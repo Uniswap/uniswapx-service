@@ -7,7 +7,7 @@ export type OrderValidationResponse = {
   errorString?: string
 }
 
-const THIRTY_MINUTES_IN_SECONDS = 60 * 30
+const ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 export class OrderValidator {
   constructor(private readonly getCurrentTime: () => number) {}
@@ -109,7 +109,7 @@ export class OrderValidator {
         errorString: 'Deadline must be in the future',
       }
     }
-    if (deadline > this.getCurrentTime() + THIRTY_MINUTES_IN_SECONDS) {
+    if (deadline > this.getCurrentTime() + ONE_DAY_IN_SECONDS) {
       return {
         valid: false,
         errorString: `Deadline field invalid: Order expiry cannot be larger than thirty minutes`,
