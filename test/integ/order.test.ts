@@ -43,7 +43,7 @@ describe('/dutch-auction/order', () => {
   jest.retryTimes(2)
   let alice: Wallet
   let filler: Wallet
-  let provider: ethers.providers.JsonRpcProvider
+  let provider: ethers.providers.StaticJsonRpcProvider
   let aliceAddress: string
   let nonce: BigNumber
   let URL: string
@@ -69,7 +69,7 @@ describe('/dutch-auction/order', () => {
     }
     URL = process.env.UNISWAPX_SERVICE_URL
 
-    provider = new ethers.providers.JsonRpcProvider(process.env.RPC_5)
+    provider = new ethers.providers.StaticJsonRpcProvider(process.env.RPC_5)
     alice = new ethers.Wallet(process.env.TEST_WALLET_PK).connect(provider)
     filler = new ethers.Wallet(process.env.TEST_FILLER_PK).connect(provider)
     aliceAddress = (await alice.getAddress()).toLowerCase()

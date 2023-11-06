@@ -26,7 +26,7 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
       if (typeof chainId === 'number') {
         const rpc = process.env[`RPC_${chainId}`]
         if (rpc) {
-          onchainValidatorByChainId[chainId] = new OnchainValidator(new ethers.providers.JsonRpcProvider(rpc), chainId)
+          onchainValidatorByChainId[chainId] = new OnchainValidator(new ethers.providers.StaticJsonRpcProvider(rpc), chainId)
         }
       }
     })

@@ -16,7 +16,7 @@ export interface RequestInjected extends BaseRInj {
   orderStatus: string
   getFillLogAttempts: number
   retryCount: number
-  provider: ethers.providers.JsonRpcProvider
+  provider: ethers.providers.StaticJsonRpcProvider
   orderWatcher: EventWatcher
   orderQuoter: OrderValidator
 }
@@ -47,7 +47,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
 
     const chainId = event.chainId
     const rpcURL = process.env[`RPC_${chainId}`]
-    const provider = new ethers.providers.JsonRpcProvider(rpcURL)
+    const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL)
     const quoter = new OrderValidator(provider, parseInt(chainId as string))
     // TODO: use different reactor address for different order type
     const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.Dutch])
