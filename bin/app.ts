@@ -11,7 +11,7 @@ import dotenv from 'dotenv'
 import 'source-map-support/register'
 import { SUPPORTED_CHAINS } from '../lib/util/chain'
 import { STAGE } from '../lib/util/stage'
-import { PROD_INDEX_CAPACITY, PROD_TABLE_CAPACITY } from './config'
+import { PROD_TABLE_CAPACITY } from './config'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './stacks/dynamo-stack'
@@ -181,7 +181,6 @@ export class APIPipeline extends Stack {
         THROTTLE_PER_FIVE_MINS: '3000',
       },
       tableCapacityConfig: PROD_TABLE_CAPACITY,
-      indexCapacityConfig: PROD_INDEX_CAPACITY,
     })
 
     const prodUsEast2AppStage = pipeline.addStage(prodUsEast2Stage)
