@@ -7,7 +7,7 @@ const validationProvider = new OrderValidator(() => CURRENT_TIME)
 const INPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000022'
 const OUTPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000033'
 const EXCLUSIVE_FILLER = '0x0000000000000000000000000000000000000044'
-const ONE_DAY = 60 * 60 * 24
+const ONE_YEAR = 60 * 60 * 24 * 364
 const SWAPPER = '0x0000000000000000000000000000000000032100'
 const RECIPIENT = '0x0000000000000000000000000000000000045600'
 const INPUT = { token: INPUT_TOKEN_ADDRESS, startAmount: BigNumber.from('1'), endAmount: BigNumber.from('2') }
@@ -62,7 +62,7 @@ describe('Testing off chain validation', () => {
       expect(validationResp).toEqual({ errorString: 'Deadline must be in the future', valid: false })
     })
     it('Testing deadline longer than one day', async () => {
-      const order = newOrder({ deadline: CURRENT_TIME + ONE_DAY + 1 })
+      const order = newOrder({ deadline: CURRENT_TIME + ONE_YEAR + 1 })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         errorString: 'Deadline field invalid: Order expiry cannot be larger than thirty minutes',
@@ -70,7 +70,7 @@ describe('Testing off chain validation', () => {
       })
     })
     it('Testing valid deadline.', async () => {
-      const order = newOrder({ deadline: CURRENT_TIME + ONE_DAY })
+      const order = newOrder({ deadline: CURRENT_TIME + ONE_YEAR })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({ valid: true })
     })

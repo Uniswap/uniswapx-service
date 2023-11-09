@@ -218,7 +218,7 @@ const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
   '0xe001e6f6879c07b9ac24291a490f2795106d348c',
   '0x8943ea25bbfe135450315ab8678f2f79559f4630',
 ]
-export const DEFAULT_MAX_OPEN_ORDERS = 5
+export const DEFAULT_MAX_OPEN_ORDERS = 50
 export const HIGH_MAX_OPEN_ORDERS = 200
 
 // return the number of open orders the given offerer is allowed to have at a time
