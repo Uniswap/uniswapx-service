@@ -29,6 +29,8 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
           filler: newOrder.filler,
         })
 
+        log.info({ order: newOrder, registeredEndpoints }, 'Sending order to registered webhooks.')
+
         const requests: Promise<AxiosResponse>[] = registeredEndpoints.map((endpoint) =>
           axios.post(
             endpoint.url,
@@ -58,6 +60,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         results.forEach((result, index) => {
           metrics.putMetric(`OrderNotificationAttempt-chain-${newOrder.chainId}`, 1)
           if (result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202) {
+            delete result.value.request
             log.info(
               { result: result.value },
               `Success: New order record sent to registered webhook ${registeredEndpoints[index].url}.`
