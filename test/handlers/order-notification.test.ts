@@ -92,7 +92,7 @@ describe('Testing new order Notification handler.', () => {
       orderStatus: MOCK_ORDER.orderStatus.S,
       filler: MOCK_ORDER.filler.S,
     })
-    expect(logInfoMock).toBeCalledTimes(2)
+    expect(logInfoMock).toBeCalledTimes(3)
     expect(logInfoMock).toBeCalledWith(
       { result: { status: 200 } },
       'Success: New order record sent to registered webhook webhook.com/1.'
