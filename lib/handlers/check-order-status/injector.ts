@@ -7,6 +7,7 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
 import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
+import { checkDefined } from '../../preconditions/preconditions';
 
 export interface RequestInjected extends BaseRInj {
   chainId: number
@@ -45,12 +46,12 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       serializers: bunyan.stdSerializers,
     })
 
-    const chainId = event.chainId
+    const chainId = checkDefined(event.chainId, 'chainId not defined') as number
     const rpcURL = process.env[`RPC_${chainId}`]
-    const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL)
-    const quoter = new OrderValidator(provider, parseInt(chainId as string))
+    const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
+    const quoter = new OrderValidator(provider, chainId)
     // TODO: use different reactor address for different order type
-    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId as number][OrderType.Dutch])
+    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch])
 
     return {
       log,
