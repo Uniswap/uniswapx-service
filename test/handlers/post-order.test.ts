@@ -1,7 +1,7 @@
-const parserMock = jest.fn()
-
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { ORDER_STATUS } from '../../lib/entities'
 import { ErrorCode } from '../../lib/handlers/base'
@@ -45,9 +45,7 @@ jest.mock('@uniswap/uniswapx-sdk', () => {
   const originalSdk = jest.requireActual('@uniswap/uniswapx-sdk')
   return {
     ...originalSdk,
-    DutchOrder: {
-      parse: parserMock,
-    },
+    DutchOrder: { parse: jest.fn() },
     OrderType: { Dutch: 'Dutch' },
   }
 })
@@ -140,7 +138,7 @@ describe('Testing post order handler.', () => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
     process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
     process.env['REGION'] = 'region'
-    parserMock.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
+    DutchOrder.parse.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
   })
 
   afterEach(() => {
@@ -223,7 +221,7 @@ describe('Testing post order handler.', () => {
       it('should allow more orders if in the high list', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
         validatorMock.mockReturnValue({ valid: true })
-        parserMock.mockReturnValueOnce(
+        DutchOrder.parse.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
               swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
@@ -241,7 +239,7 @@ describe('Testing post order handler.', () => {
       it('should reject order submission for offerer in high list at higher order count', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
         validatorMock.mockReturnValue({ valid: true })
-        parserMock.mockReturnValueOnce(
+        DutchOrder.parse.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
               offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
@@ -363,7 +361,7 @@ describe('Testing post order handler.', () => {
     })
 
     it('on-chain validation failed; throws 400', async () => {
-      parserMock.mockReturnValue({
+      DutchOrder.parse.mockReturnValue({
         ...DECODED_ORDER,
         chainId: 137,
       })
