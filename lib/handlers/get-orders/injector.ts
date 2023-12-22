@@ -69,9 +69,9 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
       queryFilters: {
         ...(orderStatus && { orderStatus: orderStatus }),
         ...(orderHash && { orderHash: orderHash }),
-        ...(offerer && { offerer: offerer }),
+        ...(offerer && { offerer: offerer.toLowerCase() }),
         ...(sortKey && { sortKey: sortKey }),
-        ...(filler && { filler: filler }),
+        ...(filler && { filler: filler.toLowerCase() }),
         ...(sort && { sort: sort }),
         ...(chainId && { chainId: chainId }),
         ...(desc !== undefined && { desc: desc }),
