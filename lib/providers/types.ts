@@ -6,7 +6,7 @@ export enum FILTER_FIELD {
 
 export type WebhookDefinition = {
   filter: WebhookFilterMapping
-  registeredWebhook: { [key: string]: string }
+  '*'?: Webhook[]
 }
 
 export type Webhook = {
