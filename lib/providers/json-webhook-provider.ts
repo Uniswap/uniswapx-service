@@ -15,7 +15,7 @@ export class JsonWebhookProvider implements WebhookProvider {
 }
 
 export function findEndpointsMatchingFilter(filter: OrderFilter, definition: WebhookDefinition): Webhook[] {
-  let endpoints: Webhook[] = []
+  let endpoints: Webhook[] = definition['*'] ?? []
 
   const filterKeys = Object.keys(filter) as FILTER_FIELD[]
   const filterMapping = definition.filter
