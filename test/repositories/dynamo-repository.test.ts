@@ -460,7 +460,6 @@ describe('OrdersRepository getOrders test with sorting', () => {
 describe('OrdersRepository getByHash test', () => {
   it('should successfully get an item from table', async () => {
     const order1 = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
-    // dynamodb-toolbox auto-generates 'created' and 'modified' fields
     expect(order1).toEqual(expect.objectContaining(MOCK_ORDER_1))
 
     const order2 = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)

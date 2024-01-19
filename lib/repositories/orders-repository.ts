@@ -106,6 +106,9 @@ export class DynamoOrdersRepository implements BaseOrdersRepository {
         txHash: { type: DYNAMODB_TYPES.STRING },
         settledAmounts: { type: DYNAMODB_TYPES.LIST },
       },
+      // Timestamps are explicitly turned off to avoid re-triggering dynamo streams,
+      // which can happen when only the modified timestamp is updated (by a Put/Update).
+      timestamps: false,
       table: ordersTable,
     } as const)
 
