@@ -84,9 +84,10 @@ describe('Testing check order status handler', () => {
           provider: {
             getBlockNumber: providerMock,
             getTransaction: getTransactionMock,
-            getBlock: () => Promise.resolve({
-              timestamp: 123456
-            })
+            getBlock: () =>
+              Promise.resolve({
+                timestamp: 123456,
+              }),
           },
         }
       },
@@ -163,22 +164,25 @@ describe('Testing check order status handler', () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
       validateMock.mockReturnValue(OrderValidation.Expired)
       getTransactionMock.mockReturnValueOnce({
-        wait: () => Promise.resolve({
-          effectiveGasPrice: BigNumber.from(1),
-          gasUsed: 100
-        })
+        wait: () =>
+          Promise.resolve({
+            effectiveGasPrice: BigNumber.from(1),
+            gasUsed: 100,
+          }),
       })
-      getFillInfoMock.mockReturnValue([{
-        orderHash: MOCK_ORDER_HASH,
-        filler: '0x123',
-        nonce: BigNumber.from(1),
-        swapper: '0x123',
-        blockNumber: 12321312313,
-        txHash: '0x1244345323',
-        inputs: [{token: 'USDC', amount: BigNumber.from(100)}],
-        outputs: [{token: 'WETH', amount: BigNumber.from(1)}],
-      }])
-      
+      getFillInfoMock.mockReturnValue([
+        {
+          orderHash: MOCK_ORDER_HASH,
+          filler: '0x123',
+          nonce: BigNumber.from(1),
+          swapper: '0x123',
+          blockNumber: 12321312313,
+          txHash: '0x1244345323',
+          inputs: [{ token: 'USDC', amount: BigNumber.from(100) }],
+          outputs: [{ token: 'WETH', amount: BigNumber.from(1) }],
+        },
+      ])
+
       expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
       })
@@ -189,22 +193,25 @@ describe('Testing check order status handler', () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
       validateMock.mockReturnValue(OrderValidation.NonceUsed)
       getTransactionMock.mockReturnValueOnce({
-        wait: () => Promise.resolve({
-          effectiveGasPrice: BigNumber.from(1),
-          gasUsed: 100
-        })
+        wait: () =>
+          Promise.resolve({
+            effectiveGasPrice: BigNumber.from(1),
+            gasUsed: 100,
+          }),
       })
-      getFillInfoMock.mockReturnValue([{
-        orderHash: MOCK_ORDER_HASH,
-        filler: '0x123',
-        nonce: BigNumber.from(1),
-        swapper: '0x123',
-        blockNumber: 12321312313,
-        txHash: '0x1244345323',
-        inputs: [{token: 'USDC', amount: BigNumber.from(100)}],
-        outputs: [{token: 'WETH', amount: BigNumber.from(1)}],
-      }])
-      
+      getFillInfoMock.mockReturnValue([
+        {
+          orderHash: MOCK_ORDER_HASH,
+          filler: '0x123',
+          nonce: BigNumber.from(1),
+          swapper: '0x123',
+          blockNumber: 12321312313,
+          txHash: '0x1244345323',
+          inputs: [{ token: 'USDC', amount: BigNumber.from(100) }],
+          outputs: [{ token: 'WETH', amount: BigNumber.from(1) }],
+        },
+      ])
+
       expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
       })
@@ -239,7 +246,7 @@ describe('Testing check order status handler', () => {
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined, undefined)
+      expect(updateOrderStatusMock).not.toBeCalled() // there is no update
       expect(response).toEqual({
         orderHash: MOCK_ORDER_HASH,
         orderStatus: 'open',
@@ -257,7 +264,7 @@ describe('Testing check order status handler', () => {
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined, undefined)
+      expect(updateOrderStatusMock).not.toBeCalled() // there is no update
       expect(response).toEqual({
         orderHash: MOCK_ORDER_HASH,
         orderStatus: 'open',
@@ -275,7 +282,7 @@ describe('Testing check order status handler', () => {
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
       expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).toBeCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.OPEN, undefined, undefined)
+      expect(updateOrderStatusMock).not.toBeCalled() // there is no update
       expect(response).toEqual({
         orderHash: MOCK_ORDER_HASH,
         orderStatus: 'open',
