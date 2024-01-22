@@ -3,18 +3,19 @@ import { MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
+import { ORDER_STATUS } from '../../entities'
+import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
 import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
-import { checkDefined } from '../../preconditions/preconditions';
 
 export interface RequestInjected extends BaseRInj {
   chainId: number
   quoteId: string
   orderHash: string
   startingBlockNumber: number
-  orderStatus: string
+  orderStatus: ORDER_STATUS
   getFillLogAttempts: number
   retryCount: number
   provider: ethers.providers.StaticJsonRpcProvider
@@ -59,7 +60,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       orderHash: event.orderHash as string,
       quoteId: event.quoteId as string,
       startingBlockNumber: event.startingBlockNumber ? (event.startingBlockNumber as number) : 0,
-      orderStatus: event.orderStatus as string,
+      orderStatus: event.orderStatus as ORDER_STATUS,
       getFillLogAttempts: event.getFillLogAttempts ? (event.getFillLogAttempts as number) : 0,
       retryCount: event.retryCount ? (event.retryCount as number) : 0,
       provider: provider,
