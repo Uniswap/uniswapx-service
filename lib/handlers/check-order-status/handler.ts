@@ -331,7 +331,6 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         },
         'updating order status'
       )
-
       await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
 
       if (IS_TERMINAL_STATE(orderStatus)) {
