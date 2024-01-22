@@ -59,6 +59,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       provider,
       orderWatcher,
       orderQuoter,
+      orderStatus,
     } = input.requestInjected
 
     const order = checkDefined(
@@ -96,7 +97,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
             receipt.gasUsed.toString(),
-            settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
+            settledAmounts.reduce((prev, cur) =>
+              prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur
+            )
           )
 
           const percentDecayed = (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
@@ -114,6 +117,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               startingBlockNumber: fromBlock,
               chainId,
+              lastStatus: orderStatus,
               orderStatus: ORDER_STATUS.FILLED,
               txHash: fillEvent.txHash,
               settledAmounts,
@@ -140,6 +144,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               startingBlockNumber: fromBlock,
               chainId,
+              lastStatus: orderStatus,
               // if there are no fill logs, retry one more time in case of node syncing issues
               orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
               getFillLogAttempts: getFillLogAttempts + 1,
@@ -158,6 +163,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             retryCount,
             startingBlockNumber: fromBlock,
             chainId,
+            lastStatus: orderStatus,
             orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
             validation,
           },
@@ -174,6 +180,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             retryCount,
             startingBlockNumber: fromBlock,
             chainId,
+            lastStatus: orderStatus,
             orderStatus: ORDER_STATUS.ERROR,
             validation,
           },
@@ -198,7 +205,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             gasCostInETH,
             receipt.effectiveGasPrice.toString(),
             receipt.gasUsed.toString(),
-            settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
+            settledAmounts.reduce((prev, cur) =>
+              prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur
+            )
           )
 
           const percentDecayed =
@@ -219,6 +228,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               startingBlockNumber: fromBlock,
               chainId,
+              lastStatus: orderStatus,
               orderStatus: ORDER_STATUS.FILLED,
               txHash: fillEvent.txHash,
               settledAmounts,
@@ -243,6 +253,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
               retryCount,
               startingBlockNumber: fromBlock,
               chainId,
+              lastStatus: orderStatus,
               // if there are no fill logs, retry one more time in case of node syncing issues
               orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
               getFillLogAttempts: getFillLogAttempts + 1,
@@ -261,6 +272,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             retryCount,
             startingBlockNumber: fromBlock,
             chainId,
+            lastStatus: orderStatus,
             orderStatus: ORDER_STATUS.OPEN,
             validation,
           },
@@ -277,6 +289,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       retryCount: number
       startingBlockNumber: number
       chainId: number
+      lastStatus: ORDER_STATUS
       orderStatus: ORDER_STATUS
       validation: OrderValidation
       txHash?: string
@@ -292,6 +305,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       retryCount,
       startingBlockNumber,
       chainId,
+      lastStatus,
       orderStatus,
       txHash,
       settledAmounts,
@@ -306,6 +320,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         retryCount,
         startingBlockNumber,
         chainId,
+        lastStatus,
         orderStatus,
         txHash,
         settledAmounts,
@@ -313,7 +328,11 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       },
       'updating order status'
     )
-    await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
+    // Avoid updating the order if the status is unchanged.
+    // This also avoids unnecessarily triggering downstream events from dynamodb changes.
+    if (orderStatus !== lastStatus) {
+      await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
+    }
 
     if (IS_TERMINAL_STATE(orderStatus)) {
       metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
