@@ -332,27 +332,27 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     // This also avoids unnecessarily triggering downstream events from dynamodb changes.
     if (orderStatus !== lastStatus) {
       await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
-    }
 
-    if (IS_TERMINAL_STATE(orderStatus)) {
-      metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
-      metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
-      log.info({
-        terminalOrderInfo: {
-          orderStatus,
-          orderHash,
-          quoteId: quoteId,
-          getFillLogAttempts,
-          startingBlockNumber,
-          chainId: chainId,
-          settledAmounts: settledAmounts
-            ?.map((s) => JSON.stringify(s))
-            .join(',')
-            .toString(),
-          retryCount,
-          validation,
-        },
-      })
+      if (IS_TERMINAL_STATE(orderStatus)) {
+        metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
+        metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
+        log.info({
+          terminalOrderInfo: {
+            orderStatus,
+            orderHash,
+            quoteId: quoteId,
+            getFillLogAttempts,
+            startingBlockNumber,
+            chainId: chainId,
+            settledAmounts: settledAmounts
+              ?.map((s) => JSON.stringify(s))
+              .join(',')
+              .toString(),
+            retryCount,
+            validation,
+          },
+        })
+      }
     }
 
     return {
