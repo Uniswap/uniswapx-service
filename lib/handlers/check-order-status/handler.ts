@@ -313,24 +313,25 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       validation,
     } = params
 
-    log.info(
-      {
-        orderHash,
-        quoteId,
-        retryCount,
-        startingBlockNumber,
-        chainId,
-        lastStatus,
-        orderStatus,
-        txHash,
-        settledAmounts,
-        getFillLogAttempts,
-      },
-      'updating order status'
-    )
     // Avoid updating the order if the status is unchanged.
     // This also avoids unnecessarily triggering downstream events from dynamodb changes.
     if (orderStatus !== lastStatus) {
+      log.info(
+        {
+          orderHash,
+          quoteId,
+          retryCount,
+          startingBlockNumber,
+          chainId,
+          lastStatus,
+          orderStatus,
+          txHash,
+          settledAmounts,
+          getFillLogAttempts,
+        },
+        'updating order status'
+      )
+
       await dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
 
       if (IS_TERMINAL_STATE(orderStatus)) {
