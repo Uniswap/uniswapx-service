@@ -10,6 +10,8 @@ import { GetOrdersHandler } from './get-orders/handler'
 import { GetOrdersInjector } from './get-orders/injector'
 import { OrderNotificationHandler } from './order-notification/handler'
 import { OrderNotificationInjector } from './order-notification/injector'
+import { PostLimitOrderHandler } from './post-limit-order/handler'
+import { PostLimitOrderInjector } from './post-limit-order/injector'
 import { PostOrderHandler } from './post-order/handler'
 import { PostOrderInjector } from './post-order/injector'
 
@@ -21,6 +23,9 @@ const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', getOrdersInjec
 
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 const postOrderHandler = new PostOrderHandler('postOrdersHandler', postOrderInjectorPromise)
+
+const postLimitOrderInjectorPromise = new PostLimitOrderInjector('postLimitOrderInjector').build()
+const postLimitOrderHandler = new PostLimitOrderHandler('postLimitOrdersHandler', postLimitOrderInjectorPromise)
 
 const checkOrderStatusInjectorPromise = new CheckOrderStatusInjector('checkOrderStatusInjector').build()
 const checkOrderStatusHandler = new CheckOrderStatusHandler('checkOrderStatusHandler', checkOrderStatusInjectorPromise)
@@ -45,4 +50,5 @@ module.exports = {
   getDocsHandler: getDocsHandler.handler,
   getDocsUIHandler: getDocsUIHandler.handler,
   orderNotificationHandler: orderNotificationHandler.handler,
+  limitOrderPostOrderHandler: postLimitOrderHandler.handler,
 }

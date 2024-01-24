@@ -60,7 +60,9 @@ const log: Logger = bunyan.createLogger({
 describe('deleteStaleOrders Test', () => {
   beforeAll(async () => {
     const orders = await ordersRepository.getByOrderStatus(ORDER_STATUS.OPEN)
-    await ordersRepository.deleteOrders(orders.orders.map((order) => order.orderHash))
+    if (orders.length) {
+      await ordersRepository.deleteOrders(orders.orders.map((order) => order.orderHash))
+    }
   })
 
   afterEach(() => {

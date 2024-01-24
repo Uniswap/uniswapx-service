@@ -5,9 +5,9 @@ import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { DynamoLimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { SUPPORTED_CHAINS } from '../../util/chain'
-import { ONE_DAY_IN_SECONDS } from '../../util/constants'
+import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { OrderValidator } from '../../util/order-validator'
@@ -20,7 +20,7 @@ export interface ContainerInjected {
   onchainValidatorByChainId: { [chainId: number]: OnchainValidator }
 }
 
-export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void> {
+export class PostLimitOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     const onchainValidatorByChainId: { [chainId: number]: OnchainValidator } = {}
     SUPPORTED_CHAINS.forEach((chainId) => {
@@ -35,8 +35,10 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
       }
     })
     return {
-      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
-      orderValidator: new OrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS),
+      dbInterface: DynamoLimitOrdersRepository.create(new DynamoDB.DocumentClient()),
+      orderValidator: new OrderValidator(() => new Date().getTime() / 1000, ONE_YEAR_IN_SECONDS, {
+        SkipDecayStartTimeValidation: true,
+      }),
       onchainValidatorByChainId,
     }
   }
