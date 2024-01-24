@@ -5,8 +5,10 @@ export enum FILTER_FIELD {
 }
 
 export type WebhookDefinition = {
+  /** Webhooks that are notified when the filter condition is matched. */
   filter: WebhookFilterMapping
-  '*'?: Webhook[]
+  /** Webhooks that are notified on every order update. */
+  ['*']?: Webhook[]
 }
 
 export type Webhook = {

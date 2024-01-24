@@ -15,16 +15,18 @@ export class JsonWebhookProvider implements WebhookProvider {
 }
 
 export function findEndpointsMatchingFilter(filter: OrderFilter, definition: WebhookDefinition): Webhook[] {
-  let endpoints: Webhook[] = definition['*'] ?? []
+  const endpoints: Webhook[] = []
+
+  const catchallEndpoints = definition['*'] ?? []
+  endpoints.push(...catchallEndpoints)
 
   const filterKeys = Object.keys(filter) as FILTER_FIELD[]
   const filterMapping = definition.filter
-
   for (const filterKey of filterKeys) {
     const filterValue = filter[filterKey]
     if (filterValue && Object.keys(filterMapping[filterKey]).includes(filterValue)) {
-      const registeredEndpoints = filterMapping[filterKey][filterValue]
-      endpoints = endpoints.concat(registeredEndpoints)
+      const filterEndpoints = filterMapping[filterKey][filterValue]
+      endpoints.push(...filterEndpoints)
     }
   }
 
