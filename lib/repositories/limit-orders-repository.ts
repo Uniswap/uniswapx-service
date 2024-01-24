@@ -9,22 +9,22 @@ import { getTableIndices, TABLE_NAMES } from './util'
 
 export const MAX_ORDERS = 50
 
-export class DynamoOrdersRepository extends GenericOrdersRepository {
+export class DynamoLimitOrdersRepository extends GenericOrdersRepository {
   static create(documentClient: DocumentClient): BaseOrdersRepository {
     const log = Logger.createLogger({
-      name: 'DynamoOrdersRepository',
+      name: 'DynamoLimitOrdersRepository',
       serializers: Logger.stdSerializers,
     })
 
-    const ordersTable = new Table({
-      name: TABLE_NAMES.Orders,
+    const limitOrdersTable = new Table({
+      name: TABLE_NAMES.LimitOrders,
       partitionKey: 'orderHash',
       DocumentClient: documentClient,
-      indexes: getTableIndices(TABLE_NAMES.Orders),
+      indexes: getTableIndices(TABLE_NAMES.LimitOrders),
     })
 
-    const orderEntity = new Entity({
-      name: 'Order',
+    const limitOrderEntity = new Entity({
+      name: 'LimitOrder',
       attributes: {
         orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },
@@ -53,7 +53,7 @@ export class DynamoOrdersRepository extends GenericOrdersRepository {
         txHash: { type: DYNAMODB_TYPES.STRING },
         settledAmounts: { type: DYNAMODB_TYPES.LIST },
       },
-      table: ordersTable,
+      table: limitOrdersTable,
     } as const)
 
     const nonceTable = new Table({
@@ -71,15 +71,15 @@ export class DynamoOrdersRepository extends GenericOrdersRepository {
       table: nonceTable,
     } as const)
 
-    return new DynamoOrdersRepository(ordersTable, orderEntity, nonceEntity, log)
+    return new DynamoLimitOrdersRepository(limitOrdersTable, limitOrderEntity, nonceEntity, log)
   }
 
   private constructor(
-    ordersTable: Table<TABLE_NAMES.Orders, 'orderHash', null>,
-    orderEntity: Entity,
+    table: Table<TABLE_NAMES.LimitOrders, 'orderHash', null>,
+    entity: Entity,
     nonceEntity: Entity,
     log: Logger
   ) {
-    super(ordersTable, orderEntity, nonceEntity, log)
+    super(table, entity, nonceEntity, log)
   }
 }

@@ -1,5 +1,6 @@
 import { DutchOrder, DutchOutput, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
+import { ONE_DAY_IN_SECONDS } from './constants'
 import FieldValidator from './field-validator'
 
 export type OrderValidationResponse = {
@@ -7,10 +8,16 @@ export type OrderValidationResponse = {
   errorString?: string
 }
 
-const ONE_DAY_IN_SECONDS = 60 * 60 * 24
+export type SkipValidationMap = {
+  SkipDecayStartTimeValidation: boolean
+}
 
 export class OrderValidator {
-  constructor(private readonly getCurrentTime: () => number) {}
+  constructor(
+    private readonly getCurrentTime: () => number,
+    private readonly deadlineValidityPeriod = ONE_DAY_IN_SECONDS,
+    private readonly skipValidationMap?: SkipValidationMap
+  ) {}
 
   validate(order: DutchOrder): OrderValidationResponse {
     const chainIdValidation = this.validateChainId(order.chainId)
@@ -28,9 +35,11 @@ export class OrderValidator {
       return deadlineValidation
     }
 
-    const decayStartTimeValidation = this.validateDecayStartTime(order.info.decayStartTime, order.info.deadline)
-    if (!decayStartTimeValidation.valid) {
-      return decayStartTimeValidation
+    if (!this.skipValidationMap || !this.skipValidationMap.SkipDecayStartTimeValidation) {
+      const decayStartTimeValidation = this.validateDecayStartTime(order.info.decayStartTime, order.info.deadline)
+      if (!decayStartTimeValidation.valid) {
+        return decayStartTimeValidation
+      }
     }
 
     const nonceValidation = this.validateNonce(order.info.nonce)
@@ -109,7 +118,7 @@ export class OrderValidator {
         errorString: 'Deadline must be in the future',
       }
     }
-    if (deadline > this.getCurrentTime() + ONE_DAY_IN_SECONDS) {
+    if (deadline > this.getCurrentTime() + this.deadlineValidityPeriod) {
       return {
         valid: false,
         errorString: `Deadline field invalid: Order expiry cannot be larger than thirty minutes`,
