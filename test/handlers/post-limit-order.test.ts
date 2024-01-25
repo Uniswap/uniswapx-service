@@ -5,7 +5,9 @@ import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from 
 import { mockClient } from 'aws-sdk-client-mock'
 import { ORDER_STATUS } from '../../lib/entities'
 import { ErrorCode } from '../../lib/handlers/base'
-import { PostLimitOrderHandler } from '../../lib/handlers/post-limit-order/handler'
+import { DEFAULT_LIMIT_MAX_OPEN_ORDERS } from '../../lib/handlers/constants'
+import { getMaxLimitOpenOrders } from '../../lib/handlers/post-limit-order/injector'
+import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
 import { ORDER_INFO } from '../fixtures'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
@@ -127,12 +129,13 @@ describe('Testing post limit order handler.', () => {
             validate: validationFailedValidatorMock,
           },
         },
+        getMaxOpenOrders: getMaxLimitOpenOrders,
       }
     },
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostLimitOrderHandler('post-limit-order', injectorPromiseMock)
+  const postOrderHandler = new PostOrderHandler('post-limit-order', injectorPromiseMock)
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
@@ -204,7 +207,7 @@ describe('Testing post limit order handler.', () => {
   describe('Test order submission blocking', () => {
     describe('Max open orders', () => {
       it('should reject order submission for offerer when too many open orders exist', async () => {
-        countOrdersByOffererAndStatusMock.mockReturnValueOnce(6)
+        countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_LIMIT_MAX_OPEN_ORDERS + 1)
         validatorMock.mockReturnValue({ valid: true })
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
           body: JSON.stringify({
