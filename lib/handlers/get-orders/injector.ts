@@ -22,7 +22,7 @@ export interface ContainerInjected {
 export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient({ maxRetries: 3, httpOptions: { timeout: 1000 } })),
     }
   }
 

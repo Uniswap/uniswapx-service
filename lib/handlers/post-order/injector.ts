@@ -31,7 +31,7 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
       }
     })
     return {
-      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient({ maxRetries: 3, httpOptions: { timeout: 1000 } })),
       orderValidator: new OrderValidator(() => new Date().getTime() / 1000),
       onchainValidatorByChainId,
     }
