@@ -4,7 +4,6 @@ import { APIGatewayEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
-import { BaseOrdersRepository } from '../../repositories/base'
 import { DynamoLimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
@@ -12,13 +11,9 @@ import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { OrderValidator } from '../../util/order-validator'
 import { ApiInjector, ApiRInj } from '../base'
-import { PostOrderRequestBody } from './schema'
-
-export interface ContainerInjected {
-  dbInterface: BaseOrdersRepository
-  orderValidator: OrderValidator
-  onchainValidatorByChainId: { [chainId: number]: OnchainValidator }
-}
+import { DEFAULT_LIMIT_MAX_OPEN_ORDERS, HIGH_MAX_OPEN_ORDERS, HIGH_MAX_OPEN_ORDERS_SWAPPERS } from '../constants'
+import { ContainerInjected } from '../post-order/injector'
+import { PostOrderRequestBody } from '../post-order/schema'
 
 export class PostLimitOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
@@ -40,6 +35,7 @@ export class PostLimitOrderInjector extends ApiInjector<ContainerInjected, ApiRI
         SkipDecayStartTimeValidation: true,
       }),
       onchainValidatorByChainId,
+      getMaxOpenOrders: getMaxLimitOpenOrders,
     }
   }
 
@@ -62,4 +58,12 @@ export class PostLimitOrderInjector extends ApiInjector<ContainerInjected, ApiRI
       log,
     }
   }
+}
+
+export function getMaxLimitOpenOrders(offerer: string): number {
+  if (HIGH_MAX_OPEN_ORDERS_SWAPPERS.includes(offerer.toLowerCase())) {
+    return HIGH_MAX_OPEN_ORDERS
+  }
+
+  return DEFAULT_LIMIT_MAX_OPEN_ORDERS
 }
