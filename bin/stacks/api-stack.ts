@@ -52,6 +52,8 @@ export class APIStack extends cdk.Stack {
       postOrderLambda,
       limitOrderPostOrderLambdaAlias,
       // limitOrderPostOrderLambda, TODO: dashboard
+      limitOrderGetOrdersLambdaAlias,
+      // limitOrderGetOrdersLambda,
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
@@ -357,6 +359,7 @@ export class APIStack extends cdk.Stack {
     })
 
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
+    const limitGetOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(limitOrderGetOrdersLambdaAlias, {})
     const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
     const limitPostOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(limitOrderPostOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
@@ -398,6 +401,8 @@ export class APIStack extends cdk.Stack {
 
     const limitOrderOrder = limitOrders.addResource('order')
     limitOrderOrder.addMethod('POST', limitPostOrderLambdaIntegration)
+    const limitOrderOrders = limitOrders.addResource('orders')
+    limitOrderOrders.addMethod('GET', limitGetOrdersLambdaIntegration, {})
 
     const orders = dutchAuction.addResource('orders')
     const nonce = dutchAuction.addResource('nonce')
