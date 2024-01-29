@@ -41,6 +41,9 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly getDocsUILambdaAlias: aws_lambda.Alias
   private readonly orderNotificationLambdaAlias: aws_lambda.Alias
 
+  public readonly limitOrderGetOrdersLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly limitOrderGetOrdersLambdaAlias: aws_lambda.Alias
+
   public readonly chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
 
@@ -198,6 +201,24 @@ export class LambdaStack extends cdk.NestedStack {
       tracing: aws_lambda.Tracing.ACTIVE,
     })
 
+    this.limitOrderGetOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `LimitOrderGetOrders${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'limitOrderGetOrdersHandler',
+      timeout: Duration.seconds(29),
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        stage: props.stage as STAGE,
+        VERSION: '2',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
+
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
@@ -281,6 +302,12 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
+    this.limitOrderGetOrdersLambdaAlias = new aws_lambda.Alias(this, `LimitOrderGetOrdersLiveAlias`, {
+      aliasName: 'live',
+      version: this.limitOrderGetOrdersLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
     this.getNonceLambdaAlias = new aws_lambda.Alias(this, `GetNonceLiveAlias`, {
       aliasName: 'live',
       version: this.getNonceLambda.currentVersion,
@@ -345,6 +372,21 @@ export class LambdaStack extends cdk.NestedStack {
       getOrdersTarget.node.addDependency(this.getOrdersLambdaAlias)
 
       getOrdersTarget.scaleToTrackMetric(`GetOrders-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const getLimitOrdersTarget = new asg.ScalableTarget(this, `LimitOrderGetOrders-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.limitOrderGetOrdersLambdaAlias.lambda.functionName}:${this.limitOrderGetOrdersLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      getLimitOrdersTarget.node.addDependency(this.limitOrderGetOrdersLambda)
+
+      getLimitOrdersTarget.scaleToTrackMetric(`LimitOrderGetOrders-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })

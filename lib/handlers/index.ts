@@ -4,6 +4,7 @@ import { GetDocsHandler } from './get-docs/GetDocsHandler'
 import { GetDocsInjector } from './get-docs/GetDocsInjector'
 import { GetDocsUIHandler } from './get-docs/GetDocsUIHandler'
 import { GetDocsUIInjector } from './get-docs/GetDocsUIInjector'
+import { GetLimitOrdersInjector } from './get-limit-orders/injector'
 import { GetNonceHandler } from './get-nonce/handler'
 import { GetNonceInjector } from './get-nonce/injector'
 import { GetOrdersHandler } from './get-orders/handler'
@@ -19,6 +20,9 @@ const getNonceHandler = new GetNonceHandler('getNonceHandler', getNonceInjectorP
 
 const getOrdersInjectorPromise = new GetOrdersInjector('getOrdersInjector').build()
 const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', getOrdersInjectorPromise)
+
+const getLimitOrdersInjectorPromise = new GetLimitOrdersInjector('getLimitOrdersInjector').build()
+const getLimitOrdersHandler = new GetOrdersHandler('getLimitOrdersHandler', getLimitOrdersInjectorPromise)
 
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 const postOrderHandler = new PostOrderHandler('postOrdersHandler', postOrderInjectorPromise)
@@ -50,4 +54,5 @@ module.exports = {
   getDocsUIHandler: getDocsUIHandler.handler,
   orderNotificationHandler: orderNotificationHandler.handler,
   postLimitOrderHandler: postLimitOrderHandler.handler,
+  limitOrderGetOrdersHandler: getLimitOrdersHandler.handler,
 }
