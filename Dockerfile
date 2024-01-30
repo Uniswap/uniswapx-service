@@ -9,6 +9,5 @@ COPY package.json .
 COPY yarn.lock .
 RUN yarn install
 COPY . .
-RUN yarn build
 
-CMD ["yarn", "ts-node" "./lib/compute/status.js"]
+CMD ["npx", "ts-node", "./lib/compute/status.ts"]

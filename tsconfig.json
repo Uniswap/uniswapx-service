@@ -8,7 +8,7 @@
   },
   "compilerOptions": {
     "target": "ES2020",
-    "module": "esnext",
+    "module": "commonjs",
     "moduleResolution": "node",
     "lib": ["ES2020"],
     "declaration": true,

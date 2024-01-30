@@ -1,9 +1,9 @@
 //@ts-nocheck
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import awssdk from 'aws-sdk'
-import { log } from '../Logging.js'
-import { powertoolsMetric } from '../Metrics.js'
-import { DynamoLimitOrdersRepository } from '../repositories/limit-orders-repository.js'
+import { log } from '../Logging'
+import { powertoolsMetric } from '../Metrics'
+import { DynamoLimitOrdersRepository } from '../repositories/limit-orders-repository'
 const { DynamoDB } = awssdk
 const TEN_MINUTES_IN_SECONDS = 60 * 10
 // const TWO_MINUTES_IN_SECONDS = 60 * 2
