@@ -157,6 +157,26 @@
     "@aws-sdk/util-utf8-browser" "^3.0.0"
     tslib "^1.11.1"
 
+"@aws-lambda-powertools/commons@^1.18.0":
+  version "1.18.0"
+  resolved "https://registry.yarnpkg.com/@aws-lambda-powertools/commons/-/commons-1.18.0.tgz#ea0f4a367e9b3b0dcc55a64a70a397ab1a51f11d"
+  integrity sha512-oSnST8Wr3WZcT/FgCUzZYUFB+qYHWMAKS0GhWbUqHZMr7I5F75jq/JbeUUF16ShOMGgnEzs5oJjizBYVTI6Oww==
+
+"@aws-lambda-powertools/logger@^1.18.0":
+  version "1.18.0"
+  resolved "https://registry.yarnpkg.com/@aws-lambda-powertools/logger/-/logger-1.18.0.tgz#55e815a3f005f42b84e88a7ae89937feb1c66fbf"
+  integrity sha512-oB4FPMYNPjME6xsDfm7rxRBHwaH0dQl+bmO9cDbRfiCsZfQxKtTiSvROGt6AvRo+5rhPZyCdn5eAHqCJ4f5tVQ==
+  dependencies:
+    "@aws-lambda-powertools/commons" "^1.18.0"
+    lodash.merge "^4.6.2"
+
+"@aws-lambda-powertools/metrics@^1.18.0":
+  version "1.18.0"
+  resolved "https://registry.yarnpkg.com/@aws-lambda-powertools/metrics/-/metrics-1.18.0.tgz#0419f91bf78f4b423efd96bfc0810ca722acbf29"
+  integrity sha512-nlTJxJeVZlUkviHg/d8+YrgDLy7qBcGvglln3FYpNcu0AISnuqssc7PVky0Bh9Rcub4rD/cGCY0N20qy/WC24g==
+  dependencies:
+    "@aws-lambda-powertools/commons" "^1.18.0"
+
 "@aws-sdk/abort-controller@3.110.0":
   version "3.110.0"
   resolved "https://registry.npmjs.org/@aws-sdk/abort-controller/-/abort-controller-3.110.0.tgz"
@@ -4206,6 +4226,11 @@ eslint-plugin-import@^2.26.0:
     resolve "^1.22.0"
     tsconfig-paths "^3.14.1"
 
+eslint-plugin-require-extensions@^0.1.3:
+  version "0.1.3"
+  resolved "https://registry.yarnpkg.com/eslint-plugin-require-extensions/-/eslint-plugin-require-extensions-0.1.3.tgz#394aeab433f996797a6ceba0a3f75640d4846bc8"
+  integrity sha512-T3c1PZ9PIdI3hjV8LdunfYI8gj017UQjzAnCrxuo3wAjneDbTPHdE3oNWInOjMA+z/aBkUtlW5vC0YepYMZIug==
+
 eslint-scope@^5.1.1:
   version "5.1.1"
   resolved "https://registry.npmjs.org/eslint-scope/-/eslint-scope-5.1.1.tgz"
@@ -4286,7 +4311,7 @@ eslint@^8.26.0:
 
 esm@^3.2.25:
   version "3.2.25"
-  resolved "https://registry.npmjs.org/esm/-/esm-3.2.25.tgz"
+  resolved "https://registry.yarnpkg.com/esm/-/esm-3.2.25.tgz#342c18c29d56157688ba5ce31f8431fbb795cc10"
   integrity sha512-U1suiZ2oDVWv4zPO56S0NcR5QriEahGtdN2OR6FiOG4WJvcjBVFB0qI4+eKoWFH483PKGuLuu6V8Z4T5g63UVA==
 
 espree@^9.4.0:
