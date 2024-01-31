@@ -5,17 +5,23 @@ import { TABLE_KEY } from '../config/dynamodb'
 import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { checkDefined } from '../preconditions/preconditions'
-import { parseComparisonFilter } from '../util/comparison'
+import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
 export const MAX_ORDERS = 50
-
-export class GenericOrdersRepository implements BaseOrdersRepository {
+// Shared implementation for Dutch and Limit orders
+// will work for orders with the same GSIs
+export class GenericOrdersRepository<
+  TableName extends string,
+  PartitionKey extends string,
+  SortKey extends string | null
+> implements BaseOrdersRepository
+{
   public constructor(
-    private readonly table: Table<string, string, null>,
+    private readonly table: Table<TableName, PartitionKey, SortKey>,
     private readonly entity: Entity,
     private readonly nonceEntity: Entity,
     private readonly log: Logger
@@ -307,7 +313,7 @@ export class GenericOrdersRepository implements BaseOrdersRepository {
     sort?: string | undefined, // ex gt(123)
     desc = true
   ): Promise<QueryResult> {
-    let comparison = undefined
+    let comparison: ComparisonFilter | undefined = undefined
     if (sortKey) {
       comparison = parseComparisonFilter(sort)
     }

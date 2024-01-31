@@ -49,5 +49,5 @@ module.exports = {
   getDocsHandler: getDocsHandler.handler,
   getDocsUIHandler: getDocsUIHandler.handler,
   orderNotificationHandler: orderNotificationHandler.handler,
-  limitOrderPostOrderHandler: postLimitOrderHandler.handler,
+  postLimitOrderHandler: postLimitOrderHandler.handler,
 }

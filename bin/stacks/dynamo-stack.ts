@@ -63,7 +63,7 @@ export class DynamoStack extends cdk.NestedStack {
       stream: aws_dynamo.StreamViewType.NEW_IMAGE,
       deletionProtection: true,
       pointInTimeRecovery: true,
-      contributorInsightsEnabled: true,
+      contributorInsightsEnabled: false,
       ...tableCapacityConfig.order,
     })
     createCommonIndices(ordersTable, indexCapacityConfig)
@@ -78,7 +78,7 @@ export class DynamoStack extends cdk.NestedStack {
       stream: aws_dynamo.StreamViewType.NEW_IMAGE,
       deletionProtection: true,
       pointInTimeRecovery: true,
-      contributorInsightsEnabled: true,
+      contributorInsightsEnabled: false,
       ...tableCapacityConfig.limitOrder,
     })
     createCommonIndices(limitOrdersTable, indexCapacityConfig)
@@ -96,7 +96,7 @@ export class DynamoStack extends cdk.NestedStack {
       },
       deletionProtection: true,
       pointInTimeRecovery: true,
-      contributorInsightsEnabled: true,
+      contributorInsightsEnabled: false,
       ...tableCapacityConfig.nonce,
     })
     this.nonceTable = nonceTable

@@ -5,7 +5,7 @@ import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 import { setGlobalLogger } from '../../util/log'
@@ -38,7 +38,7 @@ export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, P
       }
     })
     return {
-      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
       orderValidator: new OrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS),
       onchainValidatorByChainId,
       getMaxOpenOrders,

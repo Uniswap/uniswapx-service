@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
-import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
+import { DutchOrdersRepository } from '../../lib/repositories/dutch-orders-repository'
 import { generateRandomNonce } from '../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../lib/util/time'
 
@@ -109,7 +109,7 @@ const mockTime = (time: number) => {
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
-const ordersRepository = DynamoOrdersRepository.create(documentClient)
+const ordersRepository = DutchOrdersRepository.create(documentClient)
 
 beforeAll(async () => {
   mockTime(1)

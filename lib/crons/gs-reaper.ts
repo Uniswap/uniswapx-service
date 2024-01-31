@@ -5,7 +5,7 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
 import { ORDER_STATUS } from '../entities'
 import { BaseOrdersRepository } from '../repositories/base'
-import { DynamoOrdersRepository } from '../repositories/orders-repository'
+import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
 import { ONE_HOUR_IN_SECONDS } from '../util/constants'
 
 export const BATCH_WRITE_MAX = 25
@@ -22,7 +22,7 @@ async function main(metrics: MetricsLogger) {
     serializers: bunyan.stdSerializers,
     level: 'info',
   })
-  const repo = DynamoOrdersRepository.create(new DynamoDB.DocumentClient())
+  const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
   await deleteStaleOrders(repo, log, metrics)
 }
 

@@ -9,10 +9,10 @@ import { getTableIndices, TABLE_NAMES } from './util'
 
 export const MAX_ORDERS = 50
 
-export class DynamoOrdersRepository extends GenericOrdersRepository {
+export class DutchOrdersRepository extends GenericOrdersRepository<string, string, null> {
   static create(documentClient: DocumentClient): BaseOrdersRepository {
     const log = Logger.createLogger({
-      name: 'DynamoOrdersRepository',
+      name: 'DutchOrdersRepository',
       serializers: Logger.stdSerializers,
     })
 
@@ -71,15 +71,6 @@ export class DynamoOrdersRepository extends GenericOrdersRepository {
       table: nonceTable,
     } as const)
 
-    return new DynamoOrdersRepository(ordersTable, orderEntity, nonceEntity, log)
-  }
-
-  private constructor(
-    ordersTable: Table<TABLE_NAMES.Orders, 'orderHash', null>,
-    orderEntity: Entity,
-    nonceEntity: Entity,
-    log: Logger
-  ) {
-    super(ordersTable, orderEntity, nonceEntity, log)
+    return new GenericOrdersRepository(ordersTable, orderEntity, nonceEntity, log)
   }
 }
