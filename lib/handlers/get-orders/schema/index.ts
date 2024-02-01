@@ -60,7 +60,7 @@ export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
 }
 export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
   offerer?: string
-  orderHashes?: string[]
+  orderHashes: string[]
 }
 
 export type GetOrdersResponse = {

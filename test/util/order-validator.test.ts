@@ -1,10 +1,9 @@
 import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
-import { ONE_DAY_IN_SECONDS } from '../../lib/util/constants'
 import { OrderValidator } from '../../lib/util/order-validator'
 
 const CURRENT_TIME = 10
-const validationProvider = new OrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
+const validationProvider = new OrderValidator(() => CURRENT_TIME)
 const INPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000022'
 const OUTPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000033'
 const EXCLUSIVE_FILLER = '0x0000000000000000000000000000000000000044'
@@ -82,14 +81,6 @@ describe('Testing off chain validation', () => {
       const order = newOrder({ deadline: 20, decayStartTime: 21 })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({ errorString: 'Invalid decayStartTime: decayStartTime > deadline', valid: false })
-    })
-    it('Testing parsed decayStartTime > deadline but ignored', async () => {
-      const order = newOrder({ deadline: 20, decayStartTime: 21 })
-      const validationProvider = new OrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS, {
-        SkipDecayStartTimeValidation: true,
-      })
-      const validationResp = validationProvider.validate(order)
-      expect(validationResp).toEqual({ valid: true })
     })
     it('Testing parsed decayStartTime == deadline.', async () => {
       const order = newOrder({ deadline: 20, decayStartTime: 20 })

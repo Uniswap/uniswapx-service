@@ -1,30 +1,136 @@
+import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
-import { TABLE_KEY } from '../config/dynamodb'
-import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities'
+import { DYNAMODB_TYPES, TABLE_KEY } from '../config/dynamodb'
+import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities/Order'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { checkDefined } from '../preconditions/preconditions'
-import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
+import { parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
 export const MAX_ORDERS = 50
-// Shared implementation for Dutch and Limit orders
-// will work for orders with the same GSIs
-export class GenericOrdersRepository<
-  TableName extends string,
-  PartitionKey extends string,
-  SortKey extends string | null
-> implements BaseOrdersRepository
-{
-  public constructor(
-    private readonly table: Table<TableName, PartitionKey, SortKey>,
-    private readonly entity: Entity,
-    private readonly nonceEntity: Entity,
-    private readonly log: Logger
+
+export class DynamoOrdersRepository implements BaseOrdersRepository {
+  static log: Logger
+
+  static create(documentClient: DocumentClient): BaseOrdersRepository {
+    this.log = Logger.createLogger({
+      name: 'DynamoOrdersRepository',
+      serializers: Logger.stdSerializers,
+    })
+
+    const ordersTable = new Table({
+      name: 'Orders',
+      partitionKey: 'orderHash',
+      DocumentClient: documentClient,
+      indexes: {
+        [`${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: TABLE_KEY.OFFERER,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: TABLE_KEY.ORDER_STATUS,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: TABLE_KEY.FILLER,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: TABLE_KEY.CHAIN_ID,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        [`${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
+        offererNonceIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.NONCE },
+      },
+    })
+
+    const orderEntity = new Entity({
+      name: 'Order',
+      attributes: {
+        orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
+        encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },
+        signature: { type: DYNAMODB_TYPES.STRING, required: true },
+        orderStatus: { type: DYNAMODB_TYPES.STRING, required: true },
+        nonce: { type: DYNAMODB_TYPES.STRING, required: true },
+        offerer: { type: DYNAMODB_TYPES.STRING, required: true },
+        filler: { type: DYNAMODB_TYPES.STRING },
+        decayStartTime: { type: DYNAMODB_TYPES.NUMBER },
+        decayEndTime: { type: DYNAMODB_TYPES.NUMBER },
+        deadline: { type: DYNAMODB_TYPES.NUMBER },
+        createdAt: { type: DYNAMODB_TYPES.NUMBER },
+        reactor: { type: DYNAMODB_TYPES.STRING },
+        type: { type: DYNAMODB_TYPES.STRING },
+        chainId: { type: DYNAMODB_TYPES.NUMBER },
+        input: { type: DYNAMODB_TYPES.MAP },
+        outputs: { type: DYNAMODB_TYPES.LIST },
+        offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        filler_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        filler_offerer: { type: DYNAMODB_TYPES.STRING },
+        chainId_filler: { type: DYNAMODB_TYPES.STRING },
+        chainId_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        chainId_orderStatus_filler: { type: DYNAMODB_TYPES.STRING },
+        filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        quoteId: { type: DYNAMODB_TYPES.STRING },
+        txHash: { type: DYNAMODB_TYPES.STRING },
+        settledAmounts: { type: DYNAMODB_TYPES.LIST },
+      },
+      table: ordersTable,
+    } as const)
+
+    const nonceTable = new Table({
+      name: 'Nonces',
+      partitionKey: 'offerer',
+      DocumentClient: documentClient,
+    })
+
+    const nonceEntity = new Entity({
+      name: 'Nonce',
+      attributes: {
+        offerer: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
+        nonce: { type: DYNAMODB_TYPES.STRING, required: true },
+      },
+      table: nonceTable,
+    } as const)
+
+    return new DynamoOrdersRepository(ordersTable, orderEntity, nonceEntity)
+  }
+
+  private constructor(
+    private readonly ordersTable: Table<'Orders', 'orderHash', null>,
+    private readonly orderEntity: Entity,
+    private readonly nonceEntity: Entity
   ) {}
 
   public async getByOfferer(
@@ -72,7 +178,7 @@ export class GenericOrdersRepository<
   }
 
   public async getByHash(hash: string): Promise<OrderEntity | undefined> {
-    const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
+    const res = await this.orderEntity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
     return res.Item as OrderEntity
   }
 
@@ -90,7 +196,7 @@ export class GenericOrdersRepository<
   }
 
   public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
-    const res = await this.entity.query(`${offerer}_${orderStatus}`, {
+    const res = await this.orderEntity.query(`${offerer}_${orderStatus}`, {
       index: 'offerer_orderStatus-createdAt-all',
       execute: true,
       select: 'COUNT',
@@ -100,9 +206,9 @@ export class GenericOrdersRepository<
   }
 
   public async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
-    await this.table.transactWrite(
+    await this.ordersTable.transactWrite(
       [
-        this.entity.putTransaction({
+        this.orderEntity.putTransaction({
           ...order,
           offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
           filler_orderStatus: `${order.filler}_${order.orderStatus}`,
@@ -133,7 +239,7 @@ export class GenericOrdersRepository<
   ): Promise<void> {
     const order = checkDefined(await this.getByHash(orderHash), 'cannot find order by hash when updating order status')
 
-    await this.entity.update({
+    await this.orderEntity.update({
       [TABLE_KEY.ORDER_HASH]: orderHash,
       orderStatus: status,
       offerer_orderStatus: `${order.offerer}_${status}`,
@@ -147,18 +253,18 @@ export class GenericOrdersRepository<
   }
 
   public async deleteOrders(orderHashes: string[]): Promise<void> {
-    await this.table.batchWrite(
-      orderHashes.map((hash) => this.entity.deleteBatch({ orderHash: hash })),
+    await this.ordersTable.batchWrite(
+      orderHashes.map((hash) => this.orderEntity.deleteBatch({ orderHash: hash })),
       { execute: true }
     )
   }
 
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
     const requestedParams = this.getRequestedParams(queryFilters)
+
     // Query Orders table based on the requested params
     switch (true) {
       case this.areParamsRequested(
-        //map to the correct gsi
         [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS],
         requestedParams
       ):
@@ -166,7 +272,7 @@ export class GenericOrdersRepository<
           `${queryFilters['filler']}_${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
           `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
           limit,
-          cursor, //encoded paging object
+          cursor,
           queryFilters['sortKey'],
           queryFilters['sort'],
           queryFilters['desc']
@@ -248,12 +354,11 @@ export class GenericOrdersRepository<
 
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASHES): {
         const orderHashes = queryFilters['orderHashes'] as string[]
-        const batchQuery = await this.table.batchGet(
-          orderHashes.map((orderHash) => this.entity.getBatch({ orderHash })),
+        const batchQuery = await this.ordersTable.batchGet(
+          orderHashes.map((orderHash) => this.orderEntity.getBatch({ orderHash })),
           { execute: true }
         )
-        const tableName = this.table.name
-        return { orders: batchQuery.Responses[tableName] }
+        return { orders: batchQuery.Responses.Orders }
       }
 
       case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
@@ -310,16 +415,16 @@ export class GenericOrdersRepository<
     limit: number | undefined,
     cursor?: string,
     sortKey?: SORT_FIELDS | undefined,
-    sort?: string | undefined, // ex gt(123)
+    sort?: string | undefined,
     desc = true
   ): Promise<QueryResult> {
-    let comparison: ComparisonFilter | undefined = undefined
+    let comparison = undefined
     if (sortKey) {
       comparison = parseComparisonFilter(sort)
     }
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
 
-    const queryResult = await this.entity.query(partitionKey, {
+    const queryResult = await this.orderEntity.query(partitionKey, {
       index: formattedIndex,
       execute: true,
       limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
@@ -356,7 +461,7 @@ export class GenericOrdersRepository<
     try {
       lastEvaluatedKey = JSON.parse(decode(cursor))
     } catch (e) {
-      this.log.error('Error parsing json cursor.', { cursor, error: e })
+      DynamoOrdersRepository.log.error('Error parsing json cursor.', { cursor, error: e })
       throw new Error('Invalid cursor.')
     }
     const keys = Object.keys(lastEvaluatedKey)
@@ -376,7 +481,7 @@ export class GenericOrdersRepository<
     })
 
     if (keys.length != validKeys.length || !keysMatch) {
-      this.log.error('Error cursor key not in valid key list.', { cursor })
+      DynamoOrdersRepository.log.error('Error cursor key not in valid key list.', { cursor })
       throw new Error('Invalid cursor.')
     }
 

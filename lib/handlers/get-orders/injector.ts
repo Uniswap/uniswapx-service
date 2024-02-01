@@ -3,7 +3,7 @@ import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { DynamoOrdersRepository } from '../../repositories/orders-repository'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
@@ -22,7 +22,7 @@ export interface ContainerInjected {
 export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
     }
   }
 

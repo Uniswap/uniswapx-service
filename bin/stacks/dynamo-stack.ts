@@ -33,7 +33,6 @@ export type IndexCapacityConfig = {
 
 export type TableCapacityConfig = {
   order: TableCapacityOptions
-  limitOrder: TableCapacityOptions
   nonce: TableCapacityOptions
 }
 
@@ -46,7 +45,6 @@ export type DynamoStackProps = {
 export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
   public readonly nonceTable: aws_dynamo.Table
-  public readonly limitOrdersTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
@@ -63,26 +61,167 @@ export class DynamoStack extends cdk.NestedStack {
       stream: aws_dynamo.StreamViewType.NEW_IMAGE,
       deletionProtection: true,
       pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
+      contributorInsightsEnabled: true,
       ...tableCapacityConfig.order,
     })
-    createCommonIndices(ordersTable, indexCapacityConfig)
     this.ordersTable = ordersTable
 
-    const limitOrdersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}LimitOrdersTable`, {
-      tableName: 'LimitOrders',
+    // Create global secondary indexes with createdAt sort key
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
       partitionKey: {
-        name: TABLE_KEY.ORDER_HASH,
+        name: TABLE_KEY.OFFERER,
         type: aws_dynamo.AttributeType.STRING,
       },
-      stream: aws_dynamo.StreamViewType.NEW_IMAGE,
-      deletionProtection: true,
-      pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
-      ...tableCapacityConfig.limitOrder,
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.offerer,
     })
-    createCommonIndices(limitOrdersTable, indexCapacityConfig)
-    this.limitOrdersTable = limitOrdersTable
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: TABLE_KEY.ORDER_STATUS,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.orderStatus,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: TABLE_KEY.FILLER,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.filler,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.fillerOrderStatus,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.fillerOfferer,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.fillerOrderStatusOfferer,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.offererOrderStatus,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: TABLE_KEY.CHAIN_ID,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.chainId,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.chainIdFiller,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.chaindIdOrderStatus,
+    })
+
+    this.ordersTable.addGlobalSecondaryIndex({
+      indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
+      partitionKey: {
+        name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: TABLE_KEY.CREATED_AT,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+      ...indexCapacityConfig?.chainIdFillerOrderStatus,
+    })
+
+    this.ordersTable = ordersTable
 
     /* Nonces Table
      * This is needed because we want to do strongly-consistent reads on the nonce value,
@@ -96,7 +235,7 @@ export class DynamoStack extends cdk.NestedStack {
       },
       deletionProtection: true,
       pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
+      contributorInsightsEnabled: true,
       ...tableCapacityConfig.nonce,
     })
     this.nonceTable = nonceTable
@@ -203,161 +342,4 @@ export class DynamoStack extends cdk.NestedStack {
       readCapacityAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
     }
   }
-}
-
-const createCommonIndices = (table: aws_dynamo.Table, indexCapacityConfig: IndexCapacityConfig | undefined) => {
-  // Create global secondary indexes with createdAt sort key
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.OFFERER,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.offerer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.ORDER_STATUS,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.orderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.FILLER,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.filler,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOfferer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOrderStatusOfferer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.offererOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.CHAIN_ID,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainId,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainIdFiller,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chaindIdOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainIdFillerOrderStatus,
-  })
 }
