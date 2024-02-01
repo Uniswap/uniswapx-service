@@ -26,7 +26,7 @@ export class PostLimitOrderInjector extends ApiInjector<ContainerInjected, ApiRI
           chainId
         )
       } else {
-        throw new Error(`ChainId ${chainId} not supported`)
+        console.warn(`ChainId ${chainId} not supported, ${typeof chainId}`)
       }
     })
     return {
