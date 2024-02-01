@@ -23,7 +23,7 @@ export class GetNonceHandler extends APIGLambdaHandler<
 
     try {
       log.info({ address: address }, 'Getting nonce for address')
-      const nonce = await dbInterface.getNonceByAddressAndChain(address, chainId)
+      const nonce = await dbInterface.getNonceByAddressAndChain(address.toLowerCase(), chainId)
       return {
         statusCode: 200,
         body: {
