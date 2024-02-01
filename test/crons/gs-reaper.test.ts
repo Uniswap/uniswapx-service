@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-import { default as bunyan, default as Logger } from 'bunyan'
-
 import { OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
+import { default as bunyan, default as Logger } from 'bunyan'
 import { BATCH_WRITE_MAX, deleteStaleOrders } from '../../lib/crons/gs-reaper'
 import { ORDER_STATUS } from '../../lib/entities'
-import { DynamoOrdersRepository } from '../../lib/repositories/orders-repository'
+import { DutchOrdersRepository } from '../../lib/repositories/dutch-orders-repository'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -19,7 +18,7 @@ const dynamoConfig = {
   },
 }
 const documentClient = new DocumentClient(dynamoConfig)
-const ordersRepository = DynamoOrdersRepository.create(documentClient)
+const ordersRepository = DutchOrdersRepository.create(documentClient)
 
 const MOCK_ORDER = {
   encodedOrder: '0x01',
@@ -58,9 +57,11 @@ const log: Logger = bunyan.createLogger({
 })
 
 describe('deleteStaleOrders Test', () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     const orders = await ordersRepository.getByOrderStatus(ORDER_STATUS.OPEN)
-    await ordersRepository.deleteOrders(orders.orders.map((order) => order.orderHash))
+    if (orders.orders.length) {
+      await ordersRepository.deleteOrders(orders.orders.map((order) => order.orderHash))
+    }
   })
 
   afterEach(() => {

@@ -8,7 +8,7 @@ enum COMPARISON_OPERATORS {
   BETWEEN = 'between',
 }
 
-type ComparisonFilter = {
+export type ComparisonFilter = {
   operator: string
   values: number[]
 }

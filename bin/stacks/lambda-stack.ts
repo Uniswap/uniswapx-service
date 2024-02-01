@@ -27,12 +27,14 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
 }
 export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly postLimitOrderLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsUILambda: aws_lambda_nodejs.NodejsFunction
   public readonly postOrderLambdaAlias: aws_lambda.Alias
+  public readonly postLimitOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getDocsLambdaAlias: aws_lambda.Alias
@@ -115,6 +117,7 @@ export class LambdaStack extends cdk.NestedStack {
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
+      tracing: aws_lambda.Tracing.ACTIVE,
     })
 
     this.orderNotificationLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrderNotification${lambdaName}`, {
@@ -177,6 +180,22 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: postOrderEnv,
+      tracing: aws_lambda.Tracing.ACTIVE,
+    })
+
+    this.postLimitOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostLimitOrder${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'postLimitOrderHandler',
+      timeout: Duration.seconds(29),
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: postOrderEnv,
+      tracing: aws_lambda.Tracing.ACTIVE,
     })
 
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
@@ -195,6 +214,7 @@ export class LambdaStack extends cdk.NestedStack {
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
+      tracing: aws_lambda.Tracing.ACTIVE,
     })
 
     this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
@@ -255,6 +275,12 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
+    this.postLimitOrderLambdaAlias = new aws_lambda.Alias(this, `PostLimitOrderLiveAlias`, {
+      aliasName: 'live',
+      version: this.postLimitOrderLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
     this.getNonceLambdaAlias = new aws_lambda.Alias(this, `GetNonceLiveAlias`, {
       aliasName: 'live',
       version: this.getNonceLambda.currentVersion,
@@ -290,6 +316,20 @@ export class LambdaStack extends cdk.NestedStack {
 
       postOrderTarget.node.addDependency(this.postOrderLambdaAlias)
       postOrderTarget.scaleToTrackMetric(`${lambdaName}-PostOrder-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const PostLimitOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostLimitOrder-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.postLimitOrderLambdaAlias.lambda.functionName}:${this.postLimitOrderLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      PostLimitOrderTarget.node.addDependency(this.postLimitOrderLambdaAlias)
+      PostLimitOrderTarget.scaleToTrackMetric(`${lambdaName}-PostLimitOrder-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })

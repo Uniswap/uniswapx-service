@@ -50,6 +50,8 @@ export class APIStack extends cdk.Stack {
       getNonceLambda,
       postOrderLambdaAlias,
       postOrderLambda,
+      postLimitOrderLambdaAlias,
+      // postLimitOrderLambda, TODO: dashboard
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
@@ -356,6 +358,7 @@ export class APIStack extends cdk.Stack {
 
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
     const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
+    const postLimitOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postLimitOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
     const getDocsUILambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsUILambdaAlias, {})
@@ -364,6 +367,13 @@ export class APIStack extends cdk.Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
         allowMethods: aws_apigateway.Cors.ALL_METHODS,
+      },
+    })
+
+    const limitOrders = api.root.addResource('limit', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
+        allowMethods: ['GET', 'HEAD', 'POST'],
       },
     })
 
@@ -385,6 +395,9 @@ export class APIStack extends cdk.Stack {
 
     const order = dutchAuction.addResource('order')
     order.addMethod('POST', postOrderLambdaIntegration)
+
+    const limitOrderOrder = limitOrders.addResource('order')
+    limitOrderOrder.addMethod('POST', postLimitOrderLambdaIntegration)
 
     const orders = dutchAuction.addResource('orders')
     const nonce = dutchAuction.addResource('nonce')

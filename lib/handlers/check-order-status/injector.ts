@@ -6,7 +6,7 @@ import { ethers } from 'ethers'
 import { ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { DynamoOrdersRepository } from '../../repositories/orders-repository'
+import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
 import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
 
@@ -30,7 +30,7 @@ export interface ContainerInjected {
 export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, RequestInjected> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: DynamoOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
     }
   }
 

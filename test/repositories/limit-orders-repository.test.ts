@@ -2,7 +2,7 @@
 // @ts-nocheck
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
-import { DutchOrdersRepository } from '../../lib/repositories/dutch-orders-repository'
+import { LimitOrdersRepository } from '../../lib/repositories/limit-orders-repository'
 import { generateRandomNonce } from '../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../lib/util/time'
 
@@ -109,7 +109,7 @@ const mockTime = (time: number) => {
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
-const ordersRepository = DutchOrdersRepository.create(documentClient)
+const ordersRepository = LimitOrdersRepository.create(documentClient)
 
 beforeAll(async () => {
   mockTime(1)
@@ -120,7 +120,7 @@ beforeAll(async () => {
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_3)
 })
 
-describe('OrdersRepository put item test', () => {
+describe('LimitOrdersRepository put item test', () => {
   it('should successfully put an item in table', async () => {
     expect(() => {
       mockTime(1)
@@ -145,6 +145,7 @@ describe('OrdersRepository getOrders test', () => {
     const orders = await ordersRepository.getOrders(10, {
       orderHashes: [MOCK_ORDER_2.orderHash, MOCK_ORDER_3.orderHash],
     })
+
     expect(orders.orders.length).toEqual(2)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
     expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
