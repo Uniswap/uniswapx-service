@@ -43,7 +43,7 @@ describe('Testing get nonce handler.', () => {
 
   it('Testing valid request and response.', async () => {
     const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-    expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address, 1)
+    expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address.toLowerCase(), 1)
     expect(getNonceResponse).toMatchObject({
       body: JSON.stringify({ nonce: MOCK_NONCE }),
       statusCode: 200,
@@ -80,7 +80,7 @@ describe('Testing get nonce handler.', () => {
       async (invalidResponseField) => {
         getNonceByAddressMock.mockReturnValue(invalidResponseField)
         const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-        expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address, 1)
+        expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address.toLowerCase(), 1)
         expect(getNonceResponse.statusCode).toEqual(500)
         expect(getNonceResponse.body).toEqual(expect.stringContaining('INTERNAL_ERROR'))
       }
@@ -92,7 +92,7 @@ describe('Testing get nonce handler.', () => {
         throw error
       })
       const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-      expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address, 1)
+      expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address.toLowerCase(), 1)
       expect(getNonceResponse).toMatchObject({
         body: JSON.stringify({ detail: error.message, errorCode: 'INTERNAL_ERROR' }),
         statusCode: 500,
