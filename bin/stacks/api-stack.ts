@@ -52,7 +52,7 @@ export class APIStack extends cdk.Stack {
       postOrderLambda,
       postLimitOrderLambdaAlias,
       // postLimitOrderLambda, TODO: dashboard
-      limitOrderGetOrdersLambdaAlias: getLimitOrdersLambdaAlias,
+      getLimitOrdersLambdaAlias,
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
