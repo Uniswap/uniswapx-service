@@ -376,10 +376,10 @@ export class LambdaStack extends cdk.NestedStack {
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
 
-      const getLimitOrdersTarget = new asg.ScalableTarget(this, `GetLimitOrderOrders-ProvConcASG`, {
+      const getLimitOrdersTarget = new asg.ScalableTarget(this, `GetLimitOrders-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 2,
-        minCapacity: provisionedConcurrency,
+        maxCapacity: 50,
+        minCapacity: 1,
         resourceId: `function:${this.getLimitOrdersLambdaAlias.lambda.functionName}:${this.getLimitOrdersLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
       })
