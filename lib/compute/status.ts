@@ -1,20 +1,19 @@
 //@ts-nocheck
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import awssdk from 'aws-sdk'
+import { HEALTH_CHECK_PORT } from '../../bin/constants'
 import { log } from '../Logging'
 import { powertoolsMetric } from '../Metrics'
 import { DynamoLimitOrdersRepository } from '../repositories/limit-orders-repository'
+import { HealthCheckServer } from './healthcheck'
 const { DynamoDB } = awssdk
 const TEN_MINUTES_IN_SECONDS = 60 * 10
 // const TWO_MINUTES_IN_SECONDS = 60 * 2
 const LOOP_DELAY_MS = 600000 // ten minutes
 
-/**
- * Order Fetcher
- * Fetches open Gouda orders and kicks of a state machine for order broadcasting.
- */
 const BATCH_WRITE_MAX = 100
 async function main() {
+  await new HealthCheckServer().listen(HEALTH_CHECK_PORT)
   const dbInterface = DynamoLimitOrdersRepository.create(new DynamoDB.DocumentClient())
   //   setGlobalLogger(
   //     new BunyanLogger(

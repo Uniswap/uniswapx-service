@@ -72,6 +72,9 @@ export class StatusStack extends cdk.NestedStack {
       healthCheckGracePeriod: Duration.seconds(120),
     })
 
+    albFargateService.targetGroup.configureHealthCheck({
+      port: '80',
+    })
     // if (environmentVariables.BOT_ORDER_LOADER_DESTINATION_ARN && this.logDriver.logGroup?.logGroupName) {
     //   new AnalyticsStack(this, 'LoaderBotAnalyticsStack', {
     //     logGroupName: this.logDriver.logGroup.logGroupName,
