@@ -206,7 +206,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/index.ts'),
       handler: 'getLimitOrdersHandler',
-      timeout: Duration.seconds(29),
+      timeout: Duration.seconds(5),
       memorySize: 512,
       bundling: {
         minify: true,
@@ -378,8 +378,8 @@ export class LambdaStack extends cdk.NestedStack {
 
       const getLimitOrdersTarget = new asg.ScalableTarget(this, `GetLimitOrders-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: 50,
-        minCapacity: 1,
+        maxCapacity: provisionedConcurrency * 100,
+        minCapacity: provisionedConcurrency,
         resourceId: `function:${this.getLimitOrdersLambdaAlias.lambda.functionName}:${this.getLimitOrdersLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
       })

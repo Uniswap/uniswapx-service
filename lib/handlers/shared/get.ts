@@ -4,10 +4,18 @@ import bunyan, { default as Logger } from 'bunyan'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
-import { RawGetOrdersQueryParams } from '../get-orders/schema'
+import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
 
 export interface ContainerInjected {
   dbInterface: BaseOrdersRepository
+}
+
+export type GetRequestInjected = {
+  limit: number
+  queryFilters: GetOrdersQueryParams
+  cursor?: string
+  requestId: string
+  log: Logger
 }
 
 type RequestInjectedParams = {
@@ -24,7 +32,7 @@ export function getSharedRequestInjected({
   context,
   log,
   metrics,
-}: RequestInjectedParams) {
+}: RequestInjectedParams): GetRequestInjected {
   const requestId = context.awsRequestId
 
   log = log.child({
@@ -39,6 +47,16 @@ export function getSharedRequestInjected({
   metrics.setDimensions({ Service: 'UniswapXService' })
   setGlobalMetrics(metrics)
 
+  return {
+    ...parseGetQueryParams(requestQueryParams),
+    requestId,
+    log,
+  }
+}
+
+export const parseGetQueryParams = (
+  requestQueryParams: RawGetOrdersQueryParams
+): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string } => {
   // default to no limit
   const limit = requestQueryParams?.limit ?? 0
   const orderStatus = requestQueryParams?.orderStatus
@@ -67,8 +85,6 @@ export function getSharedRequestInjected({
       ...(desc !== undefined && { desc: desc }),
       ...(orderHashes && { orderHashes: [...new Set(orderHashes)] }),
     },
-    requestId,
-    log,
     ...(cursor && { cursor: cursor }),
   }
 }
