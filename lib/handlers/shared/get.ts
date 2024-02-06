@@ -13,9 +13,9 @@ export interface ContainerInjected {
 export type GetRequestInjected = {
   limit: number
   queryFilters: GetOrdersQueryParams
-  cursor?: string
   requestId: string
   log: Logger
+  cursor?: string
 }
 
 type RequestInjectedParams = {

@@ -29,6 +29,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postLimitOrderLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly getLimitOrdersLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
@@ -36,13 +37,11 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly postLimitOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
+  public readonly getLimitOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getDocsLambdaAlias: aws_lambda.Alias
   public readonly getDocsUILambdaAlias: aws_lambda.Alias
   private readonly orderNotificationLambdaAlias: aws_lambda.Alias
-
-  public readonly getLimitOrdersLambda: aws_lambda_nodejs.NodejsFunction
-  public readonly getLimitOrdersLambdaAlias: aws_lambda.Alias
 
   public readonly chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
@@ -104,6 +103,12 @@ export class LambdaStack extends cdk.NestedStack {
     this.chainIdToStatusTrackingStateMachineArn = sfnStack.chainIdToStatusTrackingStateMachineArn
     this.checkStatusFunction = sfnStack.checkStatusFunction
 
+    const getOrdersEnv = {
+      stage: props.stage as STAGE,
+      VERSION: '2',
+      NODE_OPTIONS: '--enable-source-maps',
+    }
+
     this.getOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetOrders${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
@@ -115,11 +120,7 @@ export class LambdaStack extends cdk.NestedStack {
         minify: true,
         sourceMap: true,
       },
-      environment: {
-        stage: props.stage as STAGE,
-        VERSION: '2',
-        NODE_OPTIONS: '--enable-source-maps',
-      },
+      environment: getOrdersEnv,
       tracing: aws_lambda.Tracing.ACTIVE,
     })
 
@@ -212,11 +213,7 @@ export class LambdaStack extends cdk.NestedStack {
         minify: true,
         sourceMap: true,
       },
-      environment: {
-        stage: props.stage as STAGE,
-        VERSION: '2',
-        NODE_OPTIONS: '--enable-source-maps',
-      },
+      environment: getOrdersEnv,
     })
 
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
