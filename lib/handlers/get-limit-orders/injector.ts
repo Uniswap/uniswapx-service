@@ -2,11 +2,10 @@ import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
-import { BaseOrdersRepository } from '../../repositories/base'
-import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
-import { getSharedRequestInjected } from '../shared/get'
-import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
+import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
+import { ContainerInjected, getSharedRequestInjected } from '../shared/get'
 
 export interface RequestInjected extends ApiRInj {
   limit: number
@@ -14,14 +13,15 @@ export interface RequestInjected extends ApiRInj {
   cursor?: string
 }
 
-export interface ContainerInjected {
-  dbInterface: BaseOrdersRepository
-}
-
-export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams> {
+export class GetLimitOrdersInjector extends ApiInjector<
+  ContainerInjected,
+  RequestInjected,
+  void,
+  RawGetOrdersQueryParams
+> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: LimitOrdersRepository.create(new DynamoDB.DocumentClient()),
     }
   }
 

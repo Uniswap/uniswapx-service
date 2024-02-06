@@ -29,6 +29,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postLimitOrderLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly getLimitOrdersLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getNonceLambda: aws_lambda_nodejs.NodejsFunction
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
@@ -36,6 +37,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly postLimitOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
+  public readonly getLimitOrdersLambdaAlias: aws_lambda.Alias
   public readonly getNonceLambdaAlias: aws_lambda.Alias
   public readonly getDocsLambdaAlias: aws_lambda.Alias
   public readonly getDocsUILambdaAlias: aws_lambda.Alias
@@ -101,6 +103,12 @@ export class LambdaStack extends cdk.NestedStack {
     this.chainIdToStatusTrackingStateMachineArn = sfnStack.chainIdToStatusTrackingStateMachineArn
     this.checkStatusFunction = sfnStack.checkStatusFunction
 
+    const getOrdersEnv = {
+      stage: props.stage as STAGE,
+      VERSION: '2',
+      NODE_OPTIONS: '--enable-source-maps',
+    }
+
     this.getOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetOrders${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
@@ -112,11 +120,7 @@ export class LambdaStack extends cdk.NestedStack {
         minify: true,
         sourceMap: true,
       },
-      environment: {
-        stage: props.stage as STAGE,
-        VERSION: '2',
-        NODE_OPTIONS: '--enable-source-maps',
-      },
+      environment: getOrdersEnv,
       tracing: aws_lambda.Tracing.ACTIVE,
     })
 
@@ -196,6 +200,20 @@ export class LambdaStack extends cdk.NestedStack {
       },
       environment: postOrderEnv,
       tracing: aws_lambda.Tracing.ACTIVE,
+    })
+
+    this.getLimitOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetLimitOrders${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      handler: 'getLimitOrdersHandler',
+      timeout: Duration.seconds(5),
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: getOrdersEnv,
     })
 
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
@@ -281,6 +299,12 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
+    this.getLimitOrdersLambdaAlias = new aws_lambda.Alias(this, `GetLimitOrdersLiveAlias`, {
+      aliasName: 'live',
+      version: this.getLimitOrdersLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    })
+
     this.getNonceLambdaAlias = new aws_lambda.Alias(this, `GetNonceLiveAlias`, {
       aliasName: 'live',
       version: this.getNonceLambda.currentVersion,
@@ -345,6 +369,21 @@ export class LambdaStack extends cdk.NestedStack {
       getOrdersTarget.node.addDependency(this.getOrdersLambdaAlias)
 
       getOrdersTarget.scaleToTrackMetric(`GetOrders-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
+
+      const getLimitOrdersTarget = new asg.ScalableTarget(this, `GetLimitOrders-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 100,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.getLimitOrdersLambdaAlias.lambda.functionName}:${this.getLimitOrdersLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
+
+      getLimitOrdersTarget.node.addDependency(this.getLimitOrdersLambda)
+
+      getLimitOrdersTarget.scaleToTrackMetric(`GetLimitOrders-ProvConcTracking`, {
         targetValue: 0.8,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
