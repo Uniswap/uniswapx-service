@@ -8,7 +8,7 @@ export interface IHealthCheckServer {
 export class HealthCheckServer implements IHealthCheckServer {
   private app: express.Application
 
-  constructor() {
+  constructor(private listenerPort: number) {
     this.app = express()
 
     this.app.get('/', (_req, res) => {
@@ -17,9 +17,9 @@ export class HealthCheckServer implements IHealthCheckServer {
     })
   }
 
-  async listen(port: number): Promise<void> {
-    this.app.listen(port, () => {
-      log.info(`Health check server listening at http://localhost:${port}`)
+  async listen(): Promise<void> {
+    this.app.listen(this.listenerPort, () => {
+      log.info(`Health check server listening at http://localhost:${this.listenerPort}`)
     })
   }
 }

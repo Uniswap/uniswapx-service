@@ -1,5 +1,4 @@
 /* eslint-disable */
-// @ts-nocheck
 
 import {
   DutchInput,
@@ -12,6 +11,7 @@ import {
 import { BigNumber } from 'ethers'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities'
 import { CheckOrderStatusHandler, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
+import { CheckOrderStatusService } from '../../lib/handlers/check-order-status/service'
 import { NATIVE_ADDRESS } from '../../lib/util/constants'
 import { ORDER_INFO } from '../fixtures'
 
@@ -297,8 +297,7 @@ describe('Testing check order status handler', () => {
   })
 
   describe('Test getSettledAmounts', () => {
-    const injectorPromiseMock: any = buildInjectorPromiseMock(500, ORDER_STATUS.OPEN)
-    const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
+    const checkOrderStatusHandler = new CheckOrderStatusService()
 
     const getMockFillInfo = (inputs: TokenTransfer[], outputs: TokenTransfer[]) => ({
       blockNumber: 1,

@@ -5,11 +5,7 @@ import { Metric } from 'aws-cdk-lib/aws-cloudwatch'
 import { DockerImageAsset, Platform } from 'aws-cdk-lib/aws-ecr-assets'
 import { Cluster, ContainerImage } from 'aws-cdk-lib/aws-ecs'
 import { Construct } from 'constructs'
-
 import { HEALTH_CHECK_PORT, SERVICE_NAME } from '../constants'
-
-// import { AnalyticsStack } from './analytics-stack'
-// import { FetcherAlarmStack } from './fetcher-alarm-stack'
 
 export interface StatusStackProps extends StackProps {
   environmentVariables: { [key: string]: string }
@@ -25,14 +21,14 @@ export class StatusStack extends cdk.NestedStack {
     const { environmentVariables, chatbotSNSArn } = props
 
     this.logDriver = new aws_ecs.AwsLogDriver({
-      streamPrefix: `${SERVICE_NAME}-LoaderStack`,
+      streamPrefix: `${SERVICE_NAME}-StatusStack`,
     })
 
     const cluster = new Cluster(this, `Cluster`)
 
-    const loaderStackRole = new aws_iam.Role(this, `LoaderStackRole`, {
+    const loaderStackRole = new aws_iam.Role(this, `StatusStackRole`, {
       assumedBy: new aws_iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-      managedPolicies: [aws_iam.ManagedPolicy.fromAwsManagedPolicyName('AWSStepFunctionsFullAccess')],
+      managedPolicies: [aws_iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonDynamoDBFullAccess')],
     })
 
     Metric.grantPutMetricData(loaderStackRole)
@@ -65,27 +61,11 @@ export class StatusStack extends cdk.NestedStack {
         protocol: aws_ecs.Protocol.TCP,
       })
 
-    const albFargateService = new aws_ecs_patterns.ApplicationLoadBalancedFargateService(this, `FargateService`, {
+    const albFargateService = new aws_ecs_patterns.ApplicationLoadBalancedFargateService(this, `StatusService`, {
       cluster,
       taskDefinition,
       desiredCount: 1,
       healthCheckGracePeriod: Duration.seconds(120),
     })
-
-    albFargateService.targetGroup.configureHealthCheck({
-      port: '80',
-    })
-    // if (environmentVariables.BOT_ORDER_LOADER_DESTINATION_ARN && this.logDriver.logGroup?.logGroupName) {
-    //   new AnalyticsStack(this, 'LoaderBotAnalyticsStack', {
-    //     logGroupName: this.logDriver.logGroup.logGroupName,
-    //     destinationArn: environmentVariables.BOT_ORDER_LOADER_DESTINATION_ARN,
-    //     filterPattern: '{ $.eventType = "BotLoaderEvent" }',
-    //   })
-    // }
-
-    // new FetcherAlarmStack(this, 'FetcherAlarmStack', {
-    //   chatbotSNSArn,
-    //   ecsService: albFargateService.service,
-    // })
   }
 }
