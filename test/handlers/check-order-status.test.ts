@@ -10,8 +10,8 @@ import {
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { OrderEntity, ORDER_STATUS } from '../../lib/entities'
-import { CheckOrderStatusHandler, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../lib/handlers/check-order-status/handler'
-import { CheckOrderStatusService } from '../../lib/handlers/check-order-status/service'
+import { CheckOrderStatusHandler } from '../../lib/handlers/check-order-status/handler'
+import { FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts } from '../../lib/handlers/check-order-status/util'
 import { NATIVE_ADDRESS } from '../../lib/util/constants'
 import { ORDER_INFO } from '../fixtures'
 
@@ -217,6 +217,7 @@ describe('Testing check order status handler', () => {
       expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
       })
+      expect(updateOrderStatusMock).toBeCalled()
       expect(getFillInfoMock).toBeCalled()
     })
 
@@ -297,8 +298,6 @@ describe('Testing check order status handler', () => {
   })
 
   describe('Test getSettledAmounts', () => {
-    const checkOrderStatusHandler = new CheckOrderStatusService()
-
     const getMockFillInfo = (inputs: TokenTransfer[], outputs: TokenTransfer[]) => ({
       blockNumber: 1,
       txHash: '0x456',
@@ -343,7 +342,7 @@ describe('Testing check order status handler', () => {
         ]
       )
 
-      const settledAmounts = checkOrderStatusHandler.getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      const settledAmounts = getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
       expect(settledAmounts).toEqual([
         {
           tokenIn: resolvedInput.token,
@@ -377,7 +376,7 @@ describe('Testing check order status handler', () => {
         ]
       )
 
-      const settledAmounts = checkOrderStatusHandler.getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      const settledAmounts = getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
       expect(settledAmounts).toEqual([
         {
           tokenIn: resolvedInput.token,
@@ -412,7 +411,7 @@ describe('Testing check order status handler', () => {
         { token: resolvedOutput.token, amount: resolvedOutput.amount }
       )
 
-      const settledAmounts = checkOrderStatusHandler.getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      const settledAmounts = getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
       expect(settledAmounts).toEqual([
         {
           tokenIn: resolvedInput.token,
@@ -447,7 +446,7 @@ describe('Testing check order status handler', () => {
         { token: resolvedOutput.token, amount: resolvedOutput.amount }
       )
 
-      const settledAmounts = checkOrderStatusHandler.getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      const settledAmounts = getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
       expect(settledAmounts).toEqual([
         {
           tokenIn: resolvedInput.token,
