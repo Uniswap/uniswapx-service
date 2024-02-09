@@ -49,6 +49,7 @@ export class OnChainStatusChecker {
     // })
 
     // log.info({ config: config })
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       if (this._stop) {
         return
@@ -60,7 +61,7 @@ export class OnChainStatusChecker {
           // metrics.addMetric(MetricName.OrderFetcherLoopStarted(), 1)
           try {
             // const loopStartTime = new Date().getTime()
-            let order = openOrders.orders[i]
+            const order = openOrders.orders[i]
             await this.updateOrder(order)
           } catch (e: any) {
             log.error(`Unexpected error in status job`, { error: e })
@@ -82,13 +83,13 @@ export class OnChainStatusChecker {
   }
 
   public async updateOrder(order: OrderEntity) {
-    let chainId = order.chainId
+    const chainId = order.chainId
     const provider = this.getProvider(chainId)
     const quoter = this.getValidator(provider, chainId)
     // TODO: use different reactor address for different order type
     const watcher = this.getWatcher(provider, chainId)
 
-    let request: CheckOrderStatusRequest = {
+    const request: CheckOrderStatusRequest = {
       chainId: chainId,
       quoteId: order.quoteId,
       orderHash: order.orderHash,
@@ -101,7 +102,7 @@ export class OnChainStatusChecker {
       orderQuoter: quoter,
     }
 
-    let response = await this.checkOrderStatusService.handleRequest(request)
+    const response = await this.checkOrderStatusService.handleRequest(request)
     if (typeof response.getFillLogAttempts === 'number' && response.getFillLogAttempts > 0) {
       //check for fill event one more time and expire
       setTimeout(async () => {

@@ -93,7 +93,7 @@ export class CheckOrderStatusService {
           (e) => e.orderHash === orderHash
         )
         if (fillEvent) {
-          let settledAmounts = await this.processFillEvent({
+          const settledAmounts = await this.processFillEvent({
             provider,
             fillEvent,
             parsedOrder,
@@ -139,7 +139,7 @@ export class CheckOrderStatusService {
           (e) => e.orderHash === orderHash
         )
         if (fillEvent) {
-          let settledAmounts = await this.processFillEvent({
+          const settledAmounts = await this.processFillEvent({
             provider,
             fillEvent,
             parsedOrder,

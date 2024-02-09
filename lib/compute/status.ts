@@ -8,7 +8,7 @@ const { DynamoDB } = awssdk
 
 async function start() {
   await new HealthCheckServer(HEALTH_CHECK_PORT).listen()
-  let limitOrdersDb = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
+  const limitOrdersDb = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
   await new OnChainStatusChecker(limitOrdersDb).checkStatus()
 }
 

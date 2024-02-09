@@ -6,8 +6,7 @@ import { CheckOrderStatusInputJoi } from './schema'
 import { CheckOrderStatusService } from './service'
 
 export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected, RequestInjected> {
-  //@ts-ignore not definitely assigned
-  private _checkOrderStatusService: CheckOrderStatusService
+  private _checkOrderStatusService!: CheckOrderStatusService
 
   private getCheckOrderStatusService(dbInterface: BaseOrdersRepository) {
     if (!this._checkOrderStatusService) {
