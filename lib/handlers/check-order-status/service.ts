@@ -1,5 +1,4 @@
 import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
-
 import { Unit } from 'aws-embedded-metrics'
 import { BigNumber, ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
@@ -223,7 +222,6 @@ export class CheckOrderStatusService {
         getFillLogAttempts,
       })
       await this.dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
-
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
