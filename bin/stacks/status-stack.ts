@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as cdk from 'aws-cdk-lib'
 import { aws_ecs, aws_ecs_patterns, aws_iam, Duration, StackProps } from 'aws-cdk-lib'
 import { Metric } from 'aws-cdk-lib/aws-cloudwatch'
@@ -18,7 +17,7 @@ export class StatusStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: StatusStackProps) {
     super(scope, id, props)
 
-    const { environmentVariables, chatbotSNSArn } = props
+    const { environmentVariables } = props
 
     this.logDriver = new aws_ecs.AwsLogDriver({
       streamPrefix: `${SERVICE_NAME}-StatusStack`,
@@ -61,7 +60,7 @@ export class StatusStack extends cdk.NestedStack {
         protocol: aws_ecs.Protocol.TCP,
       })
 
-    const albFargateService = new aws_ecs_patterns.ApplicationLoadBalancedFargateService(this, `StatusService`, {
+    new aws_ecs_patterns.ApplicationLoadBalancedFargateService(this, `StatusService`, {
       cluster,
       taskDefinition,
       desiredCount: 1,
