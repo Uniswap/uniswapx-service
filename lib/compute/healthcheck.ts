@@ -12,7 +12,6 @@ export class HealthCheckServer implements IHealthCheckServer {
     this.app = express()
 
     this.app.get('/', (_req, res) => {
-      log.info(`Health check pinged`)
       res.sendStatus(200)
     })
   }

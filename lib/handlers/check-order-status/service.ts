@@ -21,15 +21,14 @@ type ProcessFillEventRequest = {
   fillEvent: FillInfo
   provider: ethers.providers.StaticJsonRpcProvider
   parsedOrder: DutchOrder
-  quoteId: string
   order: OrderEntity
   chainId: number
   startingBlockNumber: number
+  quoteId?: string
 }
 
 export type CheckOrderStatusRequest = {
   chainId: number
-  quoteId: string
   orderHash: string
   startingBlockNumber: number
   orderStatus: ORDER_STATUS
@@ -38,10 +37,14 @@ export type CheckOrderStatusRequest = {
   provider: ethers.providers.StaticJsonRpcProvider
   orderWatcher: EventWatcher
   orderQuoter: OrderValidator
+  quoteId?: string //only used for logging
 }
 
 export class CheckOrderStatusService {
-  constructor(public dbInterface: BaseOrdersRepository) {}
+  constructor(
+    public dbInterface: BaseOrdersRepository,
+    private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON
+  ) {}
 
   public async handleRequest({
     chainId,
@@ -59,14 +62,11 @@ export class CheckOrderStatusService {
       await this.dbInterface.getByHash(orderHash),
       'cannot find order by hash when updating order status'
     )
-
     const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
     log.info('parsed order', { order: parsedOrder, signature: order.signature })
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
-    const fromBlock = !startingBlockNumber
-      ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
-      : startingBlockNumber
+    const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
 
     const commonUpdateInfo = {
       orderHash,
@@ -182,13 +182,13 @@ export class CheckOrderStatusService {
 
   private async updateStatusAndReturn(params: {
     orderHash: string
-    quoteId: string
     retryCount: number
     startingBlockNumber: number
     chainId: number
     lastStatus: ORDER_STATUS
     orderStatus: ORDER_STATUS
     validation: OrderValidation
+    quoteId?: string
     txHash?: string
     settledAmounts?: SettledAmount[]
     getFillLogAttempts?: number
@@ -249,8 +249,8 @@ export class CheckOrderStatusService {
     return {
       orderHash: orderHash,
       orderStatus: orderStatus,
+      retryCount: (retryCount || 0) + 1,
       quoteId: quoteId,
-      retryCount: retryCount + 1,
       retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount),
       startingBlockNumber: startingBlockNumber,
       chainId: chainId,
@@ -305,7 +305,7 @@ export class CheckOrderStatusService {
     metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
 
     // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
-    const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId))
+    const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + this.fillEventBlockLookback(chainId))
     metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
     return settledAmounts
   }

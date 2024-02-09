@@ -7,7 +7,7 @@ import { NATIVE_ADDRESS } from '../../util/constants'
 
 export function logFillInfo(
   fill: FillInfo,
-  quoteId: string,
+  quoteId: string | undefined,
   timestamp: number,
   gasCostInETH: string,
   gasPriceWei: string,
