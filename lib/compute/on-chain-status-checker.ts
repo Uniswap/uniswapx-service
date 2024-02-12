@@ -39,26 +39,31 @@ export class OnChainStatusChecker {
   public async checkStatus() {
     const metrics = powertoolsMetric
     // eslint-disable-next-line no-constant-condition
-    while (true) {
+    while (!this._stop) {
       let totalCheckedOrders = 0
       let statusLoopError = 0
       let startTime = new Date().getTime()
       try {
-        if (this._stop) {
-          return
-        }
         let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
 
         do {
+          let promises = []
           for (let i = 0; i < openOrders.orders.length; i++) {
-            try {
-              const order = openOrders.orders[i]
-              await this.updateOrder(order)
-            } catch (e: any) {
-              log.error(`Unexpected error in status job`, { error: e })
-              statusLoopError++
-            }
+            const order = openOrders.orders[i]
+            promises.push(
+              this.updateOrder(order).then(
+                () => {
+                  //resolved
+                },
+                (reason) => {
+                  statusLoopError++
+                  log.error(`Unexpected error in status job`, { rejectedReason: reason })
+                }
+              )
+            )
           }
+
+          await Promise.allSettled(promises)
           totalCheckedOrders += openOrders.orders.length
         } while (
           openOrders.cursor &&
@@ -83,32 +88,37 @@ export class OnChainStatusChecker {
     }
   }
 
-  public async updateOrder(order: OrderEntity) {
-    const chainId = order.chainId
-    const provider = this.getProvider(chainId)
-    const quoter = this.getValidator(provider, chainId)
-    // TODO: use different reactor address for different order type
-    const watcher = this.getWatcher(provider, chainId)
+  public async updateOrder(order: OrderEntity): Promise<boolean> {
+    try {
+      const chainId = order.chainId
+      const provider = this.getProvider(chainId)
+      const quoter = this.getValidator(provider, chainId)
+      // TODO: use different reactor address for different order type
+      const watcher = this.getWatcher(provider, chainId)
 
-    const request: CheckOrderStatusRequest = {
-      chainId: chainId,
-      quoteId: order.quoteId,
-      orderHash: order.orderHash,
-      startingBlockNumber: 0, //check this
-      orderStatus: order.orderStatus,
-      getFillLogAttempts: 0, //expire if >0 and order status is expired
-      retryCount: 0, //only relevant to step function retry backoff
-      provider: provider,
-      orderWatcher: watcher,
-      orderQuoter: quoter,
-    }
+      const request: CheckOrderStatusRequest = {
+        chainId: chainId,
+        quoteId: order.quoteId,
+        orderHash: order.orderHash,
+        startingBlockNumber: 0, //check this
+        orderStatus: order.orderStatus,
+        getFillLogAttempts: 0, //expire if >0 and order status is expired
+        retryCount: 0, //only relevant to step function retry backoff
+        provider: provider,
+        orderWatcher: watcher,
+        orderQuoter: quoter,
+      }
 
-    const response = await this.checkOrderStatusService.handleRequest(request)
-    if (typeof response.getFillLogAttempts === 'number' && response.getFillLogAttempts > 0) {
-      //check for fill event one more time and expire
-      setTimeout(async () => {
-        await this.checkOrderStatusService.handleRequest(request)
-      }, TWO_MINUTES_MS * 1000)
+      const response = await this.checkOrderStatusService.handleRequest(request)
+      if (typeof response.getFillLogAttempts === 'number' && response.getFillLogAttempts > 0) {
+        //check for fill event one more time and expire
+        setTimeout(async () => {
+          await this.checkOrderStatusService.handleRequest(request)
+        }, TWO_MINUTES_MS * 1000)
+      }
+      return true
+    } catch (e) {
+      return false
     }
   }
 }
