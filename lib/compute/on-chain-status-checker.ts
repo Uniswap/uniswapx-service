@@ -37,48 +37,50 @@ export class OnChainStatusChecker {
 
   public async checkStatus() {
     const metrics = powertoolsMetric
-    // metrics.add(MetricNamespace.Uniswap)
-    // metrics.addDimension(OrderFetcherMetricDimension)
-    // setGlobalMetrics(metrics)
-    // const fetcher: OrderFetcher = new GoudaApiOrderFetcher(config.goudaApiUrl)
-    // const orderRelayer: OrderRelayer = new OrderSfnRelayer(config.region, config.orderStateMachineArn)
-
-    // const orderHashCache = new NodeCache({
-    //   stdTTL: TEN_MINUTES_IN_SECONDS,
-    //   checkperiod: TWO_MINUTES_IN_SECONDS,
-    // })
-
-    // log.info({ config: config })
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      if (this._stop) {
-        return
-      }
-      let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
       let totalCheckedOrders = 0
-      do {
-        for (let i = 0; i < openOrders.orders.length; i++) {
-          // metrics.addMetric(MetricName.OrderFetcherLoopStarted(), 1)
-          try {
-            // const loopStartTime = new Date().getTime()
-            const order = openOrders.orders[i]
-            await this.updateOrder(order)
-          } catch (e: any) {
-            log.error(`Unexpected error in status job`, { error: e })
-            metrics.addMetric('Status loop error', MetricUnits.Count, 1)
-          } finally {
-            // metrics.publishStoredMetrics()
-            // metrics.clearMetrics()
-          }
+      let statusLoopError = 0
+      let startTime = new Date().getTime()
+      try {
+        if (this._stop) {
+          return
         }
-        totalCheckedOrders += openOrders.orders.length
-      } while (
-        openOrders.cursor &&
-        (openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX, openOrders.cursor))
-      )
+        let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
 
-      log.info(`finished processing orders`, { totalCheckedOrders })
-      await delay(LOOP_DELAY_MS)
+        do {
+          for (let i = 0; i < openOrders.orders.length; i++) {
+            // metrics.addMetric(MetricName.OrderFetcherLoopStarted(), 1)
+            try {
+              // const loopStartTime = new Date().getTime()
+              const order = openOrders.orders[i]
+              await this.updateOrder(order)
+            } catch (e: any) {
+              log.error(`Unexpected error in status job`, { error: e })
+              statusLoopError++
+            }
+          }
+          totalCheckedOrders += openOrders.orders.length
+        } while (
+          openOrders.cursor &&
+          (openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX, openOrders.cursor))
+        )
+        log.info(`finished processing orders`, { totalCheckedOrders })
+      } catch (e) {
+        log.error('OnChainStatusChecker Error', { error: e })
+        metrics.addMetric('OnChainStatusCheckerError', MetricUnits.Count, 1)
+      } finally {
+        metrics.addMetric('OnChainStatusChecker-TotalProcessedOpenOrders', MetricUnits.Count, totalCheckedOrders)
+        metrics.addMetric('OnChainStatusChecker-TotalOrderProcessingErrors', MetricUnits.Count, statusLoopError)
+        metrics.addMetric(
+          'OnChainStatusChecker-TotalLoopProcessingTime',
+          MetricUnits.Milliseconds,
+          new Date().getTime() - startTime
+        )
+        metrics.publishStoredMetrics()
+        metrics.clearMetrics()
+        await delay(LOOP_DELAY_MS)
+      }
     }
   }
 
@@ -115,11 +117,3 @@ export class OnChainStatusChecker {
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
-
-// log.warn('found open orders', { length: openOrders.orders.length })
-// if (openOrders.cursor) {
-//   openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_WRITE_MAX, openOrders.cursor)
-// } else {
-//   log.warn('breaking')
-//   break
-// }
