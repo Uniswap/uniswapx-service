@@ -64,7 +64,7 @@ export class StatusStack extends cdk.NestedStack {
       cluster,
       taskDefinition,
       desiredCount: 1,
-      healthCheckGracePeriod: Duration.seconds(120),
+      healthCheckGracePeriod: Duration.seconds(60),
     })
   }
 }
