@@ -124,3 +124,15 @@ export const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
       return 10
   }
 }
+
+//10 minute lookback
+export const LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
+  switch (chainId) {
+    case ChainId.MAINNET:
+      return 50
+    case ChainId.POLYGON:
+      return 300
+    default:
+      return 50
+  }
+}

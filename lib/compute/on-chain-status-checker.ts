@@ -3,6 +3,7 @@ import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 import { CheckOrderStatusRequest, CheckOrderStatusService } from '../handlers/check-order-status/service'
+import { LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../handlers/check-order-status/util'
 import { log } from '../Logging'
 import { powertoolsMetric } from '../Metrics'
 import { BaseOrdersRepository } from '../repositories/base'
@@ -15,7 +16,7 @@ export const BATCH_READ_MAX = 100
 export class OnChainStatusChecker {
   private checkOrderStatusService: CheckOrderStatusService
   constructor(private dbInterface: BaseOrdersRepository, private _stop = false) {
-    this.checkOrderStatusService = new CheckOrderStatusService(dbInterface)
+    this.checkOrderStatusService = new CheckOrderStatusService(dbInterface, LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON)
   }
   public stop() {
     this._stop = true
@@ -50,9 +51,7 @@ export class OnChainStatusChecker {
 
         do {
           for (let i = 0; i < openOrders.orders.length; i++) {
-            // metrics.addMetric(MetricName.OrderFetcherLoopStarted(), 1)
             try {
-              // const loopStartTime = new Date().getTime()
               const order = openOrders.orders[i]
               await this.updateOrder(order)
             } catch (e: any) {
