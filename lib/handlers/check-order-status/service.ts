@@ -40,10 +40,13 @@ export type CheckOrderStatusRequest = {
 }
 
 export class CheckOrderStatusService {
+  private readonly fillEventProcessor
   constructor(
     private dbInterface: BaseOrdersRepository,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON
-  ) {}
+  ) {
+    this.fillEventProcessor = new FillEventProcessor(fillEventBlockLookback)
+  }
 
   public async handleRequest({
     chainId,
@@ -92,7 +95,7 @@ export class CheckOrderStatusService {
           (e) => e.orderHash === orderHash
         )
         if (fillEvent) {
-          const settledAmounts = await this.processFillEvent({
+          const settledAmounts = await this.fillEventProcessor.processFillEvent({
             provider,
             fillEvent,
             parsedOrder,
@@ -138,7 +141,7 @@ export class CheckOrderStatusService {
           (e) => e.orderHash === orderHash
         )
         if (fillEvent) {
-          const settledAmounts = await this.processFillEvent({
+          const settledAmounts = await this.fillEventProcessor.processFillEvent({
             provider,
             fillEvent,
             parsedOrder,
@@ -270,8 +273,10 @@ export class CheckOrderStatusService {
       ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
       : 18000
   }
-
-  private async processFillEvent({
+}
+export class FillEventProcessor {
+  constructor(private fillEventBlockLookback: (chainId: ChainId) => number) {}
+  public async processFillEvent({
     provider,
     fillEvent,
     parsedOrder,
