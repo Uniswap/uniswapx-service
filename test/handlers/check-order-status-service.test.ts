@@ -340,4 +340,31 @@ describe('checkOrderStatusService', () => {
       })
     })
   })
+
+  describe('CheckOrderStatusService.calculateRetryWaitSeconds', () => {
+    let ordersRepositoryMock: any, checkOrderStatusService: CheckOrderStatusService
+
+    beforeEach(() => {
+      ordersRepositoryMock = {
+        updateOrderStatus: jest.fn(),
+        getByHash: jest.fn(),
+      } as any
+      checkOrderStatusService = new CheckOrderStatusService(ordersRepositoryMock)
+    })
+
+    it('should do exponential backoff when retry count > 300', async () => {
+      const response = await checkOrderStatusService.calculateRetryWaitSeconds(1, 301)
+      expect(response).toEqual(13)
+    })
+
+    it('should do exponential backoff when retry count > 300', async () => {
+      const response = await checkOrderStatusService.calculateRetryWaitSeconds(1, 350)
+      expect(response).toEqual(138)
+    })
+
+    it('should cap exponential backoff when wait interval reaches 18000 seconds', async () => {
+      const response = await checkOrderStatusService.calculateRetryWaitSeconds(1, 501)
+      expect(response).toEqual(18000)
+    })
+  })
 })

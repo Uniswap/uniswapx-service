@@ -290,7 +290,7 @@ describe('OrdersRepository getOrders test', () => {
     })
     expect(queryResult.orders.length).toEqual(1)
     expect(queryResult.orders[0].orderHash).toEqual(MOCK_ORDER_3.orderHash)
-    expect(queryResult.orders[0].filler_offerer_orderStatus).toEqual(
+    expect((queryResult.orders[0] as any).filler_offerer_orderStatus).toEqual(
       `${ADDITIONAL_FIELDS_ORDER_3.filler}_${MOCK_ORDER_3.offerer}_${MOCK_ORDER_3.orderStatus}`
     )
   })
@@ -365,7 +365,7 @@ describe('OrdersRepository getOrders test with pagination', () => {
   })
 
   it('should successfully page through orders with chainId, orderStatus', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_5)
+    await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_5 as any)
     let orders = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 })
     expect(orders.orders.length).toEqual(1)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
@@ -525,7 +525,7 @@ describe('OrdersRepository get nonce test', () => {
 describe('OrdersRepository get order count by offerer test', () => {
   it('should successfully return order count by existing offerer', async () => {
     mockTime(4)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_4)
+    await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_4 as any)
     expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_4.offerer, ORDER_STATUS.OPEN)).toEqual(3)
   })
 
@@ -543,7 +543,7 @@ describe('OrdersRepository update status test', () => {
       orderStatus: ORDER_STATUS.FILLED,
       offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
       chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
-      chainId_orderStatus_filler: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}_${MOCK_ORDER_1.filler}`,
+      chainId_orderStatus_filler: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}_${(MOCK_ORDER_1 as any).filler}`,
       txHash: 'txHash',
       settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
     })

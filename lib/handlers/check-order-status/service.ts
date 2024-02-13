@@ -41,7 +41,7 @@ export type CheckOrderStatusRequest = {
 
 export class CheckOrderStatusService {
   constructor(
-    public dbInterface: BaseOrdersRepository,
+    private dbInterface: BaseOrdersRepository,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON
   ) {}
 
@@ -65,7 +65,7 @@ export class CheckOrderStatusService {
     log.info('parsed order', { order: parsedOrder, signature: order.signature })
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
-    const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
+    const fromBlock = startingBlockNumber ?? curBlockNumber - this.fillEventBlockLookback(chainId)
 
     const commonUpdateInfo = {
       orderHash,
@@ -263,7 +263,7 @@ export class CheckOrderStatusService {
    * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
    * All subsequent retries are at 6 hour intervals.
    */
-  private calculateRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
+  public calculateRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
     return retryCount <= 300
       ? AVERAGE_BLOCK_TIME(chainId)
       : retryCount <= 450

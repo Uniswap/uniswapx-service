@@ -114,7 +114,7 @@ export class OnChainStatusChecker {
       chainId: chainId,
       quoteId: order.quoteId,
       orderHash: order.orderHash,
-      startingBlockNumber: 0, //check this
+      startingBlockNumber: 0, // if 0, looks back 50 blocks, otherwise looks from given block
       orderStatus: order.orderStatus,
       getFillLogAttempts: 0, //expire if >0 and order status is expired
       retryCount: 0, //only relevant to step function retry backoff
