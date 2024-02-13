@@ -6,6 +6,7 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { BATCH_WRITE_MAX, deleteStaleOrders } from '../../lib/crons/gs-reaper'
 import { ORDER_STATUS } from '../../lib/entities'
 import { DutchOrdersRepository } from '../../lib/repositories/dutch-orders-repository'
+import { deleteAllRepoEntries } from '../utils'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -66,6 +67,10 @@ describe('deleteStaleOrders Test', () => {
 
   afterEach(() => {
     jest.clearAllMocks()
+  })
+
+  afterAll(async () => {
+    await deleteAllRepoEntries(ordersRepository)
   })
 
   it('should delete stale orders', async () => {

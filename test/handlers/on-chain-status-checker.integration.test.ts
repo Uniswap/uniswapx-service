@@ -7,6 +7,7 @@ import { BATCH_READ_MAX, OnChainStatusChecker } from '../../lib/compute/on-chain
 import { ORDER_STATUS } from '../../lib/entities'
 import { log } from '../../lib/Logging'
 import { LimitOrdersRepository } from '../../lib/repositories/limit-orders-repository'
+import { deleteAllRepoEntries } from '../utils'
 import { dynamoConfig, MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
 
 const documentClient = new DocumentClient(dynamoConfig)
@@ -21,10 +22,7 @@ describe('OnChainStatusChecker', () => {
   const getTransactionMock = jest.fn()
 
   afterAll(async () => {
-    let orders = await ordersRepository.getOrders(25, { chainId: 1 })
-    do {
-      ordersRepository.deleteOrders(orders.orders.map((o) => o.orderHash))
-    } while (orders.cursor && (orders = await ordersRepository.getOrders(25, { chainId: 1 })))
+    await deleteAllRepoEntries(ordersRepository)
   })
 
   describe('Database Integration', () => {

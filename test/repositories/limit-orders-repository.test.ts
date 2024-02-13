@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { LimitOrdersRepository } from '../../lib/repositories/limit-orders-repository'
 import { generateRandomNonce } from '../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../lib/util/time'
+import { deleteAllRepoEntries } from '../utils'
 
 jest.mock('../../lib/util/time')
 
@@ -113,18 +113,22 @@ const ordersRepository = LimitOrdersRepository.create(documentClient)
 
 beforeAll(async () => {
   mockTime(1)
-  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1)
+  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1 as any)
   mockTime(2)
-  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_2)
+  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_2 as any)
   mockTime(3)
-  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_3)
+  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_3 as any)
+})
+
+afterAll(async () => {
+  await deleteAllRepoEntries(ordersRepository)
 })
 
 describe('LimitOrdersRepository put item test', () => {
   it('should successfully put an item in table', async () => {
     expect(() => {
       mockTime(1)
-      ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1)
+      ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1 as any)
     }).not.toThrow()
   })
 })
@@ -479,7 +483,7 @@ describe('OrdersRepository get nonce test', () => {
     await ordersRepository.putOrderAndUpdateNonceTransaction({
       ...MOCK_ORDER_1,
       nonce: '4',
-    })
+    } as any)
     const nonce = await ordersRepository.getNonceByAddressAndChain('hayden.eth', MOCK_ORDER_1.chainId)
     expect(nonce).toEqual('4')
   })
@@ -489,14 +493,14 @@ describe('OrdersRepository get nonce test', () => {
       ...MOCK_ORDER_1,
       nonce: '2',
       orderHash: '0x4',
-    })
+    } as any)
     // at this point, there are three orders in the DB, two with nonce 2
     const nonce = await ordersRepository.getNonceByAddressAndChain('hayden.eth', MOCK_ORDER_1.chainId)
     expect(nonce).toEqual('2')
   })
 
   it('should generate random nonce for new address', async () => {
-    const res = await ordersRepository.getNonceByAddressAndChain('random.eth')
+    const res = await ordersRepository.getNonceByAddressAndChain('random.eth', 1)
     expect(res).not.toBeUndefined()
     expect(generateRandomNonce).toHaveBeenCalled()
   })
@@ -505,12 +509,12 @@ describe('OrdersRepository get nonce test', () => {
     await ordersRepository.putOrderAndUpdateNonceTransaction({
       ...MOCK_ORDER_2,
       nonce: '10',
-    })
+    } as any)
     await ordersRepository.putOrderAndUpdateNonceTransaction({
       ...MOCK_ORDER_2,
       chainId: 1,
       nonce: '20',
-    })
+    } as any)
     const nonce = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.offerer, MOCK_ORDER_2.chainId)
     expect(nonce).toEqual('10')
     const nonce2 = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.offerer, 1)
@@ -533,7 +537,7 @@ describe('OrdersRepository get order count by offerer test', () => {
 describe('OrdersRepository update status test', () => {
   it('should successfully update orderStatus of an order identified by orderHash', async () => {
     await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash', [
-      { tokenOut: '0x1', amountOut: '1' },
+      { tokenOut: '0x1', amountOut: '1' } as any,
     ])
     await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
       orderStatus: ORDER_STATUS.FILLED,
@@ -557,11 +561,11 @@ describe('OrdersRepository delete test', () => {
     await ordersRepository.putOrderAndUpdateNonceTransaction({
       ...MOCK_ORDER_1,
       nonce: '1',
-    })
+    } as any)
     await ordersRepository.putOrderAndUpdateNonceTransaction({
       ...MOCK_ORDER_2,
       nonce: '2',
-    })
+    } as any)
     let order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
     expect(order).toBeDefined()
     order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)

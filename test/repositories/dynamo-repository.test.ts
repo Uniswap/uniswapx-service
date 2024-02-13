@@ -5,6 +5,7 @@ import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities/Order'
 import { DutchOrdersRepository } from '../../lib/repositories/dutch-orders-repository'
 import { generateRandomNonce } from '../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../lib/util/time'
+import { deleteAllRepoEntries } from '../utils'
 
 jest.mock('../../lib/util/time')
 
@@ -118,6 +119,10 @@ beforeAll(async () => {
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_2)
   mockTime(3)
   await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_3)
+})
+
+afterAll(async () => {
+  await deleteAllRepoEntries(ordersRepository)
 })
 
 describe('OrdersRepository put item test', () => {
