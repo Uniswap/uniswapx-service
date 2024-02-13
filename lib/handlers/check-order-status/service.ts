@@ -1,30 +1,14 @@
-import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
-import { Unit } from 'aws-embedded-metrics'
-import { BigNumber, ethers } from 'ethers'
-import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
+import { DutchOrder, EventWatcher, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
+import { ethers } from 'ethers'
+import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
-import {
-  AVERAGE_BLOCK_TIME,
-  FILL_EVENT_LOOKBACK_BLOCKS_ON,
-  getSettledAmounts,
-  IS_TERMINAL_STATE,
-  logFillInfo,
-} from './util'
-
-type ProcessFillEventRequest = {
-  fillEvent: FillInfo
-  provider: ethers.providers.StaticJsonRpcProvider
-  parsedOrder: DutchOrder
-  order: OrderEntity
-  chainId: number
-  startingBlockNumber: number
-  quoteId?: string
-}
+import { FillEventProcessor } from './fill-event-processor'
+import { AVERAGE_BLOCK_TIME, FILL_EVENT_LOOKBACK_BLOCKS_ON, IS_TERMINAL_STATE } from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -272,44 +256,5 @@ export class CheckOrderStatusService {
       : retryCount <= 450
       ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
       : 18000
-  }
-}
-export class FillEventProcessor {
-  constructor(private fillEventBlockLookback: (chainId: ChainId) => number) {}
-  public async processFillEvent({
-    provider,
-    fillEvent,
-    parsedOrder,
-    quoteId,
-    order,
-    chainId,
-    startingBlockNumber,
-  }: ProcessFillEventRequest): Promise<SettledAmount[]> {
-    const tx = await provider.getTransaction(fillEvent.txHash)
-    const receipt = await tx.wait()
-    const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
-    const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
-    const settledAmounts = getSettledAmounts(fillEvent, timestamp, parsedOrder)
-
-    logFillInfo(
-      fillEvent,
-      quoteId,
-      timestamp,
-      gasCostInETH,
-      receipt.effectiveGasPrice.toString(),
-      receipt.gasUsed.toString(),
-      settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
-    )
-
-    const percentDecayed =
-      order.decayEndTime === order.decayStartTime
-        ? 0
-        : (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
-    metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
-
-    // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
-    const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + this.fillEventBlockLookback(chainId))
-    metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
-    return settledAmounts
   }
 }
