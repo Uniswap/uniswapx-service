@@ -86,7 +86,7 @@ describe('OnChainStatusChecker', () => {
       })
 
       await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_ENTITY)
-      statusChecker.checkStatus()
+      statusChecker.pollForOpenOrders()
 
       await (async () => {
         return new Promise((resolve) => setTimeout(resolve, 1000))
@@ -107,7 +107,7 @@ describe('OnChainStatusChecker', () => {
       await Promise.all(promises)
 
       let checkStatusSpy = jest.spyOn(statusChecker, 'updateOrder').mockResolvedValue()
-      statusChecker.checkStatus()
+      statusChecker.pollForOpenOrders()
 
       await (async () => {
         return new Promise((resolve) => setTimeout(resolve, 1000))

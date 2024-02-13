@@ -5,13 +5,14 @@ import { OrderEntity, ORDER_STATUS } from '../entities'
 import { CheckOrderStatusRequest, CheckOrderStatusService } from '../handlers/check-order-status/service'
 import { LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../handlers/check-order-status/util'
 import { log } from '../Logging'
-import { OnChainStatusCheckerMetricNames, powertoolsMetric } from '../Metrics'
+import { OnChainStatusCheckerMetricNames, powertoolsMetric as metrics } from '../Metrics'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 
 const TWO_MINUTES_MS = 60 * 2 * 1000
 const LOOP_DELAY_MS = 30000 //30 seconds
 
 // arbitrary and capricious value
+// if increasing check memory utilization
 export const BATCH_READ_MAX = 100
 
 export class OnChainStatusChecker {
@@ -29,6 +30,9 @@ export class OnChainStatusChecker {
 
   public getProvider(chainId: number) {
     const rpcURL = process.env[`RPC_${chainId}`]
+    if (!rpcURL) {
+      throw new Error(`rpcURL not defined for ${chainId}`)
+    }
     const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
     return provider
   }
@@ -37,8 +41,7 @@ export class OnChainStatusChecker {
     return new OrderValidator(provider, chainId)
   }
 
-  public async checkStatus() {
-    const metrics = powertoolsMetric
+  public async pollForOpenOrders() {
     // eslint-disable-next-line no-constant-condition
     while (!this._stop) {
       let totalCheckedOrders = 0
@@ -99,6 +102,7 @@ export class OnChainStatusChecker {
     return promises
   }
 
+  // TODO: https://linear.app/uniswap/issue/DAT-264/batch-update-order-status
   public async updateOrder(order: OrderEntity): Promise<void> {
     const chainId = order.chainId
     const provider = this.getProvider(chainId)
