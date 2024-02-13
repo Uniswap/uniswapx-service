@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { aws_ecs, aws_ecs_patterns, aws_iam, Duration, StackProps } from 'aws-cdk-lib'
-import { Alarm, Metric } from 'aws-cdk-lib/aws-cloudwatch'
+import { Alarm, ComparisonOperator, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
 import { DockerImageAsset, Platform } from 'aws-cdk-lib/aws-ecr-assets'
 import { Cluster, ContainerImage } from 'aws-cdk-lib/aws-ecs'
 import { Construct } from 'constructs'
@@ -94,8 +94,8 @@ export class StatusStack extends cdk.NestedStack {
       evaluationPeriods: props.stage == STAGE.BETA ? 5 : 3,
     })
 
-    new Alarm(this, `${SERVICE_NAME}-SEV3-${OnChainStatusCheckerMetricNames.LoopError}`, {
-      alarmName: `${SERVICE_NAME}-SEV3-${OnChainStatusCheckerMetricNames.LoopError}`,
+    new Alarm(this, `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopError}`, {
+      alarmName: `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopError}`,
       metric: new Metric({
         namespace: 'Uniswap',
         metricName: OnChainStatusCheckerMetricNames.LoopError,
@@ -104,6 +104,33 @@ export class StatusStack extends cdk.NestedStack {
       }),
       threshold: 1,
       evaluationPeriods: props.stage == STAGE.BETA ? 5 : 3,
+    })
+
+    new Alarm(this, `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopCompleted}`, {
+      alarmName: `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopCompleted}`,
+      metric: new Metric({
+        namespace: 'Uniswap',
+        metricName: OnChainStatusCheckerMetricNames.LoopCompleted,
+        dimensionsMap: { service: SERVICE_NAME },
+        unit: cdk.aws_cloudwatch.Unit.COUNT,
+        period: cdk.Duration.minutes(2),
+      }),
+      comparisonOperator: ComparisonOperator.LESS_THAN_THRESHOLD,
+      threshold: 1,
+      treatMissingData: TreatMissingData.BREACHING,
+      evaluationPeriods: props.stage == STAGE.BETA ? 5 : 3,
+    })
+
+    new Alarm(this, `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopEnded}`, {
+      alarmName: `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopEnded}`,
+      metric: new Metric({
+        namespace: 'Uniswap',
+        metricName: OnChainStatusCheckerMetricNames.LoopEnded,
+        dimensionsMap: { service: SERVICE_NAME },
+        unit: cdk.aws_cloudwatch.Unit.COUNT,
+      }),
+      threshold: 1,
+      evaluationPeriods: props.stage == STAGE.BETA ? 5 : 1,
     })
   }
 }

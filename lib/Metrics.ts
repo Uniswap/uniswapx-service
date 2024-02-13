@@ -9,4 +9,6 @@ export const OnChainStatusCheckerMetricNames = {
   TotalOrderProcessingErrors: OnChainStatusCheckerPrefix + 'TotalOrderProcessingErrors',
   TotalLoopProcessingTime: OnChainStatusCheckerPrefix + 'TotalLoopProcessingTime',
   LoopError: OnChainStatusCheckerPrefix + 'LoopError',
+  LoopCompleted: OnChainStatusCheckerPrefix + 'LoopCompleted',
+  LoopEnded: OnChainStatusCheckerPrefix + 'LoopEnded',
 }

@@ -78,11 +78,14 @@ export class OnChainStatusChecker {
           MetricUnits.Seconds,
           (new Date().getTime() - startTime) / 1000
         )
+        metrics.addMetric(OnChainStatusCheckerMetricNames.LoopCompleted, MetricUnits.Count, 1)
         metrics.publishStoredMetrics()
         metrics.clearMetrics()
         await delay(LOOP_DELAY_MS)
       }
     }
+    //should never reach this
+    metrics.addMetric(OnChainStatusCheckerMetricNames.LoopEnded, MetricUnits.Count, 1)
   }
 
   public async processOrderBatch(openOrders: QueryResult) {
