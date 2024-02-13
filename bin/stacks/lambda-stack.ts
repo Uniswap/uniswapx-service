@@ -97,10 +97,8 @@ export class LambdaStack extends cdk.NestedStack {
     new StatusStack(this, `${SERVICE_NAME}-StatusStack`, {
       environmentVariables: {
         ...props.envVars,
-        STAGE: props.stage,
-        ORDER_STATE_MACHINE_ARN: process.env.ORDER_STATE_MACHINE_ARN || '',
-        REGION: process.env.REGION || 'us-east-2',
       },
+      stage: props.stage,
     })
 
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {

@@ -5,7 +5,7 @@ import { OrderEntity, ORDER_STATUS } from '../entities'
 import { CheckOrderStatusRequest, CheckOrderStatusService } from '../handlers/check-order-status/service'
 import { LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../handlers/check-order-status/util'
 import { log } from '../Logging'
-import { powertoolsMetric } from '../Metrics'
+import { OnChainStatusCheckerMetricNames, powertoolsMetric } from '../Metrics'
 import { BaseOrdersRepository } from '../repositories/base'
 
 const TWO_MINUTES_MS = 60 * 2 * 1000
@@ -71,14 +71,22 @@ export class OnChainStatusChecker {
         log.info(`finished processing orders`, { totalCheckedOrders })
       } catch (e) {
         log.error('OnChainStatusChecker Error', { error: e })
-        metrics.addMetric('OnChainStatusCheckerError', MetricUnits.Count, 1)
+        metrics.addMetric(OnChainStatusCheckerMetricNames.LoopError, MetricUnits.Count, 1)
       } finally {
-        metrics.addMetric('OnChainStatusChecker-TotalProcessedOpenOrders', MetricUnits.Count, totalCheckedOrders)
-        metrics.addMetric('OnChainStatusChecker-TotalOrderProcessingErrors', MetricUnits.Count, statusLoopError)
         metrics.addMetric(
-          'OnChainStatusChecker-TotalLoopProcessingTime',
-          MetricUnits.Milliseconds,
-          new Date().getTime() - startTime
+          OnChainStatusCheckerMetricNames.TotalProcessedOpenOrders,
+          MetricUnits.Count,
+          totalCheckedOrders
+        )
+        metrics.addMetric(
+          OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors,
+          MetricUnits.Count,
+          statusLoopError
+        )
+        metrics.addMetric(
+          OnChainStatusCheckerMetricNames.TotalLoopProcessingTime,
+          MetricUnits.Seconds,
+          (new Date().getTime() - startTime) / 1000
         )
         metrics.publishStoredMetrics()
         metrics.clearMetrics()
@@ -111,14 +119,18 @@ export class OnChainStatusChecker {
       const response = await this.checkOrderStatusService.handleRequest(request)
       if (typeof response.getFillLogAttempts === 'number' && response.getFillLogAttempts > 0) {
         //check for fill event one more time and expire
-        setTimeout(async () => {
-          await this.checkOrderStatusService.handleRequest({ ...request, getFillLogAttempts: 1 })
-        }, TWO_MINUTES_MS * 1000)
+        this.retryUpdate(request)
       }
       return true
     } catch (e) {
       return false
     }
+  }
+
+  //retry after 2 minutes
+  public async retryUpdate(request: CheckOrderStatusRequest) {
+    await delay(TWO_MINUTES_MS)
+    await this.checkOrderStatusService.handleRequest({ ...request, getFillLogAttempts: 1 })
   }
 }
 
