@@ -42,11 +42,11 @@ export class OnChainStatusChecker {
     while (!this._stop) {
       let totalCheckedOrders = 0
       let statusLoopError = 0
-      let startTime = new Date().getTime()
+      const startTime = new Date().getTime()
       try {
         let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
         do {
-          let promises = []
+          const promises = []
           for (let i = 0; i < openOrders.orders.length; i++) {
             const order = openOrders.orders[i]
             promises.push(
