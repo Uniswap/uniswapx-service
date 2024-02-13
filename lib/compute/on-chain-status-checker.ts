@@ -45,7 +45,6 @@ export class OnChainStatusChecker {
       let startTime = new Date().getTime()
       try {
         let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
-
         do {
           let promises = []
           for (let i = 0; i < openOrders.orders.length; i++) {
@@ -113,7 +112,7 @@ export class OnChainStatusChecker {
       if (typeof response.getFillLogAttempts === 'number' && response.getFillLogAttempts > 0) {
         //check for fill event one more time and expire
         setTimeout(async () => {
-          await this.checkOrderStatusService.handleRequest(request)
+          await this.checkOrderStatusService.handleRequest({ ...request, getFillLogAttempts: 1 })
         }, TWO_MINUTES_MS * 1000)
       }
       return true
