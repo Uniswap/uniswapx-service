@@ -1,4 +1,4 @@
-import { callWithRetry } from '../../lib/util/network-requests'
+import { callWithRetry } from '../../../lib/util/network-requests'
 
 describe('callWithRetry test', () => {
   it('should resolve promise', async () => {

@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
-import { ORDER_STATUS } from '../../lib/entities'
-import { ErrorCode } from '../../lib/handlers/base'
-import { DEFAULT_MAX_OPEN_ORDERS } from '../../lib/handlers/constants'
-import { PostOrderHandler } from '../../lib/handlers/post-order/handler'
-import { getMaxOpenOrders } from '../../lib/handlers/post-order/injector'
+import { ORDER_STATUS } from '../../../lib/entities'
+import { ErrorCode } from '../../../lib/handlers/base'
+import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../lib/handlers/constants'
+import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/injector'
+import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { ORDER_INFO } from '../fixtures'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
@@ -52,7 +51,7 @@ jest.mock('@uniswap/uniswapx-sdk', () => {
   }
 })
 
-describe('Testing post order handler.', () => {
+describe('Testing post limit order handler.', () => {
   const putOrderAndUpdateNonceTransactionMock = jest.fn()
   const countOrdersByOffererAndStatusMock = jest.fn()
   const validatorMock = jest.fn()
@@ -129,18 +128,19 @@ describe('Testing post order handler.', () => {
             validate: validationFailedValidatorMock,
           },
         },
-        getMaxOpenOrders,
+        getMaxOpenOrders: getMaxLimitOpenOrders,
       }
     },
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
+  const postOrderHandler = new PostOrderHandler('post-limit-order', injectorPromiseMock)
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
     process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
     process.env['REGION'] = 'region'
+    //@ts-ignore
     DutchOrder.parse.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
   })
 
@@ -207,7 +207,7 @@ describe('Testing post order handler.', () => {
   describe('Test order submission blocking', () => {
     describe('Max open orders', () => {
       it('should reject order submission for offerer when too many open orders exist', async () => {
-        countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_MAX_OPEN_ORDERS + 1)
+        countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_MAX_OPEN_LIMIT_ORDERS + 1)
         validatorMock.mockReturnValue({ valid: true })
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
           body: JSON.stringify({
@@ -224,6 +224,7 @@ describe('Testing post order handler.', () => {
       it('should allow more orders if in the high list', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
         validatorMock.mockReturnValue({ valid: true })
+        //@ts-ignore
         DutchOrder.parse.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
@@ -242,6 +243,7 @@ describe('Testing post order handler.', () => {
       it('should reject order submission for offerer in high list at higher order count', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
         validatorMock.mockReturnValue({ valid: true })
+        //@ts-ignore
         DutchOrder.parse.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
@@ -364,6 +366,7 @@ describe('Testing post order handler.', () => {
     })
 
     it('on-chain validation failed; throws 400', async () => {
+      //@ts-ignore
       DutchOrder.parse.mockReturnValue({
         ...DECODED_ORDER,
         chainId: 137,

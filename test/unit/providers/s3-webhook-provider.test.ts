@@ -1,6 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3'
-import { S3WebhookConfigurationProvider } from '../../lib/providers/s3-webhook-provider'
-import { WebhookDefinition } from '../../lib/providers/types'
+import { S3WebhookConfigurationProvider } from '../../../lib/providers/s3-webhook-provider'
+import { WebhookDefinition } from '../../../lib/providers/types'
 
 describe('S3WebhookProvider test', () => {
   const bucket = 'test-bucket'

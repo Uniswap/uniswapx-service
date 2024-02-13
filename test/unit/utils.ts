@@ -1,4 +1,4 @@
-import { BaseOrdersRepository } from '../lib/repositories/base'
+import { BaseOrdersRepository } from '../../lib/repositories/base'
 
 export class HeaderExpectation {
   private headers: { [header: string]: string | number | boolean } | undefined

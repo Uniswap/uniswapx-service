@@ -10,7 +10,7 @@ const { ExclusiveDutchOrderReactor__factory } = factories
 import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/util'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
-import * as ERC20_ABI from '../abis/erc20.json'
+import * as ERC20_ABI from './abis/erc20.json'
 const { abi } = ERC20_ABI
 
 dotenv.config()

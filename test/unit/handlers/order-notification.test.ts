@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { OrderNotificationHandler } from '../../lib/handlers/order-notification/handler'
+import { OrderNotificationHandler } from '../../../lib/handlers/order-notification/handler'
 
 jest.mock('axios')
 

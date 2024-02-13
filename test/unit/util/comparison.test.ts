@@ -1,4 +1,4 @@
-import { parseComparisonFilter } from '../../lib/util/comparison'
+import { parseComparisonFilter } from '../../../lib/util/comparison'
 
 describe('Test Comparison filter parsing', () => {
   it('successfully matches comparison filter with single value.', async () => {

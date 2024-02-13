@@ -1,4 +1,4 @@
-import { checkDefined } from '../../lib/preconditions/preconditions'
+import { checkDefined } from '../../../lib/preconditions/preconditions'
 
 describe('checkDefined', () => {
   it('throws on null value', async () => {

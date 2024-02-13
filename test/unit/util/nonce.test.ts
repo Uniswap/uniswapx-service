@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { generateRandomNonce } from '../../lib/util/nonce'
+import { generateRandomNonce } from '../../../lib/util/nonce'
 
 const MAX_UINT256 = ethers.BigNumber.from('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
 

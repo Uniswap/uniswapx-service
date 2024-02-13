@@ -1,12 +1,12 @@
 /* eslint-disable */
 import { DutchOrder } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
-import { FillEventProcessor } from '../../lib/handlers/check-order-status/fill-event-processor'
-import { FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts } from '../../lib/handlers/check-order-status/util'
-import { log } from '../../lib/Logging'
+import { FillEventProcessor } from '../../../lib/handlers/check-order-status/fill-event-processor'
+import { FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts } from '../../../lib/handlers/check-order-status/util'
+import { log } from '../../../lib/Logging'
 import { MOCK_ENCODED_ORDER, MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
 
-jest.mock('../../lib/handlers/check-order-status/util')
+jest.mock('../../../lib/handlers/check-order-status/util')
 
 const MOCK_FILL_EVENT = {
   orderHash: MOCK_ORDER_HASH,

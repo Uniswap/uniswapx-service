@@ -1,4 +1,4 @@
-import { GetNonceHandler } from '../../lib/handlers/get-nonce/handler'
+import { GetNonceHandler } from '../../../lib/handlers/get-nonce/handler'
 import { HeaderExpectation } from '../utils'
 
 describe('Testing get nonce handler.', () => {

@@ -3,9 +3,9 @@
 import { OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { BATCH_WRITE_MAX, deleteStaleOrders } from '../../lib/crons/gs-reaper'
-import { ORDER_STATUS } from '../../lib/entities'
-import { DutchOrdersRepository } from '../../lib/repositories/dutch-orders-repository'
+import { BATCH_WRITE_MAX, deleteStaleOrders } from '../../../lib/crons/gs-reaper'
+import { ORDER_STATUS } from '../../../lib/entities'
+import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { deleteAllRepoEntries } from '../utils'
 
 const dynamoConfig = {

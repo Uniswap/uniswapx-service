@@ -1,9 +1,9 @@
 /* eslint-disable */
 import { OrderValidation } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
-import { ORDER_STATUS } from '../../lib/entities'
-import { CheckOrderStatusRequest, CheckOrderStatusService } from '../../lib/handlers/check-order-status/service'
-import { log } from '../../lib/Logging'
+import { ORDER_STATUS } from '../../../lib/entities'
+import { CheckOrderStatusRequest, CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
+import { log } from '../../../lib/Logging'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
 
 describe('checkOrderStatusService', () => {

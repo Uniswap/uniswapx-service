@@ -1,7 +1,7 @@
 import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
-import { ONE_DAY_IN_SECONDS } from '../../lib/util/constants'
-import { OrderValidator } from '../../lib/util/order-validator'
+import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
+import { OrderValidator } from '../../../lib/util/order-validator'
 
 const CURRENT_TIME = 10
 const validationProvider = new OrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)

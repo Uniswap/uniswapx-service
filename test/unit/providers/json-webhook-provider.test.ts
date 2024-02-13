@@ -1,4 +1,4 @@
-import { JsonWebhookProvider } from '../../lib/providers/json-webhook-provider'
+import { JsonWebhookProvider } from '../../../lib/providers/json-webhook-provider'
 
 describe('JsonWebHookProvider test', () => {
   it('should return registed endpoints', async () => {

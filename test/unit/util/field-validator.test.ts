@@ -1,6 +1,6 @@
-import { ORDER_STATUS } from '../../lib/entities'
-import { ChainId } from '../../lib/util/chain'
-import FieldValidator from '../../lib/util/field-validator'
+import { ORDER_STATUS } from '../../../lib/entities'
+import { ChainId } from '../../../lib/util/chain'
+import FieldValidator from '../../../lib/util/field-validator'
 
 describe('Testing each field on the FieldValidator class.', () => {
   describe('Testing createdAt field.', () => {
