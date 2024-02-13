@@ -69,7 +69,7 @@ describe('checkOrderStatusService', () => {
         provider: providerMock as any,
         orderWatcher: watcherMock as any,
         orderQuoter: validatorMock as any,
-        quoteId: undefined,
+        quoteId: '',
         getFillLogAttempts: 0,
         startingBlockNumber: 0,
         retryCount: 0,

@@ -20,7 +20,7 @@ export type CheckOrderStatusRequest = {
   provider: ethers.providers.StaticJsonRpcProvider
   orderWatcher: EventWatcher
   orderQuoter: OrderValidator
-  quoteId?: string //only used for logging
+  quoteId: string //only used for logging
 }
 
 export class CheckOrderStatusService {
@@ -174,7 +174,7 @@ export class CheckOrderStatusService {
     lastStatus: ORDER_STATUS
     orderStatus: ORDER_STATUS
     validation: OrderValidation
-    quoteId?: string
+    quoteId: string
     txHash?: string
     settledAmounts?: SettledAmount[]
     getFillLogAttempts?: number

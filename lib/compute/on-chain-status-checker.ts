@@ -115,7 +115,7 @@ export class OnChainStatusChecker {
 
     const request: CheckOrderStatusRequest = {
       chainId: chainId,
-      quoteId: order.quoteId,
+      quoteId: order.quoteId || '',
       orderHash: order.orderHash,
       startingBlockNumber: 0, // if 0, looks back 50 blocks, otherwise looks from given block
       orderStatus: order.orderStatus,
