@@ -95,9 +95,10 @@ export class OnChainStatusChecker {
       promises.push(
         (async function (statusChecker: OnChainStatusChecker): Promise<void> {
           try {
-            statusChecker.updateOrder(order)
+            await statusChecker.updateOrder(order)
           } catch (e) {
             log.error('OnChainStatusChecker Error Processing Order', { error: e })
+            throw e
           }
         })(this)
       )

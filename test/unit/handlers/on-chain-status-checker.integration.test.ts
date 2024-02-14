@@ -1,4 +1,5 @@
 /* eslint-disable */
+import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { EventWatcher, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
@@ -6,6 +7,7 @@ import { BigNumber } from 'ethers'
 import { BATCH_READ_MAX, OnChainStatusChecker } from '../../../lib/compute/on-chain-status-checker'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { log } from '../../../lib/Logging'
+import { OnChainStatusCheckerMetricNames, powertoolsMetric } from '../../../lib/Metrics'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { deleteAllRepoEntries } from '../utils'
 import { dynamoConfig, MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
@@ -35,7 +37,8 @@ describe('OnChainStatusChecker', () => {
       statusChecker?.stop()
     })
 
-    beforeEach(() => {
+    beforeEach(async () => {
+      await deleteAllRepoEntries(ordersRepository)
       log.setLogLevel('SILENT')
       jest.clearAllMocks()
       statusChecker = new OnChainStatusChecker(ordersRepository)
@@ -114,5 +117,51 @@ describe('OnChainStatusChecker', () => {
       expect(checkStatusSpy).toHaveBeenCalledTimes(BATCH_READ_MAX + 1)
       expect(checkStatusSpy).toHaveBeenCalledWith(expect.objectContaining({ orderHash: `0x${BATCH_READ_MAX}` }))
     })
+
+    it('should report errors', async () => {
+      getFillInfoMock
+        .mockImplementationOnce(() => {
+          throw new Error('test error')
+        })
+        .mockImplementation(() => {
+          return [
+            {
+              orderHash: MOCK_ORDER_HASH,
+              filler: '0x123',
+              nonce: BigNumber.from(1),
+              swapper: '0x123',
+              blockNumber: 12321312313,
+              txHash: '0x1244345323',
+              inputs: [{ token: 'USDC', amount: BigNumber.from(100) }],
+              outputs: [{ token: 'WETH', amount: BigNumber.from(1) }],
+            },
+          ]
+        })
+
+      jest.mock('../../../lib/Metrics')
+      const mockedMetrics = powertoolsMetric as jest.Mocked<typeof powertoolsMetric>
+      mockedMetrics.addMetric = jest.fn()
+      mockedMetrics.publishStoredMetrics = jest.fn()
+
+      await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_ENTITY)
+      await ordersRepository.putOrderAndUpdateNonceTransaction({ ...MOCK_ORDER_ENTITY, orderHash: '0x02' })
+
+      statusChecker.pollForOpenOrders()
+
+      await (async () => {
+        return new Promise((resolve) => setTimeout(resolve, 1000))
+      })()
+
+      expect(mockedMetrics.addMetric).toHaveBeenCalledWith(
+        OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors,
+        MetricUnits.Count,
+        1
+      )
+      expect(mockedMetrics.addMetric).toHaveBeenCalledWith(
+        OnChainStatusCheckerMetricNames.TotalProcessedOpenOrders,
+        MetricUnits.Count,
+        2
+      )
+    }, 10000)
   })
 })
