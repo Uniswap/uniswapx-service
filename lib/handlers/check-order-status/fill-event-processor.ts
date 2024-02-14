@@ -26,10 +26,14 @@ export class FillEventProcessor {
     chainId,
     startingBlockNumber,
   }: ProcessFillEventRequest): Promise<SettledAmount[]> {
-    const tx = await provider.getTransaction(fillEvent.txHash)
+    const [tx, block] = await Promise.all([
+      provider.getTransaction(fillEvent.txHash),
+      provider.getBlock(fillEvent.blockNumber),
+    ])
+
+    const timestamp = block.timestamp
     const receipt = await tx.wait()
     const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
-    const timestamp = (await provider.getBlock(fillEvent.blockNumber)).timestamp
     const settledAmounts = getSettledAmounts(fillEvent, timestamp, parsedOrder)
 
     logFillInfo(
