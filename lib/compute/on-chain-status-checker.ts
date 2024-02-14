@@ -45,14 +45,14 @@ export class OnChainStatusChecker {
     // eslint-disable-next-line no-constant-condition
     while (!this._stop) {
       let totalCheckedOrders = 0
-      let statusLoopError = 0
+      let processedOrderError = 0
       const startTime = new Date().getTime()
       try {
         let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
         do {
           const promises = await this.processOrderBatch(openOrders)
           const results = await Promise.allSettled(promises)
-          statusLoopError += results.filter((p) => p.status === 'rejected').length
+          processedOrderError += results.filter((p) => p.status === 'rejected').length
           totalCheckedOrders += openOrders.orders.length
         } while (
           openOrders.cursor &&
@@ -71,7 +71,7 @@ export class OnChainStatusChecker {
         metrics.addMetric(
           OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors,
           MetricUnits.Count,
-          statusLoopError
+          processedOrderError
         )
         metrics.addMetric(
           OnChainStatusCheckerMetricNames.TotalLoopProcessingTime,

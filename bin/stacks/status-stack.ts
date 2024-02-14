@@ -1,11 +1,10 @@
 import * as cdk from 'aws-cdk-lib'
 import { aws_ecs, aws_ecs_patterns, aws_iam, Duration, StackProps } from 'aws-cdk-lib'
-import { Alarm, ComparisonOperator, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
+import { Alarm, ComparisonOperator, MathExpression, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
 import { DockerImageAsset, Platform } from 'aws-cdk-lib/aws-ecr-assets'
 import { Cluster, ContainerImage } from 'aws-cdk-lib/aws-ecs'
 import { Construct } from 'constructs'
 import { OnChainStatusCheckerMetricNames } from '../../lib/Metrics'
-import { STAGE } from '../../lib/util/stage'
 import { HEALTH_CHECK_PORT, SERVICE_NAME } from '../constants'
 
 export interface StatusStackProps extends StackProps {
@@ -37,7 +36,7 @@ export class StatusStack extends cdk.NestedStack {
 
     const taskDefinition = new aws_ecs.FargateTaskDefinition(this, `TaskDef`, {
       taskRole: loaderStackRole,
-      memoryLimitMiB: 4096,
+      memoryLimitMiB: 2048,
       cpu: 1024,
       runtimePlatform: {
         operatingSystemFamily: aws_ecs.OperatingSystemFamily.LINUX,
@@ -70,18 +69,6 @@ export class StatusStack extends cdk.NestedStack {
       healthCheckGracePeriod: Duration.seconds(60),
     })
 
-    new Alarm(this, `${SERVICE_NAME}-SEV3-${OnChainStatusCheckerMetricNames.TotalLoopProcessingTime}`, {
-      alarmName: `${SERVICE_NAME}-SEV3-${OnChainStatusCheckerMetricNames.TotalLoopProcessingTime}`,
-      metric: new Metric({
-        namespace: 'Uniswap',
-        metricName: OnChainStatusCheckerMetricNames.TotalLoopProcessingTime,
-        dimensionsMap: { service: SERVICE_NAME },
-        unit: cdk.aws_cloudwatch.Unit.SECONDS,
-      }),
-      threshold: 480, // 8 minutes
-      evaluationPeriods: props.stage == STAGE.BETA ? 5 : 3,
-    })
-
     new Alarm(this, `${SERVICE_NAME}-SEV3-${OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors}`, {
       alarmName: `${SERVICE_NAME}-SEV3-${OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors}`,
       metric: new Metric({
@@ -89,9 +76,38 @@ export class StatusStack extends cdk.NestedStack {
         metricName: OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors,
         dimensionsMap: { service: SERVICE_NAME },
         unit: cdk.aws_cloudwatch.Unit.COUNT,
+        period: Duration.minutes(3),
       }),
       threshold: 10,
-      evaluationPeriods: props.stage == STAGE.BETA ? 5 : 3,
+      evaluationPeriods: 3,
+    })
+
+    let statusCheckerErrorRate = new MathExpression({
+      expression: '100*(errors/attempts)',
+      period: Duration.minutes(3),
+      usingMetrics: {
+        errors: new Metric({
+          namespace: 'Uniswap',
+          metricName: OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors,
+          dimensionsMap: { service: SERVICE_NAME },
+          unit: cdk.aws_cloudwatch.Unit.COUNT,
+          statistic: 'sum',
+        }),
+        attempts: new Metric({
+          namespace: 'Uniswap',
+          metricName: OnChainStatusCheckerMetricNames.TotalProcessedOpenOrders,
+          dimensionsMap: { service: SERVICE_NAME },
+          unit: cdk.aws_cloudwatch.Unit.COUNT,
+          statistic: 'sum',
+        }),
+      },
+    })
+
+    new Alarm(this, `${SERVICE_NAME}-SEV3-OnChainStatusChecker-ErrorRate`, {
+      alarmName: `${SERVICE_NAME}-SEV3-OnChainStatusChecker-ErrorRate`,
+      metric: statusCheckerErrorRate,
+      threshold: 2,
+      evaluationPeriods: 3,
     })
 
     new Alarm(this, `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopError}`, {
@@ -103,7 +119,7 @@ export class StatusStack extends cdk.NestedStack {
         unit: cdk.aws_cloudwatch.Unit.COUNT,
       }),
       threshold: 1,
-      evaluationPeriods: props.stage == STAGE.BETA ? 5 : 3,
+      evaluationPeriods: 3,
     })
 
     new Alarm(this, `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopCompleted}`, {
@@ -118,7 +134,7 @@ export class StatusStack extends cdk.NestedStack {
       comparisonOperator: ComparisonOperator.LESS_THAN_THRESHOLD,
       threshold: 1,
       treatMissingData: TreatMissingData.BREACHING,
-      evaluationPeriods: props.stage == STAGE.BETA ? 5 : 3,
+      evaluationPeriods: 3,
     })
 
     new Alarm(this, `${SERVICE_NAME}-SEV2-${OnChainStatusCheckerMetricNames.LoopEnded}`, {
@@ -130,7 +146,7 @@ export class StatusStack extends cdk.NestedStack {
         unit: cdk.aws_cloudwatch.Unit.COUNT,
       }),
       threshold: 1,
-      evaluationPeriods: props.stage == STAGE.BETA ? 5 : 1,
+      evaluationPeriods: 1,
     })
   }
 }
