@@ -15,6 +15,7 @@ import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { CronStack } from './cron-stack'
 import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
+import { StatusStack } from './status-stack'
 import { StepFunctionStack } from './step-function-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
@@ -91,6 +92,13 @@ export class LambdaStack extends cdk.NestedStack {
     const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {
       tableCapacityConfig,
       indexCapacityConfig,
+    })
+
+    new StatusStack(this, `${SERVICE_NAME}-StatusStack`, {
+      environmentVariables: {
+        ...props.envVars,
+      },
+      stage: props.stage,
     })
 
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {

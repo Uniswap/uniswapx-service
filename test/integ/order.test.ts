@@ -7,10 +7,10 @@ import { PERMIT2, UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
 
 const { ExclusiveDutchOrderReactor__factory } = factories
 
-import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/handler'
+import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/util'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
 import { ChainId } from '../../lib/util/chain'
-import * as ERC20_ABI from '../abis/erc20.json'
+import * as ERC20_ABI from './abis/erc20.json'
 const { abi } = ERC20_ABI
 
 dotenv.config()
@@ -100,7 +100,7 @@ describe('/dutch-auction/order', () => {
           await receipt.wait()
         }
 
-        const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'];
+        const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']
         // check approvals on reactor
         const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
         const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
