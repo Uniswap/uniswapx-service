@@ -168,6 +168,17 @@ export class LambdaStack extends cdk.NestedStack {
       })
     )
 
+    this.orderNotificationLambda.addEventSource(
+      new DynamoEventSource(databaseStack.limitOrdersTable, {
+        startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
+        batchSize: 1,
+        retryAttempts: 1,
+        bisectBatchOnError: true,
+        reportBatchItemFailures: true,
+        onFailure: new SqsDlq(orderNotificationDlq),
+      })
+    )
+
     const postOrderEnv: any = {
       ...props.envVars,
       stage: props.stage as STAGE,

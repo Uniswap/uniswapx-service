@@ -1,3 +1,4 @@
+import { ORDER_TYPE } from '../repositories/base'
 import { OrderFilter, WebhookProvider } from './base'
 import { FILTER_FIELD, Webhook, WebhookDefinition } from './types'
 
@@ -20,13 +21,19 @@ export function findEndpointsMatchingFilter(filter: OrderFilter, definition: Web
   const catchallEndpoints = definition['*'] ?? []
   endpoints.push(...catchallEndpoints)
 
-  const filterKeys = Object.keys(filter) as FILTER_FIELD[]
-  const filterMapping = definition.filter
-  for (const filterKey of filterKeys) {
-    const filterValue = filter[filterKey]
-    if (filterValue && Object.keys(filterMapping[filterKey]).includes(filterValue)) {
-      const filterEndpoints = filterMapping[filterKey][filterValue]
-      endpoints.push(...filterEndpoints)
+  if (filter.orderType !== ORDER_TYPE.LIMIT) {
+    const supportedFilterKeys: (FILTER_FIELD.FILLER | FILTER_FIELD.OFFERER | FILTER_FIELD.ORDER_STATUS)[] = [
+      FILTER_FIELD.FILLER,
+      FILTER_FIELD.ORDER_STATUS,
+      FILTER_FIELD.OFFERER,
+    ]
+    const filterMapping = definition.filter
+    for (const filterKey of supportedFilterKeys) {
+      const filterValue = filter[filterKey]
+      if (filterValue && Object.keys(filterMapping[filterKey]).includes(filterValue)) {
+        const filterEndpoints = filterMapping[filterKey][filterValue]
+        endpoints.push(...filterEndpoints)
+      }
     }
   }
 

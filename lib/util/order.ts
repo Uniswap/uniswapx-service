@@ -3,6 +3,7 @@ import { DynamoDBRecord } from 'aws-lambda'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 
 export const DUTCH_LIMIT = 'DutchLimit'
+const DYNAMO_ENTITY_TYPE_FIELD = '_et'
 
 type ParsedOrder = {
   encodedOrder: string
@@ -14,6 +15,7 @@ type ParsedOrder = {
   chainId: number
   filler?: string
   quoteId?: string
+  orderType?: string
 }
 
 export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
@@ -31,6 +33,7 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
       createdAt: parseInt(newOrder.createdAt.N as string),
       orderHash: newOrder.orderHash.S as string,
       chainId: parseInt(newOrder.chainId.N as string),
+      orderType: newOrder[DYNAMO_ENTITY_TYPE_FIELD]?.S,
       ...(newOrder?.quoteId?.S && { quoteId: newOrder.quoteId.S as string }),
       ...(newOrder?.filler?.S && { filler: newOrder.filler.S as string }),
     }
