@@ -66,6 +66,60 @@
         }
       }
     },
+    "/limit-orders": {
+      "get": {
+        "tags": ["Limit Order"],
+        "summary": "Retrieve orders",
+        "description": "Retrieve orders filtered by query param(s). Some fields on the order can be used as query param.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/limitParam"
+          },
+          {
+            "$ref": "#/components/parameters/orderStatusParam"
+          },
+          {
+            "$ref": "#/components/parameters/orderHashParam"
+          },
+          {
+            "$ref": "#/components/parameters/orderHashesParam"
+          },
+          {
+            "$ref": "#/components/parameters/swapperParam"
+          },
+          {
+            "$ref": "#/components/parameters/sortKeyParam"
+          },
+          {
+            "$ref": "#/components/parameters/sortParam"
+          },
+          {
+            "$ref": "#/components/parameters/descParam"
+          },
+          {
+            "$ref": "#/components/parameters/fillerParam"
+          },
+          {
+            "$ref": "#/components/parameters/cursorParam"
+          },
+          {
+            "$ref": "#/components/parameters/chainId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request Successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetOrdersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/nonce": {
       "get": {
         "tags": ["Dutch Order"],
