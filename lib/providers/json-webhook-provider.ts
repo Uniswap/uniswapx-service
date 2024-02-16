@@ -21,6 +21,9 @@ export function findEndpointsMatchingFilter(filter: OrderFilter, definition: Web
   const catchallEndpoints = definition['*'] ?? []
   endpoints.push(...catchallEndpoints)
 
+  /**
+   * ignore limit orders when notifying quoters
+   */
   if (filter.orderType !== ORDER_TYPE.LIMIT) {
     const supportedFilterKeys: (FILTER_FIELD.FILLER | FILTER_FIELD.OFFERER | FILTER_FIELD.ORDER_STATUS)[] = [
       FILTER_FIELD.FILLER,
