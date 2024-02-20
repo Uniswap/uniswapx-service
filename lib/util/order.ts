@@ -3,6 +3,8 @@ import { DynamoDBRecord } from 'aws-lambda'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 
 export const DUTCH_LIMIT = 'DutchLimit'
+
+// _et field added by orm reflecting model name
 const DYNAMO_ENTITY_TYPE_FIELD = '_et'
 
 type ParsedOrder = {

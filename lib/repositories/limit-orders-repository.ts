@@ -3,7 +3,7 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
-import { BaseOrdersRepository, ORDER_TYPE } from './base'
+import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { getTableIndices, TABLE_NAMES } from './util'
 
@@ -24,7 +24,7 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
     })
 
     const limitOrderEntity = new Entity({
-      name: ORDER_TYPE.LIMIT,
+      name: MODEL_NAME.LIMIT,
       attributes: {
         orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },

@@ -154,28 +154,29 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    const notificationConfig = {
+      startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
+      batchSize: 1,
+      retryAttempts: 1,
+      bisectBatchOnError: true,
+      reportBatchItemFailures: true,
+    }
+
     // TODO: add alarms on the size of this dead letter queue
     const orderNotificationDlq = new Queue(this, 'orderNotificationDlq')
+    const limitOrderNotificationDlq = new Queue(this, 'limitOrderNotificationDlq')
 
     this.orderNotificationLambda.addEventSource(
       new DynamoEventSource(databaseStack.ordersTable, {
-        startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
-        batchSize: 1,
-        retryAttempts: 1,
-        bisectBatchOnError: true,
-        reportBatchItemFailures: true,
+        ...notificationConfig,
         onFailure: new SqsDlq(orderNotificationDlq),
       })
     )
 
     this.orderNotificationLambda.addEventSource(
       new DynamoEventSource(databaseStack.limitOrdersTable, {
-        startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
-        batchSize: 1,
-        retryAttempts: 1,
-        bisectBatchOnError: true,
-        reportBatchItemFailures: true,
-        onFailure: new SqsDlq(orderNotificationDlq),
+        ...notificationConfig,
+        onFailure: new SqsDlq(limitOrderNotificationDlq),
       })
     )
 

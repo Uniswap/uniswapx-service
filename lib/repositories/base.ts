@@ -1,7 +1,7 @@
 import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities/index'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
-export const ORDER_TYPE = {
+export const MODEL_NAME = {
   DUTCH: 'Order',
   LIMIT: 'LimitOrder',
 }

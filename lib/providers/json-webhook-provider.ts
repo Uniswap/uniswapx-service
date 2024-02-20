@@ -1,4 +1,4 @@
-import { ORDER_TYPE } from '../repositories/base'
+import { MODEL_NAME } from '../repositories/base'
 import { OrderFilter, WebhookProvider } from './base'
 import { FILTER_FIELD, Webhook, WebhookDefinition } from './types'
 
@@ -21,10 +21,9 @@ export function findEndpointsMatchingFilter(filter: OrderFilter, definition: Web
   const catchallEndpoints = definition['*'] ?? []
   endpoints.push(...catchallEndpoints)
 
-  /**
-   * ignore limit orders when notifying quoters
-   */
-  if (filter.orderType !== ORDER_TYPE.LIMIT) {
+  // remove limit orders when matching webhooks
+  // webhook is currently used only to fill dutch orders
+  if (filter.orderType !== MODEL_NAME.LIMIT) {
     const supportedFilterKeys: (FILTER_FIELD.FILLER | FILTER_FIELD.OFFERER | FILTER_FIELD.ORDER_STATUS)[] = [
       FILTER_FIELD.FILLER,
       FILTER_FIELD.ORDER_STATUS,

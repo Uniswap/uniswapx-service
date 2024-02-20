@@ -2,7 +2,7 @@ import { S3Client } from '@aws-sdk/client-s3'
 import { findEndpointsMatchingFilter } from '../../../lib/providers/json-webhook-provider'
 import { S3WebhookConfigurationProvider } from '../../../lib/providers/s3-webhook-provider'
 import { WebhookDefinition } from '../../../lib/providers/types'
-import { ORDER_TYPE } from '../../../lib/repositories/base'
+import { MODEL_NAME } from '../../../lib/repositories/base'
 
 describe('S3WebhookProvider test', () => {
   const bucket = 'test-bucket'
@@ -149,7 +149,7 @@ describe('S3WebhookProvider test', () => {
             filler: '0x1',
             orderStatus: 'open',
             offerer: '0x2',
-            orderType: ORDER_TYPE.DUTCH,
+            orderType: MODEL_NAME.DUTCH,
           },
           mockEndpoints
         )
@@ -167,7 +167,7 @@ describe('S3WebhookProvider test', () => {
             filler: '0x1',
             orderStatus: 'open',
             offerer: '0x2',
-            orderType: ORDER_TYPE.LIMIT,
+            orderType: MODEL_NAME.LIMIT,
           },
           mockEndpoints
         )
