@@ -3274,10 +3274,10 @@
     tiny-invariant "^1.1.0"
     toformat "^2.0.0"
 
-"@uniswap/uniswapx-sdk@^1.4.0":
-  version "1.4.0"
-  resolved "https://registry.npmjs.org/@uniswap/uniswapx-sdk/-/uniswapx-sdk-1.4.0.tgz#7baa3329c66808dda4278c7967cdc1e3a5892642"
-  integrity sha512-7lqYhnHNCzIahALW3F963SO7D0MPfaDzEboXqZwKn+FoWrALT9mwtzp1YpbIyeiCAkYdwvLF6/mxZmRXKuAHmw==
+"@uniswap/uniswapx-sdk@1.5.0":
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-1.5.0.tgz#61680cff849bc1d4c1b124be3a7bb345d38e8cad"
+  integrity sha512-nH0XbJcnZhbIImTkXfxTAxutHmlFSbUc7nKXXFA8IN6oFqLKL/81DlbTxR8juRyb48AhXpOLziEb6AyVFYeGHw==
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"

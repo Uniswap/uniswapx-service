@@ -1,4 +1,4 @@
-import { MODEL_NAME } from '../repositories/base'
+import { OrderType } from '@uniswap/uniswapx-sdk'
 import { OrderFilter, WebhookProvider } from './base'
 import { FILTER_FIELD, Webhook, WebhookDefinition } from './types'
 
@@ -23,7 +23,7 @@ export function findEndpointsMatchingFilter(filter: OrderFilter, definition: Web
 
   // remove limit orders when matching webhooks
   // webhook is currently used only to fill dutch orders
-  if (filter.orderType !== MODEL_NAME.LIMIT) {
+  if (filter.orderType !== OrderType.Limit) {
     const supportedFilterKeys: (FILTER_FIELD.FILLER | FILTER_FIELD.OFFERER | FILTER_FIELD.ORDER_STATUS)[] = [
       FILTER_FIELD.FILLER,
       FILTER_FIELD.ORDER_STATUS,
