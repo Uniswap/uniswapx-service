@@ -86,7 +86,7 @@ describe('Testing post limit order handler.', () => {
     orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
     orderStatus: ORDER_STATUS.OPEN,
     offerer: '0x0000000000000000000000000000000000000001',
-    reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch].toLowerCase(),
+    reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch]!.toLowerCase(),
     decayStartTime: 20,
     decayEndTime: 10,
     deadline: 10,

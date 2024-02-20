@@ -4,9 +4,6 @@ import { OrderEntity, ORDER_STATUS } from '../entities'
 
 export const DUTCH_LIMIT = 'DutchLimit'
 
-// _et field added by orm reflecting model name
-const DYNAMO_ENTITY_TYPE_FIELD = '_et'
-
 type ParsedOrder = {
   encodedOrder: string
   signature: string
@@ -26,11 +23,11 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
     throw new Error('There is no new order.')
   }
 
-  const chainId = parseInt(newOrder.chainId.N as string)
-  const encodedOrder = newOrder.encodedOrder.S as string
-  const orderType = getOrderTypeFromEncoded(encodedOrder, chainId)
-
   try {
+    const chainId = parseInt(newOrder.chainId.N as string)
+    const encodedOrder = newOrder.encodedOrder.S as string
+    const orderType = getOrderTypeFromEncoded(encodedOrder, chainId)
+
     return {
       swapper: newOrder.offerer.S as string,
       orderStatus: newOrder.orderStatus.S as ORDER_STATUS,

@@ -16,7 +16,7 @@ export const MOCK_ORDER_ENTITY: OrderEntity = {
   orderStatus: ORDER_STATUS.OPEN,
   type: OrderType.Dutch,
   chainId: 1,
-  reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch],
+  reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch] as string,
   decayStartTime: 1,
   decayEndTime: 2,
   deadline: 3,

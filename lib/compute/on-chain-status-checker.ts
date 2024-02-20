@@ -25,7 +25,10 @@ export class OnChainStatusChecker {
   }
 
   public getWatcher(provider: ethers.providers.StaticJsonRpcProvider, chainId: number) {
-    return new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch])
+    if (!REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch]) {
+      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType${OrderType.Dutch}`)
+    }
+    return new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch] as string)
   }
 
   public getProvider(chainId: number) {
