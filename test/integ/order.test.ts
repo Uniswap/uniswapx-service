@@ -249,7 +249,7 @@ describe('/dutch-auction/order', () => {
           signature,
         },
       ],
-      reactor: REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch'],
+      reactor: REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']!,
       // direct fill is 0x01
       fillContract: '0x0000000000000000000000000000000000000001',
       fillData: '0x',

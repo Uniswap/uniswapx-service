@@ -2,6 +2,7 @@ export enum FILTER_FIELD {
   OFFERER = 'offerer',
   ORDER_STATUS = 'orderStatus',
   FILLER = 'filler',
+  ORDER_TYPE = 'orderType',
 }
 
 export type WebhookDefinition = {

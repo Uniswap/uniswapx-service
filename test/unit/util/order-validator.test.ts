@@ -31,7 +31,7 @@ function newOrder({
   swapper = SWAPPER,
   input = INPUT,
   output = OUTPUT,
-  reactor = REACTOR,
+  reactor = REACTOR as string,
   chainId = 1,
   additionalValidationContract = VALIDATION_CONTRACT_ADDRESS,
   additionalValidationData = VALIDATION_DATA,

@@ -3,7 +3,7 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
-import { BaseOrdersRepository } from './base'
+import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { getTableIndices, TABLE_NAMES } from './util'
 
@@ -24,7 +24,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
     })
 
     const orderEntity = new Entity({
-      name: 'Order',
+      name: MODEL_NAME.DUTCH,
       attributes: {
         orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },

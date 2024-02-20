@@ -1,4 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3'
+import { OrderType } from '@uniswap/uniswapx-sdk'
+import { findEndpointsMatchingFilter } from '../../../lib/providers/json-webhook-provider'
 import { S3WebhookConfigurationProvider } from '../../../lib/providers/s3-webhook-provider'
 import { WebhookDefinition } from '../../../lib/providers/types'
 
@@ -119,5 +121,58 @@ describe('S3WebhookProvider test', () => {
       { url: 'webhook2.com/2' },
       { url: 'webhook2.com/4' },
     ])
+  })
+
+  describe('findEndpointsMatchingFilter', () => {
+    describe('OrderType', () => {
+      it('Correctly matches when orderType is undefined', async () => {
+        let endpoints = findEndpointsMatchingFilter(
+          {
+            filler: '0x1',
+            orderStatus: 'open',
+            offerer: '0x2',
+            orderType: undefined,
+          },
+          mockEndpoints
+        )
+        expect(endpoints).toEqual([
+          { url: 'webhook.com/0' },
+          { url: 'webhook.com/1' },
+          { url: 'webhook.com/2' },
+          { url: 'webhook.com/4' },
+        ])
+      })
+
+      it('Correctly matches when orderType is Dutch', async () => {
+        let endpoints = findEndpointsMatchingFilter(
+          {
+            filler: '0x1',
+            orderStatus: 'open',
+            offerer: '0x2',
+            orderType: OrderType.Dutch,
+          },
+          mockEndpoints
+        )
+        expect(endpoints).toEqual([
+          { url: 'webhook.com/0' },
+          { url: 'webhook.com/1' },
+          { url: 'webhook.com/2' },
+          { url: 'webhook.com/4' },
+        ])
+      })
+
+      it('Only adds * webhooks when OrderType is LimitOrder', async () => {
+        let endpoints = findEndpointsMatchingFilter(
+          {
+            filler: '0x1',
+            orderStatus: 'open',
+            offerer: '0x2',
+            orderType: OrderType.Limit,
+          },
+          mockEndpoints
+        )
+        expect(endpoints).toEqual([{ url: 'webhook.com/0' }])
+      })
+    })
   })
 })
