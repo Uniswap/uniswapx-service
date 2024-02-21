@@ -122,35 +122,6 @@ describe('Testing check order status handler', () => {
       })
     })
 
-    it('should check fill events when order expired', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
-      validateMock.mockReturnValue(OrderValidation.Expired)
-      getTransactionMock.mockReturnValueOnce({
-        wait: () =>
-          Promise.resolve({
-            effectiveGasPrice: BigNumber.from(1),
-            gasUsed: 100,
-          }),
-      })
-      getFillInfoMock.mockReturnValue([
-        {
-          orderHash: MOCK_ORDER_HASH,
-          filler: '0x123',
-          nonce: BigNumber.from(1),
-          swapper: '0x123',
-          blockNumber: 12321312313,
-          txHash: '0x1244345323',
-          inputs: [{ token: 'USDC', amount: BigNumber.from(100) }],
-          outputs: [{ token: 'WETH', amount: BigNumber.from(1) }],
-        },
-      ])
-
-      expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
-        orderStatus: ORDER_STATUS.FILLED,
-      })
-      expect(getFillInfoMock).toBeCalled()
-    })
-
     it('should check fill events when nonceUsed', async () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
       validateMock.mockReturnValue(OrderValidation.NonceUsed)

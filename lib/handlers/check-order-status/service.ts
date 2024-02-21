@@ -76,41 +76,10 @@ export class CheckOrderStatusService {
     log.info('validated order', { validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash })
     switch (validation) {
       case OrderValidation.Expired: {
-        // order could still be filled even when OrderQuoter.quote bubbled up 'expired' revert
-        const fillEvent = (await orderWatcher.getFillInfo(fromBlock, curBlockNumber)).find(
-          (e) => e.orderHash === orderHash
-        )
-        if (fillEvent) {
-          const settledAmounts = await this.fillEventProcessor.processFillEvent({
-            provider,
-            fillEvent,
-            parsedOrder,
-            quoteId,
-            chainId,
-            startingBlockNumber,
-            order,
-          })
-
-          extraUpdateInfo = {
-            orderStatus: ORDER_STATUS.FILLED,
-            txHash: fillEvent.txHash,
-            settledAmounts,
-          }
-          break
-        } else {
-          if (getFillLogAttempts == 0) {
-            log.info('failed to get fill log in expired case, retrying one more time', {
-              orderInfo: {
-                orderHash: orderHash,
-              },
-            })
-          }
-          extraUpdateInfo = {
-            orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
-            getFillLogAttempts: getFillLogAttempts + 1,
-          }
-          break
+        extraUpdateInfo = {
+          orderStatus: ORDER_STATUS.EXPIRED,
         }
+        break
       }
       case OrderValidation.InsufficientFunds:
         extraUpdateInfo = {
