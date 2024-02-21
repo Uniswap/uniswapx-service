@@ -129,6 +129,7 @@ describe('Testing post order handler.', () => {
             validate: validationFailedValidatorMock,
           },
         },
+        orderType: OrderType.Dutch,
         getMaxOpenOrders,
       }
     },

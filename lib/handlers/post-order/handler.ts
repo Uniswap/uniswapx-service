@@ -36,7 +36,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody: { encodedOrder, signature, chainId, quoteId },
       requestInjected: { log },
-      containerInjected: { dbInterface, orderValidator, onchainValidatorByChainId, getMaxOpenOrders },
+      containerInjected: { dbInterface, orderValidator, onchainValidatorByChainId, orderType, getMaxOpenOrders },
     } = params
 
     log.info('Handling POST order request', params)
@@ -145,11 +145,13 @@ export class PostOrderHandler extends APIGLambdaHandler<
       },
     })
 
-    await this.kickoffOrderTrackingSfn(
-      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '' },
-      stateMachineArn,
-      log
-    )
+    if (orderType === OrderType.Dutch) {
+      await this.kickoffOrderTrackingSfn(
+        { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '' },
+        stateMachineArn,
+        log
+      )
+    }
     return {
       statusCode: 201,
       body: { hash: id },

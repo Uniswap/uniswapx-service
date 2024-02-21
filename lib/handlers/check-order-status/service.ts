@@ -27,7 +27,7 @@ export class CheckOrderStatusService {
   private readonly fillEventProcessor
   constructor(
     private dbInterface: BaseOrdersRepository,
-    fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON
+    private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON
   ) {
     this.fillEventProcessor = new FillEventProcessor(fillEventBlockLookback)
   }
@@ -52,9 +52,7 @@ export class CheckOrderStatusService {
     log.info('parsed order', { order: parsedOrder, signature: order.signature })
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
-    const fromBlock = !startingBlockNumber
-      ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
-      : startingBlockNumber
+    const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
 
     const commonUpdateInfo = {
       orderHash,
