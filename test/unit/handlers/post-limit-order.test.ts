@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
-import { mockClient } from 'aws-sdk-client-mock'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { ErrorCode } from '../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../lib/handlers/constants'
@@ -11,29 +9,6 @@ import { ORDER_INFO } from '../fixtures'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_5 = 'MOCK_ARN_5'
-const MOCK_HASH = '0xhash'
-const MOCK_START_EXECUTION_INPUT = JSON.stringify({
-  orderHash: MOCK_HASH,
-  chainId: 1,
-  orderStatus: ORDER_STATUS.OPEN,
-})
-
-const mockSfnClient = mockClient(SFNClient)
-mockSfnClient
-  .on(StartExecutionCommand, {
-    stateMachineArn: MOCK_ARN_1,
-    name: MOCK_HASH,
-    input: MOCK_START_EXECUTION_INPUT,
-  })
-  .resolves({})
-
-mockSfnClient
-  .on(StartExecutionCommand, {
-    stateMachineArn: MOCK_ARN_5,
-    name: MOCK_HASH,
-    input: MOCK_START_EXECUTION_INPUT,
-  })
-  .resolves({})
 
 const DECODED_ORDER = {
   info: ORDER_INFO,
@@ -57,6 +32,8 @@ describe('Testing post limit order handler.', () => {
   const validatorMock = jest.fn()
   const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
+  const mockSfnClient = jest.fn()
+
   const encodedOrder = '0x01'
   const postRequestBody = {
     encodedOrder: encodedOrder,
@@ -128,6 +105,7 @@ describe('Testing post limit order handler.', () => {
             validate: validationFailedValidatorMock,
           },
         },
+        orderType: OrderType.Limit,
         getMaxOpenOrders: getMaxLimitOpenOrders,
       }
     },
@@ -146,7 +124,6 @@ describe('Testing post limit order handler.', () => {
 
   afterEach(() => {
     jest.clearAllMocks()
-    mockSfnClient.reset()
   })
 
   describe('Testing valid request and response', () => {
@@ -157,10 +134,6 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
-      expect(mockSfnClient.calls()).toHaveLength(1)
-      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
-        stateMachineArn: MOCK_ARN_1,
-      })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -187,10 +160,6 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith({ ...ORDER, chainId: 5 })
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith({ ...DECODED_ORDER, chainId: 5 })
-      expect(mockSfnClient.calls()).toHaveLength(1)
-      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
-        stateMachineArn: MOCK_ARN_5,
-      })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -297,18 +266,10 @@ describe('Testing post limit order handler.', () => {
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
     })
 
-    it('should call StepFunctions.startExecution method with the correct params', async () => {
-      const sfnInput = { orderHash: '0xhash', chainId: 1, quoteId: 'quoteId', orderStatus: ORDER_STATUS.OPEN }
-      expect(async () => await postOrderHandler['kickoffOrderTrackingSfn'](sfnInput, MOCK_ARN_1)).not.toThrow()
-      expect(mockSfnClient.calls()).toHaveLength(1)
-
-      expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
-        new StartExecutionCommand({
-          stateMachineArn: MOCK_ARN_1,
-          input: JSON.stringify(sfnInput),
-          name: sfnInput.orderHash,
-        }).input
-      )
+    it('should not call StepFunctions', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+      await postOrderHandler.handler(event as any, {} as any)
+      expect(mockSfnClient).not.toHaveBeenCalled()
     })
   })
 

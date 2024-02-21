@@ -1,4 +1,4 @@
-import { OrderValidator as OnchainValidator } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidator as OnchainValidator } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
@@ -35,6 +35,7 @@ export class PostLimitOrderInjector extends ApiInjector<ContainerInjected, ApiRI
         SkipDecayStartTimeValidation: true,
       }),
       onchainValidatorByChainId,
+      orderType: OrderType.Limit,
       getMaxOpenOrders: getMaxLimitOpenOrders,
     }
   }

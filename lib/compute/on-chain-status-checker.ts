@@ -14,7 +14,6 @@ const LOOP_DELAY_MS = 30000 //30 seconds
 // arbitrary and capricious value
 // if increasing check memory utilization
 export const BATCH_READ_MAX = 100
-
 export class OnChainStatusChecker {
   private checkOrderStatusService: CheckOrderStatusService
   constructor(private dbInterface: BaseOrdersRepository, private _stop = false) {
