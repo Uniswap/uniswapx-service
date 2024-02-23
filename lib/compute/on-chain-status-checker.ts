@@ -8,8 +8,8 @@ import { log } from '../Logging'
 import { OnChainStatusCheckerMetricNames, powertoolsMetric as metrics } from '../Metrics'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 
-const TWO_MINUTES_MS = 60 * 2 * 1000
-const LOOP_DELAY_MS = 30000 //30 seconds
+const RECHECK_DELAY = 30 * 1000 //30 seconds
+const LOOP_DELAY_MS = 30 * 1000 //30 seconds
 
 // arbitrary and capricious value
 // if increasing check memory utilization
@@ -136,9 +136,9 @@ export class OnChainStatusChecker {
     }
   }
 
-  //retry after 2 minutes
+  //retry after 30 seconds
   public async retryUpdate(request: CheckOrderStatusRequest) {
-    await delay(TWO_MINUTES_MS)
+    await delay(RECHECK_DELAY)
     await this.checkOrderStatusService.handleRequest({ ...request, getFillLogAttempts: 1 })
   }
 }
