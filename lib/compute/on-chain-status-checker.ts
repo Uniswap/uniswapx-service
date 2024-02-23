@@ -136,7 +136,7 @@ export class OnChainStatusChecker {
     }
   }
 
-  //retry after 2 minutes
+  //retry after 30 seconds
   public async retryUpdate(request: CheckOrderStatusRequest) {
     await delay(RECHECK_DELAY)
     await this.checkOrderStatusService.handleRequest({ ...request, getFillLogAttempts: 1 })
