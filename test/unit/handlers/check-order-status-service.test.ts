@@ -3,10 +3,25 @@ import { OrderValidation } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { CheckOrderStatusRequest, CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
+import { getProvider, getValidator, getWatcher } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
 
+jest.mock('../../../lib/handlers/check-order-status/util', () => {
+  const original = jest.requireActual('../../../lib/handlers/check-order-status/util')
+  return {
+    ...original,
+    getWatcher: jest.fn(),
+    getProvider: jest.fn(),
+    getValidator: jest.fn(),
+  }
+})
+
 describe('checkOrderStatusService', () => {
+  const mockedGetWatcher = getWatcher as jest.Mock
+  const mockedGetProvider = getProvider as jest.Mock
+  const mockedGetValidator = getValidator as jest.Mock
+
   const mockedBlockNumber = 0
   const getFillEventsMock = jest.fn()
   const getFillInfoMock = jest.fn()
@@ -365,6 +380,95 @@ describe('checkOrderStatusService', () => {
     it('should cap exponential backoff when wait interval reaches 18000 seconds', async () => {
       const response = await checkOrderStatusService.calculateRetryWaitSeconds(1, 501)
       expect(response).toEqual(18000)
+    })
+  })
+
+  describe('batch check order status', () => {
+    let watcherMock: { getFillEvents: jest.Mock<any, any>; getFillInfo: jest.Mock<any, any> },
+      providerMock: {
+        getBlockNumber: jest.Mock<any, any>
+        getTransaction: jest.Mock<any, any>
+        getBlock: () => Promise<{ timestamp: number }>
+      },
+      validatorMock: { validate: jest.Mock<any, any>; validateBatch: jest.Mock<any, any> },
+      ordersRepositoryMock: any,
+      checkOrderStatusService: CheckOrderStatusService
+
+    mockedGetProvider.mockReturnValue({
+      getBlockNumber: getBlockNumberMock,
+      getTransaction: getTransactionMock,
+      getBlock: () =>
+        Promise.resolve({
+          timestamp: 123456,
+        }),
+    })
+
+    mockedGetWatcher.mockReturnValue({
+      getFillEvents: getFillEventsMock,
+      getFillInfo: getFillInfoMock,
+    })
+
+    beforeEach(() => {
+      log.setLogLevel('SILENT')
+      jest.clearAllMocks()
+      ordersRepositoryMock = {
+        updateOrderStatus: jest.fn(),
+        getByHash: jest.fn(),
+      } as any
+      checkOrderStatusService = new CheckOrderStatusService(ordersRepositoryMock)
+
+      watcherMock = {
+        getFillEvents: getFillEventsMock,
+        getFillInfo: getFillInfoMock,
+      }
+      providerMock = {
+        getBlockNumber: getBlockNumberMock,
+        getTransaction: getTransactionMock,
+        getBlock: () =>
+          Promise.resolve({
+            timestamp: 123456,
+          }),
+      }
+      validatorMock = {
+        validate: jest.fn(),
+        validateBatch: jest.fn(),
+      }
+
+      getTransactionMock.mockReturnValueOnce({
+        wait: () =>
+          Promise.resolve({
+            effectiveGasPrice: BigNumber.from(1),
+            gasUsed: 100,
+          }),
+      })
+
+      ordersRepositoryMock.getByHash.mockResolvedValue(MOCK_ORDER_ENTITY)
+      ordersRepositoryMock.updateOrderStatus.mockResolvedValue()
+    })
+
+    describe('Expired', () => {
+      beforeEach(() => {
+        mockedGetValidator.mockReturnValue(validatorMock)
+        validatorMock.validateBatch.mockResolvedValue([OrderValidation.Expired])
+      })
+
+      it.only('should should update with expired', async () => {
+        getFillInfoMock.mockImplementation(() => {
+          return []
+        })
+
+        let result = await checkOrderStatusService.batchHandleRequestPerChain([MOCK_ORDER_ENTITY], 1)
+
+        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
+        expect(watcherMock.getFillInfo).not.toHaveBeenCalled()
+        expect(providerMock.getTransaction).not.toHaveBeenCalled()
+        expect(validatorMock.validateBatch).toHaveBeenCalled()
+        expect(result[0]).toEqual(
+          expect.objectContaining({
+            orderStatus: 'expired',
+          })
+        )
+      })
     })
   })
 })

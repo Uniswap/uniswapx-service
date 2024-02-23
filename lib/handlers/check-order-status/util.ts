@@ -1,5 +1,13 @@
-import { DutchOrder, FillInfo } from '@uniswap/uniswapx-sdk'
+import {
+  DutchOrder,
+  EventWatcher,
+  FillInfo,
+  OrderType,
+  OrderValidator,
+  REACTOR_ADDRESS_MAPPING,
+} from '@uniswap/uniswapx-sdk'
 
+import { ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
 import { ChainId } from '../../util/chain'
@@ -135,4 +143,24 @@ export const LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): nu
     default:
       return 50
   }
+}
+
+export function getWatcher(provider: ethers.providers.StaticJsonRpcProvider, chainId: number) {
+  if (!REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch]) {
+    throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType${OrderType.Dutch}`)
+  }
+  return new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch] as string)
+}
+
+export function getProvider(chainId: number) {
+  const rpcURL = process.env[`RPC_${chainId}`]
+  if (!rpcURL) {
+    throw new Error(`rpcURL not defined for ${chainId}`)
+  }
+  const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
+  return provider
+}
+
+export function getValidator(provider: ethers.providers.StaticJsonRpcProvider, chainId: number) {
+  return new OrderValidator(provider, chainId)
 }

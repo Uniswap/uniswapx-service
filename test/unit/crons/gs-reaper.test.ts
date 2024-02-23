@@ -3,9 +3,10 @@
 import { OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { BATCH_WRITE_MAX, deleteStaleOrders } from '../../../lib/crons/gs-reaper'
+import { deleteStaleOrders } from '../../../lib/crons/gs-reaper'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
+import { DYNAMO_BATCH_WRITE_MAX } from '../../../lib/util/constants'
 import { deleteAllRepoEntries } from '../utils'
 
 const dynamoConfig = {
@@ -83,11 +84,11 @@ describe('deleteStaleOrders Test', () => {
   })
 
   it('should page through all stale orders if necessary', async () => {
-    for (let i = 0; i < BATCH_WRITE_MAX + 1; i++) {
+    for (let i = 0; i < DYNAMO_BATCH_WRITE_MAX + 1; i++) {
       await ordersRepository.putOrderAndUpdateNonceTransaction({ ...MOCK_ORDER, orderHash: `0x${i}` })
     }
     await deleteStaleOrders(ordersRepository, log)
-    for (let i = 0; i < BATCH_WRITE_MAX + 1; i++) {
+    for (let i = 0; i < DYNAMO_BATCH_WRITE_MAX + 1; i++) {
       expect(await ordersRepository.getByHash(`0x${i}`)).toBeUndefined()
     }
   })

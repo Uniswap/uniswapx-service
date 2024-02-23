@@ -11,7 +11,7 @@ import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
-export const MAX_ORDERS = 50
+export const MAX_ORDERS = 100
 // Shared implementation for Dutch and Limit orders
 // will work for orders with the same GSIs
 export class GenericOrdersRepository<

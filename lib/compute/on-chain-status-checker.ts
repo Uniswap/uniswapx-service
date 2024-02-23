@@ -1,12 +1,17 @@
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
-import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
-import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS } from '../entities'
+import { SfnStateInputOutput } from '../handlers/base'
 import { CheckOrderStatusRequest, CheckOrderStatusService } from '../handlers/check-order-status/service'
-import { LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../handlers/check-order-status/util'
+import {
+  getProvider,
+  getValidator,
+  getWatcher,
+  LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON,
+} from '../handlers/check-order-status/util'
 import { log } from '../Logging'
 import { OnChainStatusCheckerMetricNames, powertoolsMetric as metrics } from '../Metrics'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
+import { SUPPORTED_CHAINS } from '../util/chain'
 
 const RECHECK_DELAY = 30 * 1000 //30 seconds
 const LOOP_DELAY_MS = 30 * 1000 //30 seconds
@@ -23,28 +28,7 @@ export class OnChainStatusChecker {
     this._stop = true
   }
 
-  public getWatcher(provider: ethers.providers.StaticJsonRpcProvider, chainId: number) {
-    if (!REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch]) {
-      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType${OrderType.Dutch}`)
-    }
-    return new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch] as string)
-  }
-
-  public getProvider(chainId: number) {
-    const rpcURL = process.env[`RPC_${chainId}`]
-    if (!rpcURL) {
-      throw new Error(`rpcURL not defined for ${chainId}`)
-    }
-    const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
-    return provider
-  }
-
-  public getValidator(provider: ethers.providers.StaticJsonRpcProvider, chainId: number) {
-    return new OrderValidator(provider, chainId)
-  }
-
   public async pollForOpenOrders() {
-    // eslint-disable-next-line no-constant-condition
     while (!this._stop) {
       let totalCheckedOrders = 0
       let processedOrderError = 0
@@ -52,9 +36,21 @@ export class OnChainStatusChecker {
       try {
         let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
         do {
-          const promises = await this.processOrderBatch(openOrders)
-          const results = await Promise.allSettled(promises)
-          processedOrderError += results.filter((p) => p.status === 'rejected').length
+          const openOrdersPerChain: any = this.mapOpenOrdersToChain(openOrders.orders)
+          const promises: Promise<SfnStateInputOutput[]>[] = []
+          Object.keys(openOrdersPerChain).forEach((chain) => {
+            let orders = openOrdersPerChain[chain]
+            if (orders.length === 0) {
+              return
+            }
+            //get all promises and await them
+            promises.push(this.getOrderChangesBatch(orders, parseInt(chain)))
+          })
+          await Promise.allSettled(promises)
+          promises.forEach((chainPromise) => {
+            let chainBatch = Promise.allSettled(chainPromise)
+            processedOrderError += chainBatch.filter((p) => p.status === 'rejected').length //TODO: update with chain paradigm
+          })
           totalCheckedOrders += openOrders.orders.length
         } while (
           openOrders.cursor &&
@@ -90,6 +86,21 @@ export class OnChainStatusChecker {
     metrics.addMetric(OnChainStatusCheckerMetricNames.LoopEnded, MetricUnits.Count, 1)
   }
 
+  public mapOpenOrdersToChain(batch: OrderEntity[]) {
+    let chainToOrdersMap: any = {}
+
+    SUPPORTED_CHAINS.forEach((chainId) => {
+      chainToOrdersMap[chainId] = []
+    })
+
+    for (let i = 0; i < batch.length; i++) {
+      const { chainId } = batch[i]
+      chainToOrdersMap[chainId].push(batch[i])
+    }
+
+    return chainToOrdersMap
+  }
+
   public async processOrderBatch(openOrders: QueryResult) {
     const promises = []
     for (let i = 0; i < openOrders.orders.length; i++) {
@@ -108,13 +119,17 @@ export class OnChainStatusChecker {
     return promises
   }
 
+  public async getOrderChangesBatch(orders: OrderEntity[], chainId: number): Promise<SfnStateInputOutput[]> {
+    return await this.checkOrderStatusService.batchHandleRequestPerChain(orders, chainId)
+  }
+
   // TODO: https://linear.app/uniswap/issue/DAT-264/batch-update-order-status
   public async updateOrder(order: OrderEntity): Promise<void> {
     const chainId = order.chainId
-    const provider = this.getProvider(chainId)
-    const quoter = this.getValidator(provider, chainId)
+    const provider = getProvider(chainId)
+    const quoter = getValidator(provider, chainId)
     // TODO: use different reactor address for different order type
-    const watcher = this.getWatcher(provider, chainId)
+    const watcher = getWatcher(provider, chainId)
 
     const request: CheckOrderStatusRequest = {
       chainId: chainId,
