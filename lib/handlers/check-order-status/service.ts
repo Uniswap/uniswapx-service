@@ -69,14 +69,7 @@ export class CheckOrderStatusService {
     log.info('parsed order', { order: parsedOrder, signature: order.signature })
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
-<<<<<<< HEAD
     const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
-=======
-    const fromBlock = !startingBlockNumber
-      ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
-      : startingBlockNumber
-    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
->>>>>>> 339b6c6 (wip:janky batching)
 
     const commonUpdateInfo = {
       orderHash,
@@ -223,19 +216,22 @@ export class CheckOrderStatusService {
 
     switch (validation) {
       case OrderValidation.Expired: {
-        // order could still be filled even when OrderQuoter.quote bubbled up 'expired' revert
-        const fillEvent = (await orderWatcher.getFillInfo(fromBlock, curBlockNumber)).find(
-          (e) => e.orderHash === orderHash
-        )
         if (fillEvent) {
-          const settledAmounts = await this.fillEventProcessor.processFillEvent({
-            provider,
+          const [tx, block] = await Promise.all([
+            provider.getTransaction(fillEvent.txHash),
+            provider.getBlock(fillEvent.blockNumber),
+          ])
+          const settledAmounts = getSettledAmounts(fillEvent, block.timestamp, parsedOrder)
+
+          await this.fillEventProcessor.processFillEvent({
             fillEvent,
-            parsedOrder,
             quoteId,
             chainId,
             startingBlockNumber,
             order,
+            settledAmounts,
+            tx,
+            timestamp: block.timestamp,
           })
 
           extraUpdateInfo = {
@@ -245,15 +241,13 @@ export class CheckOrderStatusService {
           }
           break
         } else {
-          if (getFillLogAttempts == 0) {
-            log.info('failed to get fill log in expired case, retrying one more time', {
-              orderInfo: {
-                orderHash: orderHash,
-              },
-            })
-          }
+          log.info('failed to get fill log in nonce used case, retrying one more time', {
+            orderInfo: {
+              orderHash: orderHash,
+            },
+          })
           extraUpdateInfo = {
-            orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
+            orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
             getFillLogAttempts: getFillLogAttempts + 1,
           }
           break
