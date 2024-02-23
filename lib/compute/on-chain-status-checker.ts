@@ -27,6 +27,13 @@ export class OnChainStatusChecker {
   public stop() {
     this._stop = true
   }
+  public async getFromDynamo(cursor?: any) {
+    let startTime = new Date().getTime()
+    let orders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX, cursor)
+    let endTime = new Date().getTime()
+    metrics.addMetric('OnChainStatusChecker-DynamoBatchReadTime', MetricUnits.Milliseconds, endTime - startTime)
+    return orders
+  }
 
   public async pollForOpenOrders() {
     while (!this._stop) {
@@ -34,7 +41,7 @@ export class OnChainStatusChecker {
       let processedOrderError = 0
       const startTime = new Date().getTime()
       try {
-        let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
+        let openOrders = await this.getFromDynamo()
         do {
           const openOrdersPerChain = this.mapOpenOrdersToChain(openOrders.orders)
           const promises: Promise<SfnStateInputOutput[]>[] = []
@@ -58,10 +65,7 @@ export class OnChainStatusChecker {
             }
           }
           totalCheckedOrders += openOrders.orders.length
-        } while (
-          openOrders.cursor &&
-          (openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX, openOrders.cursor))
-        )
+        } while (openOrders.cursor && (openOrders = await this.getFromDynamo(openOrders.cursor)))
         log.info(`finished processing orders`, { totalCheckedOrders })
       } catch (e) {
         log.error('OnChainStatusChecker Error', { error: e })
