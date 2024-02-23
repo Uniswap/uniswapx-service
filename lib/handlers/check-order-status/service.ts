@@ -1,7 +1,9 @@
+import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
+import { powertoolsMetric as betterMetrics } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { ChainId } from '../../util/chain'
@@ -116,12 +118,26 @@ export class CheckOrderStatusService {
       validationsRequestList.push({ order: parsedOrder, signature: order.signature })
     }
 
+    let startTime = new Date().getTime()
     const validationResults = await validator.validateBatch(validationsRequestList)
+    let endTime = new Date().getTime()
+    betterMetrics.addMetric(
+      'OnChainStatusChecker-ValidateBatchQueryTime',
+      MetricUnits.Milliseconds,
+      endTime - startTime
+    )
 
     let updateList = []
+    startTime = new Date().getTime()
     const curBlockNumber = await provider.getBlockNumber()
     const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
     const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
+    endTime = new Date().getTime()
+    betterMetrics.addMetric(
+      'OnChainStatusChecker-RandomOnChainQueryTimes',
+      MetricUnits.Milliseconds,
+      endTime - startTime
+    )
 
     for (let i = 0; i < batch.length; i++) {
       let { chainId, quoteId, orderHash, orderStatus } = batch[i]
