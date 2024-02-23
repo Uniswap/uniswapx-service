@@ -1,6 +1,6 @@
-import { DutchOrder, EventWatcher, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, EventWatcher, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { ORDER_STATUS, SettledAmount } from '../../entities'
+import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
@@ -8,7 +8,15 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventProcessor } from './fill-event-processor'
-import { AVERAGE_BLOCK_TIME, FILL_EVENT_LOOKBACK_BLOCKS_ON, IS_TERMINAL_STATE } from './util'
+import {
+  AVERAGE_BLOCK_TIME,
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
+  getProvider,
+  getSettledAmounts,
+  getValidator,
+  getWatcher,
+  IS_TERMINAL_STATE,
+} from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -21,6 +29,13 @@ export type CheckOrderStatusRequest = {
   orderWatcher: EventWatcher
   orderQuoter: OrderValidator
   quoteId: string //only used for logging
+}
+
+type ExtraUpdateInfo = {
+  orderStatus: ORDER_STATUS
+  txHash?: string
+  settledAmounts?: SettledAmount[]
+  getFillLogAttempts?: number
 }
 
 export class CheckOrderStatusService {
@@ -65,15 +80,129 @@ export class CheckOrderStatusService {
       lastStatus: orderStatus,
       validation,
     }
+    log.info('validated order', { validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash })
 
-    let extraUpdateInfo: {
-      orderStatus: ORDER_STATUS
-      txHash?: string
-      settledAmounts?: SettledAmount[]
-      getFillLogAttempts?: number
+    const extraUpdateInfo = await this.getStatusFromValidation({
+      validation,
+      orderWatcher,
+      fromBlock,
+      curBlockNumber,
+      parsedOrder,
+      quoteId,
+      chainId,
+      startingBlockNumber,
+      order,
+      orderHash,
+      provider,
+      getFillLogAttempts,
+    })
+
+    const updateObject = {
+      ...commonUpdateInfo,
+      ...extraUpdateInfo,
     }
 
-    log.info('validated order', { validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash })
+    return this.updateStatusAndReturn(updateObject)
+  }
+
+  public async batchHandleRequestPerChain(batch: OrderEntity[], chainId: ChainId): Promise<SfnStateInputOutput[]> {
+    const provider = getProvider(chainId)
+    const validator = getValidator(provider, chainId)
+    const orderWatcher = getWatcher(provider, chainId)
+
+    const validationsRequestList: SignedOrder[] = []
+    for (let i = 0; i < batch.length; i++) {
+      const order = batch[i]
+      const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
+      validationsRequestList.push({ order: parsedOrder, signature: order.signature })
+    }
+
+    const validationResults = await validator.validateBatch(validationsRequestList)
+
+    let updateList = []
+    for (let i = 0; i < batch.length; i++) {
+      let { chainId, quoteId, orderHash, orderStatus } = batch[i]
+      quoteId = quoteId || ''
+      const order = batch[i]
+      const validation = validationResults[i]
+
+      const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
+      log.info('parsed order', { order: parsedOrder, signature: order.signature })
+      // const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
+      const curBlockNumber = await provider.getBlockNumber()
+      const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
+
+      const retryCount = 0
+
+      const commonUpdateInfo = {
+        orderHash,
+        quoteId,
+        retryCount,
+        startingBlockNumber: fromBlock,
+        chainId,
+        lastStatus: orderStatus,
+        validation,
+      }
+      log.info('validated order', { validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash })
+
+      const extraUpdateInfo = await this.getStatusFromValidation({
+        validation,
+        orderWatcher,
+        fromBlock,
+        curBlockNumber,
+        parsedOrder,
+        quoteId,
+        chainId,
+        startingBlockNumber: fromBlock,
+        order,
+        orderHash,
+        provider,
+        getFillLogAttempts: 0,
+      })
+
+      const updateObject = {
+        ...commonUpdateInfo,
+        ...extraUpdateInfo,
+      }
+      updateList.push(updateObject)
+    }
+
+    updateList.forEach(async (u) => {
+      await this.updateStatusAndReturn(u)
+    })
+
+    return updateList
+  }
+
+  private async getStatusFromValidation({
+    validation,
+    orderWatcher,
+    fromBlock,
+    curBlockNumber,
+    parsedOrder,
+    quoteId,
+    chainId,
+    startingBlockNumber,
+    order,
+    orderHash,
+    provider,
+    getFillLogAttempts,
+  }: {
+    validation: OrderValidation
+    orderWatcher: EventWatcher
+    fromBlock: number
+    curBlockNumber: number
+    parsedOrder: DutchOrder
+    quoteId: string
+    chainId: number
+    startingBlockNumber: number
+    order: OrderEntity
+    orderHash: string
+    provider: ethers.providers.JsonRpcProvider
+    getFillLogAttempts: number
+  }): Promise<ExtraUpdateInfo> {
+    let extraUpdateInfo: ExtraUpdateInfo
+
     switch (validation) {
       case OrderValidation.Expired: {
         extraUpdateInfo = {
@@ -96,14 +225,21 @@ export class CheckOrderStatusService {
           (e) => e.orderHash === orderHash
         )
         if (fillEvent) {
-          const settledAmounts = await this.fillEventProcessor.processFillEvent({
-            provider,
+          const [tx, block] = await Promise.all([
+            provider.getTransaction(fillEvent.txHash),
+            provider.getBlock(fillEvent.blockNumber),
+          ])
+          const settledAmounts = getSettledAmounts(fillEvent, block.timestamp, parsedOrder)
+
+          await this.fillEventProcessor.processFillEvent({
             fillEvent,
-            parsedOrder,
             quoteId,
             chainId,
             startingBlockNumber,
             order,
+            settledAmounts,
+            tx,
+            timestamp: block.timestamp,
           })
 
           extraUpdateInfo = {
@@ -131,10 +267,7 @@ export class CheckOrderStatusService {
         }
         break
     }
-    return this.updateStatusAndReturn({
-      ...commonUpdateInfo,
-      ...extraUpdateInfo,
-    })
+    return extraUpdateInfo
   }
 
   private async updateStatusAndReturn(params: {

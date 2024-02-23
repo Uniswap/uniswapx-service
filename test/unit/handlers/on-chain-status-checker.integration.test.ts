@@ -1,21 +1,38 @@
 /* eslint-disable */
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
-import { EventWatcher, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
+import { EventWatcher, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
 import { BATCH_READ_MAX, OnChainStatusChecker } from '../../../lib/compute/on-chain-status-checker'
 import { ORDER_STATUS } from '../../../lib/entities'
+import { getProvider, getValidator, getWatcher } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
 import { OnChainStatusCheckerMetricNames, powertoolsMetric } from '../../../lib/Metrics'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { deleteAllRepoEntries } from '../utils'
-import { dynamoConfig, MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
+import { dynamoConfig, MOCK_ORDER_ENTITY, MOCK_ORDER_HASH, MOCK_SIGNATURE } from './test-data'
 
-const documentClient = new DocumentClient(dynamoConfig)
-const ordersRepository = LimitOrdersRepository.create(documentClient)
+jest.mock('../../../lib/handlers/check-order-status/util', () => {
+  const original = jest.requireActual('../../../lib/handlers/check-order-status/util')
+  return {
+    ...original,
+    getWatcher: jest.fn(),
+    getProvider: jest.fn(),
+    getValidator: jest.fn(),
+  }
+})
+
+const DELAY = 1000
 
 describe('OnChainStatusChecker', () => {
+  const documentClient = new DocumentClient(dynamoConfig)
+  const ordersRepository = LimitOrdersRepository.create(documentClient)
+
+  const mockedGetWatcher = getWatcher as jest.Mock
+  const mockedGetProvider = getProvider as jest.Mock
+  const mockedGetValidator = getValidator as jest.Mock
+
   const mockedBlockNumber = 0
   const getFillEventsMock = jest.fn()
   const getFillInfoMock = jest.fn()
@@ -33,12 +50,7 @@ describe('OnChainStatusChecker', () => {
       validatorSpy: jest.SpyInstance<OrderValidator, [provider: StaticJsonRpcProvider, chainId: number]>,
       statusChecker: OnChainStatusChecker
 
-    afterEach(() => {
-      statusChecker?.stop()
-    })
-
     beforeEach(async () => {
-      await deleteAllRepoEntries(ordersRepository)
       log.setLogLevel('SILENT')
       jest.clearAllMocks()
       statusChecker = new OnChainStatusChecker(ordersRepository)
@@ -51,11 +63,11 @@ describe('OnChainStatusChecker', () => {
           }),
       })
 
-      watcherSpy = jest.spyOn(statusChecker, 'getWatcher').mockReturnValue({
+      watcherSpy = mockedGetWatcher.mockReturnValue({
         getFillEvents: getFillEventsMock,
         getFillInfo: getFillInfoMock,
       } as any)
-      providerSpy = jest.spyOn(statusChecker, 'getProvider').mockReturnValue({
+      providerSpy = mockedGetProvider.mockReturnValue({
         getBlockNumber: providerMock,
         getTransaction: getTransactionMock,
         getBlock: () =>
@@ -63,14 +75,18 @@ describe('OnChainStatusChecker', () => {
             timestamp: 123456,
           }),
       } as any)
-      validatorSpy = jest.spyOn(statusChecker, 'getValidator').mockReturnValue({
+      validatorSpy = mockedGetValidator.mockReturnValue({
         validate: () => {
           return OrderValidation.NonceUsed
+        },
+        validateBatch: (arr: any) => {
+          return arr.map(() => OrderValidation.NonceUsed)
         },
       } as any)
     })
 
     it('should close order with filled', async () => {
+      await deleteAllRepoEntries(ordersRepository)
       getFillInfoMock.mockImplementation(() => {
         return [
           {
@@ -90,8 +106,10 @@ describe('OnChainStatusChecker', () => {
       statusChecker.pollForOpenOrders()
 
       await (async () => {
-        return new Promise((resolve) => setTimeout(resolve, 1000))
+        return new Promise((resolve) => setTimeout(resolve, DELAY))
       })()
+
+      statusChecker?.stop()
 
       let order = await ordersRepository.getByHash(MOCK_ORDER_HASH)
       expect(order?.orderStatus).toBe(ORDER_STATUS.FILLED)
@@ -100,25 +118,102 @@ describe('OnChainStatusChecker', () => {
       expect(validatorSpy).toHaveBeenCalled()
     }, 10000)
 
+    it('should close multiple orders with correct status', async () => {
+      await deleteAllRepoEntries(ordersRepository)
+      getFillInfoMock.mockImplementation(() => {
+        return [
+          {
+            orderHash: MOCK_ORDER_HASH,
+            filler: '0x123',
+            nonce: BigNumber.from(1),
+            swapper: '0x123',
+            blockNumber: 12321312313,
+            txHash: '0x1244345323',
+            inputs: [{ token: 'USDC', amount: BigNumber.from(100) }],
+            outputs: [{ token: 'WETH', amount: BigNumber.from(1) }],
+          },
+        ]
+      })
+
+      mockedGetValidator.mockReturnValue({
+        validate: () => {
+          return OrderValidation.NonceUsed
+        },
+        validateBatch: (arr: SignedOrder[]) => {
+          return arr.map((o: SignedOrder) => {
+            switch (o.signature) {
+              case MOCK_SIGNATURE:
+                return OrderValidation.NonceUsed
+              case '0x1':
+                return OrderValidation.InsufficientFunds
+              case '0x2':
+                return OrderValidation.Expired
+              default:
+                throw new Error('test validation not mocked')
+            }
+          })
+        },
+      } as any)
+
+      await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_ENTITY)
+      await ordersRepository.putOrderAndUpdateNonceTransaction({
+        ...MOCK_ORDER_ENTITY,
+        orderHash: '0x1',
+        signature: '0x1',
+      })
+      await ordersRepository.putOrderAndUpdateNonceTransaction({
+        ...MOCK_ORDER_ENTITY,
+        orderHash: '0x2',
+        signature: '0x2',
+      })
+
+      statusChecker.pollForOpenOrders()
+
+      await (async () => {
+        return new Promise((resolve) => setTimeout(resolve, DELAY))
+      })()
+
+      statusChecker?.stop()
+
+      let order = await ordersRepository.getByHash(MOCK_ORDER_HASH)
+      let order2 = await ordersRepository.getByHash('0x1')
+      let order3 = await ordersRepository.getByHash('0x2')
+
+      expect(order?.orderStatus).toBe(ORDER_STATUS.FILLED)
+      expect(order2?.orderStatus).toBe(ORDER_STATUS.INSUFFICIENT_FUNDS)
+      expect(order3?.orderStatus).toBe(ORDER_STATUS.EXPIRED)
+
+      expect(watcherSpy).toHaveBeenCalled()
+      expect(providerSpy).toHaveBeenCalled()
+      expect(validatorSpy).toHaveBeenCalled()
+    }, 10000)
+
     it('should page through orders', async () => {
+      await deleteAllRepoEntries(ordersRepository)
       let promises = []
       for (let i = 0; i < BATCH_READ_MAX + 1; i++) {
         promises.push(ordersRepository.putOrderAndUpdateNonceTransaction({ ...MOCK_ORDER_ENTITY, orderHash: `0x${i}` }))
       }
       await Promise.all(promises)
 
-      let checkStatusSpy = jest.spyOn(statusChecker, 'updateOrder').mockResolvedValue()
+      let checkStatusSpy = jest.spyOn(statusChecker, 'getOrderChangesBatch').mockResolvedValue([])
       statusChecker.pollForOpenOrders()
 
       await (async () => {
-        return new Promise((resolve) => setTimeout(resolve, 1000))
+        return new Promise((resolve) => setTimeout(resolve, DELAY))
       })()
 
-      expect(checkStatusSpy).toHaveBeenCalledTimes(BATCH_READ_MAX + 1)
-      expect(checkStatusSpy).toHaveBeenCalledWith(expect.objectContaining({ orderHash: `0x${BATCH_READ_MAX}` }))
+      statusChecker?.stop()
+
+      expect(checkStatusSpy).toHaveBeenCalledTimes(2)
+      expect(checkStatusSpy).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.objectContaining({ orderHash: `0x${BATCH_READ_MAX}` })]),
+        1
+      )
     })
 
     it('should report errors', async () => {
+      await deleteAllRepoEntries(ordersRepository)
       getFillInfoMock
         .mockImplementationOnce(() => {
           throw new Error('test error')
@@ -149,8 +244,10 @@ describe('OnChainStatusChecker', () => {
       statusChecker.pollForOpenOrders()
 
       await (async () => {
-        return new Promise((resolve) => setTimeout(resolve, 1000))
+        return new Promise((resolve) => setTimeout(resolve, DELAY))
       })()
+
+      statusChecker?.stop()
 
       expect(mockedMetrics.addMetric).toHaveBeenCalledWith(
         OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors,

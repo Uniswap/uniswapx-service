@@ -1,40 +1,35 @@
-import { DutchOrder, FillInfo } from '@uniswap/uniswapx-sdk'
+import { FillInfo } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { BigNumber, ethers } from 'ethers'
 import { OrderEntity, SettledAmount } from '../../entities'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
-import { getSettledAmounts, logFillInfo } from './util'
+import { logFillInfo } from './util'
 
 export type ProcessFillEventRequest = {
   fillEvent: FillInfo
-  provider: ethers.providers.StaticJsonRpcProvider
-  parsedOrder: DutchOrder
   order: OrderEntity
   chainId: number
   startingBlockNumber: number
+  settledAmounts: SettledAmount[]
   quoteId?: string
+  tx: ethers.providers.TransactionResponse
+  timestamp: number
 }
 export class FillEventProcessor {
   constructor(private fillEventBlockLookback: (chainId: ChainId) => number) {}
   public async processFillEvent({
-    provider,
     fillEvent,
-    parsedOrder,
     quoteId,
     order,
     chainId,
     startingBlockNumber,
+    settledAmounts,
+    tx,
+    timestamp,
   }: ProcessFillEventRequest): Promise<SettledAmount[]> {
-    const [tx, block] = await Promise.all([
-      provider.getTransaction(fillEvent.txHash),
-      provider.getBlock(fillEvent.blockNumber),
-    ])
-
-    const timestamp = block.timestamp
     const receipt = await tx.wait()
     const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
-    const settledAmounts = getSettledAmounts(fillEvent, timestamp, parsedOrder)
 
     logFillInfo(
       fillEvent,

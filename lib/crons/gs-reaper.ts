@@ -6,9 +6,7 @@ import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
 import { ORDER_STATUS } from '../entities'
 import { BaseOrdersRepository } from '../repositories/base'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
-import { ONE_HOUR_IN_SECONDS } from '../util/constants'
-
-export const BATCH_WRITE_MAX = 25
+import { DYNAMO_BATCH_WRITE_MAX, ONE_HOUR_IN_SECONDS } from '../util/constants'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -31,7 +29,7 @@ export async function deleteStaleOrders(
   log: Logger,
   metrics?: MetricsLogger
 ): Promise<void> {
-  let openOrders = await repo.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_WRITE_MAX)
+  let openOrders = await repo.getByOrderStatus(ORDER_STATUS.OPEN, DYNAMO_BATCH_WRITE_MAX)
   for (;;) {
     // get orderHashes with deadlines more than 1 hour ago and are still 'open'
     const staleOrders = openOrders.orders.flatMap((order) => {
@@ -51,7 +49,7 @@ export async function deleteStaleOrders(
       }
     }
     if (openOrders.cursor) {
-      openOrders = await repo.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_WRITE_MAX, openOrders.cursor)
+      openOrders = await repo.getByOrderStatus(ORDER_STATUS.OPEN, DYNAMO_BATCH_WRITE_MAX, openOrders.cursor)
     } else {
       break
     }
