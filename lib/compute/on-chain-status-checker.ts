@@ -36,21 +36,27 @@ export class OnChainStatusChecker {
       try {
         let openOrders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX)
         do {
-          const openOrdersPerChain: any = this.mapOpenOrdersToChain(openOrders.orders)
+          const openOrdersPerChain = this.mapOpenOrdersToChain(openOrders.orders)
           const promises: Promise<SfnStateInputOutput[]>[] = []
+          const batchSize: number[] = []
+
           Object.keys(openOrdersPerChain).forEach((chain) => {
-            let orders = openOrdersPerChain[chain]
+            const chainId = parseInt(chain)
+            let orders = openOrdersPerChain[chainId]
             if (orders.length === 0) {
               return
             }
             //get all promises and await them
-            promises.push(this.getOrderChangesBatch(orders, parseInt(chain)))
+            promises.push(this.getOrderChangesBatch(orders, chainId))
+            batchSize.push(orders.length)
           })
-          await Promise.allSettled(promises)
-          promises.forEach((chainPromise) => {
-            let chainBatch = Promise.allSettled(chainPromise)
-            processedOrderError += chainBatch.filter((p) => p.status === 'rejected').length //TODO: update with chain paradigm
-          })
+
+          let responses = await Promise.allSettled(promises)
+          for (let i = 0; i < promises.length; i++) {
+            if (responses[i].status === 'rejected') {
+              processedOrderError += batchSize[i]
+            }
+          }
           totalCheckedOrders += openOrders.orders.length
         } while (
           openOrders.cursor &&
@@ -87,7 +93,7 @@ export class OnChainStatusChecker {
   }
 
   public mapOpenOrdersToChain(batch: OrderEntity[]) {
-    let chainToOrdersMap: any = {}
+    let chainToOrdersMap: Record<number, OrderEntity[]> = {}
 
     SUPPORTED_CHAINS.forEach((chainId) => {
       chainToOrdersMap[chainId] = []

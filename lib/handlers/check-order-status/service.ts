@@ -1,4 +1,4 @@
-import { DutchOrder, EventWatcher, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
@@ -67,7 +67,14 @@ export class CheckOrderStatusService {
     log.info('parsed order', { order: parsedOrder, signature: order.signature })
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
+<<<<<<< HEAD
     const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
+=======
+    const fromBlock = !startingBlockNumber
+      ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
+      : startingBlockNumber
+    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
+>>>>>>> 339b6c6 (wip:janky batching)
 
     const commonUpdateInfo = {
       orderHash,
@@ -82,9 +89,6 @@ export class CheckOrderStatusService {
 
     const extraUpdateInfo = await this.getStatusFromValidation({
       validation,
-      orderWatcher,
-      fromBlock,
-      curBlockNumber,
       parsedOrder,
       quoteId,
       chainId,
@@ -93,6 +97,7 @@ export class CheckOrderStatusService {
       orderHash,
       provider,
       getFillLogAttempts,
+      fillEvents,
     })
 
     const updateObject = {
@@ -118,6 +123,10 @@ export class CheckOrderStatusService {
     const validationResults = await validator.validateBatch(validationsRequestList)
 
     let updateList = []
+    const curBlockNumber = await provider.getBlockNumber()
+    const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
+    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
+
     for (let i = 0; i < batch.length; i++) {
       let { chainId, quoteId, orderHash, orderStatus } = batch[i]
       quoteId = quoteId || ''
@@ -125,10 +134,8 @@ export class CheckOrderStatusService {
       const validation = validationResults[i]
 
       const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-      log.info('parsed order', { order: parsedOrder, signature: order.signature })
+      // log.info('parsed order', { order: parsedOrder, signature: order.signature })
       // const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
-      const curBlockNumber = await provider.getBlockNumber()
-      const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
 
       const retryCount = 0
 
@@ -145,9 +152,6 @@ export class CheckOrderStatusService {
 
       const extraUpdateInfo = await this.getStatusFromValidation({
         validation,
-        orderWatcher,
-        fromBlock,
-        curBlockNumber,
         parsedOrder,
         quoteId,
         chainId,
@@ -156,6 +160,7 @@ export class CheckOrderStatusService {
         orderHash,
         provider,
         getFillLogAttempts: 0,
+        fillEvents,
       })
 
       const updateObject = {
@@ -166,7 +171,9 @@ export class CheckOrderStatusService {
     }
 
     updateList.forEach(async (u) => {
-      await this.updateStatusAndReturn(u)
+      if (u.orderStatus !== u.lastStatus) {
+        await this.updateStatusAndReturn(u)
+      }
     })
 
     return updateList
@@ -174,9 +181,6 @@ export class CheckOrderStatusService {
 
   private async getStatusFromValidation({
     validation,
-    orderWatcher,
-    fromBlock,
-    curBlockNumber,
     parsedOrder,
     quoteId,
     chainId,
@@ -185,11 +189,9 @@ export class CheckOrderStatusService {
     orderHash,
     provider,
     getFillLogAttempts,
+    fillEvents,
   }: {
     validation: OrderValidation
-    orderWatcher: EventWatcher
-    fromBlock: number
-    curBlockNumber: number
     parsedOrder: DutchOrder
     quoteId: string
     chainId: number
@@ -198,8 +200,10 @@ export class CheckOrderStatusService {
     orderHash: string
     provider: ethers.providers.JsonRpcProvider
     getFillLogAttempts: number
+    fillEvents: FillInfo[]
   }): Promise<ExtraUpdateInfo> {
     let extraUpdateInfo: ExtraUpdateInfo
+    const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
 
     switch (validation) {
       case OrderValidation.Expired: {
@@ -250,9 +254,6 @@ export class CheckOrderStatusService {
         extraUpdateInfo = { orderStatus: ORDER_STATUS.ERROR }
         break
       case OrderValidation.NonceUsed: {
-        const fillEvent = (await orderWatcher.getFillInfo(fromBlock, curBlockNumber)).find(
-          (e) => e.orderHash === orderHash
-        )
         if (fillEvent) {
           const [tx, block] = await Promise.all([
             provider.getTransaction(fillEvent.txHash),
