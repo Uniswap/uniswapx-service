@@ -8,8 +8,8 @@ import { log } from '../Logging'
 import { OnChainStatusCheckerMetricNames, powertoolsMetric as metrics } from '../Metrics'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 
-const RECHECK_DELAY = 30000 //30 seconds
-const LOOP_DELAY_MS = 30000 //30 seconds
+const RECHECK_DELAY = 30 * 1000 //30 seconds
+const LOOP_DELAY_MS = 30 * 1000 //30 seconds
 
 // arbitrary and capricious value
 // if increasing check memory utilization
