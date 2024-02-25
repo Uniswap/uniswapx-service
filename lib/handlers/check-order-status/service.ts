@@ -2,14 +2,13 @@ import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
-import { log } from '../../Logging'
 import { powertoolsMetric as betterMetrics } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
-import { FillEventProcessor } from './fill-event-processor'
+import { FillEventLogger } from './fill-event-logger'
 import {
   AVERAGE_BLOCK_TIME,
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
@@ -41,12 +40,12 @@ type ExtraUpdateInfo = {
 }
 
 export class CheckOrderStatusService {
-  private readonly fillEventProcessor
+  private readonly fillEventLogger
   constructor(
     private dbInterface: BaseOrdersRepository,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON
   ) {
-    this.fillEventProcessor = new FillEventProcessor(fillEventBlockLookback)
+    this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
   }
 
   public async handleRequest({
@@ -66,7 +65,6 @@ export class CheckOrderStatusService {
       'cannot find order by hash when updating order status'
     )
     const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-    log.info('parsed order', { order: parsedOrder, signature: order.signature })
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
     const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
@@ -80,7 +78,6 @@ export class CheckOrderStatusService {
       lastStatus: orderStatus,
       validation,
     }
-    log.info('validated order', { validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash })
 
     const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
 
@@ -143,11 +140,7 @@ export class CheckOrderStatusService {
       quoteId = quoteId || ''
       const order = batch[i]
       const validation = validationResults[i]
-
       const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-      // log.info('parsed order', { order: parsedOrder, signature: order.signature })
-      // const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
-
       const retryCount = 0
 
       const commonUpdateInfo = {
@@ -159,7 +152,6 @@ export class CheckOrderStatusService {
         lastStatus: orderStatus,
         validation,
       }
-      log.info('validated order', { validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash })
 
       const extraUpdateInfo = await this.getStatusFromValidation({
         validation,
@@ -225,7 +217,7 @@ export class CheckOrderStatusService {
           ])
           const settledAmounts = getSettledAmounts(fillEvent, block.timestamp, parsedOrder)
 
-          await this.fillEventProcessor.processFillEvent({
+          await this.fillEventLogger.processFillEvent({
             fillEvent,
             quoteId,
             chainId,
@@ -243,11 +235,6 @@ export class CheckOrderStatusService {
           }
           break
         } else {
-          log.info('failed to get fill log in nonce used case, retrying one more time', {
-            orderInfo: {
-              orderHash: orderHash,
-            },
-          })
           extraUpdateInfo = {
             orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
             getFillLogAttempts: getFillLogAttempts + 1,
@@ -273,7 +260,7 @@ export class CheckOrderStatusService {
           ])
           const settledAmounts = getSettledAmounts(fillEvent, block.timestamp, parsedOrder)
 
-          await this.fillEventProcessor.processFillEvent({
+          await this.fillEventLogger.processFillEvent({
             fillEvent,
             quoteId,
             chainId,
@@ -291,11 +278,6 @@ export class CheckOrderStatusService {
           }
           break
         } else {
-          log.info('failed to get fill log in nonce used case, retrying one more time', {
-            orderInfo: {
-              orderHash: orderHash,
-            },
-          })
           extraUpdateInfo = {
             orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
             getFillLogAttempts: getFillLogAttempts + 1,
@@ -336,44 +318,15 @@ export class CheckOrderStatusService {
       txHash,
       settledAmounts,
       getFillLogAttempts,
-      validation,
     } = params
 
     // Avoid updating the order if the status is unchanged.
     // This also avoids unnecessarily triggering downstream events from dynamodb changes.
     if (orderStatus !== lastStatus) {
-      log.info('updating order status', {
-        orderHash,
-        quoteId,
-        retryCount,
-        startingBlockNumber,
-        chainId,
-        lastStatus,
-        orderStatus,
-        txHash,
-        settledAmounts,
-        getFillLogAttempts,
-      })
       await this.dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
-        log.info('order in terminal state', {
-          terminalOrderInfo: {
-            orderStatus,
-            orderHash,
-            quoteId: quoteId,
-            getFillLogAttempts,
-            startingBlockNumber,
-            chainId: chainId,
-            settledAmounts: settledAmounts
-              ?.map((s) => JSON.stringify(s))
-              .join(',')
-              .toString(),
-            retryCount,
-            validation,
-          },
-        })
       }
     }
 

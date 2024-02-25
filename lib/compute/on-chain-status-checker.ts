@@ -40,32 +40,21 @@ export class OnChainStatusChecker {
       let totalCheckedOrders = 0
       let processedOrderError = 0
       const startTime = new Date().getTime()
+      let asyncLoopCalls = []
       try {
         let openOrders = await this.getFromDynamo()
         do {
-          const openOrdersPerChain = this.mapOpenOrdersToChain(openOrders.orders)
-          const promises: Promise<SfnStateInputOutput[]>[] = []
-          const batchSize: number[] = []
-
-          Object.keys(openOrdersPerChain).forEach((chain) => {
-            const chainId = parseInt(chain)
-            let orders = openOrdersPerChain[chainId]
-            if (orders.length === 0) {
-              return
-            }
-            //get all promises and await them
-            promises.push(this.getOrderChangesBatch(orders, chainId))
-            batchSize.push(orders.length)
-          })
-
-          let responses = await Promise.allSettled(promises)
-          for (let i = 0; i < promises.length; i++) {
-            if (responses[i].status === 'rejected') {
-              processedOrderError += batchSize[i]
-            }
-          }
-          totalCheckedOrders += openOrders.orders.length
+          asyncLoopCalls.push(this.loopProcess(openOrders))
         } while (openOrders.cursor && (openOrders = await this.getFromDynamo(openOrders.cursor)))
+
+        await Promise.allSettled(asyncLoopCalls)
+
+        for (let i = 0; i < asyncLoopCalls.length; i++) {
+          let { processedCount, errorCount } = await asyncLoopCalls[i]
+          processedOrderError += errorCount
+          totalCheckedOrders += processedCount
+        }
+
         log.info(`finished processing orders`, { totalCheckedOrders })
       } catch (e) {
         log.error('OnChainStatusChecker Error', { error: e })
@@ -96,6 +85,39 @@ export class OnChainStatusChecker {
     metrics.addMetric(OnChainStatusCheckerMetricNames.LoopEnded, MetricUnits.Count, 1)
   }
 
+  public async loopProcess(openOrders: QueryResult) {
+    let errorCount = 0
+    let processedCount = openOrders.orders.length
+    const { promises, batchSize } = this.processOrderBatch(openOrders)
+    //await all promises
+    let responses = await Promise.allSettled(promises)
+    for (let i = 0; i < promises.length; i++) {
+      if (responses[i].status === 'rejected') {
+        errorCount += batchSize[i]
+      }
+    }
+    return { processedCount, errorCount }
+  }
+
+  public processOrderBatch(openOrders: QueryResult) {
+    const openOrdersPerChain = this.mapOpenOrdersToChain(openOrders.orders)
+    const promises: Promise<SfnStateInputOutput[]>[] = []
+    const batchSize: number[] = []
+
+    Object.keys(openOrdersPerChain).forEach((chain) => {
+      const chainId = parseInt(chain)
+      let orders = openOrdersPerChain[chainId]
+      if (orders.length === 0) {
+        return
+      }
+      //get all promises
+      promises.push(this.getOrderChangesBatch(orders, chainId))
+      batchSize.push(orders.length)
+    })
+    //return promises per chain & batchsize per chain
+    return { promises, batchSize }
+  }
+
   public mapOpenOrdersToChain(batch: OrderEntity[]) {
     let chainToOrdersMap: Record<number, OrderEntity[]> = {}
 
@@ -109,24 +131,6 @@ export class OnChainStatusChecker {
     }
 
     return chainToOrdersMap
-  }
-
-  public async processOrderBatch(openOrders: QueryResult) {
-    const promises = []
-    for (let i = 0; i < openOrders.orders.length; i++) {
-      const order = openOrders.orders[i]
-      promises.push(
-        (async function (statusChecker: OnChainStatusChecker): Promise<void> {
-          try {
-            await statusChecker.updateOrder(order)
-          } catch (e) {
-            log.error('OnChainStatusChecker Error Processing Order', { error: e })
-            throw e
-          }
-        })(this)
-      )
-    }
-    return promises
   }
 
   public async getOrderChangesBatch(orders: OrderEntity[], chainId: number): Promise<SfnStateInputOutput[]> {

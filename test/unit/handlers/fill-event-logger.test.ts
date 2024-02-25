@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { BigNumber } from 'ethers'
-import { FillEventProcessor } from '../../../lib/handlers/check-order-status/fill-event-processor'
+import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
@@ -36,7 +36,7 @@ describe('processFillEvent', () => {
       amountIn: '2',
     }
 
-    let fillEventProcessor = new FillEventProcessor(FILL_EVENT_LOOKBACK_BLOCKS_ON)
+    let fillEventProcessor = new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
 
     const response = await fillEventProcessor.processFillEvent({
       fillEvent: MOCK_FILL_EVENT,

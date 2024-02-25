@@ -67,6 +67,9 @@ export class StatusStack extends cdk.NestedStack {
       taskDefinition,
       desiredCount: 1,
       healthCheckGracePeriod: Duration.seconds(60),
+      circuitBreaker: {
+        rollback: true,
+      },
     })
 
     new Alarm(this, `${SERVICE_NAME}-SEV3-${OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors}`, {

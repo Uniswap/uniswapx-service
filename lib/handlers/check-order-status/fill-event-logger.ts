@@ -16,7 +16,7 @@ export type ProcessFillEventRequest = {
   tx: ethers.providers.TransactionResponse
   timestamp: number
 }
-export class FillEventProcessor {
+export class FillEventLogger {
   constructor(private fillEventBlockLookback: (chainId: ChainId) => number) {}
   public async processFillEvent({
     fillEvent,
