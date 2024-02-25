@@ -147,7 +147,7 @@ describe('OnChainStatusChecker', () => {
               case '0x1':
                 return OrderValidation.InsufficientFunds
               case '0x2':
-                return OrderValidation.Expired
+                return OrderValidation.InsufficientFunds
               default:
                 throw new Error('test validation not mocked')
             }
@@ -181,7 +181,7 @@ describe('OnChainStatusChecker', () => {
 
       expect(order?.orderStatus).toBe(ORDER_STATUS.FILLED)
       expect(order2?.orderStatus).toBe(ORDER_STATUS.INSUFFICIENT_FUNDS)
-      expect(order3?.orderStatus).toBe(ORDER_STATUS.EXPIRED)
+      expect(order3?.orderStatus).toBe(ORDER_STATUS.INSUFFICIENT_FUNDS)
 
       expect(watcherSpy).toHaveBeenCalled()
       expect(providerSpy).toHaveBeenCalled()
@@ -212,7 +212,7 @@ describe('OnChainStatusChecker', () => {
       )
     })
 
-    it('should report errors', async () => {
+    it('should report errors for batches', async () => {
       await deleteAllRepoEntries(ordersRepository)
       getFillInfoMock
         .mockImplementationOnce(() => {
@@ -252,7 +252,7 @@ describe('OnChainStatusChecker', () => {
       expect(mockedMetrics.addMetric).toHaveBeenCalledWith(
         OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors,
         MetricUnits.Count,
-        1
+        2
       )
       expect(mockedMetrics.addMetric).toHaveBeenCalledWith(
         OnChainStatusCheckerMetricNames.TotalProcessedOpenOrders,

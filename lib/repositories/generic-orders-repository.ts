@@ -151,6 +151,7 @@ export class GenericOrdersRepository<
       })
     } catch (e) {
       log.error('updateOrderStatus error', { error: e })
+      throw e
     }
   }
 
