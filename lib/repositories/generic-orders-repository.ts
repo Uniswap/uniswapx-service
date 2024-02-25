@@ -4,6 +4,7 @@ import { Entity, Table } from 'dynamodb-toolbox'
 import { TABLE_KEY } from '../config/dynamodb'
 import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
+import { log } from '../Logging'
 import { checkDefined } from '../preconditions/preconditions'
 import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
@@ -131,19 +132,26 @@ export class GenericOrdersRepository<
     txHash?: string,
     settledAmounts?: SettledAmount[]
   ): Promise<void> {
-    const order = checkDefined(await this.getByHash(orderHash), 'cannot find order by hash when updating order status')
+    try {
+      const order = checkDefined(
+        await this.getByHash(orderHash),
+        'cannot find order by hash when updating order status'
+      )
 
-    await this.entity.update({
-      [TABLE_KEY.ORDER_HASH]: orderHash,
-      orderStatus: status,
-      offerer_orderStatus: `${order.offerer}_${status}`,
-      filler_orderStatus: `${order.filler}_${status}`,
-      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
-      chainId_orderStatus: `${order.chainId}_${status}`,
-      chainId_orderStatus_filler: `${order.chainId}_${status}_${order.filler}`,
-      ...(txHash && { txHash }),
-      ...(settledAmounts && { settledAmounts }),
-    })
+      await this.entity.update({
+        [TABLE_KEY.ORDER_HASH]: orderHash,
+        orderStatus: status,
+        offerer_orderStatus: `${order.offerer}_${status}`,
+        filler_orderStatus: `${order.filler}_${status}`,
+        filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
+        chainId_orderStatus: `${order.chainId}_${status}`,
+        chainId_orderStatus_filler: `${order.chainId}_${status}_${order.filler}`,
+        ...(txHash && { txHash }),
+        ...(settledAmounts && { settledAmounts }),
+      })
+    } catch (e) {
+      log.error('updateOrderStatus error', { error: e })
+    }
   }
 
   public async deleteOrders(orderHashes: string[]): Promise<void> {

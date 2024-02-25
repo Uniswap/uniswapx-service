@@ -2,6 +2,7 @@ import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
+import { log } from '../../Logging'
 import { powertoolsMetric as betterMetrics } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
@@ -323,6 +324,7 @@ export class CheckOrderStatusService {
     // Avoid updating the order if the status is unchanged.
     // This also avoids unnecessarily triggering downstream events from dynamodb changes.
     if (orderStatus !== lastStatus) {
+      log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
       await this.dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
