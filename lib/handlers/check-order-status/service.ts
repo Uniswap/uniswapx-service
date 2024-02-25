@@ -82,6 +82,8 @@ export class CheckOrderStatusService {
     }
     log.info('validated order', { validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash })
 
+    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
+
     const extraUpdateInfo = await this.getStatusFromValidation({
       validation,
       parsedOrder,
@@ -247,7 +249,7 @@ export class CheckOrderStatusService {
             },
           })
           extraUpdateInfo = {
-            orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
+            orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
             getFillLogAttempts: getFillLogAttempts + 1,
           }
           break

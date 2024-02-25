@@ -83,8 +83,8 @@ export class OnChainStatusChecker {
         )
         metrics.addMetric(
           OnChainStatusCheckerMetricNames.TotalLoopProcessingTime,
-          MetricUnits.Seconds,
-          (new Date().getTime() - startTime) / 1000
+          MetricUnits.Milliseconds,
+          new Date().getTime() - startTime
         )
         metrics.addMetric(OnChainStatusCheckerMetricNames.LoopCompleted, MetricUnits.Count, 1)
         metrics.publishStoredMetrics()
