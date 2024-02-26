@@ -1,8 +1,10 @@
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
+import { FillInfo } from '@uniswap/uniswapx-sdk'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 import { SfnStateInputOutput } from '../handlers/base'
 import { CheckOrderStatusRequest, CheckOrderStatusService } from '../handlers/check-order-status/service'
 import {
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
   getProvider,
   getValidator,
   getWatcher,
@@ -11,7 +13,7 @@ import {
 import { log } from '../Logging'
 import { OnChainStatusCheckerMetricNames, powertoolsMetric as metrics } from '../Metrics'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
-import { SUPPORTED_CHAINS } from '../util/chain'
+import { ChainId } from '../util/chain'
 import { LIMIT_BATCH_READ_MAX } from '../util/constants'
 
 const RECHECK_DELAY = 30 * 1000 //30 seconds
@@ -19,6 +21,7 @@ const LOOP_DELAY_MS = 30 * 1000 //30 seconds
 
 export class OnChainStatusChecker {
   private checkOrderStatusService: CheckOrderStatusService
+  private readonly chainId = ChainId.MAINNET
   constructor(private dbInterface: BaseOrdersRepository, private _stop = false) {
     this.checkOrderStatusService = new CheckOrderStatusService(dbInterface, LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON)
   }
@@ -46,10 +49,13 @@ export class OnChainStatusChecker {
         const startTime = new Date().getTime()
         const asyncLoopCalls = []
         try {
+          // TODO: fix for other chains}
+          const { fromBlock, fillEvents } = await getFromBlockAndFillEvents(this.chainId)
+
           log.info('starting processing orders')
           let openOrders = await this.getFromDynamo()
           do {
-            asyncLoopCalls.push(this.loopProcess(openOrders))
+            asyncLoopCalls.push(this.loopProcess(openOrders, fromBlock, fillEvents))
           } while (openOrders.cursor && (openOrders = await this.getFromDynamo(openOrders.cursor)))
 
           for (let i = 0; i < asyncLoopCalls.length; i++) {
@@ -93,11 +99,11 @@ export class OnChainStatusChecker {
     }
   }
 
-  public async loopProcess(openOrders: QueryResult) {
+  public async loopProcess(openOrders: QueryResult, fromBlock: number, fillEvents: FillInfo[]) {
     let errorCount = 0
     const processedCount = openOrders.orders.length
     try {
-      const { promises, batchSize } = this.processOrderBatch(openOrders)
+      const { promises, batchSize } = this.processOrderBatch(openOrders, fromBlock, fillEvents)
       //await all promises
       const responses = await Promise.allSettled(promises)
       for (let i = 0; i < promises.length; i++) {
@@ -142,42 +148,30 @@ export class OnChainStatusChecker {
     }
   }
 
-  public processOrderBatch(openOrders: QueryResult) {
-    const openOrdersPerChain = this.mapOpenOrdersToChain(openOrders.orders)
+  public processOrderBatch(openOrders: QueryResult, fromBlock: number, fillEvents: FillInfo[]) {
+    const orders = openOrders.orders
     const promises: Promise<SfnStateInputOutput[]>[] = []
     const batchSize: number[] = []
 
-    Object.keys(openOrdersPerChain).forEach((chain) => {
-      const chainId = parseInt(chain)
-      const orders = openOrdersPerChain[chainId]
-      if (orders.length === 0) {
-        return
-      }
-      //get all promises
-      promises.push(this.getOrderChangesBatch(orders, chainId))
-      batchSize.push(orders.length)
-    })
+    if (orders.length === 0) {
+      return { promises, batchSize }
+    }
+
+    //get all promises
+    promises.push(this.getOrderChangesBatch(orders, this.chainId, fromBlock, fillEvents))
+    batchSize.push(orders.length)
+
     //return promises per chain & batchsize per chain
     return { promises, batchSize }
   }
 
-  public mapOpenOrdersToChain(batch: OrderEntity[]) {
-    const chainToOrdersMap: Record<number, OrderEntity[]> = {}
-
-    SUPPORTED_CHAINS.forEach((chainId) => {
-      chainToOrdersMap[chainId] = []
-    })
-
-    for (let i = 0; i < batch.length; i++) {
-      const { chainId } = batch[i]
-      chainToOrdersMap[chainId].push(batch[i])
-    }
-
-    return chainToOrdersMap
-  }
-
-  public async getOrderChangesBatch(orders: OrderEntity[], chainId: number): Promise<SfnStateInputOutput[]> {
-    return this.checkOrderStatusService.batchHandleRequestPerChain(orders, chainId)
+  public async getOrderChangesBatch(
+    orders: OrderEntity[],
+    chainId: number,
+    fromBlock: number,
+    fillEvents: FillInfo[]
+  ): Promise<SfnStateInputOutput[]> {
+    return this.checkOrderStatusService.batchHandleRequestPerChain(orders, chainId, fromBlock, fillEvents)
   }
 
   // TODO: https://linear.app/uniswap/issue/DAT-264/batch-update-order-status
@@ -221,4 +215,21 @@ export class OnChainStatusChecker {
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function getFromBlockAndFillEvents(chainId: number) {
+  const onChainQuerystartTime = new Date().getTime()
+
+  const provider = getProvider(chainId)
+  const curBlockNumber = await provider.getBlockNumber()
+  const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
+  const fillEvents = await getWatcher(provider, chainId).getFillInfo(fromBlock, curBlockNumber)
+
+  const onChainQueryEndTime = new Date().getTime()
+  metrics.addMetric(
+    'OnChainStatusChecker-RandomOnChainQueryTimes',
+    MetricUnits.Milliseconds,
+    onChainQueryEndTime - onChainQuerystartTime
+  )
+  return { fromBlock, fillEvents }
 }

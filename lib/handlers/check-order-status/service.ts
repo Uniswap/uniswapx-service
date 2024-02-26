@@ -16,7 +16,6 @@ import {
   getProvider,
   getSettledAmounts,
   getValidator,
-  getWatcher,
   IS_TERMINAL_STATE,
 } from './util'
 
@@ -103,10 +102,14 @@ export class CheckOrderStatusService {
     return this.updateStatusAndReturn(updateObject)
   }
 
-  public async batchHandleRequestPerChain(batch: OrderEntity[], chainId: ChainId): Promise<SfnStateInputOutput[]> {
+  public async batchHandleRequestPerChain(
+    batch: OrderEntity[],
+    chainId: ChainId,
+    fromBlock: number,
+    fillEvents: FillInfo[]
+  ): Promise<SfnStateInputOutput[]> {
     const provider = getProvider(chainId)
     const validator = getValidator(provider, chainId)
-    const orderWatcher = getWatcher(provider, chainId)
 
     const validationsRequestList: SignedOrder[] = []
     for (let i = 0; i < batch.length; i++) {
@@ -115,9 +118,9 @@ export class CheckOrderStatusService {
       validationsRequestList.push({ order: parsedOrder, signature: order.signature })
     }
 
-    let startTime = new Date().getTime()
+    const startTime = new Date().getTime()
     const validationResults = await validator.validateBatch(validationsRequestList)
-    let endTime = new Date().getTime()
+    const endTime = new Date().getTime()
     betterMetrics.addMetric(
       'OnChainStatusChecker-ValidateBatchQueryTime',
       MetricUnits.Milliseconds,
@@ -125,18 +128,6 @@ export class CheckOrderStatusService {
     )
 
     const updateList = []
-    startTime = new Date().getTime()
-    // TODO:(urgent) add block number and fill info to the top level loop and pass in
-    const curBlockNumber = await provider.getBlockNumber()
-    const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
-    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
-    endTime = new Date().getTime()
-    betterMetrics.addMetric(
-      'OnChainStatusChecker-RandomOnChainQueryTimes',
-      MetricUnits.Milliseconds,
-      endTime - startTime
-    )
-
     for (let i = 0; i < batch.length; i++) {
       const { chainId, orderHash, orderStatus } = batch[i]
       const quoteId = batch[i].quoteId || ''

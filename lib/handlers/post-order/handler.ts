@@ -1,7 +1,7 @@
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
-import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Logger from 'bunyan'
@@ -78,14 +78,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
         detail: `No onchain validator for chain ${chainId}`,
       }
     }
-    const validation = await onchainValidator.validate({ order: decodedOrder, signature: signature })
-    if (validation != OrderValidation.OK) {
-      return {
-        statusCode: 400,
-        errorCode: ErrorCode.InvalidOrder,
-        detail: `Onchain validation failed: ${OrderValidation[validation]}`,
-      }
-    }
+    // const validation = await onchainValidator.validate({ order: decodedOrder, signature: signature })
+    // if (validation != OrderValidation.OK) {
+    //   return {
+    //     statusCode: 400,
+    //     errorCode: ErrorCode.InvalidOrder,
+    //     detail: `Onchain validation failed: ${OrderValidation[validation]}`,
+    //   }
+    // }
 
     const order: OrderEntity = formatOrderEntity(decodedOrder, signature, OrderType.Dutch, ORDER_STATUS.OPEN, quoteId)
     const id = order.orderHash
