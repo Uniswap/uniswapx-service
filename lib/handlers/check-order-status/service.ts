@@ -124,7 +124,7 @@ export class CheckOrderStatusService {
       endTime - startTime
     )
 
-    let updateList = []
+    const updateList = []
     startTime = new Date().getTime()
     const curBlockNumber = await provider.getBlockNumber()
     const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
@@ -137,8 +137,8 @@ export class CheckOrderStatusService {
     )
 
     for (let i = 0; i < batch.length; i++) {
-      let { chainId, quoteId, orderHash, orderStatus } = batch[i]
-      quoteId = quoteId || ''
+      const { chainId, orderHash, orderStatus } = batch[i]
+      const quoteId = batch[i].quoteId || ''
       const order = batch[i]
       const validation = validationResults[i]
       const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
@@ -174,12 +174,14 @@ export class CheckOrderStatusService {
       updateList.push(updateObject)
     }
 
+    const updatePromises: Promise<SfnStateInputOutput>[] = []
     updateList.forEach(async (u) => {
       if (u.orderStatus !== u.lastStatus) {
-        await this.updateStatusAndReturn(u)
+        updatePromises.push(this.updateStatusAndReturn(u))
       }
     })
 
+    await Promise.all(updatePromises)
     return updateList
   }
 

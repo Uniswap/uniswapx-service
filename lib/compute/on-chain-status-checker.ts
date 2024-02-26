@@ -29,9 +29,9 @@ export class OnChainStatusChecker {
   }
   public async getFromDynamo(cursor?: any) {
     try {
-      let startTime = new Date().getTime()
-      let orders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX, cursor)
-      let endTime = new Date().getTime()
+      const startTime = new Date().getTime()
+      const orders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX, cursor)
+      const endTime = new Date().getTime()
       metrics.addMetric('OnChainStatusChecker-DynamoBatchReadTime', MetricUnits.Milliseconds, endTime - startTime)
       return orders
     } catch (e) {
@@ -46,7 +46,7 @@ export class OnChainStatusChecker {
         let totalCheckedOrders = 0
         let processedOrderError = 0
         const startTime = new Date().getTime()
-        let asyncLoopCalls = []
+        const asyncLoopCalls = []
         try {
           log.info('starting processing orders')
           let openOrders = await this.getFromDynamo()
@@ -54,10 +54,8 @@ export class OnChainStatusChecker {
             asyncLoopCalls.push(this.loopProcess(openOrders))
           } while (openOrders.cursor && (openOrders = await this.getFromDynamo(openOrders.cursor)))
 
-          await Promise.allSettled(asyncLoopCalls)
-
           for (let i = 0; i < asyncLoopCalls.length; i++) {
-            let { processedCount, errorCount } = await asyncLoopCalls[i]
+            const { processedCount, errorCount } = await asyncLoopCalls[i]
             processedOrderError += errorCount
             totalCheckedOrders += processedCount
           }
@@ -89,7 +87,7 @@ export class OnChainStatusChecker {
         }
       }
     } catch (e) {
-      log.error('what is happening', { error: e })
+      log.error('OnChainStatusChecker-UnexpectedError-Exiting', { error: e })
     } finally {
       //should never reach this
       metrics.addMetric(OnChainStatusCheckerMetricNames.LoopEnded, MetricUnits.Count, 1)
@@ -98,29 +96,29 @@ export class OnChainStatusChecker {
 
   public async loopProcess(openOrders: QueryResult) {
     let errorCount = 0
-    let processedCount = openOrders.orders.length
+    const processedCount = openOrders.orders.length
     try {
       const { promises, batchSize } = await this.processOrderBatch(openOrders)
       //await all promises
-      let responses = await Promise.allSettled(promises)
+      const responses = await Promise.allSettled(promises)
       for (let i = 0; i < promises.length; i++) {
-        let response = responses[i]
+        const response = responses[i]
         if (response.status === 'rejected') {
           errorCount += batchSize[i]
         }
         if (response.status === 'fulfilled') {
-          let output = response.value
+          const output = response.value
           for (let j = 0; j < output.length; j++) {
-            let singleOutput = output[j]
+            const singleOutput = output[j]
             if (typeof singleOutput.getFillLogAttempts === 'number' && singleOutput.getFillLogAttempts > 0) {
-              let chainId: number = typeof singleOutput.chainId === 'number' ? singleOutput.chainId : 1
-              let orderHash = singleOutput.orderHash
-              let orderStatus: ORDER_STATUS = singleOutput.orderStatus as ORDER_STATUS
+              const chainId: number = typeof singleOutput.chainId === 'number' ? singleOutput.chainId : 1
+              const orderHash = singleOutput.orderHash
+              const orderStatus: ORDER_STATUS = singleOutput.orderStatus as ORDER_STATUS
               if (!orderHash || !(typeof orderHash === 'string')) {
                 continue
               }
               log.info('setting off retry', { orderHash })
-              let provider = getProvider(chainId)
+              const provider = getProvider(chainId)
               this.retryUpdate({
                 chainId: chainId,
                 orderHash: orderHash,
@@ -151,7 +149,7 @@ export class OnChainStatusChecker {
 
     Object.keys(openOrdersPerChain).forEach((chain) => {
       const chainId = parseInt(chain)
-      let orders = openOrdersPerChain[chainId]
+      const orders = openOrdersPerChain[chainId]
       if (orders.length === 0) {
         return
       }
@@ -164,7 +162,7 @@ export class OnChainStatusChecker {
   }
 
   public mapOpenOrdersToChain(batch: OrderEntity[]) {
-    let chainToOrdersMap: Record<number, OrderEntity[]> = {}
+    const chainToOrdersMap: Record<number, OrderEntity[]> = {}
 
     SUPPORTED_CHAINS.forEach((chainId) => {
       chainToOrdersMap[chainId] = []
@@ -179,7 +177,7 @@ export class OnChainStatusChecker {
   }
 
   public async getOrderChangesBatch(orders: OrderEntity[], chainId: number): Promise<SfnStateInputOutput[]> {
-    return await this.checkOrderStatusService.batchHandleRequestPerChain(orders, chainId)
+    return this.checkOrderStatusService.batchHandleRequestPerChain(orders, chainId)
   }
 
   // TODO: https://linear.app/uniswap/issue/DAT-264/batch-update-order-status
