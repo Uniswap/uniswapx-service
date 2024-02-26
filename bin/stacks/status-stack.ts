@@ -36,8 +36,8 @@ export class StatusStack extends cdk.NestedStack {
 
     const taskDefinition = new aws_ecs.FargateTaskDefinition(this, `TaskDef`, {
       taskRole: loaderStackRole,
-      memoryLimitMiB: 2048,
-      cpu: 1024,
+      memoryLimitMiB: 30720,
+      cpu: 4096,
       runtimePlatform: {
         operatingSystemFamily: aws_ecs.OperatingSystemFamily.LINUX,
         cpuArchitecture: aws_ecs.CpuArchitecture.X86_64,
