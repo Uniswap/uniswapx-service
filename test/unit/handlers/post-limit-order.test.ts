@@ -7,6 +7,12 @@ import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/in
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { ORDER_INFO } from '../fixtures'
 
+jest.mock('../../../lib/handlers/shared/sfn', () => {
+  return {
+    kickoffOrderTrackingSfn: jest.fn(),
+  }
+})
+
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_5 = 'MOCK_ARN_5'
 
@@ -36,6 +42,7 @@ describe('Testing post limit order handler.', () => {
 
   const encodedOrder = '0x01'
   const postRequestBody = {
+    orderHash: '0x01',
     encodedOrder: encodedOrder,
     signature:
       '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
