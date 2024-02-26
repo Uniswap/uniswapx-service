@@ -21,6 +21,7 @@ type OrderTrackingSfnInput = {
   chainId: number
   orderStatus: ORDER_STATUS
   quoteId: string
+  orderType: OrderType
 }
 
 export class PostOrderHandler extends APIGLambdaHandler<
@@ -145,13 +146,12 @@ export class PostOrderHandler extends APIGLambdaHandler<
       },
     })
 
-    if (orderType === OrderType.Dutch) {
-      await this.kickoffOrderTrackingSfn(
-        { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '' },
-        stateMachineArn,
-        log
-      )
-    }
+    await this.kickoffOrderTrackingSfn(
+      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '', orderType },
+      stateMachineArn,
+      log
+    )
+
     return {
       statusCode: 201,
       body: { hash: id },

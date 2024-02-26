@@ -9,7 +9,6 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
 import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
-
 export interface RequestInjected extends BaseRInj {
   chainId: number
   quoteId: string
@@ -21,6 +20,7 @@ export interface RequestInjected extends BaseRInj {
   provider: ethers.providers.StaticJsonRpcProvider
   orderWatcher: EventWatcher
   orderQuoter: OrderValidator
+  orderType: OrderType
 }
 
 export interface ContainerInjected {
@@ -70,6 +70,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       provider: provider,
       orderWatcher: watcher,
       orderQuoter: quoter,
+      orderType: event.orderType as OrderType,
     }
   }
 }
