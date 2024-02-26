@@ -1,10 +1,8 @@
-import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
-import Logger from 'bunyan'
 import Joi from 'joi'
 
 import { OrderEntity, ORDER_STATUS } from '../../entities'
@@ -13,16 +11,9 @@ import { metrics } from '../../util/metrics'
 import { formatOrderEntity } from '../../util/order'
 import { currentTimestampInSeconds } from '../../util/time'
 import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
+import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
-
-type OrderTrackingSfnInput = {
-  orderHash: string
-  chainId: number
-  orderStatus: ORDER_STATUS
-  quoteId: string
-  orderType: OrderType
-}
 
 export class PostOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
@@ -146,28 +137,22 @@ export class PostOrderHandler extends APIGLambdaHandler<
       },
     })
 
-    await this.kickoffOrderTrackingSfn(
-      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '', orderType },
-      stateMachineArn,
-      log
+    await kickoffOrderTrackingSfn(
+      {
+        orderHash: id,
+        chainId: chainId,
+        orderStatus: ORDER_STATUS.OPEN,
+        quoteId: quoteId ?? '',
+        orderType,
+        stateMachineArn,
+      },
+      stateMachineArn
     )
 
     return {
       statusCode: 201,
       body: { hash: id },
     }
-  }
-
-  private async kickoffOrderTrackingSfn(sfnInput: OrderTrackingSfnInput, stateMachineArn: string, log?: Logger) {
-    const region = checkDefined(process.env['REGION'])
-    const sfnClient = new SFNClient({ region: region })
-    const startExecutionCommand = new StartExecutionCommand({
-      stateMachineArn: stateMachineArn,
-      input: JSON.stringify(sfnInput),
-      name: sfnInput.orderHash,
-    })
-    log?.info(startExecutionCommand, 'Starting state machine execution')
-    await sfnClient.send(startExecutionCommand)
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {

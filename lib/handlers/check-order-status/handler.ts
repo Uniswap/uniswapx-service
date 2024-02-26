@@ -4,6 +4,7 @@ import Joi from 'joi'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { SfnInjector, SfnLambdaHandler, SfnStateInputOutput } from '../base'
+import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected, RequestInjected } from './injector'
 import { CheckOrderStatusInputJoi } from './schema'
 import { CheckOrderStatusService } from './service'
@@ -35,17 +36,34 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     containerInjected: ContainerInjected
     requestInjected: RequestInjected
   }): Promise<SfnStateInputOutput> {
+    //make sure to change "Variable": "$.retryCount", in order-tracking-sfn.json to be 1+retryCunt
+    if (input.requestInjected.retryCount > 100) {
+      const stateMachineArn = input.requestInjected.stateMachineArn
+      await kickoffOrderTrackingSfn(
+        {
+          orderHash: input.requestInjected.orderHash,
+          chainId: input.requestInjected.chainId,
+          orderStatus: input.requestInjected.orderStatus,
+          quoteId: input.requestInjected.quoteId,
+          orderType: input.requestInjected.orderType,
+          stateMachineArn: input.requestInjected.stateMachineArn,
+        },
+        stateMachineArn
+      )
+    }
     if (input.requestInjected.orderType === OrderType.Dutch) {
       return {
         ...(await this.getCheckOrderStatusService(input.containerInjected.dbInterface).handleRequest(
           input.requestInjected
         )),
         orderType: input.requestInjected.orderType,
+        stateMachineArn: input.requestInjected.stateMachineArn,
       }
     } else {
       return {
         ...(await this.getCheckLimitOrderStatusService().handleRequest(input.requestInjected)),
         orderType: input.requestInjected.orderType,
+        stateMachineArn: input.requestInjected.stateMachineArn,
       }
     }
   }

@@ -21,6 +21,7 @@ export interface RequestInjected extends BaseRInj {
   orderWatcher: EventWatcher
   orderQuoter: OrderValidator
   orderType: OrderType
+  stateMachineArn: string
 }
 
 export interface ContainerInjected {
@@ -71,6 +72,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       orderWatcher: watcher,
       orderQuoter: quoter,
       orderType: event.orderType as OrderType,
+      stateMachineArn: event.stateMachineArn as string,
     }
   }
 }
