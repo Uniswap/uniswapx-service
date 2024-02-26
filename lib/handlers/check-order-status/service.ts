@@ -11,6 +11,7 @@ import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
 import {
+  AVERAGE_BLOCK_TIME,
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
   getProvider,
   getSettledAmounts,

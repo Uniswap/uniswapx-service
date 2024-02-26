@@ -156,6 +156,7 @@ export class APIPipeline extends Stack {
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
+        REGION: 'us-east-2',
       },
       tableCapacityConfig: {
         order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
@@ -180,6 +181,7 @@ export class APIPipeline extends Stack {
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
+        REGION: 'us-east-2',
       },
       tableCapacityConfig: PROD_TABLE_CAPACITY,
     })
@@ -286,7 +288,6 @@ envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
 envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
 envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
-envVars['REGION'] = process.env['REGION'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
