@@ -105,6 +105,7 @@ describe('OnChainStatusChecker', () => {
       await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_ENTITY)
       statusChecker.pollForOpenOrders()
 
+      //TODO: fix this so no timeout needed
       await (async () => {
         return new Promise((resolve) => setTimeout(resolve, DELAY))
       })()
@@ -205,7 +206,7 @@ describe('OnChainStatusChecker', () => {
 
       statusChecker?.stop()
 
-      expect(checkStatusSpy).toHaveBeenCalledTimes(2)
+      expect(checkStatusSpy).toHaveBeenCalledTimes(3)
       expect(checkStatusSpy).toHaveBeenCalledWith(
         expect.arrayContaining([expect.objectContaining({ orderHash: `0x${BATCH_READ_MAX}` })]),
         1

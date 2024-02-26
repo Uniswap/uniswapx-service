@@ -461,14 +461,9 @@ describe('checkOrderStatusService', () => {
         let result = await checkOrderStatusService.batchHandleRequestPerChain([MOCK_ORDER_ENTITY], 1)
         expect(result[0]).toEqual(
           expect.objectContaining({
-            // orderStatus: 'expired',
             getFillLogAttempts: 1,
           })
         )
-        // expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        // expect(watcherMock.getFillInfo).toHaveBeenCalled()
-        // expect(providerMock.getTransaction).not.toHaveBeenCalled()
-        // expect(validatorMock.validateBatch).toHaveBeenCalled()
       })
     })
   })

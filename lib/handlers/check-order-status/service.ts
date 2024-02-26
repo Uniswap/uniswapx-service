@@ -126,6 +126,7 @@ export class CheckOrderStatusService {
 
     const updateList = []
     startTime = new Date().getTime()
+    // TODO:(urgent) add block number and fill info to the top level loop and pass in
     const curBlockNumber = await provider.getBlockNumber()
     const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
     const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
@@ -154,6 +155,7 @@ export class CheckOrderStatusService {
         validation,
       }
 
+      //TODO:(urgent) all at once
       const extraUpdateInfo = await this.getStatusFromValidation({
         validation,
         parsedOrder,
@@ -321,6 +323,7 @@ export class CheckOrderStatusService {
       txHash,
       settledAmounts,
       getFillLogAttempts,
+      validation,
     } = params
 
     // Avoid updating the order if the status is unchanged.
@@ -331,6 +334,22 @@ export class CheckOrderStatusService {
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
+        log.info('order in terminal state', {
+          terminalOrderInfo: {
+            orderStatus,
+            orderHash,
+            quoteId: quoteId,
+            getFillLogAttempts,
+            startingBlockNumber,
+            chainId: chainId,
+            settledAmounts: settledAmounts
+              ?.map((s) => JSON.stringify(s))
+              .join(',')
+              .toString(),
+            retryCount,
+            validation,
+          },
+        })
       }
     }
 

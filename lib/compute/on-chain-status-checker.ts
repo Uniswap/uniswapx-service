@@ -18,6 +18,7 @@ const LOOP_DELAY_MS = 30 * 1000 //30 seconds
 
 // arbitrary and capricious value
 // if increasing check memory utilization
+// TODO:(urgent) up to 1k
 export const BATCH_READ_MAX = 100
 export class OnChainStatusChecker {
   private checkOrderStatusService: CheckOrderStatusService
@@ -83,6 +84,7 @@ export class OnChainStatusChecker {
           metrics.addMetric(OnChainStatusCheckerMetricNames.LoopCompleted, MetricUnits.Count, 1)
           metrics.publishStoredMetrics()
           metrics.clearMetrics()
+          // TODO:(urgent) factor in total loop time
           await delay(LOOP_DELAY_MS)
         }
       }
@@ -98,7 +100,7 @@ export class OnChainStatusChecker {
     let errorCount = 0
     const processedCount = openOrders.orders.length
     try {
-      const { promises, batchSize } = await this.processOrderBatch(openOrders)
+      const { promises, batchSize } = this.processOrderBatch(openOrders)
       //await all promises
       const responses = await Promise.allSettled(promises)
       for (let i = 0; i < promises.length; i++) {
@@ -119,10 +121,11 @@ export class OnChainStatusChecker {
               }
               log.info('setting off retry', { orderHash })
               const provider = getProvider(chainId)
+              // TODO:(urgent) maintain this in a cache and let following loop catch it
               this.retryUpdate({
                 chainId: chainId,
                 orderHash: orderHash,
-                startingBlockNumber: 0,
+                startingBlockNumber: 0, // if 0, looks back 50 blocks, otherwise looks from given block
                 orderStatus: orderStatus,
                 getFillLogAttempts: 1,
                 retryCount: 1,
@@ -142,7 +145,7 @@ export class OnChainStatusChecker {
     }
   }
 
-  public async processOrderBatch(openOrders: QueryResult) {
+  public processOrderBatch(openOrders: QueryResult) {
     const openOrdersPerChain = this.mapOpenOrdersToChain(openOrders.orders)
     const promises: Promise<SfnStateInputOutput[]>[] = []
     const batchSize: number[] = []
