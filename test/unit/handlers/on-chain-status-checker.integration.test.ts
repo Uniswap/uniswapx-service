@@ -4,12 +4,13 @@ import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { EventWatcher, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
-import { BATCH_READ_MAX, OnChainStatusChecker } from '../../../lib/compute/on-chain-status-checker'
+import { OnChainStatusChecker } from '../../../lib/compute/on-chain-status-checker'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { getProvider, getValidator, getWatcher } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
 import { OnChainStatusCheckerMetricNames, powertoolsMetric } from '../../../lib/Metrics'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
+import { LIMIT_BATCH_READ_MAX } from '../../../lib/util/constants'
 import { deleteAllRepoEntries } from '../utils'
 import { dynamoConfig, MOCK_ORDER_ENTITY, MOCK_ORDER_HASH, MOCK_SIGNATURE } from './test-data'
 
@@ -192,7 +193,7 @@ describe('OnChainStatusChecker', () => {
     it('should page through orders', async () => {
       await deleteAllRepoEntries(ordersRepository)
       let promises = []
-      for (let i = 0; i < BATCH_READ_MAX + 1; i++) {
+      for (let i = 0; i < LIMIT_BATCH_READ_MAX + 1; i++) {
         promises.push(ordersRepository.putOrderAndUpdateNonceTransaction({ ...MOCK_ORDER_ENTITY, orderHash: `0x${i}` }))
       }
       await Promise.all(promises)
@@ -208,7 +209,7 @@ describe('OnChainStatusChecker', () => {
 
       expect(checkStatusSpy).toHaveBeenCalledTimes(3)
       expect(checkStatusSpy).toHaveBeenCalledWith(
-        expect.arrayContaining([expect.objectContaining({ orderHash: `0x${BATCH_READ_MAX}` })]),
+        expect.arrayContaining([expect.objectContaining({ orderHash: `0x${LIMIT_BATCH_READ_MAX}` })]),
         1
       )
     })

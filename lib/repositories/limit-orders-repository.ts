@@ -3,6 +3,7 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
+import { LIMIT_BATCH_READ_MAX } from '../util/constants'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { getTableIndices, TABLE_NAMES } from './util'
@@ -69,6 +70,6 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
       table: nonceTable,
     } as const)
 
-    return new GenericOrdersRepository(limitOrdersTable, limitOrderEntity, nonceEntity, log)
+    return new GenericOrdersRepository(limitOrdersTable, limitOrderEntity, nonceEntity, log, LIMIT_BATCH_READ_MAX)
   }
 }

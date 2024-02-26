@@ -12,7 +12,6 @@ import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, QueryResult } from './base'
 
-export const MAX_ORDERS = 50
 // Shared implementation for Dutch and Limit orders
 // will work for orders with the same GSIs
 export class GenericOrdersRepository<
@@ -25,7 +24,8 @@ export class GenericOrdersRepository<
     private readonly table: Table<TableName, PartitionKey, SortKey>,
     private readonly entity: Entity,
     private readonly nonceEntity: Entity,
-    private readonly log: Logger
+    private readonly log: Logger,
+    private readonly MAX_ORDERS: number = 50
   ) {}
 
   public async getByOfferer(
@@ -331,7 +331,7 @@ export class GenericOrdersRepository<
     const queryResult = await this.entity.query(partitionKey, {
       index: formattedIndex,
       execute: true,
-      limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
+      limit: limit ? Math.min(limit, this.MAX_ORDERS) : this.MAX_ORDERS,
       ...(sortKey &&
         comparison && {
           [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],

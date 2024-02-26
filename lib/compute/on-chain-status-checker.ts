@@ -12,14 +12,11 @@ import { log } from '../Logging'
 import { OnChainStatusCheckerMetricNames, powertoolsMetric as metrics } from '../Metrics'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 import { SUPPORTED_CHAINS } from '../util/chain'
+import { LIMIT_BATCH_READ_MAX } from '../util/constants'
 
 const RECHECK_DELAY = 30 * 1000 //30 seconds
 const LOOP_DELAY_MS = 30 * 1000 //30 seconds
 
-// arbitrary and capricious value
-// if increasing check memory utilization
-// TODO:(urgent) up to 1k
-export const BATCH_READ_MAX = 100
 export class OnChainStatusChecker {
   private checkOrderStatusService: CheckOrderStatusService
   constructor(private dbInterface: BaseOrdersRepository, private _stop = false) {
@@ -28,10 +25,10 @@ export class OnChainStatusChecker {
   public stop() {
     this._stop = true
   }
-  public async getFromDynamo(cursor?: any) {
+  public async getFromDynamo(cursor?: string) {
     try {
       const startTime = new Date().getTime()
-      const orders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, BATCH_READ_MAX, cursor)
+      const orders = await this.dbInterface.getByOrderStatus(ORDER_STATUS.OPEN, LIMIT_BATCH_READ_MAX, cursor)
       const endTime = new Date().getTime()
       metrics.addMetric('OnChainStatusChecker-DynamoBatchReadTime', MetricUnits.Milliseconds, endTime - startTime)
       return orders

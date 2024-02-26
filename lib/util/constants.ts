@@ -8,3 +8,6 @@ export const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
 
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
+
+// arbitrary and capricious value
+export const LIMIT_BATCH_READ_MAX = 1000
