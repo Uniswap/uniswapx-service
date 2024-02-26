@@ -69,6 +69,8 @@ export class OnChainStatusChecker {
           log.error('OnChainStatusChecker Error', { error: e })
           metrics.addMetric(OnChainStatusCheckerMetricNames.LoopError, MetricUnits.Count, 1)
         } finally {
+          const totalProcessingTime = new Date().getTime() - startTime
+
           metrics.addMetric(
             OnChainStatusCheckerMetricNames.TotalProcessedOpenOrders,
             MetricUnits.Count,
@@ -82,13 +84,15 @@ export class OnChainStatusChecker {
           metrics.addMetric(
             OnChainStatusCheckerMetricNames.TotalLoopProcessingTime,
             MetricUnits.Milliseconds,
-            new Date().getTime() - startTime
+            totalProcessingTime
           )
           metrics.addMetric(OnChainStatusCheckerMetricNames.LoopCompleted, MetricUnits.Count, 1)
           metrics.publishStoredMetrics()
           metrics.clearMetrics()
-          // TODO:(urgent) factor in total loop time
-          await delay(LOOP_DELAY_MS)
+
+          //delay for up to 30 seconds
+          const loopDelay = LOOP_DELAY_MS - totalProcessingTime > 0 ? LOOP_DELAY_MS - totalProcessingTime : 0
+          await delay(loopDelay)
         }
       }
     } catch (e) {
