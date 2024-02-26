@@ -1,14 +1,24 @@
-import { DutchOrder, EventWatcher, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
+import { MetricUnits } from '@aws-lambda-powertools/metrics'
+import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { ORDER_STATUS, SettledAmount } from '../../entities'
+import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
+import { powertoolsMetric as betterMetrics } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
-import { FillEventProcessor } from './fill-event-processor'
-import { AVERAGE_BLOCK_TIME, FILL_EVENT_LOOKBACK_BLOCKS_ON, IS_TERMINAL_STATE } from './util'
+import { FillEventLogger } from './fill-event-logger'
+import {
+  AVERAGE_BLOCK_TIME,
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
+  getProvider,
+  getSettledAmounts,
+  getValidator,
+  getWatcher,
+  IS_TERMINAL_STATE,
+} from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -23,13 +33,20 @@ export type CheckOrderStatusRequest = {
   quoteId: string //only used for logging
 }
 
+type ExtraUpdateInfo = {
+  orderStatus: ORDER_STATUS
+  txHash?: string
+  settledAmounts?: SettledAmount[]
+  getFillLogAttempts?: number
+}
+
 export class CheckOrderStatusService {
-  private readonly fillEventProcessor
+  private readonly fillEventLogger
   constructor(
     private dbInterface: BaseOrdersRepository,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON
   ) {
-    this.fillEventProcessor = new FillEventProcessor(fillEventBlockLookback)
+    this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
   }
 
   public async handleRequest({
@@ -49,7 +66,6 @@ export class CheckOrderStatusService {
       'cannot find order by hash when updating order status'
     )
     const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-    log.info('parsed order', { order: parsedOrder, signature: order.signature })
     const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
     const curBlockNumber = await provider.getBlockNumber()
     const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
@@ -64,29 +80,157 @@ export class CheckOrderStatusService {
       validation,
     }
 
-    let extraUpdateInfo: {
-      orderStatus: ORDER_STATUS
-      txHash?: string
-      settledAmounts?: SettledAmount[]
-      getFillLogAttempts?: number
+    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
+
+    const extraUpdateInfo = await this.getStatusFromValidation({
+      validation,
+      parsedOrder,
+      quoteId,
+      chainId,
+      startingBlockNumber,
+      order,
+      orderHash,
+      provider,
+      getFillLogAttempts,
+      fillEvents,
+    })
+
+    const updateObject = {
+      ...commonUpdateInfo,
+      ...extraUpdateInfo,
     }
 
-    log.info('validated order', { validation: validation, curBlock: curBlockNumber, orderHash: order.orderHash })
+    return this.updateStatusAndReturn(updateObject)
+  }
+
+  public async batchHandleRequestPerChain(batch: OrderEntity[], chainId: ChainId): Promise<SfnStateInputOutput[]> {
+    const provider = getProvider(chainId)
+    const validator = getValidator(provider, chainId)
+    const orderWatcher = getWatcher(provider, chainId)
+
+    const validationsRequestList: SignedOrder[] = []
+    for (let i = 0; i < batch.length; i++) {
+      const order = batch[i]
+      const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
+      validationsRequestList.push({ order: parsedOrder, signature: order.signature })
+    }
+
+    let startTime = new Date().getTime()
+    const validationResults = await validator.validateBatch(validationsRequestList)
+    let endTime = new Date().getTime()
+    betterMetrics.addMetric(
+      'OnChainStatusChecker-ValidateBatchQueryTime',
+      MetricUnits.Milliseconds,
+      endTime - startTime
+    )
+
+    const updateList = []
+    startTime = new Date().getTime()
+    // TODO:(urgent) add block number and fill info to the top level loop and pass in
+    const curBlockNumber = await provider.getBlockNumber()
+    const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
+    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
+    endTime = new Date().getTime()
+    betterMetrics.addMetric(
+      'OnChainStatusChecker-RandomOnChainQueryTimes',
+      MetricUnits.Milliseconds,
+      endTime - startTime
+    )
+
+    for (let i = 0; i < batch.length; i++) {
+      const { chainId, orderHash, orderStatus } = batch[i]
+      const quoteId = batch[i].quoteId || ''
+      const order = batch[i]
+      const validation = validationResults[i]
+      const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
+      const retryCount = 0
+
+      const commonUpdateInfo = {
+        orderHash,
+        quoteId,
+        retryCount,
+        startingBlockNumber: fromBlock,
+        chainId,
+        lastStatus: orderStatus,
+        validation,
+      }
+
+      //TODO:(urgent) all at once
+      const extraUpdateInfo = await this.getStatusFromValidation({
+        validation,
+        parsedOrder,
+        quoteId,
+        chainId,
+        startingBlockNumber: fromBlock,
+        order,
+        orderHash,
+        provider,
+        getFillLogAttempts: 0,
+        fillEvents,
+      })
+
+      const updateObject = {
+        ...commonUpdateInfo,
+        ...extraUpdateInfo,
+      }
+      updateList.push(updateObject)
+    }
+
+    const updatePromises: Promise<SfnStateInputOutput>[] = []
+    updateList.forEach(async (u) => {
+      if (u.orderStatus !== u.lastStatus) {
+        updatePromises.push(this.updateStatusAndReturn(u))
+      }
+    })
+
+    await Promise.all(updatePromises)
+    return updateList
+  }
+
+  private async getStatusFromValidation({
+    validation,
+    parsedOrder,
+    quoteId,
+    chainId,
+    startingBlockNumber,
+    order,
+    orderHash,
+    provider,
+    getFillLogAttempts,
+    fillEvents,
+  }: {
+    validation: OrderValidation
+    parsedOrder: DutchOrder
+    quoteId: string
+    chainId: number
+    startingBlockNumber: number
+    order: OrderEntity
+    orderHash: string
+    provider: ethers.providers.JsonRpcProvider
+    getFillLogAttempts: number
+    fillEvents: FillInfo[]
+  }): Promise<ExtraUpdateInfo> {
+    let extraUpdateInfo: ExtraUpdateInfo
+    const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
+
     switch (validation) {
       case OrderValidation.Expired: {
-        // order could still be filled even when OrderQuoter.quote bubbled up 'expired' revert
-        const fillEvent = (await orderWatcher.getFillInfo(fromBlock, curBlockNumber)).find(
-          (e) => e.orderHash === orderHash
-        )
         if (fillEvent) {
-          const settledAmounts = await this.fillEventProcessor.processFillEvent({
-            provider,
+          const [tx, block] = await Promise.all([
+            provider.getTransaction(fillEvent.txHash),
+            provider.getBlock(fillEvent.blockNumber),
+          ])
+          const settledAmounts = getSettledAmounts(fillEvent, block.timestamp, parsedOrder)
+
+          await this.fillEventLogger.processFillEvent({
             fillEvent,
-            parsedOrder,
             quoteId,
             chainId,
             startingBlockNumber,
             order,
+            settledAmounts,
+            tx,
+            timestamp: block.timestamp,
           })
 
           extraUpdateInfo = {
@@ -96,13 +240,6 @@ export class CheckOrderStatusService {
           }
           break
         } else {
-          if (getFillLogAttempts == 0) {
-            log.info('failed to get fill log in expired case, retrying one more time', {
-              orderInfo: {
-                orderHash: orderHash,
-              },
-            })
-          }
           extraUpdateInfo = {
             orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
             getFillLogAttempts: getFillLogAttempts + 1,
@@ -121,18 +258,22 @@ export class CheckOrderStatusService {
         extraUpdateInfo = { orderStatus: ORDER_STATUS.ERROR }
         break
       case OrderValidation.NonceUsed: {
-        const fillEvent = (await orderWatcher.getFillInfo(fromBlock, curBlockNumber)).find(
-          (e) => e.orderHash === orderHash
-        )
         if (fillEvent) {
-          const settledAmounts = await this.fillEventProcessor.processFillEvent({
-            provider,
+          const [tx, block] = await Promise.all([
+            provider.getTransaction(fillEvent.txHash),
+            provider.getBlock(fillEvent.blockNumber),
+          ])
+          const settledAmounts = getSettledAmounts(fillEvent, block.timestamp, parsedOrder)
+
+          await this.fillEventLogger.processFillEvent({
             fillEvent,
-            parsedOrder,
             quoteId,
             chainId,
             startingBlockNumber,
             order,
+            settledAmounts,
+            tx,
+            timestamp: block.timestamp,
           })
 
           extraUpdateInfo = {
@@ -142,11 +283,6 @@ export class CheckOrderStatusService {
           }
           break
         } else {
-          log.info('failed to get fill log in nonce used case, retrying one more time', {
-            orderInfo: {
-              orderHash: orderHash,
-            },
-          })
           extraUpdateInfo = {
             orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
             getFillLogAttempts: getFillLogAttempts + 1,
@@ -160,10 +296,7 @@ export class CheckOrderStatusService {
         }
         break
     }
-    return this.updateStatusAndReturn({
-      ...commonUpdateInfo,
-      ...extraUpdateInfo,
-    })
+    return extraUpdateInfo
   }
 
   private async updateStatusAndReturn(params: {
@@ -196,18 +329,7 @@ export class CheckOrderStatusService {
     // Avoid updating the order if the status is unchanged.
     // This also avoids unnecessarily triggering downstream events from dynamodb changes.
     if (orderStatus !== lastStatus) {
-      log.info('updating order status', {
-        orderHash,
-        quoteId,
-        retryCount,
-        startingBlockNumber,
-        chainId,
-        lastStatus,
-        orderStatus,
-        txHash,
-        settledAmounts,
-        getFillLogAttempts,
-      })
+      log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
       await this.dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)

@@ -7,8 +7,6 @@ import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { getTableIndices, TABLE_NAMES } from './util'
 
-export const MAX_ORDERS = 50
-
 export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null> {
   static create(documentClient: DocumentClient): BaseOrdersRepository {
     const log = Logger.createLogger({

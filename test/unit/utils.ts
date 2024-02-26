@@ -1,4 +1,5 @@
 import { BaseOrdersRepository } from '../../lib/repositories/base'
+import { DYNAMO_BATCH_WRITE_MAX } from '../../lib/util/constants'
 
 export class HeaderExpectation {
   private headers: { [header: string]: string | number | boolean } | undefined
@@ -24,11 +25,11 @@ export class HeaderExpectation {
 }
 
 export async function deleteAllRepoEntries(ordersRepository: BaseOrdersRepository) {
-  let orders = await ordersRepository.getOrders(25, { chainId: 1 })
+  let orders = await ordersRepository.getOrders(DYNAMO_BATCH_WRITE_MAX, { chainId: 1 })
   if (!orders.orders.length) {
     return
   }
   do {
-    ordersRepository.deleteOrders(orders.orders.map((o) => o.orderHash))
-  } while (orders.cursor && (orders = await ordersRepository.getOrders(25, { chainId: 1 })))
+    await ordersRepository.deleteOrders(orders.orders.map((o) => o.orderHash))
+  } while (orders.cursor && (orders = await ordersRepository.getOrders(DYNAMO_BATCH_WRITE_MAX, { chainId: 1 })))
 }

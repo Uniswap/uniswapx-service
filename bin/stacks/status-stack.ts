@@ -36,8 +36,8 @@ export class StatusStack extends cdk.NestedStack {
 
     const taskDefinition = new aws_ecs.FargateTaskDefinition(this, `TaskDef`, {
       taskRole: loaderStackRole,
-      memoryLimitMiB: 2048,
-      cpu: 1024,
+      memoryLimitMiB: 8192,
+      cpu: 4096,
       runtimePlatform: {
         operatingSystemFamily: aws_ecs.OperatingSystemFamily.LINUX,
         cpuArchitecture: aws_ecs.CpuArchitecture.X86_64,
@@ -67,6 +67,9 @@ export class StatusStack extends cdk.NestedStack {
       taskDefinition,
       desiredCount: 1,
       healthCheckGracePeriod: Duration.seconds(60),
+      circuitBreaker: {
+        rollback: true,
+      },
     })
 
     new Alarm(this, `${SERVICE_NAME}-SEV3-${OnChainStatusCheckerMetricNames.TotalOrderProcessingErrors}`, {
@@ -82,7 +85,7 @@ export class StatusStack extends cdk.NestedStack {
       evaluationPeriods: 3,
     })
 
-    let statusCheckerErrorRate = new MathExpression({
+    const statusCheckerErrorRate = new MathExpression({
       expression: '100*(errors/attempts)',
       period: Duration.minutes(3),
       usingMetrics: {
