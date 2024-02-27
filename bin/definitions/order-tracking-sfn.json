@@ -51,10 +51,6 @@
             {
               "Variable": "$.orderStatus",
               "StringEquals": "error"
-            },
-            {
-              "Variable": "$.orderStatus",
-              "StringEquals": "insufficient-funds"
             }
           ],
           "Next": "orderInTerminalState"
