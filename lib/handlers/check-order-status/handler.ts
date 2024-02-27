@@ -8,6 +8,7 @@ import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected, RequestInjected } from './injector'
 import { CheckOrderStatusInputJoi } from './schema'
 import { CheckOrderStatusService } from './service'
+import { LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON } from './util'
 
 export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected, RequestInjected> {
   private _checkOrderStatusService!: CheckOrderStatusService
@@ -23,7 +24,13 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
   private getCheckLimitOrderStatusService() {
     if (!this._checkLimitOrderStatusService) {
       const dbInterface = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
-      this._checkLimitOrderStatusService = new CheckOrderStatusService(dbInterface)
+      this._checkLimitOrderStatusService = new CheckOrderStatusService(
+        dbInterface,
+        LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON,
+        () => {
+          return 30
+        }
+      )
     }
     return this._checkLimitOrderStatusService
   }
