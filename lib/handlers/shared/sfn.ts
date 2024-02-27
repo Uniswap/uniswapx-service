@@ -14,7 +14,8 @@ export type OrderTrackingSfnInput = {
 }
 
 //TODO: remove random for sfn name
-const BIG_NUMBER = 100000000000
+//this is to stop collisions in the running step function name
+const BIG_NUMBER = 1000000000000000000000
 
 export async function kickoffOrderTrackingSfn(sfnInput: OrderTrackingSfnInput, stateMachineArn: string) {
   log.info('starting state machine')

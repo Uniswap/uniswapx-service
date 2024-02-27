@@ -61,7 +61,7 @@
         },
         {
           "Variable": "$.retryCount",
-          "NumericGreaterThan": 101,
+          "NumericGreaterThan": 301,
           "Next": "orderRetried"
         }
       ],

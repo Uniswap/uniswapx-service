@@ -37,7 +37,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     requestInjected: RequestInjected
   }): Promise<SfnStateInputOutput> {
     //make sure to change "Variable": "$.retryCount", in order-tracking-sfn.json to be 1+retryCount
-    if (input.requestInjected?.retryCount > 100) {
+    if (input.requestInjected?.retryCount > 300) {
       const stateMachineArn = input.requestInjected.stateMachineArn
       await kickoffOrderTrackingSfn(
         {
