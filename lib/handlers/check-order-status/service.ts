@@ -40,27 +40,25 @@ type ExtraUpdateInfo = {
   getFillLogAttempts?: number
 }
 
+/*
+ * In the first hour of order submission, we check the order status roughly every block.
+ * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
+ * All subsequent retries are at 6 hour intervals.
+ */
+function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
+  return retryCount <= 300
+    ? AVERAGE_BLOCK_TIME(chainId)
+    : retryCount <= 450
+    ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
+    : 18000
+}
+
 export class CheckOrderStatusService {
   private readonly fillEventLogger
   constructor(
     private dbInterface: BaseOrdersRepository,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
-    /*
-     * In the first hour of order submission, we check the order status roughly every block.
-     * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
-     * All subsequent retries are at 6 hour intervals.
-     */
-
-    private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number = function (
-      chainId: ChainId,
-      retryCount: number
-    ): number {
-      return retryCount <= 300
-        ? AVERAGE_BLOCK_TIME(chainId)
-        : retryCount <= 450
-        ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
-        : 18000
-    }
+    private calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
   ) {
     this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
   }
