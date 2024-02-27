@@ -8,6 +8,7 @@ import { ErrorCode } from '../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_ORDERS } from '../../../lib/handlers/constants'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
+import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { ORDER_INFO } from '../fixtures'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
@@ -61,6 +62,7 @@ describe('Testing post order handler.', () => {
   const encodedOrder = '0x01'
   const postRequestBody = {
     encodedOrder: encodedOrder,
+    orderHash: '0x01',
     signature:
       '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
     chainId: 1,
@@ -298,14 +300,14 @@ describe('Testing post order handler.', () => {
 
     it('should call StepFunctions.startExecution method with the correct params', async () => {
       const sfnInput = { orderHash: '0xhash', chainId: 1, quoteId: 'quoteId', orderStatus: ORDER_STATUS.OPEN }
-      expect(async () => await postOrderHandler['kickoffOrderTrackingSfn'](sfnInput, MOCK_ARN_1)).not.toThrow()
+      expect(async () => await kickoffOrderTrackingSfn(sfnInput, MOCK_ARN_1)).not.toThrow()
       expect(mockSfnClient.calls()).toHaveLength(1)
 
       expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
         new StartExecutionCommand({
           stateMachineArn: MOCK_ARN_1,
           input: JSON.stringify(sfnInput),
-          name: sfnInput.orderHash,
+          name: expect.any(String),
         }).input
       )
     })

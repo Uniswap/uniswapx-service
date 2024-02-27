@@ -5,7 +5,12 @@
       "Next": "latestOrderStatus",
       "Retry": [
         {
-          "ErrorEquals": ["States.TaskFailed", "Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "ErrorEquals": [
+            "States.TaskFailed",
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
           "IntervalSeconds": 2,
           "MaxAttempts": 4,
           "BackoffRate": 2
@@ -13,7 +18,7 @@
       ],
       "Catch": [
         {
-          "ErrorEquals": [ "States.ALL" ],
+          "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.errorInfo",
           "Next": "orderInFailedState"
         }
@@ -46,9 +51,18 @@
             {
               "Variable": "$.orderStatus",
               "StringEquals": "error"
+            },
+            {
+              "Variable": "$.orderStatus",
+              "StringEquals": "insufficient-funds"
             }
           ],
           "Next": "orderInTerminalState"
+        },
+        {
+          "Variable": "$.retryCount",
+          "NumericGreaterThan": 301,
+          "Next": "orderRetried"
         }
       ],
       "Default": "waitStep"
@@ -63,6 +77,9 @@
       "Error": "Order in failed state"
     },
     "orderInTerminalState": {
+      "Type": "Succeed"
+    },
+    "orderRetried": {
       "Type": "Succeed"
     }
   }

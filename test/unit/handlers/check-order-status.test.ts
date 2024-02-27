@@ -219,42 +219,6 @@ describe('Testing check order status handler', () => {
         startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
       })
     })
-
-    it('should do exponential backoff when retry count > 300', async () => {
-      const injectorPromiseMock: any = buildInjectorPromiseMock(301, ORDER_STATUS.OPEN)
-      const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
-      validateMock.mockReturnValue(OrderValidation.OK)
-      const response = await checkOrderStatusHandler.handler(handlerEventMock)
-      expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
-      expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).not.toBeCalled() // there is no update
-      expect(response).toEqual({
-        orderHash: MOCK_ORDER_HASH,
-        orderStatus: 'open',
-        retryCount: 302,
-        retryWaitSeconds: 13,
-        chainId: 1,
-        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
-      })
-    })
-
-    it('should cap exponential backoff when wait interval reaches 18000 seconds', async () => {
-      const injectorPromiseMock: any = buildInjectorPromiseMock(500, ORDER_STATUS.OPEN)
-      const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
-      validateMock.mockReturnValue(OrderValidation.OK)
-      const response = await checkOrderStatusHandler.handler(handlerEventMock)
-      expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
-      expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).not.toBeCalled() // there is no update
-      expect(response).toEqual({
-        orderHash: MOCK_ORDER_HASH,
-        orderStatus: 'open',
-        retryCount: 501,
-        retryWaitSeconds: 18000,
-        chainId: 1,
-        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
-      })
-    })
   })
 
   describe('Test getSettledAmounts', () => {
