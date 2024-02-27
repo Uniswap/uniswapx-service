@@ -210,4 +210,33 @@ describe('Testing get orders handler.', () => {
       }
     )
   })
+
+  describe('quoteId', () => {
+    it(`Returns 200 with quoteId`, async () => {
+      getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: '4385e89a-0553-46fa-9b7e-464c1fa7822f' }] })
+      const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
+      expect(getOrdersMock).toBeCalledWith(
+        requestInjectedMock.limit,
+        requestInjectedMock.queryFilters,
+        requestInjectedMock.cursor
+      )
+      expect(getOrdersResponse.statusCode).toEqual(200)
+      console.log(getOrdersResponse.body)
+
+      expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).toEqual('4385e89a-0553-46fa-9b7e-464c1fa7822f')
+    })
+
+    it(`Returns 200 when quoteId is undefined`, async () => {
+      getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: undefined }] })
+      const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
+      expect(getOrdersMock).toBeCalledWith(
+        requestInjectedMock.limit,
+        requestInjectedMock.queryFilters,
+        requestInjectedMock.cursor
+      )
+      expect(getOrdersResponse.statusCode).toEqual(200)
+      console.log(getOrdersResponse.body)
+      expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).not.toBeDefined()
+    })
+  })
 })
