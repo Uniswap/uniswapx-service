@@ -1,6 +1,8 @@
+import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import Joi from 'joi'
+import { CheckOrderStatusHandlerMetricNames, powertoolsMetric } from '../../Metrics'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { SfnInjector, SfnLambdaHandler, SfnStateInputOutput } from '../base'
@@ -57,6 +59,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         },
         stateMachineArn
       )
+      powertoolsMetric
+        .singleMetric()
+        .addMetric(CheckOrderStatusHandlerMetricNames.StepFunctionKickedOffCount, MetricUnits.Count, 1)
     }
     if (input.requestInjected.orderType === OrderType.Limit) {
       return {

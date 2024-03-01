@@ -3,7 +3,11 @@ import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator, Si
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
-import { powertoolsMetric as betterMetrics } from '../../Metrics'
+import {
+  CheckOrderStatusHandlerMetricNames,
+  powertoolsMetric as betterMetrics,
+  wrapWithTimerMetric,
+} from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { ChainId } from '../../util/chain'
@@ -76,12 +80,27 @@ export class CheckOrderStatusService {
     orderStatus,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order = checkDefined(
-      await this.dbInterface.getByHash(orderHash),
+      await wrapWithTimerMetric(
+        this.dbInterface.getByHash(orderHash),
+        CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
+      ),
       'cannot find order by hash when updating order status'
     )
     const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-    const validation = await orderQuoter.validate({ order: parsedOrder, signature: order.signature })
-    const curBlockNumber = await provider.getBlockNumber()
+
+    const validation = await wrapWithTimerMetric(
+      orderQuoter.validate({
+        order: parsedOrder,
+        signature: order.signature,
+      }),
+      CheckOrderStatusHandlerMetricNames.GetValidationTime
+    )
+
+    const curBlockNumber = await wrapWithTimerMetric(
+      provider.getBlockNumber(),
+      CheckOrderStatusHandlerMetricNames.GetBlockNumberTime
+    )
+
     const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
 
     const commonUpdateInfo = {
@@ -94,7 +113,10 @@ export class CheckOrderStatusService {
       validation,
     }
 
-    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
+    const fillEvents = await wrapWithTimerMetric(
+      orderWatcher.getFillInfo(fromBlock, curBlockNumber),
+      CheckOrderStatusHandlerMetricNames.GetFillEventsTime
+    )
 
     const extraUpdateInfo = await this.getStatusFromValidation({
       validation,
