@@ -24,7 +24,7 @@ export const CheckOrderStatusHandlerMetricNames = {
 
 export async function wrapWithTimerMetric<T>(promise: Promise<T>, metricName: string): Promise<T> {
   const start = Date.now()
-  let result = await promise
+  const result = await promise
   const end = Date.now()
   powertoolsMetric.addMetric(metricName, MetricUnits.Milliseconds, end - start)
   powertoolsMetric.publishStoredMetrics()
