@@ -7,7 +7,7 @@ import { deleteStaleOrders } from '../../../lib/crons/gs-reaper'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { DYNAMO_BATCH_WRITE_MAX } from '../../../lib/util/constants'
-import { deleteAllRepoEntries } from '../../unit/utils'
+import { deleteAllRepoEntries } from '../repositories/deleteAllRepoEntries'
 
 const dynamoConfig = {
   convertEmptyValues: true,
