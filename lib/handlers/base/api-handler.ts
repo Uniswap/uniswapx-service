@@ -8,7 +8,8 @@ import {
 
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
-import { BaseHandleRequestParams, BaseInjector, BaseLambdaHandler, BaseRInj, ErrorCode } from './base'
+import { checkDefined } from '../../preconditions/preconditions'
+import { BaseHandleRequestParams, BaseLambdaHandler, ErrorCode } from './base'
 
 const INTERNAL_ERROR = (id?: string) => {
   return {
@@ -23,7 +24,10 @@ const INTERNAL_ERROR = (id?: string) => {
 
 export type APIGatewayProxyHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>
 
-export type ApiRInj = BaseRInj & { requestId: string }
+export type ApiRInj = {
+  log: Logger
+  requestId: string
+}
 
 export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = BaseHandleRequestParams<
   CInj,
@@ -50,9 +54,22 @@ export type ErrorResponse = {
   detail?: string
 }
 
-export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> extends BaseInjector<CInj> {
-  public constructor(protected injectorName: string) {
-    super(injectorName)
+export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> {
+  protected containerInjected: CInj | undefined
+
+  public constructor(protected readonly injectorName: string) {
+    checkDefined(injectorName, 'Injector name must be defined')
+  }
+
+  protected abstract buildContainerInjected(): Promise<CInj>
+
+  public async build() {
+    this.containerInjected = await this.buildContainerInjected()
+    return this
+  }
+
+  public getContainerInjected(): CInj {
+    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
   }
 
   public abstract getRequestInjected(
