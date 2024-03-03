@@ -1,7 +1,7 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
 import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
-import { HeaderExpectation } from '../../unit/utils'
+import { HeaderExpectation } from '../../HeaderExpectation'
 
 describe('Testing get orders handler.', () => {
   const MOCK_ORDER = {
