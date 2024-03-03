@@ -5,7 +5,7 @@ import { ErrorCode } from '../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../lib/handlers/constants'
 import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
-import { ORDER_INFO } from '../../unit/fixtures'
+import { ORDER_INFO } from '../fixtures'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return {

@@ -1,7 +1,7 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
 import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
-import { HeaderExpectation } from '../../unit/utils'
+import { HeaderExpectation } from '../utils'
 
 describe('Testing get orders handler.', () => {
   const MOCK_ORDER = {
@@ -221,7 +221,6 @@ describe('Testing get orders handler.', () => {
         requestInjectedMock.cursor
       )
       expect(getOrdersResponse.statusCode).toEqual(200)
-      console.log(getOrdersResponse.body)
 
       expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).toEqual('4385e89a-0553-46fa-9b7e-464c1fa7822f')
     })
@@ -235,7 +234,6 @@ describe('Testing get orders handler.', () => {
         requestInjectedMock.cursor
       )
       expect(getOrdersResponse.statusCode).toEqual(200)
-      console.log(getOrdersResponse.body)
       expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).not.toBeDefined()
     })
   })

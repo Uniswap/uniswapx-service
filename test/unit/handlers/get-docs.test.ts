@@ -1,6 +1,6 @@
 import { GetDocsHandler } from '../../../lib/handlers/get-docs/GetDocsHandler'
 import schema from '../../../swagger.json'
-import { HeaderExpectation } from '../../unit/utils'
+import { HeaderExpectation } from '../utils'
 
 describe('Testing get api docs json handler.', () => {
   // Creating mocks for all the handler dependencies.

@@ -1,5 +1,5 @@
 import { GetNonceHandler } from '../../../lib/handlers/get-nonce/handler'
-import { HeaderExpectation } from '../../unit/utils'
+import { HeaderExpectation } from '../utils'
 
 describe('Testing get nonce handler.', () => {
   const MOCK_ADDRESS = '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa'
