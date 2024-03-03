@@ -12,7 +12,7 @@
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
     "test": "jest --detectOpenHandles --forceExit --testPathPattern=test/unit/",
-    "integ-test": "jest --detectOpenHandles --runInBand --testPathPattern=integ/",
+    "test:e2e": "jest --detectOpenHandles --runInBand --testPathPattern=test/e2e/",
     "cdk": "cdk",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
