@@ -4,9 +4,10 @@ import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { CheckOrderStatusHandler } from '../../../lib/handlers/check-order-status/handler'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts } from '../../../lib/handlers/check-order-status/util'
+import { log } from '../../../lib/Logging'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
+import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 import { ORDER_INFO } from '../../unit/fixtures'
-import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
 
 describe('Testing check order status handler', () => {
   const mockedBlockNumber = 123
@@ -18,6 +19,10 @@ describe('Testing check order status handler', () => {
   const updateOrderStatusMock = jest.fn().mockReturnValue(Promise<void>)
   const providerMock = jest.fn().mockReturnValue(mockedBlockNumber)
   const getTransactionMock = jest.fn()
+
+  beforeAll(() => {
+    log.setLogLevel('SILENT')
+  })
 
   const buildInjectorPromiseMock = (retryCount: number, orderStatus: string) => {
     return {
@@ -35,7 +40,7 @@ describe('Testing check order status handler', () => {
           orderHash: MOCK_ORDER_HASH,
           retryCount: retryCount,
           orderStatus: orderStatus,
-          log: { info: () => jest.fn(), error: () => jest.fn() },
+          log,
           orderQuoter: {
             validate: validateMock,
           },
