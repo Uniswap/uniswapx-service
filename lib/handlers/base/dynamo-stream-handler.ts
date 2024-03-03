@@ -4,7 +4,6 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
 import { DynamoStreamInputValidationError, InjectionError } from '../../util/errors'
-import { BaseLambdaHandler } from './base'
 
 export type BatchFailureResponse = {
   batchItemFailures: {
@@ -55,16 +54,13 @@ export abstract class DynamoStreamInjector<CInj, RInj> {
  * receieve a stream event and then parse the batched records to
  * perform some action.
  */
-export abstract class DynamoStreamLambdaHandler<CInj, RInj> extends BaseLambdaHandler<
-  DynamoStreamHandler,
-  { containerInjected: CInj; requestInjected: RInj },
-  BatchFailureResponse
-> {
+export abstract class DynamoStreamLambdaHandler<CInj, RInj> {
   protected abstract inputSchema(): Joi.ObjectSchema | null
 
-  constructor(handlerName: string, private readonly injectorPromise: Promise<DynamoStreamInjector<CInj, RInj>>) {
-    super(handlerName)
-  }
+  constructor(
+    protected readonly handlerName: string,
+    private readonly injectorPromise: Promise<DynamoStreamInjector<CInj, RInj>>
+  ) {}
 
   get handler(): DynamoStreamHandler {
     return async (event: DynamoDBStreamEvent): Promise<BatchFailureResponse> => {

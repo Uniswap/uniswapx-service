@@ -11,13 +11,3 @@ export enum ErrorCode {
   ValidationError = 'VALIDATION_ERROR',
   TooManyRequests = 'TOO_MANY_REQUESTS',
 }
-
-export abstract class BaseLambdaHandler<HandlerType, InputType, OutputType> {
-  constructor(protected readonly handlerName: string) {}
-
-  public abstract get handler(): HandlerType
-
-  protected abstract buildHandler(): HandlerType
-
-  protected abstract handleRequest(params: InputType): Promise<OutputType>
-}

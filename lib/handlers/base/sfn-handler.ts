@@ -3,7 +3,6 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
 import { InjectionError, SfnInputValidationError } from '../../util/errors'
-import { BaseLambdaHandler } from './base'
 
 export type SfnStateInputOutput = Record<string, string | number | { [key: string]: string }[]>
 
@@ -30,16 +29,13 @@ export abstract class SfnInjector<CInj, RInj> {
   public abstract getRequestInjected(event: SfnStateInputOutput, log: Logger, metrics: MetricsLogger): Promise<RInj>
 }
 
-export abstract class SfnLambdaHandler<CInj, RInj> extends BaseLambdaHandler<
-  SfnHandler,
-  { containerInjected: CInj; requestInjected: RInj },
-  SfnStateInputOutput
-> {
+export abstract class SfnLambdaHandler<CInj, RInj> {
   protected abstract inputSchema(): Joi.ObjectSchema | null
 
-  constructor(handlerName: string, private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>) {
-    super(handlerName)
-  }
+  constructor(
+    protected readonly handlerName: string,
+    private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>
+  ) {}
 
   get handler(): SfnHandler {
     return async (event: SfnStateInputOutput): Promise<SfnStateInputOutput> => {

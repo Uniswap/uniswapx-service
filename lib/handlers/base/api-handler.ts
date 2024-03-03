@@ -9,7 +9,7 @@ import {
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
-import { BaseHandleRequestParams, BaseLambdaHandler, ErrorCode } from './base'
+import { BaseHandleRequestParams, ErrorCode } from './base'
 
 const INTERNAL_ERROR = (id?: string) => {
   return {
@@ -83,23 +83,11 @@ export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryP
   ): Promise<RInj>
 }
 
-export abstract class APIGLambdaHandler<
-  CInj,
-  RInj extends ApiRInj,
-  ReqBody,
-  ReqQueryParams,
-  Res
-> extends BaseLambdaHandler<
-  APIGatewayProxyHandler,
-  APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams>,
-  Response<Res> | ErrorResponse
-> {
+export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams, Res> {
   constructor(
-    handlerName: string,
+    protected readonly handlerName: string,
     private readonly injectorPromise: Promise<ApiInjector<CInj, RInj, ReqBody, ReqQueryParams>>
-  ) {
-    super(handlerName)
-  }
+  ) {}
 
   get handler(): APIGatewayProxyHandler {
     return async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
