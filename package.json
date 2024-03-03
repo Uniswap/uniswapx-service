@@ -19,7 +19,7 @@
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
     "fix:lint": "eslint lib --ext .ts --fix",
     "lint": "eslint lib --ext .ts",
-    "coverage": "yarn test --coverage"
+    "coverage": "jest --detectOpenHandles --runInBand --forceExit --coverage --testPathPattern=\"test/(unit/|integ/)\""
   },
   "devDependencies": {
     "@shelf/jest-dynamodb": "^3.3.1",
