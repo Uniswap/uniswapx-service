@@ -1,20 +1,41 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
+import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import { mockClient } from 'aws-sdk-client-mock'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { ErrorCode } from '../../../lib/handlers/base'
-import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../lib/handlers/constants'
-import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/injector'
+import { DEFAULT_MAX_OPEN_ORDERS } from '../../../lib/handlers/constants'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
-import { ORDER_INFO } from '../fixtures'
-
-jest.mock('../../../lib/handlers/shared/sfn', () => {
-  return {
-    kickoffOrderTrackingSfn: jest.fn(),
-  }
-})
+import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
+import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
+import { ORDER_INFO } from '../../unit/fixtures'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_5 = 'MOCK_ARN_5'
+const MOCK_HASH = '0xhash'
+const MOCK_START_EXECUTION_INPUT = JSON.stringify({
+  orderHash: MOCK_HASH,
+  chainId: 1,
+  orderStatus: ORDER_STATUS.OPEN,
+})
+
+const mockSfnClient = mockClient(SFNClient)
+mockSfnClient
+  .on(StartExecutionCommand, {
+    stateMachineArn: MOCK_ARN_1,
+    name: MOCK_HASH,
+    input: MOCK_START_EXECUTION_INPUT,
+  })
+  .resolves({})
+
+mockSfnClient
+  .on(StartExecutionCommand, {
+    stateMachineArn: MOCK_ARN_5,
+    name: MOCK_HASH,
+    input: MOCK_START_EXECUTION_INPUT,
+  })
+  .resolves({})
 
 const DECODED_ORDER = {
   info: ORDER_INFO,
@@ -32,18 +53,16 @@ jest.mock('@uniswap/uniswapx-sdk', () => {
   }
 })
 
-describe('Testing post limit order handler.', () => {
+describe('Testing post order handler.', () => {
   const putOrderAndUpdateNonceTransactionMock = jest.fn()
   const countOrdersByOffererAndStatusMock = jest.fn()
   const validatorMock = jest.fn()
   const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
-  const mockSfnClient = jest.fn()
-
   const encodedOrder = '0x01'
   const postRequestBody = {
-    orderHash: '0x01',
     encodedOrder: encodedOrder,
+    orderHash: '0x01',
     signature:
       '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
     chainId: 1,
@@ -70,7 +89,7 @@ describe('Testing post limit order handler.', () => {
     orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
     orderStatus: ORDER_STATUS.OPEN,
     offerer: '0x0000000000000000000000000000000000000001',
-    reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch]!.toLowerCase(),
+    reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch].toLowerCase(),
     decayStartTime: 20,
     decayEndTime: 10,
     deadline: 10,
@@ -112,25 +131,25 @@ describe('Testing post limit order handler.', () => {
             validate: validationFailedValidatorMock,
           },
         },
-        orderType: OrderType.Limit,
-        getMaxOpenOrders: getMaxLimitOpenOrders,
+        orderType: OrderType.Dutch,
+        getMaxOpenOrders,
       }
     },
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostOrderHandler('post-limit-order', injectorPromiseMock)
+  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
     process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
     process.env['REGION'] = 'region'
-    //@ts-ignore
     DutchOrder.parse.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
   })
 
   afterEach(() => {
     jest.clearAllMocks()
+    mockSfnClient.reset()
   })
 
   describe('Testing valid request and response', () => {
@@ -141,6 +160,10 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_1,
+      })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -167,6 +190,10 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith({ ...ORDER, chainId: 5 })
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith({ ...DECODED_ORDER, chainId: 5 })
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_5,
+      })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
         statusCode: 201,
@@ -183,7 +210,7 @@ describe('Testing post limit order handler.', () => {
   describe('Test order submission blocking', () => {
     describe('Max open orders', () => {
       it('should reject order submission for offerer when too many open orders exist', async () => {
-        countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_MAX_OPEN_LIMIT_ORDERS + 1)
+        countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_MAX_OPEN_ORDERS + 1)
         validatorMock.mockReturnValue({ valid: true })
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
           body: JSON.stringify({
@@ -200,7 +227,6 @@ describe('Testing post limit order handler.', () => {
       it('should allow more orders if in the high list', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
         validatorMock.mockReturnValue({ valid: true })
-        //@ts-ignore
         DutchOrder.parse.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
@@ -219,7 +245,6 @@ describe('Testing post limit order handler.', () => {
       it('should reject order submission for offerer in high list at higher order count', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
         validatorMock.mockReturnValue({ valid: true })
-        //@ts-ignore
         DutchOrder.parse.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
@@ -273,10 +298,18 @@ describe('Testing post limit order handler.', () => {
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
     })
 
-    it('should not call StepFunctions', async () => {
-      validatorMock.mockReturnValue({ valid: true })
-      await postOrderHandler.handler(event as any, {} as any)
-      expect(mockSfnClient).not.toHaveBeenCalled()
+    it('should call StepFunctions.startExecution method with the correct params', async () => {
+      const sfnInput = { orderHash: '0xhash', chainId: 1, quoteId: 'quoteId', orderStatus: ORDER_STATUS.OPEN }
+      expect(async () => await kickoffOrderTrackingSfn(sfnInput, MOCK_ARN_1)).not.toThrow()
+      expect(mockSfnClient.calls()).toHaveLength(1)
+
+      expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
+        new StartExecutionCommand({
+          stateMachineArn: MOCK_ARN_1,
+          input: JSON.stringify(sfnInput),
+          name: expect.any(String),
+        }).input
+      )
     })
   })
 
@@ -334,7 +367,6 @@ describe('Testing post limit order handler.', () => {
     })
 
     it('on-chain validation failed; throws 400', async () => {
-      //@ts-ignore
       DutchOrder.parse.mockReturnValue({
         ...DECODED_ORDER,
         chainId: 137,
