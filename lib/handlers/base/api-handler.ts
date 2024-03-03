@@ -9,7 +9,7 @@ import {
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
-import { ErrorCode } from './base'
+import { ErrorCode } from './ErrorCode'
 
 const INTERNAL_ERROR = (id?: string) => {
   return {
