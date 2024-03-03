@@ -10,7 +10,7 @@ import { getProvider, getValidator, getWatcher } from '../../../lib/handlers/che
 import { log } from '../../../lib/Logging'
 import { OnChainStatusCheckerMetricNames, powertoolsMetric } from '../../../lib/Metrics'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
-import { deleteAllRepoEntries } from '../utils'
+import { deleteAllRepoEntries } from '../../unit/utils'
 import { dynamoConfig, MOCK_ORDER_ENTITY, MOCK_ORDER_HASH, MOCK_SIGNATURE } from './test-data'
 
 jest.mock('../../../lib/handlers/check-order-status/util', () => {

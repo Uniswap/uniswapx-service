@@ -5,7 +5,7 @@ import { ORDER_STATUS } from '../../../lib/entities'
 import { CheckOrderStatusHandler } from '../../../lib/handlers/check-order-status/handler'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts } from '../../../lib/handlers/check-order-status/util'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
-import { ORDER_INFO } from '../fixtures'
+import { ORDER_INFO } from '../../unit/fixtures'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
 
 describe('Testing check order status handler', () => {
