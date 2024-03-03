@@ -9,7 +9,7 @@ import {
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
-import { BaseHandleRequestParams, ErrorCode } from './base'
+import { ErrorCode } from './base'
 
 const INTERNAL_ERROR = (id?: string) => {
   return {
@@ -29,10 +29,7 @@ export type ApiRInj = {
   requestId: string
 }
 
-export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = BaseHandleRequestParams<
-  CInj,
-  APIGatewayProxyEvent
-> & {
+export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
   context: Context
   event: APIGatewayProxyEvent
   requestBody: ReqBody

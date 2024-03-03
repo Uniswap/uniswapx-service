@@ -1,8 +1,3 @@
-export type BaseHandleRequestParams<CInj, Event = Record<string, string | number>> = {
-  event: Event
-  containerInjected: CInj
-}
-
 export enum ErrorCode {
   OrderParseFail = 'ORDER_PARSE_FAIL',
   InvalidOrder = 'INVALID_ORDER',
