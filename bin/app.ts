@@ -253,7 +253,7 @@ export class APIPipeline extends Stack {
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" > .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
         'yarn build',
-        'yarn run integ-test',
+        'yarn run test:e2e',
       ],
       partialBuildSpec: BuildSpec.fromObject({
         phases: {
