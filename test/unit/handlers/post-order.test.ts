@@ -10,7 +10,7 @@ import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { log } from '../../../lib/Logging'
-import { ORDER_INFO } from '../../unit/fixtures'
+import { ORDER_INFO } from '../fixtures'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_5 = 'MOCK_ARN_5'
