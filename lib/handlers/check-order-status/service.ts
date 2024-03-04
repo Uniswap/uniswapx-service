@@ -113,11 +113,6 @@ export class CheckOrderStatusService {
       validation,
     }
 
-    const fillEvents = await wrapWithTimerMetric(
-      orderWatcher.getFillInfo(fromBlock, curBlockNumber),
-      CheckOrderStatusHandlerMetricNames.GetFillEventsTime
-    )
-
     const extraUpdateInfo = await this.getStatusFromValidation({
       validation,
       parsedOrder,
@@ -128,7 +123,9 @@ export class CheckOrderStatusService {
       orderHash,
       provider,
       getFillLogAttempts,
-      fillEvents,
+      fromBlock,
+      curBlockNumber,
+      orderWatcher,
     })
 
     const updateObject = {
@@ -165,7 +162,6 @@ export class CheckOrderStatusService {
     // TODO:(urgent) add block number and fill info to the top level loop and pass in
     const curBlockNumber = await provider.getBlockNumber()
     const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
-    const fillEvents = await orderWatcher.getFillInfo(fromBlock, curBlockNumber)
     endTime = new Date().getTime()
     betterMetrics.addMetric(
       'OnChainStatusChecker-RandomOnChainQueryTimes',
@@ -202,7 +198,9 @@ export class CheckOrderStatusService {
         orderHash,
         provider,
         getFillLogAttempts: 0,
-        fillEvents,
+        fromBlock,
+        curBlockNumber,
+        orderWatcher,
       })
 
       const updateObject = {
@@ -233,7 +231,9 @@ export class CheckOrderStatusService {
     orderHash,
     provider,
     getFillLogAttempts,
-    fillEvents,
+    fromBlock,
+    curBlockNumber,
+    orderWatcher,
   }: {
     validation: OrderValidation
     parsedOrder: DutchOrder
@@ -244,13 +244,15 @@ export class CheckOrderStatusService {
     orderHash: string
     provider: ethers.providers.JsonRpcProvider
     getFillLogAttempts: number
-    fillEvents: FillInfo[]
+    fromBlock: number
+    curBlockNumber: number
+    orderWatcher: EventWatcher
   }): Promise<ExtraUpdateInfo> {
     let extraUpdateInfo: ExtraUpdateInfo
-    const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
 
     switch (validation) {
       case OrderValidation.Expired: {
+        const fillEvent = await this.getFillEventForOrder(orderHash, fromBlock, curBlockNumber, orderWatcher)
         if (fillEvent) {
           const [tx, block] = await Promise.all([
             provider.getTransaction(fillEvent.txHash),
@@ -294,6 +296,7 @@ export class CheckOrderStatusService {
         extraUpdateInfo = { orderStatus: ORDER_STATUS.ERROR }
         break
       case OrderValidation.NonceUsed: {
+        const fillEvent = await this.getFillEventForOrder(orderHash, fromBlock, curBlockNumber, orderWatcher)
         if (fillEvent) {
           const [tx, block] = await Promise.all([
             provider.getTransaction(fillEvent.txHash),
@@ -333,6 +336,22 @@ export class CheckOrderStatusService {
         break
     }
     return extraUpdateInfo
+  }
+
+  private async getFillEventForOrder(
+    orderHash: string,
+    fromBlock: number,
+    curBlockNumber: number,
+    orderWatcher: EventWatcher
+  ): Promise<FillInfo | undefined> {
+    const fillEvents = await wrapWithTimerMetric(
+      orderWatcher.getFillInfo(fromBlock, curBlockNumber),
+      CheckOrderStatusHandlerMetricNames.GetFillEventsTime
+    )
+
+    const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
+
+    return fillEvent
   }
 
   private async updateStatusAndReturn(params: {
