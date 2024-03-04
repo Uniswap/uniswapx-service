@@ -1,10 +1,10 @@
-import { getAddress } from '@ethersproject/address'
-import { AddressZero } from '@ethersproject/constants'
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Joi from 'joi'
 
+import { getAddress } from '@ethersproject/address'
+import { AddressZero } from '@ethersproject/constants'
 import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { metrics } from '../../util/metrics'
@@ -114,7 +114,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    // Log used for cw dashboard and redshift metrics, do not modify
+    // Log used for cw dashboard and redshift metrics
+    // ***DO NOT MODIFY***
     // skip fee output logging
     const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
     log?.info({
