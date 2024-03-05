@@ -7,7 +7,7 @@ import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
-import { AnalyticsService } from '../../services/analytics-service'
+import { AnalyticsServiceInterface } from '../../services/analytics-service'
 import { metrics } from '../../util/metrics'
 import { formatOrderEntity } from '../../util/order'
 import { currentTimestampInSeconds } from '../../util/time'
@@ -34,7 +34,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
   constructor(
     handlerName: string,
     injectorPromise: Promise<ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
-    private analyticsService: AnalyticsService
+    private analyticsService: AnalyticsServiceInterface
   ) {
     super(handlerName, injectorPromise)
   }

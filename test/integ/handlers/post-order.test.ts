@@ -139,7 +139,11 @@ describe('Testing post order handler.', () => {
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
+  const analyticsMock = {
+    logOrderPosted: jest.fn(),
+  }
+
+  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock, analyticsMock)
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
@@ -206,6 +210,13 @@ describe('Testing post order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
+    })
+
+    it('should call analyticsService.logOrderPosted', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+
+      await postOrderHandler.handler(event as any, {} as any)
+      expect(analyticsMock.logOrderPosted).toHaveBeenCalledWith(expect.anything(), OrderType.Dutch)
     })
   })
 

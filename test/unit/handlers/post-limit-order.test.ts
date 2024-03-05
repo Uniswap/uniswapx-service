@@ -119,7 +119,11 @@ describe('Testing post limit order handler.', () => {
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostOrderHandler('post-limit-order', injectorPromiseMock)
+  const analyticsMock = {
+    logOrderPosted: jest.fn(),
+  }
+
+  const postOrderHandler = new PostOrderHandler('post-limit-order', injectorPromiseMock, analyticsMock)
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
@@ -177,6 +181,13 @@ describe('Testing post limit order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
+    })
+
+    it('should call analyticsService.logOrderPosted', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+
+      await postOrderHandler.handler(event as any, {} as any)
+      expect(analyticsMock.logOrderPosted).toHaveBeenCalledWith(expect.anything(), OrderType.Limit)
     })
   })
 

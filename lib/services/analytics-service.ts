@@ -6,8 +6,11 @@ import { OrderEntity } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
 
+export interface AnalyticsServiceInterface {
+  logOrderPosted(order: OrderEntity, orderType: OrderType): void
+}
 // used to log data used for analytics
-export class AnalyticsService {
+export class AnalyticsService implements AnalyticsServiceInterface {
   constructor(
     private logger: Logger,
     private createdAtTimestampInSeconds: () => string,

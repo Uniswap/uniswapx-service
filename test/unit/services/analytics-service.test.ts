@@ -1,7 +1,7 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { OrderEntity, ORDER_STATUS } from '../../lib/entities'
-import { AnalyticsService } from '../../lib/services/analytics-service'
+import { OrderEntity, ORDER_STATUS } from '../../../lib/entities'
+import { AnalyticsService } from '../../../lib/services/analytics-service'
 
 describe('Analytics Service', () => {
   const mockedOrder: OrderEntity = {
