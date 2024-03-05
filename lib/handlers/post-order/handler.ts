@@ -7,10 +7,19 @@ import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
+import { AnalyticsService } from '../../services/analytics-service'
 import { metrics } from '../../util/metrics'
 import { formatOrderEntity } from '../../util/order'
 import { currentTimestampInSeconds } from '../../util/time'
-import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
+import {
+  APIGLambdaHandler,
+  APIHandleRequestParams,
+  ApiInjector,
+  ApiRInj,
+  ErrorCode,
+  ErrorResponse,
+  Response,
+} from '../base'
 import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
@@ -22,6 +31,14 @@ export class PostOrderHandler extends APIGLambdaHandler<
   void,
   PostOrderResponse
 > {
+  constructor(
+    handlerName: string,
+    injectorPromise: Promise<ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
+    private analyticsService: AnalyticsService
+  ) {
+    super(handlerName, injectorPromise)
+  }
+
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
@@ -137,6 +154,9 @@ export class PostOrderHandler extends APIGLambdaHandler<
         filler: getAddress(order.filler ?? AddressZero),
       },
     })
+
+    //v2 log, remove other log after confirmation this is working
+    this.analyticsService.logOrderPosted(order, orderType)
 
     await kickoffOrderTrackingSfn(
       {
