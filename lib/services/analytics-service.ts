@@ -23,7 +23,10 @@ export class AnalyticsService implements AnalyticsServiceInterface {
   }
 
   public logOrderPosted(order: OrderEntity, orderType: OrderType) {
-    const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
+    const userOutput = order.outputs.reduce(
+      (prev, cur) => (prev && prev.startAmount > cur.startAmount 
+        ? prev : cur)
+      )
     this.logger.info('Analytics Message', {
       eventType: 'OrderPostedV2',
       body: {
