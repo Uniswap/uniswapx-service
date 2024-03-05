@@ -299,7 +299,7 @@ export class LambdaStack extends cdk.NestedStack {
         logGroupName: this.postOrderLambda.logGroup.logGroupName,
       })
 
-      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
+      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderV2Sub', {
         destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
         filterPattern: '{ $.eventType = "OrderPostedV2" }',
         logGroupName: this.postOrderLambda.logGroup.logGroupName,
