@@ -24,7 +24,7 @@ UniswapX Service is an API to propagate signed, executable UniswapX orders. Swap
 
 3. (optional) To run dynamo-db integration tests, you need to have Java Runtime installed (https://www.java.com/en/download/manual.jsp).
 
-## Integration Tests
+## End-to-end Tests
 
 1. Deploy your API using the intructions above.
 
@@ -36,7 +36,7 @@ UniswapX Service is an API to propagate signed, executable UniswapX orders. Swap
 
 1. Run the tests with:
    ```
-   yarn integ-test
+   yarn test:e2e
    ```
 
 ## Development Cycle
@@ -57,7 +57,7 @@ PERMIT_TENDERLY=<>
 
 1. `yarn build && cdk deploy GoudaServiceStack`
 
-1. `yarn integ-test`
+1. `yarn test:e2e`
 
 1. If failures, look at logs in Cloudwatch Insights
 

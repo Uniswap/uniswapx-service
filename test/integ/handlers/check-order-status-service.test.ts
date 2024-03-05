@@ -6,7 +6,7 @@ import { ORDER_STATUS } from '../../../lib/entities'
 import { CheckOrderStatusRequest, CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
 import { getProvider, getValidator, getWatcher } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
-import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
+import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 
 jest.mock('../../../lib/handlers/check-order-status/util', () => {
   const original = jest.requireActual('../../../lib/handlers/check-order-status/util')

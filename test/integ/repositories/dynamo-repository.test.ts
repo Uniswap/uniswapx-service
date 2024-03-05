@@ -5,7 +5,7 @@ import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities/Order'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { generateRandomNonce } from '../../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
-import { deleteAllRepoEntries } from '../utils'
+import { deleteAllRepoEntries } from './deleteAllRepoEntries'
 
 jest.mock('../../../lib/util/time')
 

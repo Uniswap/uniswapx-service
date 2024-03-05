@@ -9,9 +9,9 @@ import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { STAGE } from '../../util/stage'
 import { DynamoStreamInjector } from '../base/dynamo-stream-handler'
-import { BaseRInj } from '../base/index'
 
-export interface RequestInjected extends BaseRInj {
+export interface RequestInjected {
+  log: Logger
   event: DynamoDBStreamEvent
 }
 
