@@ -1,3 +1,3 @@
 export * from './api-handler'
-export * from './base'
+export * from './ErrorCode'
 export * from './sfn-handler'
