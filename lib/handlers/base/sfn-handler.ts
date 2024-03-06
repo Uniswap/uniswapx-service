@@ -1,31 +1,41 @@
 import { metricScope, MetricsLogger } from 'aws-embedded-metrics'
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
+import { checkDefined } from '../../preconditions/preconditions'
 import { InjectionError, SfnInputValidationError } from '../../util/errors'
-import { BaseInjector, BaseLambdaHandler, BaseRInj } from './base'
 
 export type SfnStateInputOutput = Record<string, string | number | { [key: string]: string }[]>
 
 export type SfnHandler = (event: SfnStateInputOutput) => Promise<SfnStateInputOutput>
 
-export abstract class SfnInjector<CInj, RInj extends BaseRInj> extends BaseInjector<CInj> {
-  public constructor(protected injectorName: string) {
-    super(injectorName)
+export abstract class SfnInjector<CInj, RInj> {
+  protected containerInjected: CInj | undefined
+
+  public constructor(protected readonly injectorName: string) {
+    checkDefined(injectorName, 'Injector name must be defined')
+  }
+
+  protected abstract buildContainerInjected(): Promise<CInj>
+
+  public async build() {
+    this.containerInjected = await this.buildContainerInjected()
+    return this
+  }
+
+  public getContainerInjected(): CInj {
+    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
   }
 
   public abstract getRequestInjected(event: SfnStateInputOutput, log: Logger, metrics: MetricsLogger): Promise<RInj>
 }
 
-export abstract class SfnLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
-  SfnHandler,
-  { containerInjected: CInj; requestInjected: RInj },
-  SfnStateInputOutput
-> {
+export abstract class SfnLambdaHandler<CInj, RInj> {
   protected abstract inputSchema(): Joi.ObjectSchema | null
 
-  constructor(handlerName: string, private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>) {
-    super(handlerName)
-  }
+  constructor(
+    protected readonly handlerName: string,
+    private readonly injectorPromise: Promise<SfnInjector<CInj, RInj>>
+  ) {}
 
   get handler(): SfnHandler {
     return async (event: SfnStateInputOutput): Promise<SfnStateInputOutput> => {

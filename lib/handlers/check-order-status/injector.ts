@@ -8,8 +8,9 @@ import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
-import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
-export interface RequestInjected extends BaseRInj {
+import { SfnInjector, SfnStateInputOutput } from '../base/index'
+export interface RequestInjected {
+  log: Logger
   chainId: number
   quoteId: string
   orderHash: string

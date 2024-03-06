@@ -2,8 +2,8 @@ import { metricScope, MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDBStreamEvent } from 'aws-lambda'
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
+import { checkDefined } from '../../preconditions/preconditions'
 import { DynamoStreamInputValidationError, InjectionError } from '../../util/errors'
-import { BaseInjector, BaseLambdaHandler, BaseRInj } from './base'
 
 export type BatchFailureResponse = {
   batchItemFailures: {
@@ -20,9 +20,22 @@ export type DynamoStreamHandler = (event: DynamoDBStreamEvent) => Promise<BatchF
  * in this class and then will get injected into the handler. This
  * includes stuff like logging, db interfaces, etc.
  */
-export abstract class DynamoStreamInjector<CInj, RInj extends BaseRInj> extends BaseInjector<CInj> {
-  public constructor(protected injectorName: string) {
-    super(injectorName)
+export abstract class DynamoStreamInjector<CInj, RInj> {
+  public containerInjected: CInj | undefined
+
+  public constructor(protected readonly injectorName: string) {
+    checkDefined(injectorName, 'Injector name must be defined')
+  }
+
+  protected abstract buildContainerInjected(): Promise<CInj>
+
+  public async build() {
+    this.containerInjected = await this.buildContainerInjected()
+    return this
+  }
+
+  public getContainerInjected(): CInj {
+    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
   }
 
   public abstract getRequestInjected(
@@ -41,16 +54,13 @@ export abstract class DynamoStreamInjector<CInj, RInj extends BaseRInj> extends 
  * receieve a stream event and then parse the batched records to
  * perform some action.
  */
-export abstract class DynamoStreamLambdaHandler<CInj, RInj extends BaseRInj> extends BaseLambdaHandler<
-  DynamoStreamHandler,
-  { containerInjected: CInj; requestInjected: RInj },
-  BatchFailureResponse
-> {
+export abstract class DynamoStreamLambdaHandler<CInj, RInj> {
   protected abstract inputSchema(): Joi.ObjectSchema | null
 
-  constructor(handlerName: string, private readonly injectorPromise: Promise<DynamoStreamInjector<CInj, RInj>>) {
-    super(handlerName)
-  }
+  constructor(
+    protected readonly handlerName: string,
+    private readonly injectorPromise: Promise<DynamoStreamInjector<CInj, RInj>>
+  ) {}
 
   get handler(): DynamoStreamHandler {
     return async (event: DynamoDBStreamEvent): Promise<BatchFailureResponse> => {
