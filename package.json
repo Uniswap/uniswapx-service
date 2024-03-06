@@ -11,14 +11,16 @@
     "build": "tsc",
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
-    "test": "jest --detectOpenHandles --forceExit --testPathPattern=test/unit/",
-    "integ-test": "jest --detectOpenHandles --runInBand --testPathPattern=integ/",
+    "test": "jest --testPathPattern=test/unit/",
+    "test:watch": "yarn test --watch",
+    "test:integ": "jest --detectOpenHandles --forceExit --testPathPattern=test/integ/",
+    "test:e2e": "jest --detectOpenHandles --runInBand --testPathPattern=test/e2e/",
     "cdk": "cdk",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
     "fix:lint": "eslint lib --ext .ts --fix",
     "lint": "eslint lib --ext .ts",
-    "coverage": "yarn test --coverage"
+    "coverage": "jest --detectOpenHandles --runInBand --forceExit --coverage --testPathPattern=\"test/(unit/|integ/)\""
   },
   "devDependencies": {
     "@shelf/jest-dynamodb": "^3.3.1",

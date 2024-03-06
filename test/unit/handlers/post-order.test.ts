@@ -9,6 +9,7 @@ import { DEFAULT_MAX_OPEN_ORDERS } from '../../../lib/handlers/constants'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
+import { log } from '../../../lib/Logging'
 import { ORDER_INFO } from '../fixtures'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
@@ -145,6 +146,7 @@ describe('Testing post order handler.', () => {
     process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
     process.env['REGION'] = 'region'
     DutchOrder.parse.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
+    log.setLogLevel('SILENT')
   })
 
   afterEach(() => {

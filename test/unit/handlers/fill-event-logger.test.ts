@@ -3,7 +3,7 @@ import { BigNumber } from 'ethers'
 import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
-import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from './test-data'
+import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 
 jest.mock('../../../lib/handlers/check-order-status/util')
 
@@ -36,7 +36,7 @@ describe('processFillEvent', () => {
       amountIn: '2',
     }
 
-    let fillEventProcessor = new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
+    const fillEventProcessor = new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
 
     const response = await fillEventProcessor.processFillEvent({
       fillEvent: MOCK_FILL_EVENT,
