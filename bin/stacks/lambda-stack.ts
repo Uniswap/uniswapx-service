@@ -298,6 +298,12 @@ export class LambdaStack extends cdk.NestedStack {
         filterPattern: '{ $.eventType = "OrderPosted" }',
         logGroupName: this.postOrderLambda.logGroup.logGroupName,
       })
+
+      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedLimitOrderSub', {
+        destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
+        filterPattern: '{ $.eventType = "OrderPosted" }',
+        logGroupName: this.postLimitOrderLambda.logGroup.logGroupName,
+      })
     }
 
     const enableProvisionedConcurrency = provisionedConcurrency > 0
