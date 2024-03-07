@@ -16,11 +16,6 @@ import { IndexMapper } from './IndexMappers/IndexMapper'
 export const MAX_ORDERS = 50
 // Shared implementation for Dutch and Limit orders
 // will work for orders with the same GSIs
-
-export type IndexFields = {
-  [key: string]: string
-}
-
 export abstract class GenericOrdersRepository<
   TableName extends string,
   PartitionKey extends string,
@@ -91,13 +86,7 @@ export abstract class GenericOrdersRepository<
       [
         this.entity.putTransaction({
           ...order,
-          offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
-          filler_orderStatus: `${order.filler}_${order.orderStatus}`,
-          filler_offerer: `${order.filler}_${order.offerer}`,
-          chainId_filler: `${order.chainId}_${order.filler}`,
-          chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
-          chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
-          filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
+          ...this.indexMapper.getIndexFieldsForUpdate(order),
           createdAt: currentTimestampInSeconds(),
         }),
         this.nonceEntity.updateTransaction({
@@ -126,12 +115,7 @@ export abstract class GenericOrdersRepository<
 
       await this.entity.update({
         [TABLE_KEY.ORDER_HASH]: orderHash,
-        orderStatus: status,
-        offerer_orderStatus: `${order.offerer}_${status}`,
-        filler_orderStatus: `${order.filler}_${status}`,
-        filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
-        chainId_orderStatus: `${order.chainId}_${status}`,
-        chainId_orderStatus_filler: `${order.chainId}_${status}_${order.filler}`,
+        ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
         ...(txHash && { txHash }),
         ...(settledAmounts && { settledAmounts }),
       })

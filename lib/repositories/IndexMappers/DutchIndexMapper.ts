@@ -1,5 +1,5 @@
 import { TABLE_KEY } from '../../config/dynamodb'
-import { OrderEntity } from '../../entities'
+import { OrderEntity, ORDER_STATUS } from '../../entities'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../../handlers/get-orders/schema'
 import { IndexFieldsForUpdate, IndexMapper } from './IndexMapper'
 
@@ -91,8 +91,26 @@ export class DutchIndexMapper implements IndexMapper<OrderEntity> {
     return undefined
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getCompoundIndexFieldsForUpdate(order: OrderEntity): IndexFieldsForUpdate {
-    throw new Error('Not Implemented')
+  getIndexFieldsForUpdate(order: OrderEntity): IndexFieldsForUpdate {
+    return {
+      offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
+      filler_orderStatus: `${order.filler}_${order.orderStatus}`,
+      filler_offerer: `${order.filler}_${order.offerer}`,
+      chainId_filler: `${order.chainId}_${order.filler}`,
+      chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
+      chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
+      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
+    }
+  }
+
+  getIndexFieldsForStatusUpdate(order: OrderEntity, newStatus: ORDER_STATUS): IndexFieldsForUpdate {
+    return {
+      orderStatus: newStatus,
+      offerer_orderStatus: `${order.offerer}_${newStatus}`,
+      filler_orderStatus: `${order.filler}_${newStatus}`,
+      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${newStatus}`,
+      chainId_orderStatus: `${order.chainId}_${newStatus}`,
+      chainId_orderStatus_filler: `${order.chainId}_${newStatus}_${order.filler}`,
+    }
   }
 }
