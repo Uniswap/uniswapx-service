@@ -1,4 +1,4 @@
-import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedOrder } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedUniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { factories } from '@uniswap/uniswapx-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
@@ -16,7 +16,7 @@ const { abi } = ERC20_ABI
 dotenv.config()
 
 type OrderExecution = {
-  orders: SignedOrder[]
+  orders: SignedUniswapXOrder[]
   reactor: string
   fillContract: string
   fillData: string
