@@ -11,7 +11,7 @@ import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
-import { IndexMapper } from './IndexMapper'
+import { IndexMapper } from './IndexMappers/IndexMapper'
 
 export const MAX_ORDERS = 50
 // Shared implementation for Dutch and Limit orders
