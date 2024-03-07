@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { ErrorCode } from '../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_ORDERS } from '../../../lib/handlers/constants'
+import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
@@ -91,7 +91,7 @@ describe('Testing post order handler.', () => {
     orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
     orderStatus: ORDER_STATUS.OPEN,
     offerer: '0x0000000000000000000000000000000000000001',
-    reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch].toLowerCase(),
+    reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch]!.toLowerCase(),
     decayStartTime: 20,
     decayEndTime: 10,
     deadline: 10,
@@ -111,6 +111,29 @@ describe('Testing post order handler.', () => {
       },
     ],
   }
+
+  const onChainValidatorMap = new OnChainValidatorMap([
+    [
+      1,
+      {
+        validate: onchainValidationSucceededMock,
+      },
+    ],
+    [
+      5,
+      {
+        validate: onchainValidationSucceededMock,
+      },
+    ],
+    [
+      137,
+      {
+        validate: validationFailedValidatorMock,
+      },
+    ],
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ] as any)
 
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
@@ -140,12 +163,13 @@ describe('Testing post order handler.', () => {
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock)
+  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock, onChainValidatorMap)
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
     process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
     process.env['REGION'] = 'region'
+    //@ts-ignore
     DutchOrder.parse.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
     log.setLogLevel('SILENT')
   })
@@ -230,6 +254,7 @@ describe('Testing post order handler.', () => {
       it('should allow more orders if in the high list', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
         validatorMock.mockReturnValue({ valid: true })
+        //@ts-ignore
         DutchOrder.parse.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
@@ -248,6 +273,7 @@ describe('Testing post order handler.', () => {
       it('should reject order submission for offerer in high list at higher order count', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
         validatorMock.mockReturnValue({ valid: true })
+        //@ts-ignore
         DutchOrder.parse.mockReturnValueOnce(
           Object.assign({}, DECODED_ORDER, {
             info: Object.assign({}, ORDER_INFO, {
@@ -302,7 +328,14 @@ describe('Testing post order handler.', () => {
     })
 
     it('should call StepFunctions.startExecution method with the correct params', async () => {
-      const sfnInput = { orderHash: '0xhash', chainId: 1, quoteId: 'quoteId', orderStatus: ORDER_STATUS.OPEN }
+      const sfnInput = {
+        orderHash: '0xhash',
+        chainId: 1,
+        quoteId: 'quoteId',
+        orderStatus: ORDER_STATUS.OPEN,
+        orderType: OrderType.Dutch,
+        stateMachineArn: MOCK_ARN_1,
+      }
       expect(async () => await kickoffOrderTrackingSfn(sfnInput, MOCK_ARN_1)).not.toThrow()
       expect(mockSfnClient.calls()).toHaveLength(1)
 
@@ -370,6 +403,7 @@ describe('Testing post order handler.', () => {
     })
 
     it('on-chain validation failed; throws 400', async () => {
+      //@ts-ignore
       DutchOrder.parse.mockReturnValue({
         ...DECODED_ORDER,
         chainId: 137,

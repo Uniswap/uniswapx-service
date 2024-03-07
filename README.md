@@ -47,7 +47,9 @@ To test your changes you must redeploy your service. The dev cycle is thus:
 
 ```
 FAILED_EVENT_DESTINATION_ARN=<>
+RPC_1=<>
 RPC_5=<>
+RPC_137=<>
 
 # Only need these if testing against custom contract deployments
 DL_REACTOR_TENDERLY=<>

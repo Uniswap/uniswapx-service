@@ -6,4 +6,6 @@ export enum ChainId {
   POLYGON = 137,
 }
 
+// If you update SUPPORTED_CHAINS, ensure you add a corresponding RPC_${chainId} enviroment variable.
+// lib/config.py will require it to be defined.
 export const SUPPORTED_CHAINS = [ChainId.MAINNET, ChainId.GÖRLI, ChainId.POLYGON]
