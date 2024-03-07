@@ -9,6 +9,7 @@ import { DEFAULT_MAX_OPEN_ORDERS } from '../../../lib/handlers/constants'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
+import { HttpStatusCode } from '../../../lib/HttpStatusCode'
 import { log } from '../../../lib/Logging'
 import { ORDER_INFO } from '../fixtures'
 
@@ -168,7 +169,7 @@ describe('Testing post order handler.', () => {
       })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
-        statusCode: 201,
+        statusCode: HttpStatusCode.Created,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -198,7 +199,7 @@ describe('Testing post order handler.', () => {
       })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
-        statusCode: 201,
+        statusCode: HttpStatusCode.Created,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -219,7 +220,7 @@ describe('Testing post order handler.', () => {
             errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
           }),
-          statusCode: 403,
+          statusCode: HttpStatusCode.Forbidden,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
         expect(onchainValidationSucceededMock).toBeCalled()
@@ -237,7 +238,7 @@ describe('Testing post order handler.', () => {
           })
         )
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
-          statusCode: 201,
+          statusCode: HttpStatusCode.Created,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
         expect(onchainValidationSucceededMock).toBeCalled()
@@ -259,7 +260,7 @@ describe('Testing post order handler.', () => {
             errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
           }),
-          statusCode: 403,
+          statusCode: HttpStatusCode.Forbidden,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
         expect(onchainValidationSucceededMock).toBeCalled()
@@ -270,7 +271,7 @@ describe('Testing post order handler.', () => {
     it('should return 500 if DDB call throws', async () => {
       countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
       expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
-        statusCode: 500,
+        statusCode: HttpStatusCode.InternalServerError,
       })
     })
   })
@@ -331,7 +332,7 @@ describe('Testing post order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ detail: 'database unavailable', errorCode: ErrorCode.InternalError, id: 'testRequest' }),
-        statusCode: 500,
+        statusCode: HttpStatusCode.InternalServerError,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -358,7 +359,7 @@ describe('Testing post order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ detail: errorString, errorCode, id: 'testRequest' }),
-        statusCode: 400,
+        statusCode: HttpStatusCode.BadRequest,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -391,7 +392,7 @@ describe('Testing post order handler.', () => {
           errorCode: ErrorCode.InvalidOrder,
           id: 'testRequest',
         }),
-        statusCode: 400,
+        statusCode: HttpStatusCode.BadRequest,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',

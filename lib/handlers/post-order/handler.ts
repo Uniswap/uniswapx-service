@@ -5,6 +5,7 @@ import Joi from 'joi'
 
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
+import { HttpStatusCode } from '../../HttpStatusCode'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
 import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
@@ -57,7 +58,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     } catch (e: unknown) {
       log.error(e, 'Failed to parse order')
       return {
-        statusCode: 400,
+        statusCode: HttpStatusCode.BadRequest,
         errorCode: ErrorCode.OrderParseFail,
         ...(e instanceof Error && { detail: e.message }),
       }
@@ -68,13 +69,13 @@ export class PostOrderHandler extends APIGLambdaHandler<
     try {
       const orderHash = await service.createOrder(decodedOrder, signature, quoteId, orderType)
       return {
-        statusCode: 201,
+        statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },
       }
     } catch (err) {
       if (err instanceof OrderValidationFailedError) {
         return {
-          statusCode: 400,
+          statusCode: HttpStatusCode.BadRequest,
           errorCode: ErrorCode.InvalidOrder,
           detail: err.message,
         }
@@ -82,13 +83,13 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
       if (err instanceof TooManyOpenOrdersError) {
         return {
-          statusCode: 403,
+          statusCode: HttpStatusCode.Forbidden,
           errorCode: ErrorCode.TooManyOpenOrders,
         }
       }
 
       return {
-        statusCode: 500,
+        statusCode: HttpStatusCode.InternalServerError,
         errorCode: ErrorCode.InternalError,
         ...(err instanceof Error && { detail: err.message }),
       }
