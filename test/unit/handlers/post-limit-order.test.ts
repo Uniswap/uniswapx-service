@@ -3,6 +3,7 @@ import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from 
 import { ORDER_STATUS } from '../../../lib/entities'
 import { ErrorCode } from '../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../lib/handlers/constants'
+import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { HttpStatusCode } from '../../../lib/HttpStatusCode'
@@ -92,6 +93,29 @@ describe('Testing post limit order handler.', () => {
     ],
   }
 
+  const onChainValidatorMap = new OnChainValidatorMap([
+    [
+      1,
+      {
+        validate: onchainValidationSucceededMock,
+      },
+    ],
+    [
+      5,
+      {
+        validate: onchainValidationSucceededMock,
+      },
+    ],
+    [
+      137,
+      {
+        validate: validationFailedValidatorMock,
+      },
+    ],
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ] as any)
+
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
       return {
@@ -120,7 +144,7 @@ describe('Testing post limit order handler.', () => {
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostOrderHandler('post-limit-order', injectorPromiseMock)
+  const postOrderHandler = new PostOrderHandler('post-limit-order', injectorPromiseMock, onChainValidatorMap)
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1

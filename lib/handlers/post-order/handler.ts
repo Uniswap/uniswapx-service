@@ -8,7 +8,16 @@ import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
-import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
+import {
+  APIGLambdaHandler,
+  APIHandleRequestParams,
+  ApiInjector,
+  ApiRInj,
+  ErrorCode,
+  ErrorResponse,
+  Response,
+} from '../base'
+import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
@@ -19,37 +28,30 @@ export class PostOrderHandler extends APIGLambdaHandler<
   void,
   PostOrderResponse
 > {
+  constructor(
+    handlerName: string,
+    injectorPromise: Promise<ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
+    private readonly onChainValidatorMap: OnChainValidatorMap
+  ) {
+    super(handlerName, injectorPromise)
+  }
+
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody: { encodedOrder, signature, chainId, quoteId },
       requestInjected: { log },
-      containerInjected: { dbInterface, orderValidator, onchainValidatorByChainId, orderType, getMaxOpenOrders },
+      containerInjected: { dbInterface, orderValidator, orderType, getMaxOpenOrders },
     } = params
 
     log.info('Handling POST order request', params)
     log.info(
       {
-        onchainValidatorByChainId: Object.keys(onchainValidatorByChainId).map(
-          (chainId) => onchainValidatorByChainId[Number(chainId)].orderQuoterAddress
-        ),
+        onchainValidatorByChainId: this.onChainValidatorMap.debug(),
       },
       'onchain validators'
     )
-    // onchain validation
-    //
-    // A future improvement here is to define a separate "SupportChainID" enum of all
-    // chains that currently support X and ensure that the onchainValidatorsByChainId accounts for all chains.
-    // By doing this, we can avoid the run-time check.
-    const onchainValidator = onchainValidatorByChainId[chainId]
-    if (!onchainValidator) {
-      return {
-        statusCode: 500,
-        errorCode: ErrorCode.InternalError,
-        detail: `No onchain validator for chain ${chainId}`,
-      }
-    }
 
     let decodedOrder: DutchOrder
 
@@ -64,7 +66,13 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const service = new UniswapXOrderService(orderValidator, onchainValidator, dbInterface, log, getMaxOpenOrders)
+    const service = new UniswapXOrderService(
+      orderValidator,
+      this.onChainValidatorMap.get(chainId),
+      dbInterface,
+      log,
+      getMaxOpenOrders
+    )
 
     try {
       const orderHash = await service.createOrder(decodedOrder, signature, quoteId, orderType)
