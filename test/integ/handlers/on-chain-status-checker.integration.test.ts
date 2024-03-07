@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
-import { EventWatcher, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
+import { EventWatcher, OrderValidation, OrderValidator, SignedUniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
 import { BATCH_READ_MAX, OnChainStatusChecker } from '../../../lib/compute/on-chain-status-checker'
@@ -140,8 +140,8 @@ describe('OnChainStatusChecker', () => {
         validate: () => {
           return OrderValidation.NonceUsed
         },
-        validateBatch: (arr: SignedOrder[]) => {
-          return arr.map((o: SignedOrder) => {
+        validateBatch: (arr: SignedUniswapXOrder[]) => {
+          return arr.map((o: SignedUniswapXOrder) => {
             switch (o.signature) {
               case MOCK_SIGNATURE:
                 return OrderValidation.NonceUsed
