@@ -3,12 +3,14 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
+import { OrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
+import { DutchIndexMapper } from './IndexMapper'
 import { getTableIndices, TABLE_NAMES } from './util'
 
-export class DutchOrdersRepository extends GenericOrdersRepository<string, string, null> {
-  static create(documentClient: DocumentClient): BaseOrdersRepository {
+export class DutchOrdersRepository extends GenericOrdersRepository<string, string, null, OrderEntity> {
+  static create(documentClient: DocumentClient): BaseOrdersRepository<OrderEntity> {
     const log = Logger.createLogger({
       name: 'DutchOrdersRepository',
       serializers: Logger.stdSerializers,
@@ -24,22 +26,30 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
     const orderEntity = new Entity({
       name: MODEL_NAME.DUTCH,
       attributes: {
+        //off chain requirements
         orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },
         signature: { type: DYNAMODB_TYPES.STRING, required: true },
         orderStatus: { type: DYNAMODB_TYPES.STRING, required: true },
+        createdAt: { type: DYNAMODB_TYPES.NUMBER },
+        type: { type: DYNAMODB_TYPES.STRING },
+        chainId: { type: DYNAMODB_TYPES.NUMBER },
+
+        //on chain data
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
         offerer: { type: DYNAMODB_TYPES.STRING, required: true },
         filler: { type: DYNAMODB_TYPES.STRING },
         decayStartTime: { type: DYNAMODB_TYPES.NUMBER },
         decayEndTime: { type: DYNAMODB_TYPES.NUMBER },
         deadline: { type: DYNAMODB_TYPES.NUMBER },
-        createdAt: { type: DYNAMODB_TYPES.NUMBER },
         reactor: { type: DYNAMODB_TYPES.STRING },
-        type: { type: DYNAMODB_TYPES.STRING },
-        chainId: { type: DYNAMODB_TYPES.NUMBER },
         input: { type: DYNAMODB_TYPES.MAP },
         outputs: { type: DYNAMODB_TYPES.LIST },
+        quoteId: { type: DYNAMODB_TYPES.STRING },
+        txHash: { type: DYNAMODB_TYPES.STRING },
+        settledAmounts: { type: DYNAMODB_TYPES.LIST },
+
+        //indexes
         offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         filler_orderStatus: { type: DYNAMODB_TYPES.STRING },
         filler_offerer: { type: DYNAMODB_TYPES.STRING },
@@ -47,9 +57,6 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         chainId_orderStatus: { type: DYNAMODB_TYPES.STRING },
         chainId_orderStatus_filler: { type: DYNAMODB_TYPES.STRING },
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
-        quoteId: { type: DYNAMODB_TYPES.STRING },
-        txHash: { type: DYNAMODB_TYPES.STRING },
-        settledAmounts: { type: DYNAMODB_TYPES.LIST },
       },
       table: ordersTable,
     } as const)
@@ -69,6 +76,6 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
       table: nonceTable,
     } as const)
 
-    return new GenericOrdersRepository(ordersTable, orderEntity, nonceEntity, log)
+    return new DutchOrdersRepository(ordersTable, orderEntity, nonceEntity, log, new DutchIndexMapper())
   }
 }
