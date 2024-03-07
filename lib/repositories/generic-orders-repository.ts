@@ -58,28 +58,6 @@ export abstract class GenericOrdersRepository<
     return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort, desc)
   }
 
-  public async getByFiller(
-    filler: string,
-    limit: number,
-    cursor?: string,
-    sortKey?: SORT_FIELDS,
-    sort?: string,
-    desc?: boolean
-  ): Promise<QueryResult> {
-    return await this.queryOrderEntity(filler, TABLE_KEY.FILLER, limit, cursor, sortKey, sort, desc)
-  }
-
-  public async getByChainId(
-    chainId: number,
-    limit: number,
-    cursor?: string,
-    sortKey?: SORT_FIELDS,
-    sort?: string,
-    desc?: boolean
-  ): Promise<QueryResult> {
-    return await this.queryOrderEntity(chainId, TABLE_KEY.CHAIN_ID, limit, cursor, sortKey, sort, desc)
-  }
-
   public async getByHash(hash: string): Promise<T | undefined> {
     const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
     return res.Item as T
@@ -242,12 +220,6 @@ export abstract class GenericOrdersRepository<
       orders: queryResult.Items as T[],
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
     }
-  }
-
-  private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
-    return (
-      requestedParams.length == queryParams.length && queryParams.every((filter) => requestedParams.includes(filter))
-    )
   }
 
   private getRequestedParams(queryFilters: GetOrdersQueryParams) {
