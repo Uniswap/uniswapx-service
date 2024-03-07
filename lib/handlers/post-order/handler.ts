@@ -1,17 +1,13 @@
-import { getAddress } from '@ethersproject/address'
-import { AddressZero } from '@ethersproject/constants'
-import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { DutchOrder } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Joi from 'joi'
 
-import { OrderEntity, ORDER_STATUS } from '../../entities'
-import { checkDefined } from '../../preconditions/preconditions'
+import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
+import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
+import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
-import { formatOrderEntity } from '../../util/order'
-import { currentTimestampInSeconds } from '../../util/time'
 import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
-import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
@@ -40,6 +36,20 @@ export class PostOrderHandler extends APIGLambdaHandler<
       },
       'onchain validators'
     )
+    // onchain validation
+    //
+    // A future improvement here is to define a separate "SupportChainID" enum of all
+    // chains that currently support X and ensure that the onchainValidatorsByChainId accounts for all chains.
+    // By doing this, we can avoid the run-time check.
+    const onchainValidator = onchainValidatorByChainId[chainId]
+    if (!onchainValidator) {
+      return {
+        statusCode: 500,
+        errorCode: ErrorCode.InternalError,
+        detail: `No onchain validator for chain ${chainId}`,
+      }
+    }
+
     let decodedOrder: DutchOrder
 
     try {
@@ -53,106 +63,35 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const validationResponse = orderValidator.validate(decodedOrder)
-    if (!validationResponse.valid) {
-      return {
-        statusCode: 400,
-        errorCode: ErrorCode.InvalidOrder,
-        detail: validationResponse.errorString,
-      }
-    }
-    // onchain validation
-    const onchainValidator = onchainValidatorByChainId[chainId]
-    if (!onchainValidator) {
-      return {
-        statusCode: 500,
-        errorCode: ErrorCode.InternalError,
-        detail: `No onchain validator for chain ${chainId}`,
-      }
-    }
-    const validation = await onchainValidator.validate({ order: decodedOrder, signature: signature })
-    if (validation != OrderValidation.OK) {
-      return {
-        statusCode: 400,
-        errorCode: ErrorCode.InvalidOrder,
-        detail: `Onchain validation failed: ${OrderValidation[validation]}`,
-      }
-    }
-
-    const order: OrderEntity = formatOrderEntity(decodedOrder, signature, OrderType.Dutch, ORDER_STATUS.OPEN, quoteId)
-    const id = order.orderHash
+    const service = new UniswapXOrderService(orderValidator, onchainValidator, dbInterface, log, getMaxOpenOrders)
 
     try {
-      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
-      if (orderCount > getMaxOpenOrders(order.offerer)) {
-        log.info(orderCount, `${order.offerer} has too many open orders`)
+      const orderHash = await service.createOrder(decodedOrder, signature, quoteId, orderType)
+      return {
+        statusCode: 201,
+        body: { hash: orderHash },
+      }
+    } catch (err) {
+      if (err instanceof OrderValidationFailedError) {
+        return {
+          statusCode: 400,
+          errorCode: ErrorCode.InvalidOrder,
+          detail: err.message,
+        }
+      }
+
+      if (err instanceof TooManyOpenOrdersError) {
         return {
           statusCode: 403,
           errorCode: ErrorCode.TooManyOpenOrders,
         }
       }
-    } catch (e) {
-      log.error(e, `failed to fetch open order count for ${order.offerer}`)
+
       return {
         statusCode: 500,
         errorCode: ErrorCode.InternalError,
-        ...(e instanceof Error && { detail: e.message }),
+        ...(err instanceof Error && { detail: err.message }),
       }
-    }
-
-    const stateMachineArn = checkDefined(process.env[`STATE_MACHINE_ARN_${chainId}`])
-
-    try {
-      await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`Successfully inserted Order ${id} into DB`)
-    } catch (e: unknown) {
-      log.error(e, `Failed to insert order ${id} into DB`)
-      return {
-        statusCode: 500,
-        errorCode: ErrorCode.InternalError,
-        ...(e instanceof Error && { detail: e.message }),
-      }
-    }
-
-    // Log used for cw dashboard and redshift metrics, do not modify
-    // skip fee output logging
-    const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
-    log?.info({
-      eventType: 'OrderPosted',
-      body: {
-        quoteId: order.quoteId,
-        createdAt: currentTimestampInSeconds(),
-        orderHash: order.orderHash,
-        startTime: order.decayStartTime,
-        endTime: order.decayEndTime,
-        deadline: order.deadline,
-        chainId: order.chainId,
-        inputStartAmount: order.input?.startAmount,
-        inputEndAmount: order.input?.endAmount,
-        tokenIn: order.input?.token,
-        outputStartAmount: userOutput.startAmount,
-        outputEndAmount: userOutput.endAmount,
-        tokenOut: userOutput.token,
-        filler: getAddress(order.filler ?? AddressZero),
-        orderType: orderType,
-      },
-    })
-
-    await kickoffOrderTrackingSfn(
-      {
-        orderHash: id,
-        chainId: chainId,
-        orderStatus: ORDER_STATUS.OPEN,
-        quoteId: quoteId ?? '',
-        orderType,
-        stateMachineArn,
-      },
-      stateMachineArn
-    )
-
-    return {
-      statusCode: 201,
-      body: { hash: id },
     }
   }
 
