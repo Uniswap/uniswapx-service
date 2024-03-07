@@ -5,6 +5,7 @@ import { ErrorCode } from '../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../lib/handlers/constants'
 import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
+import { HttpStatusCode } from '../../../lib/HttpStatusCode'
 import { ORDER_INFO } from '../fixtures'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
@@ -143,7 +144,7 @@ describe('Testing post limit order handler.', () => {
       expect(validatorMock).toBeCalledWith(DECODED_ORDER)
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
-        statusCode: 201,
+        statusCode: HttpStatusCode.Created,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -169,7 +170,7 @@ describe('Testing post limit order handler.', () => {
       expect(validatorMock).toBeCalledWith({ ...DECODED_ORDER, chainId: 5 })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
-        statusCode: 201,
+        statusCode: HttpStatusCode.Created,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -190,7 +191,7 @@ describe('Testing post limit order handler.', () => {
             errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
           }),
-          statusCode: 403,
+          statusCode: HttpStatusCode.Forbidden,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
         expect(onchainValidationSucceededMock).toBeCalled()
@@ -209,7 +210,7 @@ describe('Testing post limit order handler.', () => {
           })
         )
         expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
-          statusCode: 201,
+          statusCode: HttpStatusCode.Created,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
         expect(onchainValidationSucceededMock).toBeCalled()
@@ -232,7 +233,7 @@ describe('Testing post limit order handler.', () => {
             errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
           }),
-          statusCode: 403,
+          statusCode: HttpStatusCode.Forbidden,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
         expect(onchainValidationSucceededMock).toBeCalled()
@@ -243,7 +244,7 @@ describe('Testing post limit order handler.', () => {
     it('should return 500 if DDB call throws', async () => {
       countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
       expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
-        statusCode: 500,
+        statusCode: HttpStatusCode.InternalServerError,
       })
     })
   })
@@ -268,7 +269,7 @@ describe('Testing post limit order handler.', () => {
       const postOrderResponse = await postOrderHandler.handler(invalidEvent as any, {} as any)
       expect(validatorMock).not.toHaveBeenCalled()
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
-      expect(postOrderResponse.statusCode).toEqual(400)
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.BadRequest)
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
     })
@@ -296,7 +297,7 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ detail: 'database unavailable', errorCode: ErrorCode.InternalError, id: 'testRequest' }),
-        statusCode: 500,
+        statusCode: HttpStatusCode.InternalServerError,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -323,7 +324,7 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ detail: errorString, errorCode, id: 'testRequest' }),
-        statusCode: 400,
+        statusCode: HttpStatusCode.BadRequest,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
@@ -357,7 +358,7 @@ describe('Testing post limit order handler.', () => {
           errorCode: ErrorCode.InvalidOrder,
           id: 'testRequest',
         }),
-        statusCode: 400,
+        statusCode: HttpStatusCode.BadRequest,
         headers: {
           'Access-Control-Allow-Credentials': true,
           'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
