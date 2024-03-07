@@ -145,17 +145,6 @@ describe('Testing post order handler.', () => {
         orderValidator: {
           validate: validatorMock,
         },
-        onchainValidatorByChainId: {
-          1: {
-            validate: onchainValidationSucceededMock,
-          },
-          5: {
-            validate: onchainValidationSucceededMock,
-          },
-          137: {
-            validate: validationFailedValidatorMock,
-          },
-        },
         orderType: OrderType.Dutch,
         getMaxOpenOrders,
       }
