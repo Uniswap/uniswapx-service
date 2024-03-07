@@ -6,7 +6,7 @@ import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { OrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
-import { DutchIndexMapper } from './IndexMappers/IndexMapper'
+import { DutchIndexMapper } from './IndexMappers/DutchIndexMapper'
 import { getTableIndices, TABLE_NAMES } from './util'
 
 export class DutchOrdersRepository extends GenericOrdersRepository<string, string, null, OrderEntity> {

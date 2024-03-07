@@ -33,7 +33,7 @@ export abstract class GenericOrdersRepository<
     private readonly entity: Entity,
     private readonly nonceEntity: Entity,
     private readonly log: Logger,
-    private readonly indexMapper: IndexMapper
+    private readonly indexMapper: IndexMapper<T>
   ) {}
 
   public async getByOfferer(
