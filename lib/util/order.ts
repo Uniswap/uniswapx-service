@@ -1,4 +1,4 @@
-import { DutchOrder, getOrderTypeFromEncoded, OrderType } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, OrderType, UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 
@@ -26,7 +26,7 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
   try {
     const chainId = parseInt(newOrder.chainId.N as string)
     const encodedOrder = newOrder.encodedOrder.S as string
-    const orderType = getOrderTypeFromEncoded(encodedOrder, chainId)
+    const orderType = new UniswapXOrderParser().getOrderTypeFromEncoded(encodedOrder, chainId)
 
     return {
       swapper: newOrder.offerer.S as string,

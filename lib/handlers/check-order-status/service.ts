@@ -1,5 +1,12 @@
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
-import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator, SignedOrder } from '@uniswap/uniswapx-sdk'
+import {
+  DutchOrder,
+  EventWatcher,
+  FillInfo,
+  OrderValidation,
+  OrderValidator,
+  SignedUniswapXOrder,
+} from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
@@ -144,7 +151,7 @@ export class CheckOrderStatusService {
     const validator = getValidator(provider, chainId)
     const orderWatcher = getWatcher(provider, chainId)
 
-    const validationsRequestList: SignedOrder[] = []
+    const validationsRequestList: SignedUniswapXOrder[] = []
     for (let i = 0; i < batch.length; i++) {
       const order = batch[i]
       const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
