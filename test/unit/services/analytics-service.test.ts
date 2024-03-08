@@ -44,7 +44,7 @@ describe('Analytics Service', () => {
       analyticsService.logOrderPosted(mockedOrder, OrderType.Limit)
 
       expect(log.info).toHaveBeenCalledWith('Analytics Message', {
-        eventType: 'OrderPostedV2',
+        eventType: 'OrderPosted',
         body: {
           quoteId: mockedOrder.quoteId,
           createdAt: '123',
@@ -80,7 +80,7 @@ describe('Analytics Service', () => {
         analyticsService.logOrderPosted(mockedOrder, OrderType.Limit)
 
       expect(log.info).toHaveBeenCalledWith('Analytics Message', {
-        eventType: 'OrderPostedV2',
+        eventType: 'OrderPosted',
         body: {
           quoteId: mockedOrder.quoteId,
           createdAt: '123',
