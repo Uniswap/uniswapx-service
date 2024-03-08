@@ -93,15 +93,6 @@ export class LambdaStack extends cdk.NestedStack {
       indexCapacityConfig,
     })
 
-    // tracks limit order status as a fargate task
-    // currently done by step functions
-    // new StatusStack(this, `${SERVICE_NAME}-StatusStack`, {
-    //   environmentVariables: {
-    //     ...props.envVars,
-    //   },
-    //   stage: props.stage,
-    // })
-
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
       stage: props.stage as STAGE,
       envVars: {
