@@ -114,7 +114,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     const getOrdersEnv = {
       stage: props.stage as STAGE,
-      VERSION: '2',
+      VERSION: '3',
       NODE_OPTIONS: '--enable-source-maps',
     }
 
@@ -184,7 +184,7 @@ export class LambdaStack extends cdk.NestedStack {
     const postOrderEnv: any = {
       ...props.envVars,
       stage: props.stage as STAGE,
-      VERSION: '2',
+      VERSION: '3',
       NODE_OPTIONS: '--enable-source-maps',
       REGION: this.region,
     }
