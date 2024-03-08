@@ -1,9 +1,10 @@
 import { OrderType, OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
-import { default as bunyan } from 'bunyan'
 import { ethers } from 'ethers'
 import { CONFIG } from '../../Config'
+import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
+import { AnalyticsService } from '../../services/analytics-service'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
@@ -32,20 +33,10 @@ const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,
   onChainValidatorMap,
   repo,
-  // Code duplicated from APIGLambdaHandler.buildHandler() with the requestId omitted.
-  //
-  // This logger will be overwritten with the logger that the APIGLambdaHandler creates, so for now,
-  // this is just a placeholder.
-  //
-  // This should be revisited and improved in the future by extracting the logger creation from the request path
-  // and relying on this injected logger as the source of truth..
-  bunyan.createLogger({
-    name: 'postLimitOrdersHandler',
-    serializers: bunyan.stdSerializers,
-    level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
-  }),
+  log,
   getMaxLimitOpenOrders,
-  OrderType.Limit
+  OrderType.Limit,
+  AnalyticsService.create()
 )
 
 const postLimitOrderHandler = new PostOrderHandler(

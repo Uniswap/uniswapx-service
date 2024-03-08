@@ -142,7 +142,10 @@ describe('Testing post limit order handler.', () => {
       } as any,
       mockLog,
       getMaxLimitOpenOrders,
-      OrderType.Limit
+      OrderType.Limit,
+      {
+        logOrderPosted: jest.fn(),
+      }
     )
   )
 

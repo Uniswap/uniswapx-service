@@ -6,7 +6,6 @@ import Joi from 'joi'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
-import { AnalyticsService } from '../../services/analytics-service'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
 import {
@@ -56,9 +55,6 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { detail: e.message }),
       }
     }
-
-    // See note in UniswapXOrderService for why this is required.
-    this.service.setLogger(log)
 
     try {
       const orderHash = await this.service.createOrder(decodedOrder, signature, quoteId)

@@ -1,7 +1,5 @@
-import { getAddress } from '@ethersproject/address'
-import { AddressZero } from '@ethersproject/constants'
+import { Logger } from '@aws-lambda-powertools/logger'
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
-import { default as Logger } from 'bunyan'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
@@ -20,7 +18,8 @@ export class UniswapXOrderService {
     private readonly repository: BaseOrdersRepository,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
-    private orderType: OrderType
+    private orderType: OrderType,
+    private analyticsService: AnalyticsServiceInterface
   ) {}
 
   async createOrder(order: DutchOrder, signature: string, quoteId: string | undefined): Promise<string> {
@@ -58,12 +57,16 @@ export class UniswapXOrderService {
       const orderCount = await this.repository.countOrdersByOffererAndStatus(offerer, ORDER_STATUS.OPEN)
 
       if (orderCount > this.getMaxOpenOrders(offerer)) {
-        this.logger.info(orderCount, `${offerer} has too many open orders`)
+        this.logger.info(`${offerer} has too many open orders`, {
+          orderCount,
+        })
         return false
       }
       return true
     } catch (e) {
-      this.logger.error(e, `failed to fetch open order count for ${offerer}`)
+      this.logger.error(`failed to fetch open order count for ${offerer}`, {
+        e,
+      })
       throw e
     }
   }
@@ -73,7 +76,9 @@ export class UniswapXOrderService {
       await this.repository.putOrderAndUpdateNonceTransaction(order)
       this.logger.info(`Successfully inserted Order ${order.orderHash} into DB`)
     } catch (e: unknown) {
-      this.logger.error(e, `Failed to insert order ${order.orderHash} into DB`)
+      this.logger.error(`Failed to insert order ${order.orderHash} into DB`, {
+        e,
+      })
       throw e
     }
   }
@@ -102,18 +107,5 @@ export class UniswapXOrderService {
       },
       stateMachineArn
     )
-  }
-
-  // This is a hack: we need to be able to set the logger to the child logger that is bound to
-  // the requestId.
-  //
-  // At the time of the UniswapXOrderService creation, this child logger won't yet be created,
-  // hence we're forced to call setLogger for each request. The better move is to move to aws-powertools-logger
-  // which captures requestIds by default.
-  //
-  // Until we confirm that the log in `logOrderCreatedEvent` will successfully
-  // be tracked if it's a powertools log, we'll use this hack.
-  setLogger(logger: Logger) {
-    this.logger = logger
   }
 }
