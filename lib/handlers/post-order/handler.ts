@@ -1,27 +1,25 @@
-import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { getAddress } from '@ethersproject/address'
-import { AddressZero } from '@ethersproject/constants'
-import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { DutchOrder } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
-import Logger from 'bunyan'
 import Joi from 'joi'
 
-import { OrderEntity, ORDER_STATUS } from '../../entities'
-import { checkDefined } from '../../preconditions/preconditions'
+import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
+import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
+import { HttpStatusCode } from '../../HttpStatusCode'
+import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
-import { formatOrderEntity } from '../../util/order'
-import { currentTimestampInSeconds } from '../../util/time'
-import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorCode, ErrorResponse, Response } from '../base'
+import {
+  APIGLambdaHandler,
+  APIHandleRequestParams,
+  ApiInjector,
+  ApiRInj,
+  ErrorCode,
+  ErrorResponse,
+  Response,
+} from '../base'
+import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
-
-type OrderTrackingSfnInput = {
-  orderHash: string
-  chainId: number
-  orderStatus: ORDER_STATUS
-  quoteId: string
-}
 
 export class PostOrderHandler extends APIGLambdaHandler<
   ContainerInjected,
@@ -30,24 +28,31 @@ export class PostOrderHandler extends APIGLambdaHandler<
   void,
   PostOrderResponse
 > {
+  constructor(
+    handlerName: string,
+    injectorPromise: Promise<ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
+    private readonly onChainValidatorMap: OnChainValidatorMap
+  ) {
+    super(handlerName, injectorPromise)
+  }
+
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody: { encodedOrder, signature, chainId, quoteId },
       requestInjected: { log },
-      containerInjected: { dbInterface, orderValidator, onchainValidatorByChainId, getMaxOpenOrders },
+      containerInjected: { dbInterface, orderValidator, orderType, getMaxOpenOrders },
     } = params
 
     log.info('Handling POST order request', params)
     log.info(
       {
-        onchainValidatorByChainId: Object.keys(onchainValidatorByChainId).map(
-          (chainId) => onchainValidatorByChainId[Number(chainId)].orderQuoterAddress
-        ),
+        onchainValidatorByChainId: this.onChainValidatorMap.debug(),
       },
       'onchain validators'
     )
+
     let decodedOrder: DutchOrder
 
     try {
@@ -55,117 +60,48 @@ export class PostOrderHandler extends APIGLambdaHandler<
     } catch (e: unknown) {
       log.error(e, 'Failed to parse order')
       return {
-        statusCode: 400,
+        statusCode: HttpStatusCode.BadRequest,
         errorCode: ErrorCode.OrderParseFail,
         ...(e instanceof Error && { detail: e.message }),
       }
     }
 
-    const validationResponse = orderValidator.validate(decodedOrder)
-    if (!validationResponse.valid) {
-      return {
-        statusCode: 400,
-        errorCode: ErrorCode.InvalidOrder,
-        detail: validationResponse.errorString,
-      }
-    }
-    // onchain validation
-    const onchainValidator = onchainValidatorByChainId[chainId]
-    if (!onchainValidator) {
-      return {
-        statusCode: 500,
-        errorCode: ErrorCode.InternalError,
-        detail: `No onchain validator for chain ${chainId}`,
-      }
-    }
-    const validation = await onchainValidator.validate({ order: decodedOrder, signature: signature })
-    if (validation != OrderValidation.OK) {
-      return {
-        statusCode: 400,
-        errorCode: ErrorCode.InvalidOrder,
-        detail: `Onchain validation failed: ${OrderValidation[validation]}`,
-      }
-    }
-
-    const order: OrderEntity = formatOrderEntity(decodedOrder, signature, OrderType.Dutch, ORDER_STATUS.OPEN, quoteId)
-    const id = order.orderHash
+    const service = new UniswapXOrderService(
+      orderValidator,
+      this.onChainValidatorMap.get(chainId),
+      dbInterface,
+      log,
+      getMaxOpenOrders
+    )
 
     try {
-      const orderCount = await dbInterface.countOrdersByOffererAndStatus(order.offerer, ORDER_STATUS.OPEN)
-      if (orderCount > getMaxOpenOrders(order.offerer)) {
-        log.info(orderCount, `${order.offerer} has too many open orders`)
+      const orderHash = await service.createOrder(decodedOrder, signature, quoteId, orderType)
+      return {
+        statusCode: HttpStatusCode.Created,
+        body: { hash: orderHash },
+      }
+    } catch (err) {
+      if (err instanceof OrderValidationFailedError) {
         return {
-          statusCode: 403,
+          statusCode: HttpStatusCode.BadRequest,
+          errorCode: ErrorCode.InvalidOrder,
+          detail: err.message,
+        }
+      }
+
+      if (err instanceof TooManyOpenOrdersError) {
+        return {
+          statusCode: HttpStatusCode.Forbidden,
           errorCode: ErrorCode.TooManyOpenOrders,
         }
       }
-    } catch (e) {
-      log.error(e, `failed to fetch open order count for ${order.offerer}`)
+
       return {
-        statusCode: 500,
+        statusCode: HttpStatusCode.InternalServerError,
         errorCode: ErrorCode.InternalError,
-        ...(e instanceof Error && { detail: e.message }),
+        ...(err instanceof Error && { detail: err.message }),
       }
     }
-
-    const stateMachineArn = checkDefined(process.env[`STATE_MACHINE_ARN_${chainId}`])
-
-    try {
-      await dbInterface.putOrderAndUpdateNonceTransaction(order)
-      log.info(`Successfully inserted Order ${id} into DB`)
-    } catch (e: unknown) {
-      log.error(e, `Failed to insert order ${id} into DB`)
-      return {
-        statusCode: 500,
-        errorCode: ErrorCode.InternalError,
-        ...(e instanceof Error && { detail: e.message }),
-      }
-    }
-
-    // Log used for cw dashboard and redshift metrics, do not modify
-    // skip fee output logging
-    const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
-    log?.info({
-      eventType: 'OrderPosted',
-      body: {
-        quoteId: order.quoteId,
-        createdAt: currentTimestampInSeconds(),
-        orderHash: order.orderHash,
-        startTime: order.decayStartTime,
-        endTime: order.decayEndTime,
-        deadline: order.deadline,
-        chainId: order.chainId,
-        inputStartAmount: order.input?.startAmount,
-        inputEndAmount: order.input?.endAmount,
-        tokenIn: order.input?.token,
-        outputStartAmount: userOutput.startAmount,
-        outputEndAmount: userOutput.endAmount,
-        tokenOut: userOutput.token,
-        filler: getAddress(order.filler ?? AddressZero),
-      },
-    })
-
-    await this.kickoffOrderTrackingSfn(
-      { orderHash: id, chainId: chainId, orderStatus: ORDER_STATUS.OPEN, quoteId: quoteId ?? '' },
-      stateMachineArn,
-      log
-    )
-    return {
-      statusCode: 201,
-      body: { hash: id },
-    }
-  }
-
-  private async kickoffOrderTrackingSfn(sfnInput: OrderTrackingSfnInput, stateMachineArn: string, log?: Logger) {
-    const region = checkDefined(process.env['REGION'])
-    const sfnClient = new SFNClient({ region: region })
-    const startExecutionCommand = new StartExecutionCommand({
-      stateMachineArn: stateMachineArn,
-      input: JSON.stringify(sfnInput),
-      name: sfnInput.orderHash,
-    })
-    log?.info(startExecutionCommand, 'Starting state machine execution')
-    await sfnClient.send(startExecutionCommand)
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {

@@ -8,9 +8,9 @@ import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
-import { BaseRInj, SfnInjector, SfnStateInputOutput } from '../base/index'
-
-export interface RequestInjected extends BaseRInj {
+import { SfnInjector, SfnStateInputOutput } from '../base/index'
+export interface RequestInjected {
+  log: Logger
   chainId: number
   quoteId: string
   orderHash: string
@@ -21,6 +21,8 @@ export interface RequestInjected extends BaseRInj {
   provider: ethers.providers.StaticJsonRpcProvider
   orderWatcher: EventWatcher
   orderQuoter: OrderValidator
+  orderType: OrderType
+  stateMachineArn: string
 }
 
 export interface ContainerInjected {
@@ -51,8 +53,12 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     const rpcURL = process.env[`RPC_${chainId}`]
     const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
     const quoter = new OrderValidator(provider, chainId)
+
     // TODO: use different reactor address for different order type
-    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch])
+    if (!REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch]) {
+      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType${OrderType.Dutch}`)
+    }
+    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch] as string)
 
     return {
       log,
@@ -66,6 +72,8 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       provider: provider,
       orderWatcher: watcher,
       orderQuoter: quoter,
+      orderType: event.orderType as OrderType,
+      stateMachineArn: event.stateMachineArn as string,
     }
   }
 }

@@ -93,6 +93,15 @@ export class LambdaStack extends cdk.NestedStack {
       indexCapacityConfig,
     })
 
+    // tracks limit order status as a fargate task
+    // currently done by step functions
+    // new StatusStack(this, `${SERVICE_NAME}-StatusStack`, {
+    //   environmentVariables: {
+    //     ...props.envVars,
+    //   },
+    //   stage: props.stage,
+    // })
+
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
       stage: props.stage as STAGE,
       envVars: {
@@ -105,14 +114,14 @@ export class LambdaStack extends cdk.NestedStack {
 
     const getOrdersEnv = {
       stage: props.stage as STAGE,
-      VERSION: '2',
+      VERSION: '3',
       NODE_OPTIONS: '--enable-source-maps',
     }
 
     this.getOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetOrders${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      entry: path.join(__dirname, '../../lib/handlers/get-orders/index.ts'),
       handler: 'getOrdersHandler',
       timeout: Duration.seconds(29),
       memorySize: 512,
@@ -127,7 +136,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.orderNotificationLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrderNotification${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      entry: path.join(__dirname, '../../lib/handlers/order-notification/index.ts'),
       handler: 'orderNotificationHandler',
       memorySize: 512,
       timeout: Duration.seconds(29),
@@ -146,24 +155,36 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    const notificationConfig = {
+      startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
+      batchSize: 1,
+      retryAttempts: 1,
+      bisectBatchOnError: true,
+      reportBatchItemFailures: true,
+    }
+
     // TODO: add alarms on the size of this dead letter queue
     const orderNotificationDlq = new Queue(this, 'orderNotificationDlq')
+    const limitOrderNotificationDlq = new Queue(this, 'limitOrderNotificationDlq')
 
     this.orderNotificationLambda.addEventSource(
       new DynamoEventSource(databaseStack.ordersTable, {
-        startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
-        batchSize: 1,
-        retryAttempts: 1,
-        bisectBatchOnError: true,
-        reportBatchItemFailures: true,
+        ...notificationConfig,
         onFailure: new SqsDlq(orderNotificationDlq),
+      })
+    )
+
+    this.orderNotificationLambda.addEventSource(
+      new DynamoEventSource(databaseStack.limitOrdersTable, {
+        ...notificationConfig,
+        onFailure: new SqsDlq(limitOrderNotificationDlq),
       })
     )
 
     const postOrderEnv: any = {
       ...props.envVars,
       stage: props.stage as STAGE,
-      VERSION: '2',
+      VERSION: '3',
       NODE_OPTIONS: '--enable-source-maps',
       REGION: this.region,
     }
@@ -175,7 +196,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      entry: path.join(__dirname, '../../lib/handlers/post-order/index.ts'),
       handler: 'postOrderHandler',
       timeout: Duration.seconds(29),
       memorySize: 512,
@@ -190,7 +211,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.postLimitOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostLimitOrder${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      entry: path.join(__dirname, '../../lib/handlers/post-limit-order/index.ts'),
       handler: 'postLimitOrderHandler',
       timeout: Duration.seconds(29),
       memorySize: 512,
@@ -205,7 +226,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.getLimitOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetLimitOrders${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      entry: path.join(__dirname, '../../lib/handlers/get-limit-orders/index.ts'),
       handler: 'getLimitOrdersHandler',
       timeout: Duration.seconds(5),
       memorySize: 512,
@@ -219,7 +240,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      entry: path.join(__dirname, '../../lib/handlers/get-nonce/index.ts'),
       handler: 'getNonceHandler',
       memorySize: 512,
       timeout: Duration.seconds(29),
@@ -238,7 +259,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      entry: path.join(__dirname, '../../lib/handlers/get-docs/index.ts'),
       handler: 'getDocsHandler',
       memorySize: 512,
       bundling: {
@@ -256,7 +277,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.getDocsUILambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocsUI${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/index.ts'),
+      entry: path.join(__dirname, '../../lib/handlers/get-docs/index.ts'),
       handler: 'getDocsUIHandler',
       memorySize: 512,
       bundling: {
@@ -276,6 +297,12 @@ export class LambdaStack extends cdk.NestedStack {
         destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
         filterPattern: '{ $.eventType = "OrderPosted" }',
         logGroupName: this.postOrderLambda.logGroup.logGroupName,
+      })
+
+      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedLimitOrderSub', {
+        destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
+        filterPattern: '{ $.eventType = "OrderPosted" }',
+        logGroupName: this.postLimitOrderLambda.logGroup.logGroupName,
       })
     }
 

@@ -27,6 +27,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
           offerer: newOrder.swapper,
           orderStatus: newOrder.orderStatus,
           filler: newOrder.filler,
+          orderType: newOrder.orderType,
         })
 
         log.info({ order: newOrder, registeredEndpoints }, 'Sending order to registered webhooks.')

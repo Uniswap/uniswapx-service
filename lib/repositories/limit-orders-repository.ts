@@ -3,11 +3,9 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
-import { BaseOrdersRepository } from './base'
+import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { getTableIndices, TABLE_NAMES } from './util'
-
-export const MAX_ORDERS = 50
 
 export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null> {
   static create(documentClient: DocumentClient): BaseOrdersRepository {
@@ -24,7 +22,7 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
     })
 
     const limitOrderEntity = new Entity({
-      name: 'LimitOrder',
+      name: MODEL_NAME.LIMIT,
       attributes: {
         orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },

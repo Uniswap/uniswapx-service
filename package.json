@@ -5,26 +5,30 @@
     "app": "./dist/bin/app.js"
   },
   "license": "GPL",
+  "type": "commonjs",
   "repository": "https://github.com/Uniswap/uniswapx-service",
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
-    "test": "jest --detectOpenHandles --forceExit --testPathPattern=test/ --testPathIgnorePatterns=test/integ/",
-    "integ-test": "jest --detectOpenHandles --runInBand --testPathPattern=integ/",
+    "test": "jest --testPathPattern=test/unit/",
+    "test:watch": "yarn test --watch",
+    "test:integ": "jest --detectOpenHandles --forceExit --testPathPattern=test/integ/",
+    "test:e2e": "jest --detectOpenHandles --runInBand --testPathPattern=test/e2e/",
     "cdk": "cdk",
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"lib/**/*.ts\" --write",
     "fix:lint": "eslint lib --ext .ts --fix",
     "lint": "eslint lib --ext .ts",
-    "coverage": "yarn test --coverage"
+    "coverage": "jest --detectOpenHandles --runInBand --forceExit --coverage --testPathPattern=\"test/(unit/|integ/)\""
   },
   "devDependencies": {
-    "@shelf/jest-dynamodb": "^3.3.1",
+    "@shelf/jest-dynamodb": "^3.4.4",
     "@types/aws-lambda": "^8.10.108",
     "@types/bunyan": "^1.8.8",
     "@types/chai-subset": "^1.3.3",
     "@types/expect": "^24.3.0",
+    "@types/express": "^4.17.21",
     "@types/jest": "^29.2.0",
     "@types/lodash": "^4.14.195",
     "@types/node": "^18.11.4",
@@ -49,12 +53,14 @@
     "typescript": "^4.8.4"
   },
   "dependencies": {
+    "@aws-lambda-powertools/logger": "^1.18.0",
+    "@aws-lambda-powertools/metrics": "^1.18.0",
     "@aws-sdk/client-s3": "^3.341.0",
     "@aws-sdk/client-sfn": "^3.341.0",
     "@swc/core": "^1.3.101",
     "@swc/jest": "^0.2.29",
     "@types/sinon": "^10.0.13",
-    "@uniswap/uniswapx-sdk": "^1.4.0",
+    "@uniswap/uniswapx-sdk": "2.0.0",
     "aws-cdk-lib": "2.85.0",
     "aws-embedded-metrics": "^4.1.0",
     "aws-sdk": "^2.1238.0",
@@ -65,6 +71,7 @@
     "dynamodb-toolbox": "^0.5.0",
     "env-cmd": "^10.1.0",
     "esm": "^3.2.25",
+    "express": "^4.18.2",
     "joi": "^17.7.0",
     "source-map-support": "^0.5.21",
     "uuid": "^9.0.0"
