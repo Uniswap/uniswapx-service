@@ -7,6 +7,7 @@ import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { HttpStatusCode } from '../../../lib/HttpStatusCode'
+import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ORDER_INFO } from '../fixtures'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
@@ -57,9 +58,13 @@ describe('Testing post limit order handler.', () => {
     body: JSON.stringify(postRequestBody),
   }
 
+  const mockLog = {
+    info: () => jest.fn(),
+    error: () => jest.fn(),
+  } as any
   const requestInjected = {
     requestId: 'testRequest',
-    log: { info: () => jest.fn(), error: () => jest.fn() },
+    log: mockLog,
   }
 
   const ORDER = {
@@ -118,33 +123,31 @@ describe('Testing post limit order handler.', () => {
 
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
-      return {
-        dbInterface: {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        },
-        orderValidator: {
-          validate: validatorMock,
-        },
-        onchainValidatorByChainId: {
-          1: {
-            validate: onchainValidationSucceededMock,
-          },
-          5: {
-            validate: onchainValidationSucceededMock,
-          },
-          137: {
-            validate: validationFailedValidatorMock,
-          },
-        },
-        orderType: OrderType.Limit,
-        getMaxOpenOrders: getMaxLimitOpenOrders,
-      }
+      return {}
     },
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostOrderHandler('post-limit-order', injectorPromiseMock, onChainValidatorMap)
+  const postOrderHandler = new PostOrderHandler(
+    'post-limit-order',
+    injectorPromiseMock,
+    new UniswapXOrderService(
+      {
+        validate: validatorMock,
+      } as any,
+      onChainValidatorMap,
+      {
+        putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+        countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+      } as any,
+      mockLog,
+      getMaxLimitOpenOrders,
+      OrderType.Limit,
+      {
+        logOrderPosted: jest.fn(),
+      }
+    )
+  )
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1

@@ -11,6 +11,7 @@ import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../lib/HttpStatusCode'
 import { log } from '../../../lib/Logging'
+import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ORDER_INFO } from '../fixtures'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
@@ -76,9 +77,13 @@ describe('Testing post order handler.', () => {
     body: JSON.stringify(postRequestBody),
   }
 
+  const mockLog = {
+    info: () => jest.fn(),
+    error: () => jest.fn(),
+  } as any
   const requestInjected = {
     requestId: 'testRequest',
-    log: { info: () => jest.fn(), error: () => jest.fn() },
+    log: mockLog,
   }
 
   const ORDER = {
@@ -131,28 +136,36 @@ describe('Testing post order handler.', () => {
         validate: validationFailedValidatorMock,
       },
     ],
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ] as any)
 
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
-      return {
-        dbInterface: {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        },
-        orderValidator: {
-          validate: validatorMock,
-        },
-        orderType: OrderType.Dutch,
-        getMaxOpenOrders,
-      }
+      return {}
     },
     getRequestInjected: () => requestInjected,
   }
 
-  const postOrderHandler = new PostOrderHandler('post-order', injectorPromiseMock, onChainValidatorMap)
+  const postOrderHandler = new PostOrderHandler(
+    'post-order',
+    injectorPromiseMock,
+    new UniswapXOrderService(
+      {
+        validate: validatorMock,
+      } as any,
+      onChainValidatorMap,
+      {
+        putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+        countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+      } as any,
+      mockLog,
+      getMaxOpenOrders,
+      OrderType.Dutch,
+      {
+        logOrderPosted: jest.fn(),
+      }
+    )
+  )
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1

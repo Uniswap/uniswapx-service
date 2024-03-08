@@ -6,7 +6,6 @@ import Joi from 'joi'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
-import { AnalyticsService } from '../../services/analytics-service'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
 import {
@@ -18,12 +17,10 @@ import {
   ErrorResponse,
   Response,
 } from '../base'
-import { OnChainValidatorMap } from '../OnChainValidatorMap'
-import { ContainerInjected } from './injector'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
 export class PostOrderHandler extends APIGLambdaHandler<
-  ContainerInjected,
+  unknown,
   ApiRInj,
   PostOrderRequestBody,
   void,
@@ -31,29 +28,21 @@ export class PostOrderHandler extends APIGLambdaHandler<
 > {
   constructor(
     handlerName: string,
-    injectorPromise: Promise<ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
-    private readonly onChainValidatorMap: OnChainValidatorMap
+    injectorPromise: Promise<ApiInjector<unknown, ApiRInj, PostOrderRequestBody, void>>,
+    private readonly service: UniswapXOrderService
   ) {
     super(handlerName, injectorPromise)
   }
 
   public async handleRequest(
-    params: APIHandleRequestParams<ContainerInjected, ApiRInj, PostOrderRequestBody, void>
+    params: APIHandleRequestParams<unknown, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody: { encodedOrder, signature, chainId, quoteId },
       requestInjected: { log },
-      containerInjected: { dbInterface, orderValidator, orderType, getMaxOpenOrders },
     } = params
 
     log.info('Handling POST order request', params)
-    log.info(
-      {
-        onchainValidatorByChainId: this.onChainValidatorMap.debug(),
-      },
-      'onchain validators'
-    )
-
     let decodedOrder: DutchOrder
 
     try {
@@ -67,17 +56,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
-    const service = new UniswapXOrderService(
-      orderValidator,
-      this.onChainValidatorMap.get(chainId),
-      dbInterface,
-      log,
-      getMaxOpenOrders,
-      AnalyticsService.create()
-    )
-
     try {
-      const orderHash = await service.createOrder(decodedOrder, signature, quoteId, orderType)
+      const orderHash = await this.service.createOrder(decodedOrder, signature, quoteId)
       return {
         statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },
