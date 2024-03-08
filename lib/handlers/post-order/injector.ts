@@ -1,38 +1,19 @@
-import { OrderType } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayEvent, Context } from 'aws-lambda'
-import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
-import { BaseOrdersRepository } from '../../repositories/base'
-import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
-import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
-import { OrderValidator } from '../../util/order-validator'
 import { ApiInjector, ApiRInj } from '../base'
 import { DEFAULT_MAX_OPEN_ORDERS, HIGH_MAX_OPEN_ORDERS, HIGH_MAX_OPEN_ORDERS_SWAPPERS } from '../constants'
 import { PostOrderRequestBody } from './schema'
 
-export interface ContainerInjected {
-  dbInterface: BaseOrdersRepository
-  orderValidator: OrderValidator
-  orderType: OrderType
-  // return the number of open orders the given offerer is allowed to have at a time
-  getMaxOpenOrders: (offerer: string) => number
-}
-
-export class PostOrderInjector extends ApiInjector<ContainerInjected, ApiRInj, PostOrderRequestBody, void> {
-  public async buildContainerInjected(): Promise<ContainerInjected> {
-    return {
-      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
-      orderValidator: new OrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS),
-      orderType: OrderType.Dutch,
-      getMaxOpenOrders,
-    }
+export class PostOrderInjector extends ApiInjector<unknown, ApiRInj, PostOrderRequestBody, void> {
+  public async buildContainerInjected(): Promise<unknown> {
+    return {}
   }
 
   public async getRequestInjected(
-    _containerInjected: ContainerInjected,
+    _containerInjected: unknown,
     _requestBody: PostOrderRequestBody,
     _requestQueryParams: void,
     _event: APIGatewayEvent,

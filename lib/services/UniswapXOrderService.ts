@@ -1,8 +1,11 @@
-import { DutchOrder, OrderType, OrderValidation, OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
+import { getAddress } from '@ethersproject/address'
+import { AddressZero } from '@ethersproject/constants'
+import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { default as Logger } from 'bunyan'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
+import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
@@ -13,20 +16,15 @@ import { AnalyticsServiceInterface } from './analytics-service'
 export class UniswapXOrderService {
   constructor(
     private readonly orderValidator: OffChainOrderValidator,
-    private readonly onChainValidator: OnChainOrderValidator,
+    private readonly onChainValidatorMap: OnChainValidatorMap,
     private readonly repository: BaseOrdersRepository,
-    private readonly logger: Logger,
+    private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
-    private readonly analyticsService: AnalyticsServiceInterface
+    private orderType: OrderType
   ) {}
 
-  async createOrder(
-    order: DutchOrder,
-    signature: string,
-    quoteId: string | undefined,
-    orderType: OrderType
-  ): Promise<string> {
-    await this.validateOrder(order, signature)
+  async createOrder(order: DutchOrder, signature: string, quoteId: string | undefined): Promise<string> {
+    await this.validateOrder(order, signature, order.chainId)
     const orderEntity = formatOrderEntity(order, signature, OrderType.Dutch, ORDER_STATUS.OPEN, quoteId)
 
     const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
@@ -35,19 +33,20 @@ export class UniswapXOrderService {
     }
 
     await this.persistOrder(orderEntity)
-    await this.logOrderCreatedEvent(orderEntity, orderType)
-    await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, orderType)
+    await this.logOrderCreatedEvent(orderEntity, this.orderType)
+    await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, this.orderType)
 
     return orderEntity.orderHash
   }
 
-  private async validateOrder(order: DutchOrder, signature: string): Promise<void> {
+  private async validateOrder(order: DutchOrder, signature: string, chainId: number): Promise<void> {
     const offChainValidationResult = this.orderValidator.validate(order)
     if (!offChainValidationResult.valid) {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
 
-    const onChainValidationResult = await this.onChainValidator.validate({ order: order, signature: signature })
+    const onChainValidator = this.onChainValidatorMap.get(chainId)
+    const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
     if (onChainValidationResult !== OrderValidation.OK) {
       const failureReason = OrderValidation[onChainValidationResult]
       throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)
@@ -103,5 +102,18 @@ export class UniswapXOrderService {
       },
       stateMachineArn
     )
+  }
+
+  // This is a hack: we need to be able to set the logger to the child logger that is bound to
+  // the requestId.
+  //
+  // At the time of the UniswapXOrderService creation, this child logger won't yet be created,
+  // hence we're forced to call setLogger for each request. The better move is to move to aws-powertools-logger
+  // which captures requestIds by default.
+  //
+  // Until we confirm that the log in `logOrderCreatedEvent` will successfully
+  // be tracked if it's a powertools log, we'll use this hack.
+  setLogger(logger: Logger) {
+    this.logger = logger
   }
 }
