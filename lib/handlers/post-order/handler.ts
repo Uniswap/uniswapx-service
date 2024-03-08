@@ -6,6 +6,7 @@ import Joi from 'joi'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
+import { AnalyticsService } from '../../services/analytics-service'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
 import {
@@ -71,7 +72,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
       this.onChainValidatorMap.get(chainId),
       dbInterface,
       log,
-      getMaxOpenOrders
+      getMaxOpenOrders,
+      AnalyticsService.create()
     )
 
     try {

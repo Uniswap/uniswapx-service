@@ -1,5 +1,3 @@
-import { getAddress } from '@ethersproject/address'
-import { AddressZero } from '@ethersproject/constants'
 import { DutchOrder, OrderType, OrderValidation, OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
 import { default as Logger } from 'bunyan'
 import { OrderEntity, ORDER_STATUS } from '../entities'
@@ -10,7 +8,7 @@ import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { formatOrderEntity } from '../util/order'
 import { OrderValidator as OffChainOrderValidator } from '../util/order-validator'
-import { currentTimestampInSeconds } from '../util/time'
+import { AnalyticsServiceInterface } from './analytics-service'
 
 export class UniswapXOrderService {
   constructor(
@@ -18,7 +16,8 @@ export class UniswapXOrderService {
     private readonly onChainValidator: OnChainOrderValidator,
     private readonly repository: BaseOrdersRepository,
     private readonly logger: Logger,
-    private readonly getMaxOpenOrders: (offerer: string) => number
+    private readonly getMaxOpenOrders: (offerer: string) => number,
+    private readonly analyticsService: AnalyticsServiceInterface
   ) {}
 
   async createOrder(
@@ -83,27 +82,7 @@ export class UniswapXOrderService {
   private async logOrderCreatedEvent(order: OrderEntity, orderType: OrderType) {
     // Log used for cw dashboard and redshift metrics, do not modify
     // skip fee output logging
-    const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
-    this.logger.info({
-      eventType: 'OrderPosted',
-      body: {
-        quoteId: order.quoteId,
-        createdAt: currentTimestampInSeconds(),
-        orderHash: order.orderHash,
-        startTime: order.decayStartTime,
-        endTime: order.decayEndTime,
-        deadline: order.deadline,
-        chainId: order.chainId,
-        inputStartAmount: order.input?.startAmount,
-        inputEndAmount: order.input?.endAmount,
-        tokenIn: order.input?.token,
-        outputStartAmount: userOutput.startAmount,
-        outputEndAmount: userOutput.endAmount,
-        tokenOut: userOutput.token,
-        filler: getAddress(order.filler ?? AddressZero),
-        orderType: orderType,
-      },
-    })
+    this.analyticsService.logOrderPosted(order, orderType)
   }
 
   private async startOrderTracker(
