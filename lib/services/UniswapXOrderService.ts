@@ -5,13 +5,16 @@ import { OrderValidationFailedError } from '../errors/OrderValidationFailedError
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
+import { DutchOrderV1 } from '../models/orders/DutchOrderV1'
+import { LimitOrder } from '../models/orders/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { formatOrderEntity } from '../util/order'
 import { OrderValidator as OffChainOrderValidator } from '../util/order-validator'
 import { AnalyticsServiceInterface } from './analytics-service'
+import { IOrderService } from './IOrderService'
 
-export class UniswapXOrderService {
+export class UniswapXOrderService implements IOrderService<DutchOrderV1 | LimitOrder> {
   constructor(
     private readonly orderValidator: OffChainOrderValidator,
     private readonly onChainValidatorMap: OnChainValidatorMap,
@@ -22,9 +25,15 @@ export class UniswapXOrderService {
     private analyticsService: AnalyticsServiceInterface
   ) {}
 
-  async createOrder(order: DutchOrder, signature: string, quoteId: string | undefined): Promise<string> {
-    await this.validateOrder(order, signature, order.chainId)
-    const orderEntity = formatOrderEntity(order, signature, OrderType.Dutch, ORDER_STATUS.OPEN, quoteId)
+  async createOrder(order: DutchOrderV1 | LimitOrder): Promise<string> {
+    await this.validateOrder(order.inner, order.signature, order.chainId)
+    const orderEntity = formatOrderEntity(
+      order.inner,
+      order.signature,
+      OrderType.Dutch,
+      ORDER_STATUS.OPEN,
+      order.quoteId
+    )
 
     const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
     if (!canPlaceNewOrder) {
@@ -33,7 +42,7 @@ export class UniswapXOrderService {
 
     await this.persistOrder(orderEntity)
     await this.logOrderCreatedEvent(orderEntity, this.orderType)
-    await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, this.orderType)
+    await this.startOrderTracker(orderEntity.orderHash, order.chainId, order.quoteId, this.orderType)
 
     return orderEntity.orderHash
   }

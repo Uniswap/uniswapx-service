@@ -1,4 +1,3 @@
-import { DutchOrder } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Joi from 'joi'
@@ -6,6 +5,10 @@ import Joi from 'joi'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
+import { DutchOrderV1 } from '../../models/orders/DutchOrderV1'
+import { LimitOrder } from '../../models/orders/LimitOrder'
+import { Order } from '../../models/orders/Order'
+import { OrderFactory } from '../../models/orders/OrderFactory'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
 import {
@@ -43,10 +46,10 @@ export class PostOrderHandler extends APIGLambdaHandler<
     } = params
 
     log.info('Handling POST order request', params)
-    let decodedOrder: DutchOrder
 
+    let decodedOrder: Order
     try {
-      decodedOrder = DutchOrder.parse(encodedOrder, chainId) as DutchOrder
+      decodedOrder = OrderFactory.fromEncoded(encodedOrder, chainId, signature, quoteId)
     } catch (e: unknown) {
       log.error(e, 'Failed to parse order')
       return {
@@ -56,8 +59,16 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
+    // TODO: Remove this once service supports multiple handlers
+    if (!(decodedOrder instanceof DutchOrderV1 || decodedOrder instanceof LimitOrder)) {
+      log.error(`No handler configured for orderType: ${decodedOrder.orderType}`)
+      return {
+        statusCode: HttpStatusCode.InternalServerError,
+      }
+    }
+
     try {
-      const orderHash = await this.service.createOrder(decodedOrder, signature, quoteId)
+      const orderHash = await this.service.createOrder(decodedOrder)
       return {
         statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },

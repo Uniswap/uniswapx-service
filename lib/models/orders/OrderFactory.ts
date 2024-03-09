@@ -13,12 +13,12 @@ import { Order } from './Order'
 import { RelayOrder } from './RelayOrder'
 
 export class OrderFactory {
-  static fromEncoded(encodedOrder: string, chainId: number): Order {
-    const relayOrder = OrderFactory.tryParseRelayOrder(encodedOrder, chainId)
+  static fromEncoded(encodedOrder: string, chainId: number, signature: string, quoteId?: string): Order {
+    const relayOrder = OrderFactory.tryParseRelayOrder(encodedOrder, chainId, signature)
     if (relayOrder) {
       return relayOrder
     }
-    const dutchOrder = OrderFactory.tryParseDutchOrder(encodedOrder, chainId)
+    const dutchOrder = OrderFactory.tryParseDutchOrder(encodedOrder, chainId, signature, quoteId)
     if (dutchOrder) {
       return dutchOrder
     }
@@ -26,18 +26,23 @@ export class OrderFactory {
     throw new Error(`Unable to parse encoded order: ${encodedOrder}`)
   }
 
-  static tryParseDutchOrder(encodedOrder: string, chainId: number): DutchOrderV1 | LimitOrder | DutchOrderV2 | null {
+  static tryParseDutchOrder(
+    encodedOrder: string,
+    chainId: number,
+    signature: string,
+    quoteId?: string
+  ): DutchOrderV1 | LimitOrder | DutchOrderV2 | null {
     try {
       const uniswapXOrderParser = new UniswapXOrderParser()
       const order = uniswapXOrderParser.parseOrder(encodedOrder, chainId)
       const orderType = uniswapXOrderParser.getOrderType(order)
 
       if (order instanceof SDKDutchOrder && orderType === OrderType.Dutch) {
-        return new DutchOrderV1(order)
+        return new DutchOrderV1(order, chainId, signature, quoteId)
       } else if (order instanceof SDKDutchOrder && orderType === OrderType.Limit) {
-        return new LimitOrder(order)
+        return new LimitOrder(order, chainId, signature, quoteId)
       } else if (order instanceof SDKDutchOrderV2 && orderType === OrderType.Dutch_V2) {
-        return new DutchOrderV2(order)
+        return new DutchOrderV2(order, chainId, signature, quoteId)
       } else {
         console.log('Unrecognized orderType', orderType)
         return null
@@ -48,11 +53,11 @@ export class OrderFactory {
     }
   }
 
-  static tryParseRelayOrder(encodedOrder: string, chainId: number): RelayOrder | null {
+  static tryParseRelayOrder(encodedOrder: string, chainId: number, signature: string): RelayOrder | null {
     try {
       const relayOrderParser = new RelayOrderParser()
       const order = relayOrderParser.parseOrder(encodedOrder, chainId)
-      return new RelayOrder(order as SDKRelayOrder)
+      return new RelayOrder(order as SDKRelayOrder, chainId, signature)
     } catch (err) {
       console.log('err', err)
       return null
