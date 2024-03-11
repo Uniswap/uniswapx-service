@@ -446,25 +446,5 @@ describe('checkOrderStatusService', () => {
       ordersRepositoryMock.getByHash.mockResolvedValue(MOCK_ORDER_ENTITY)
       ordersRepositoryMock.updateOrderStatus.mockResolvedValue()
     })
-
-    describe('Expired', () => {
-      beforeEach(() => {
-        mockedGetValidator.mockReturnValue(validatorMock)
-        validatorMock.validateBatch.mockResolvedValue([OrderValidation.Expired])
-      })
-
-      it('should should increment getFillLogAttempts', async () => {
-        getFillInfoMock.mockImplementation(() => {
-          return []
-        })
-
-        let result = await checkOrderStatusService.batchHandleRequestPerChain([MOCK_ORDER_ENTITY], 1)
-        expect(result[0]).toEqual(
-          expect.objectContaining({
-            getFillLogAttempts: 1,
-          })
-        )
-      })
-    })
   })
 })

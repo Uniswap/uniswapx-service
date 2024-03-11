@@ -1,35 +1,15 @@
-import { MetricUnits } from '@aws-lambda-powertools/metrics'
-import {
-  DutchOrder,
-  EventWatcher,
-  FillInfo,
-  OrderValidation,
-  OrderValidator,
-  SignedUniswapXOrder,
-} from '@uniswap/uniswapx-sdk'
+import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
-import {
-  CheckOrderStatusHandlerMetricNames,
-  powertoolsMetric as betterMetrics,
-  wrapWithTimerMetric,
-} from '../../Metrics'
+import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import {
-  AVERAGE_BLOCK_TIME,
-  FILL_EVENT_LOOKBACK_BLOCKS_ON,
-  getProvider,
-  getSettledAmounts,
-  getValidator,
-  getWatcher,
-  IS_TERMINAL_STATE,
-} from './util'
+import { AVERAGE_BLOCK_TIME, FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts, IS_TERMINAL_STATE } from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -141,91 +121,6 @@ export class CheckOrderStatusService {
     }
 
     return this.updateStatusAndReturn(updateObject)
-  }
-
-  public async batchHandleRequestPerChain(batch: OrderEntity[], chainId: ChainId): Promise<SfnStateInputOutput[]> {
-    const provider = getProvider(chainId)
-    const validator = getValidator(provider, chainId)
-    const orderWatcher = getWatcher(provider, chainId)
-
-    const validationsRequestList: SignedUniswapXOrder[] = []
-    for (let i = 0; i < batch.length; i++) {
-      const order = batch[i]
-      const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-      validationsRequestList.push({ order: parsedOrder, signature: order.signature })
-    }
-
-    let startTime = new Date().getTime()
-    const validationResults = await validator.validateBatch(validationsRequestList)
-    let endTime = new Date().getTime()
-    betterMetrics.addMetric(
-      'OnChainStatusChecker-ValidateBatchQueryTime',
-      MetricUnits.Milliseconds,
-      endTime - startTime
-    )
-
-    const updateList = []
-    startTime = new Date().getTime()
-    // TODO:(urgent) add block number and fill info to the top level loop and pass in
-    const curBlockNumber = await provider.getBlockNumber()
-    const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
-    endTime = new Date().getTime()
-    betterMetrics.addMetric(
-      'OnChainStatusChecker-RandomOnChainQueryTimes',
-      MetricUnits.Milliseconds,
-      endTime - startTime
-    )
-
-    for (let i = 0; i < batch.length; i++) {
-      const { chainId, orderHash, orderStatus } = batch[i]
-      const quoteId = batch[i].quoteId || ''
-      const order = batch[i]
-      const validation = validationResults[i]
-      const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-      const retryCount = 0
-
-      const commonUpdateInfo = {
-        orderHash,
-        quoteId,
-        retryCount,
-        startingBlockNumber: fromBlock,
-        chainId,
-        lastStatus: orderStatus,
-        validation,
-      }
-
-      //TODO:(urgent) all at once
-      const extraUpdateInfo = await this.getStatusFromValidation({
-        validation,
-        parsedOrder,
-        quoteId,
-        chainId,
-        startingBlockNumber: fromBlock,
-        order,
-        orderHash,
-        provider,
-        getFillLogAttempts: 0,
-        fromBlock,
-        curBlockNumber,
-        orderWatcher,
-      })
-
-      const updateObject = {
-        ...commonUpdateInfo,
-        ...extraUpdateInfo,
-      }
-      updateList.push(updateObject)
-    }
-
-    const updatePromises: Promise<SfnStateInputOutput>[] = []
-    updateList.forEach(async (u) => {
-      if (u.orderStatus !== u.lastStatus) {
-        updatePromises.push(this.updateStatusAndReturn(u))
-      }
-    })
-
-    await Promise.all(updatePromises)
-    return updateList
   }
 
   private async getStatusFromValidation({
