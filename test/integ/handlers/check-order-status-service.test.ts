@@ -1,9 +1,12 @@
 /* eslint-disable */
-//@ts-nocheck
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../../lib/entities'
-import { CheckOrderStatusRequest, CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
+import {
+  calculateDutchRetryWaitSeconds,
+  CheckOrderStatusRequest,
+  CheckOrderStatusService,
+} from '../../../lib/handlers/check-order-status/service'
 import {
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
   getProvider,
@@ -34,10 +37,10 @@ describe('checkOrderStatusService', () => {
 
   const getBlockNumberMock = jest.fn().mockReturnValue(mockedBlockNumber)
   const getTransactionMock = jest.fn()
-  const analyticsMock = {
-    logOrderCancelled: jest.fn(),
-    logOrderInsufficientFunds: jest.fn(),
-  }
+  let analyticsMock = {
+    logCancelled: jest.fn(),
+    logInsufficientFunds: jest.fn(),
+  } as any
   describe('check order status', () => {
     let watcherMock: { getFillEvents: jest.Mock<any, any>; getFillInfo: jest.Mock<any, any> },
       providerMock: {
@@ -59,8 +62,8 @@ describe('checkOrderStatusService', () => {
       } as any
 
       analyticsMock = {
-        logOrderCancelled: jest.fn(),
-        logOrderInsufficientFunds: jest.fn(),
+        logCancelled: jest.fn(),
+        logInsufficientFunds: jest.fn(),
       }
 
       checkOrderStatusService = new CheckOrderStatusService(
@@ -268,7 +271,7 @@ describe('checkOrderStatusService', () => {
 
         let result = await checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
 
-        expect(analyticsMock.logOrderCancelled).toHaveBeenCalled()
+        expect(analyticsMock.logCancelled).toHaveBeenCalled()
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
         expect(watcherMock.getFillInfo).toHaveBeenCalled()
@@ -290,7 +293,7 @@ describe('checkOrderStatusService', () => {
       it('should update status with insufficient-funds', async () => {
         let result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
-        expect(analyticsMock.logOrderInsufficientFunds).toHaveBeenCalled()
+        expect(analyticsMock.logInsufficientFunds).toHaveBeenCalled()
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
@@ -391,82 +394,18 @@ describe('checkOrderStatusService', () => {
     })
 
     it('should do exponential backoff when retry count > 300', async () => {
-      const response = await checkOrderStatusService.calculateRetryWaitSeconds(1, 301)
+      const response = calculateDutchRetryWaitSeconds(1, 301)
       expect(response).toEqual(13)
     })
 
     it('should do exponential backoff when retry count > 300', async () => {
-      const response = await checkOrderStatusService.calculateRetryWaitSeconds(1, 350)
+      const response = calculateDutchRetryWaitSeconds(1, 350)
       expect(response).toEqual(138)
     })
 
     it('should cap exponential backoff when wait interval reaches 18000 seconds', async () => {
-      const response = await checkOrderStatusService.calculateRetryWaitSeconds(1, 501)
+      const response = calculateDutchRetryWaitSeconds(1, 501)
       expect(response).toEqual(18000)
-    })
-  })
-
-  describe('batch check order status', () => {
-    let watcherMock: { getFillEvents: jest.Mock<any, any>; getFillInfo: jest.Mock<any, any> },
-      providerMock: {
-        getBlockNumber: jest.Mock<any, any>
-        getTransaction: jest.Mock<any, any>
-        getBlock: () => Promise<{ timestamp: number }>
-      },
-      validatorMock: { validate: jest.Mock<any, any>; validateBatch: jest.Mock<any, any> },
-      ordersRepositoryMock: any,
-      checkOrderStatusService: CheckOrderStatusService
-
-    mockedGetProvider.mockReturnValue({
-      getBlockNumber: getBlockNumberMock,
-      getTransaction: getTransactionMock,
-      getBlock: () =>
-        Promise.resolve({
-          timestamp: 123456,
-        }),
-    })
-
-    mockedGetWatcher.mockReturnValue({
-      getFillEvents: getFillEventsMock,
-      getFillInfo: getFillInfoMock,
-    })
-
-    beforeEach(() => {
-      log.setLogLevel('SILENT')
-      jest.clearAllMocks()
-      ordersRepositoryMock = {
-        updateOrderStatus: jest.fn(),
-        getByHash: jest.fn(),
-      } as any
-      checkOrderStatusService = new CheckOrderStatusService(ordersRepositoryMock, OrderType.Dutch)
-
-      watcherMock = {
-        getFillEvents: getFillEventsMock,
-        getFillInfo: getFillInfoMock,
-      }
-      providerMock = {
-        getBlockNumber: getBlockNumberMock,
-        getTransaction: getTransactionMock,
-        getBlock: () =>
-          Promise.resolve({
-            timestamp: 123456,
-          }),
-      }
-      validatorMock = {
-        validate: jest.fn(),
-        validateBatch: jest.fn(),
-      }
-
-      getTransactionMock.mockReturnValueOnce({
-        wait: () =>
-          Promise.resolve({
-            effectiveGasPrice: BigNumber.from(1),
-            gasUsed: 100,
-          }),
-      })
-
-      ordersRepositoryMock.getByHash.mockResolvedValue(MOCK_ORDER_ENTITY)
-      ordersRepositoryMock.updateOrderStatus.mockResolvedValue()
     })
   })
 })
