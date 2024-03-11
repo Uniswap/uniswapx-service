@@ -101,4 +101,66 @@ describe('Analytics Service', () => {
       })
     })
   })
+  describe('logOrderCancelled', () => {
+    test('it logs the orderHash and status cancelled', () => {
+      const log = { info: jest.fn() } as unknown as Logger
+      const analyticsService = new AnalyticsService(
+        log,
+        jest.fn().mockReturnValueOnce('123'),
+        jest.fn().mockReturnValue('0xGetAddress')
+      )
+      const order = { ...mockedOrder }
+
+      analyticsService.logCancelled(order.orderHash, OrderType.Limit)
+
+      expect(log.info).toHaveBeenCalledWith('Analytics Message', {
+        orderInfo: {
+          orderHash: mockedOrder.orderHash,
+          orderType: 'Limit',
+          orderStatus: ORDER_STATUS.CANCELLED,
+        },
+      })
+    })
+
+    test('it logs the orderHash and status cancelled', () => {
+      const log = { info: jest.fn() } as unknown as Logger
+      const analyticsService = new AnalyticsService(
+        log,
+        jest.fn().mockReturnValueOnce('123'),
+        jest.fn().mockReturnValue('0xGetAddress')
+      )
+      const order = { ...mockedOrder }
+
+      analyticsService.logCancelled(order.orderHash, OrderType.Limit)
+
+      expect(log.info).toHaveBeenCalledWith('Analytics Message', {
+        orderInfo: {
+          orderHash: mockedOrder.orderHash,
+          orderType: 'Limit',
+          orderStatus: ORDER_STATUS.CANCELLED,
+        },
+      })
+    })
+  })
+  describe('logOrderInsufficientFunds', () => {
+    test('it logs the orderHash and status insufficient funds', () => {
+      const log = { info: jest.fn() } as unknown as Logger
+      const analyticsService = new AnalyticsService(
+        log,
+        jest.fn().mockReturnValueOnce('123'),
+        jest.fn().mockReturnValue('0xGetAddress')
+      )
+      const order = { ...mockedOrder }
+
+      analyticsService.logInsufficientFunds(order.orderHash, OrderType.Limit)
+
+      expect(log.info).toHaveBeenCalledWith('Analytics Message', {
+        orderInfo: {
+          orderHash: mockedOrder.orderHash,
+          orderType: 'Limit',
+          orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+        },
+      })
+    })
+  })
 })

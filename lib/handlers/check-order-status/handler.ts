@@ -18,7 +18,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
 
   private getCheckOrderStatusService(dbInterface: BaseOrdersRepository) {
     if (!this._checkOrderStatusService) {
-      this._checkOrderStatusService = new CheckOrderStatusService(dbInterface)
+      this._checkOrderStatusService = new CheckOrderStatusService(dbInterface, OrderType.Dutch)
     }
     return this._checkOrderStatusService
   }
@@ -28,6 +28,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       const dbInterface = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
       this._checkLimitOrderStatusService = new CheckOrderStatusService(
         dbInterface,
+        OrderType.Limit,
         FILL_EVENT_LOOKBACK_BLOCKS_ON,
         () => {
           return 30

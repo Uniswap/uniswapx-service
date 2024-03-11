@@ -2,7 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { OrderEntity } from '../entities'
+import { OrderEntity, ORDER_STATUS } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
 
@@ -42,6 +42,28 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         tokenOut: userOutput.token,
         filler: this.getFillerAddress(order.filler ?? AddressZero),
         orderType: orderType,
+      },
+    })
+  }
+
+  public logCancelled(orderHash: string, orderType: OrderType, quoteId?: string) {
+    this.logger.info('Analytics Message', {
+      orderInfo: {
+        orderHash,
+        quoteId,
+        orderType,
+        orderStatus: ORDER_STATUS.CANCELLED,
+      },
+    })
+  }
+
+  public logInsufficientFunds(orderHash: string, orderType: OrderType, quoteId?: string) {
+    this.logger.info('Analytics Message', {
+      orderInfo: {
+        orderHash,
+        quoteId,
+        orderType,
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
       },
     })
   }

@@ -1,10 +1,11 @@
-import { DutchOrder, EventWatcher, FillInfo, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, EventWatcher, FillInfo, OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
+import { AnalyticsService } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
@@ -36,7 +37,7 @@ type ExtraUpdateInfo = {
  * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
  * All subsequent retries are at 6 hour intervals.
  */
-function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
+export function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
   return retryCount <= 300
     ? AVERAGE_BLOCK_TIME(chainId)
     : retryCount <= 450
@@ -48,8 +49,10 @@ export class CheckOrderStatusService {
   private readonly fillEventLogger
   constructor(
     private dbInterface: BaseOrdersRepository,
+    private serviceOrderType: OrderType,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
-    private calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
+    private calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds,
+    private analyticsService = AnalyticsService.create()
   ) {
     this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
   }
@@ -286,6 +289,11 @@ export class CheckOrderStatusService {
     // Avoid updating the order if the status is unchanged.
     // This also avoids unnecessarily triggering downstream events from dynamodb changes.
     if (orderStatus !== lastStatus) {
+      if (orderStatus === ORDER_STATUS.INSUFFICIENT_FUNDS) {
+        this.analyticsService.logInsufficientFunds(orderHash, this.serviceOrderType, quoteId)
+      } else if (orderStatus === ORDER_STATUS.CANCELLED) {
+        this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
+      }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
       await this.dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
       if (IS_TERMINAL_STATE(orderStatus)) {
