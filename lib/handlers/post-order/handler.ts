@@ -4,6 +4,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda
 import Joi from 'joi'
 
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
+import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
@@ -75,6 +76,13 @@ export class PostOrderHandler extends APIGLambdaHandler<
         return {
           statusCode: HttpStatusCode.Forbidden,
           errorCode: ErrorCode.TooManyOpenOrders,
+        }
+      }
+
+      if (err instanceof InvalidTokenInAddress) {
+        return {
+          statusCode: HttpStatusCode.BadRequest,
+          errorCode: ErrorCode.InvalidTokenInAddress,
         }
       }
 
