@@ -163,6 +163,8 @@ describe('Testing post order handler.', () => {
       OrderType.Dutch,
       {
         logOrderPosted: jest.fn(),
+        logCancelled: jest.fn(),
+        logInsufficientFunds: jest.fn(),
       }
     )
   )

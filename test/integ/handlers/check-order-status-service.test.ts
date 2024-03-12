@@ -2,16 +2,10 @@
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../../lib/entities'
+import { CheckOrderStatusRequest, CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
 import {
   calculateDutchRetryWaitSeconds,
-  CheckOrderStatusRequest,
-  CheckOrderStatusService,
-} from '../../../lib/handlers/check-order-status/service'
-import {
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
-  getProvider,
-  getValidator,
-  getWatcher,
 } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
@@ -27,10 +21,6 @@ jest.mock('../../../lib/handlers/check-order-status/util', () => {
 })
 
 describe('checkOrderStatusService', () => {
-  const mockedGetWatcher = getWatcher as jest.Mock
-  const mockedGetProvider = getProvider as jest.Mock
-  const mockedGetValidator = getValidator as jest.Mock
-
   const mockedBlockNumber = 0
   const getFillEventsMock = jest.fn()
   const getFillInfoMock = jest.fn()
