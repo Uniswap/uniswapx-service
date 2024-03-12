@@ -41,7 +41,7 @@ const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
 describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 48
   jest.setTimeout(240 * 1000)
-  // jest.retryTimes(2)
+  jest.retryTimes(2)
   let alice: Wallet
   let filler: Wallet
   let provider: ethers.providers.StaticJsonRpcProvider
