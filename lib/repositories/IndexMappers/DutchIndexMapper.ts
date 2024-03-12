@@ -87,7 +87,6 @@ export class DutchIndexMapper implements IndexMapper<OrderEntity> {
           index: TABLE_KEY.CHAIN_ID,
         }
     }
-
     return undefined
   }
 
