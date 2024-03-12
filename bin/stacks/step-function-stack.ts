@@ -57,11 +57,15 @@ export class StepFunctionStack extends cdk.NestedStack {
     this.checkStatusFunction = checkStatusFunction
 
     /* Subscription Filter Initialization */
+    // This grabs log groups with the matching filter pattern and sends them
+    // to the parameterization-service where the analytics stack lives
     // TODO: remove the if block after accounts are set up for parameterization-api
     if (props.envVars['FILL_EVENT_DESTINATION_ARN']) {
       new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
         destinationArn: checkDefined(props.envVars['FILL_EVENT_DESTINATION_ARN']),
-        filterPattern: '{ $.orderInfo.orderStatus = "filled" }',
+        // filter patterns should match ORDER_STATUS.FILLED, ORDER_STATUS.CANCELLED, ORDER_STATUS.INSUFFICIENT_FUNDS
+        filterPattern:
+          '{ $.orderInfo.orderStatus = "filled" || $.orderInfo.orderStatus = "cancelled" || $.orderInfo.orderStatus = "insufficient-funds" }',
         logGroupName: checkStatusFunction.logGroup.logGroupName,
       })
     }

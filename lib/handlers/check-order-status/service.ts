@@ -1,33 +1,19 @@
-import { MetricUnits } from '@aws-lambda-powertools/metrics'
-import {
-  DutchOrder,
-  EventWatcher,
-  FillInfo,
-  OrderValidation,
-  OrderValidator,
-  SignedUniswapXOrder,
-} from '@uniswap/uniswapx-sdk'
+import { DutchOrder, EventWatcher, FillInfo, OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
-import {
-  CheckOrderStatusHandlerMetricNames,
-  powertoolsMetric as betterMetrics,
-  wrapWithTimerMetric,
-} from '../../Metrics'
+import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
+import { AnalyticsServiceInterface } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
 import {
-  AVERAGE_BLOCK_TIME,
+  calculateDutchRetryWaitSeconds,
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
-  getProvider,
   getSettledAmounts,
-  getValidator,
-  getWatcher,
   IS_TERMINAL_STATE,
 } from './util'
 
@@ -51,23 +37,12 @@ type ExtraUpdateInfo = {
   getFillLogAttempts?: number
 }
 
-/*
- * In the first hour of order submission, we check the order status roughly every block.
- * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
- * All subsequent retries are at 6 hour intervals.
- */
-function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
-  return retryCount <= 300
-    ? AVERAGE_BLOCK_TIME(chainId)
-    : retryCount <= 450
-    ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
-    : 18000
-}
-
 export class CheckOrderStatusService {
   private readonly fillEventLogger
   constructor(
     private dbInterface: BaseOrdersRepository,
+    private serviceOrderType: OrderType,
+    private analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
     private calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
   ) {
@@ -141,91 +116,6 @@ export class CheckOrderStatusService {
     }
 
     return this.updateStatusAndReturn(updateObject)
-  }
-
-  public async batchHandleRequestPerChain(batch: OrderEntity[], chainId: ChainId): Promise<SfnStateInputOutput[]> {
-    const provider = getProvider(chainId)
-    const validator = getValidator(provider, chainId)
-    const orderWatcher = getWatcher(provider, chainId)
-
-    const validationsRequestList: SignedUniswapXOrder[] = []
-    for (let i = 0; i < batch.length; i++) {
-      const order = batch[i]
-      const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-      validationsRequestList.push({ order: parsedOrder, signature: order.signature })
-    }
-
-    let startTime = new Date().getTime()
-    const validationResults = await validator.validateBatch(validationsRequestList)
-    let endTime = new Date().getTime()
-    betterMetrics.addMetric(
-      'OnChainStatusChecker-ValidateBatchQueryTime',
-      MetricUnits.Milliseconds,
-      endTime - startTime
-    )
-
-    const updateList = []
-    startTime = new Date().getTime()
-    // TODO:(urgent) add block number and fill info to the top level loop and pass in
-    const curBlockNumber = await provider.getBlockNumber()
-    const fromBlock = curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId)
-    endTime = new Date().getTime()
-    betterMetrics.addMetric(
-      'OnChainStatusChecker-RandomOnChainQueryTimes',
-      MetricUnits.Milliseconds,
-      endTime - startTime
-    )
-
-    for (let i = 0; i < batch.length; i++) {
-      const { chainId, orderHash, orderStatus } = batch[i]
-      const quoteId = batch[i].quoteId || ''
-      const order = batch[i]
-      const validation = validationResults[i]
-      const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-      const retryCount = 0
-
-      const commonUpdateInfo = {
-        orderHash,
-        quoteId,
-        retryCount,
-        startingBlockNumber: fromBlock,
-        chainId,
-        lastStatus: orderStatus,
-        validation,
-      }
-
-      //TODO:(urgent) all at once
-      const extraUpdateInfo = await this.getStatusFromValidation({
-        validation,
-        parsedOrder,
-        quoteId,
-        chainId,
-        startingBlockNumber: fromBlock,
-        order,
-        orderHash,
-        provider,
-        getFillLogAttempts: 0,
-        fromBlock,
-        curBlockNumber,
-        orderWatcher,
-      })
-
-      const updateObject = {
-        ...commonUpdateInfo,
-        ...extraUpdateInfo,
-      }
-      updateList.push(updateObject)
-    }
-
-    const updatePromises: Promise<SfnStateInputOutput>[] = []
-    updateList.forEach(async (u) => {
-      if (u.orderStatus !== u.lastStatus) {
-        updatePromises.push(this.updateStatusAndReturn(u))
-      }
-    })
-
-    await Promise.all(updatePromises)
-    return updateList
   }
 
   private async getStatusFromValidation({
@@ -391,6 +281,11 @@ export class CheckOrderStatusService {
     // Avoid updating the order if the status is unchanged.
     // This also avoids unnecessarily triggering downstream events from dynamodb changes.
     if (orderStatus !== lastStatus) {
+      if (orderStatus === ORDER_STATUS.INSUFFICIENT_FUNDS) {
+        this.analyticsService.logInsufficientFunds(orderHash, this.serviceOrderType, quoteId)
+      } else if (orderStatus === ORDER_STATUS.CANCELLED) {
+        this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
+      }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
       await this.dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
       if (IS_TERMINAL_STATE(orderStatus)) {
