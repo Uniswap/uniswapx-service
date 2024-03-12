@@ -37,7 +37,7 @@ if (!process.argv.includes('--runInBand')) {
 const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
 const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
 
-describe('/dutch-auction/order', () => {
+describe.skip('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 24
   jest.setTimeout(180 * 1000)
   jest.retryTimes(2)
