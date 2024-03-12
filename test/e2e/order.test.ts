@@ -79,13 +79,23 @@ describe('/dutch-auction/order', () => {
     uni = new Contract(UNI_GOERLI, abi, provider)
 
     // make sure filler wallet has enough ETH for gas
-    // const fillerMinBalance = ethers.utils.parseEther('0.1')
-    // expect((await provider.getBalance(filler.address)).gte(fillerMinBalance)).toBe(true)
+    const fillerMinBalance = ethers.utils.parseEther('0.1')
+    if (!(await provider.getBalance(filler.address)).gte(fillerMinBalance)) {
+      throw new Error('filler wallet does not has enough ETH for gas')
+    }
     // // make sure both wallets have enough erc20 balance
-    // expect(((await uni.balanceOf(alice.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
-    // expect(((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)).toBe(true)
-    // expect(((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
-    // expect(((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)).toBe(true)
+    if (!((await uni.balanceOf(alice.address)) as BigNumber).gte(MIN_UNI_BALANCE)) {
+      throw new Error('alice wallet does not have enough UNI')
+    }
+    if (!((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
+      throw new Error('alice wallet does not have enough WETH')
+    }
+    if (!((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)) {
+      throw new Error('filler wallet does not have enough UNI')
+    }
+    if (!((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
+      throw new Error('filler wallet does not have enough ETH')
+    }
 
     // const checkApprovals = async (wallets: Wallet[]) => {
     //   for (const wallet of wallets) {
@@ -261,8 +271,8 @@ describe('/dutch-auction/order', () => {
 
     const reactor = ExclusiveDutchOrderReactor__factory.connect(execution.reactor, provider)
     const fillerNonce = await filler.getTransactionCount()
-    const maxFeePerGas = (await provider.getFeeData()).maxFeePerGas
-    const maxPriorityFeePerGas = maxFeePerGas?.toString() || ethers.utils.parseUnits('1', 'gwei')
+    const maxFeePerGas = (await provider.getFeeData()).maxFeePerGas?.add(10000)
+    const maxPriorityFeePerGas = maxFeePerGas || ethers.utils.parseUnits('1', 'gwei')
 
     const populatedTx = await reactor.populateTransaction.executeBatch(
       execution.orders.map((order) => {
