@@ -96,11 +96,8 @@ describe('/dutch-auction/order', () => {
           await receipt.wait()
         }
         if (uniAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-          console.log('stuck?')
           const receipt = await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-          console.log('stuck2?')
           await receipt.wait()
-          console.log('stuck3?')
         }
 
         const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']

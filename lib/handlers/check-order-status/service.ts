@@ -5,12 +5,17 @@ import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { AnalyticsService } from '../../services/analytics-service'
+import { AnalyticsServiceInterface } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import { AVERAGE_BLOCK_TIME, FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts, IS_TERMINAL_STATE } from './util'
+import {
+  calculateDutchRetryWaitSeconds,
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
+  getSettledAmounts,
+  IS_TERMINAL_STATE,
+} from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -32,27 +37,14 @@ type ExtraUpdateInfo = {
   getFillLogAttempts?: number
 }
 
-/*
- * In the first hour of order submission, we check the order status roughly every block.
- * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
- * All subsequent retries are at 6 hour intervals.
- */
-export function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
-  return retryCount <= 300
-    ? AVERAGE_BLOCK_TIME(chainId)
-    : retryCount <= 450
-    ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
-    : 18000
-}
-
 export class CheckOrderStatusService {
   private readonly fillEventLogger
   constructor(
     private dbInterface: BaseOrdersRepository,
     private serviceOrderType: OrderType,
+    private analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
-    private calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds,
-    private analyticsService = AnalyticsService.create()
+    private calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
   ) {
     this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
   }

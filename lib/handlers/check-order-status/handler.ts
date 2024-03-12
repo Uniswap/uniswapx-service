@@ -5,6 +5,7 @@ import Joi from 'joi'
 import { CheckOrderStatusHandlerMetricNames, powertoolsMetric } from '../../Metrics'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
+import { AnalyticsService } from '../../services/analytics-service'
 import { SfnInjector, SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected, RequestInjected } from './injector'
@@ -16,19 +17,26 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
   private _checkOrderStatusService!: CheckOrderStatusService
   private _checkLimitOrderStatusService!: CheckOrderStatusService
 
+  // TODO: Inject this
   private getCheckOrderStatusService(dbInterface: BaseOrdersRepository) {
     if (!this._checkOrderStatusService) {
-      this._checkOrderStatusService = new CheckOrderStatusService(dbInterface, OrderType.Dutch)
+      this._checkOrderStatusService = new CheckOrderStatusService(
+        dbInterface,
+        OrderType.Dutch,
+        AnalyticsService.create()
+      )
     }
     return this._checkOrderStatusService
   }
 
+  // TODO: Inject this
   private getCheckLimitOrderStatusService() {
     if (!this._checkLimitOrderStatusService) {
       const dbInterface = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
       this._checkLimitOrderStatusService = new CheckOrderStatusService(
         dbInterface,
         OrderType.Limit,
+        AnalyticsService.create(),
         FILL_EVENT_LOOKBACK_BLOCKS_ON,
         () => {
           return 30

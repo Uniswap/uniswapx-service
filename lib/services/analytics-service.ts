@@ -8,6 +8,8 @@ import { currentTimestampInSeconds } from '../util/time'
 
 export interface AnalyticsServiceInterface {
   logOrderPosted(order: OrderEntity, orderType: OrderType): void
+  logCancelled(orderHash: string, orderType: OrderType, quoteId?: string): void
+  logInsufficientFunds(orderHash: string, orderType: OrderType, quoteId?: string): void
 }
 // used to log data used for analytics
 export class AnalyticsService implements AnalyticsServiceInterface {
