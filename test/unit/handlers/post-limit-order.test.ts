@@ -145,6 +145,8 @@ describe('Testing post limit order handler.', () => {
       OrderType.Limit,
       {
         logOrderPosted: jest.fn(),
+        logCancelled: jest.fn(),
+        logInsufficientFunds: jest.fn(),
       }
     )
   )
