@@ -15,7 +15,7 @@ export type SkipValidationMap = {
 export class OrderValidator {
   constructor(
     private readonly getCurrentTime: () => number,
-    private readonly deadlineValidityPeriod = ONE_DAY_IN_SECONDS,
+    private readonly deadlineValidityPeriodSeconds = ONE_DAY_IN_SECONDS,
     private readonly skipValidationMap?: SkipValidationMap
   ) {}
 
@@ -118,11 +118,11 @@ export class OrderValidator {
         errorString: 'Deadline must be in the future',
       }
     }
-    if (deadline > this.getCurrentTime() + this.deadlineValidityPeriod) {
+    if (deadline > this.getCurrentTime() + this.deadlineValidityPeriodSeconds) {
       return {
         valid: false,
         errorString: `Deadline field invalid: Order expiry cannot be larger than ${
-          this.deadlineValidityPeriod / 60
+          this.deadlineValidityPeriodSeconds / 60
         } minutes`,
       }
     }

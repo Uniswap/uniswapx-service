@@ -66,7 +66,7 @@ describe('Testing off chain validation', () => {
       const order = newOrder({ deadline: CURRENT_TIME + ONE_DAY + 1 })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
-        errorString: 'Deadline field invalid: Order expiry cannot be larger than thirty minutes',
+        errorString: 'Deadline field invalid: Order expiry cannot be larger than 1440 minutes',
         valid: false,
       })
     })
