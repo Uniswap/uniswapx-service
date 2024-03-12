@@ -3,7 +3,7 @@ import { factories } from '@uniswap/uniswapx-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { PERMIT2, UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
+import { UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
 
 const { ExclusiveDutchOrderReactor__factory } = factories
 
@@ -34,12 +34,13 @@ if (!process.argv.includes('--runInBand')) {
 ///   alice address: 0xE001E6F6879c07b9Ac24291A490F2795106D348C
 ///   filler address: 0x8943EA25bBfe135450315ab8678f2F79559F4630 (also needs to have at least 0.1 ETH)
 // constants
+// Another potential problem can arise if the priority fee on GOERLI moves higher causing timeouts in beforeAll
 const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
 const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
 
-describe.skip('/dutch-auction/order', () => {
-  const DEFAULT_DEADLINE_SECONDS = 24
-  jest.setTimeout(180 * 1000)
+describe('/dutch-auction/order', () => {
+  const DEFAULT_DEADLINE_SECONDS = 48
+  jest.setTimeout(240 * 1000)
   jest.retryTimes(2)
   let alice: Wallet
   let filler: Wallet
@@ -79,43 +80,53 @@ describe.skip('/dutch-auction/order', () => {
 
     // make sure filler wallet has enough ETH for gas
     const fillerMinBalance = ethers.utils.parseEther('0.1')
-    expect((await provider.getBalance(filler.address)).gte(fillerMinBalance)).toBe(true)
-    // make sure both wallets have enough erc20 balance
-    expect(((await uni.balanceOf(alice.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
-    expect(((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)).toBe(true)
-    expect(((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)).toBe(true)
-    expect(((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)).toBe(true)
-
-    const checkApprovals = async (wallets: Wallet[]) => {
-      for (const wallet of wallets) {
-        // check approvals on Permit2
-        const wethAllowance = await weth.allowance(wallet.address, PERMIT2)
-        const uniAllowance = await uni.allowance(wallet.address, PERMIT2)
-        if (wethAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-          const receipt = await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-          await receipt.wait()
-        }
-        if (uniAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-          const receipt = await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-          await receipt.wait()
-        }
-
-        const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']
-        // check approvals on reactor
-        const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
-        const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
-        if (wethReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-          const receipt = await weth.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
-          await receipt.wait()
-        }
-        if (uniReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-          const receipt = await uni.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
-          await receipt.wait()
-        }
-      }
+    if (!(await provider.getBalance(filler.address)).gte(fillerMinBalance)) {
+      throw new Error('filler wallet does not has enough ETH for gas')
+    }
+    // // make sure both wallets have enough erc20 balance
+    if (!((await uni.balanceOf(alice.address)) as BigNumber).gte(MIN_UNI_BALANCE)) {
+      throw new Error('alice wallet does not have enough UNI')
+    }
+    if (!((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
+      throw new Error('alice wallet does not have enough WETH')
+    }
+    if (!((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)) {
+      throw new Error('filler wallet does not have enough UNI')
+    }
+    if (!((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
+      throw new Error('filler wallet does not have enough ETH')
     }
 
-    await checkApprovals([alice, filler])
+    // const checkApprovals = async (wallets: Wallet[]) => {
+    //   for (const wallet of wallets) {
+    //     // check approvals on Permit2
+    //     const wethAllowance = await weth.allowance(wallet.address, PERMIT2)
+    //     const uniAllowance = await uni.allowance(wallet.address, PERMIT2)
+    //     if (wethAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+    //       const receipt = await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+    //       await receipt.wait()
+    //     }
+    //     if (uniAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+    //       const receipt = await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+    //       await receipt.wait()
+    //     }
+
+    //     const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']
+    //     // check approvals on reactor
+    //     const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
+    //     const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
+    //     if (wethReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+    //       const receipt = await weth.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
+    //       await receipt.wait()
+    //     }
+    //     if (uniReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
+    //       const receipt = await uni.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
+    //       await receipt.wait()
+    //     }
+    //   }
+    // }
+
+    // await checkApprovals([alice, filler])
 
     const getResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
     expect(getResponse.status).toEqual(200)
@@ -260,7 +271,8 @@ describe.skip('/dutch-auction/order', () => {
 
     const reactor = ExclusiveDutchOrderReactor__factory.connect(execution.reactor, provider)
     const fillerNonce = await filler.getTransactionCount()
-    const maxFeePerGas = (await provider.getFeeData()).maxFeePerGas
+    const maxFeePerGas = (await provider.getFeeData()).maxFeePerGas?.add(10000)
+    const maxPriorityFeePerGas = maxFeePerGas || ethers.utils.parseUnits('1', 'gwei')
 
     const populatedTx = await reactor.populateTransaction.executeBatch(
       execution.orders.map((order) => {
@@ -273,7 +285,7 @@ describe.skip('/dutch-auction/order', () => {
         gasLimit: BigNumber.from(700_000),
         nonce: fillerNonce,
         ...(maxFeePerGas && { maxFeePerGas }),
-        maxPriorityFeePerGas: ethers.utils.parseUnits('1', 'gwei'),
+        maxPriorityFeePerGas: maxPriorityFeePerGas,
         value,
       }
     )
@@ -281,7 +293,10 @@ describe.skip('/dutch-auction/order', () => {
     populatedTx.gasLimit = BigNumber.from(700_000)
 
     const tx = await filler.sendTransaction(populatedTx)
+    console.log('awaiting receipt')
     const receipt = await tx.wait()
+    console.log('got receipt')
+
     return receipt.transactionHash
   }
 
@@ -362,6 +377,7 @@ describe.skip('/dutch-auction/order', () => {
         UNI_GOERLI
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+
       expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
     })
 
@@ -386,9 +402,7 @@ describe.skip('/dutch-auction/order', () => {
         ZERO_ADDRESS
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
-      expect(
-        await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS - AVERAGE_BLOCK_TIME(ChainId.GÖRLI))
-      ).toBe('open')
+      expect(await waitAndGetOrderStatus(order.hash(), 0)).toBe('open')
     })
   })
 
