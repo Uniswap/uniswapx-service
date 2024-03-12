@@ -121,7 +121,9 @@ export class OrderValidator {
     if (deadline > this.getCurrentTime() + this.deadlineValidityPeriod) {
       return {
         valid: false,
-        errorString: `Deadline field invalid: Order expiry cannot be larger than thirty minutes`,
+        errorString: `Deadline field invalid: Order expiry cannot be larger than ${
+          this.deadlineValidityPeriod / 60
+        } minutes`,
       }
     }
     return {
