@@ -14,7 +14,7 @@ import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService
 import { ChainId } from '../../../lib/util/chain'
 import { formatOrderEntity } from '../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
-import { QUOTE_ID, SIGNATURE } from '../fixtures'
+import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
@@ -140,7 +140,7 @@ describe('Testing post order handler.', () => {
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
         }),
-        {} as any
+        EVENT_CONTEXT
       )
 
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
@@ -178,7 +178,7 @@ describe('Testing post order handler.', () => {
           quoteId: QUOTE_ID,
           chainId: ChainId.GÖRLI,
         }),
-        {} as any
+        EVENT_CONTEXT
       )
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
@@ -215,7 +215,7 @@ describe('Testing post order handler.', () => {
             signature: SIGNATURE,
             quoteId: QUOTE_ID,
           }),
-          {} as any
+          EVENT_CONTEXT
         )
         expect(response.statusCode).toEqual(HttpStatusCode.Forbidden)
 
@@ -243,7 +243,7 @@ describe('Testing post order handler.', () => {
           PostOrderRequestFactory.request({
             encodedOrder: order.serialize(),
           }),
-          {} as any
+          EVENT_CONTEXT
         )
         expect(response).toMatchObject({
           statusCode: HttpStatusCode.Created,
@@ -266,7 +266,7 @@ describe('Testing post order handler.', () => {
             PostOrderRequestFactory.request({
               encodedOrder: order.serialize(),
             }),
-            {} as any
+            EVENT_CONTEXT
           )
         ).toMatchObject({
           body: JSON.stringify({
@@ -289,7 +289,7 @@ describe('Testing post order handler.', () => {
           PostOrderRequestFactory.request({
             encodedOrder: order.serialize(),
           }),
-          {} as any
+          EVENT_CONTEXT
         )
       ).toMatchObject({
         statusCode: HttpStatusCode.InternalServerError,
@@ -382,7 +382,7 @@ describe('Testing post order handler.', () => {
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
         }),
-        {} as any
+        EVENT_CONTEXT
       )
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(postOrderResponse).toEqual({
@@ -436,7 +436,7 @@ describe('Testing post order handler.', () => {
           chainId: ChainId.POLYGON,
           encodedOrder: order.serialize(),
         }),
-        {} as any
+        EVENT_CONTEXT
       )
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({

@@ -10,7 +10,7 @@ import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService
 import { ChainId } from '../../../lib/util/chain'
 import { formatOrderEntity } from '../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
-import { QUOTE_ID, SIGNATURE } from '../fixtures'
+import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
@@ -116,7 +116,7 @@ describe('Testing post limit order handler.', () => {
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
         }),
-        {} as any
+        EVENT_CONTEXT
       )
 
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
@@ -151,7 +151,7 @@ describe('Testing post limit order handler.', () => {
           quoteId: QUOTE_ID,
           chainId: ChainId.GÖRLI,
         }),
-        {} as any
+        EVENT_CONTEXT
       )
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
@@ -209,7 +209,7 @@ describe('Testing post limit order handler.', () => {
             PostOrderRequestFactory.request({
               encodedOrder: order.serialize(),
             }),
-            {} as any
+            EVENT_CONTEXT
           )
         ).toMatchObject({
           statusCode: HttpStatusCode.Created,
@@ -231,7 +231,7 @@ describe('Testing post limit order handler.', () => {
             PostOrderRequestFactory.request({
               encodedOrder: order.serialize(),
             }),
-            {} as any
+            EVENT_CONTEXT
           )
         ).toMatchObject({
           body: JSON.stringify({
@@ -255,7 +255,7 @@ describe('Testing post limit order handler.', () => {
           PostOrderRequestFactory.request({
             encodedOrder: order.serialize(),
           }),
-          {} as any
+          EVENT_CONTEXT
         )
       ).toMatchObject({
         statusCode: HttpStatusCode.InternalServerError,
@@ -310,7 +310,7 @@ describe('Testing post limit order handler.', () => {
         PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
         }),
-        {} as any
+        EVENT_CONTEXT
       )
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(postOrderResponse).toEqual({
@@ -340,7 +340,7 @@ describe('Testing post limit order handler.', () => {
         PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
         }),
-        {} as any
+        EVENT_CONTEXT
       )
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
@@ -363,7 +363,7 @@ describe('Testing post limit order handler.', () => {
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.POLYGON)
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({ chainId: ChainId.POLYGON, encodedOrder: order.serialize() }),
-        {} as any
+        EVENT_CONTEXT
       )
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({

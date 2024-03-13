@@ -30,3 +30,6 @@ export const ORDER_INFO: DutchOrderInfo = {
 export const QUOTE_ID = '55e2cfca-5521-4a0a-b597-7bfb569032d7'
 export const SIGNATURE =
   '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const EVENT_CONTEXT = {} as any
