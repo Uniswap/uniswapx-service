@@ -3,14 +3,13 @@ import { QUOTE_ID, SIGNATURE } from '../fixtures'
 
 export class PostOrderFactory {
   static createInputEvent = (
-    config: { encodedOrder?: string; orderHash?: string; signature?: string; chainId?: number; quoteId?: string } = {}
+    config: { encodedOrder?: string; signature?: string; chainId?: number; quoteId?: string } = {}
   ): APIGatewayProxyEvent => {
-    const { encodedOrder = '0x01', orderHash = '0x01', signature = SIGNATURE, chainId = 1, quoteId = QUOTE_ID } = config
+    const { encodedOrder = '0x01', signature = SIGNATURE, chainId = 1, quoteId = QUOTE_ID } = config
     return {
       queryStringParameters: {},
       body: JSON.stringify({
         encodedOrder,
-        orderHash,
         signature,
         chainId,
         quoteId,
