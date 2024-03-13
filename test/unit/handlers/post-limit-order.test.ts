@@ -11,7 +11,7 @@ import { ChainId } from '../../../lib/util/chain'
 import { formatOrderEntity } from '../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { QUOTE_ID, SIGNATURE } from '../fixtures'
-import { PostOrderFactory } from './PostOrderFactory'
+import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return {
@@ -111,7 +111,7 @@ describe('Testing post limit order handler.', () => {
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
-        PostOrderFactory.createInputEvent({
+        PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
@@ -145,7 +145,7 @@ describe('Testing post limit order handler.', () => {
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
-        PostOrderFactory.createInputEvent({
+        PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
@@ -179,7 +179,7 @@ describe('Testing post limit order handler.', () => {
         const order = SDKDutchOrderFactory.buildLimitOrder()
         expect(
           await postOrderHandler.handler(
-            PostOrderFactory.createInputEvent({
+            PostOrderRequestFactory.request({
               encodedOrder: order.serialize(),
             }),
             {} as any
@@ -206,7 +206,7 @@ describe('Testing post limit order handler.', () => {
 
         expect(
           await postOrderHandler.handler(
-            PostOrderFactory.createInputEvent({
+            PostOrderRequestFactory.request({
               encodedOrder: order.serialize(),
             }),
             {} as any
@@ -228,7 +228,7 @@ describe('Testing post limit order handler.', () => {
         })
         expect(
           await postOrderHandler.handler(
-            PostOrderFactory.createInputEvent({
+            PostOrderRequestFactory.request({
               encodedOrder: order.serialize(),
             }),
             {} as any
@@ -252,7 +252,7 @@ describe('Testing post limit order handler.', () => {
 
       expect(
         await postOrderHandler.handler(
-          PostOrderFactory.createInputEvent({
+          PostOrderRequestFactory.request({
             encodedOrder: order.serialize(),
           }),
           {} as any
@@ -276,7 +276,7 @@ describe('Testing post limit order handler.', () => {
       [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 5, 137]","errorCode":"VALIDATION_ERROR"}`],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
-      const invalidEvent = PostOrderFactory.createInputEvent({
+      const invalidEvent = PostOrderRequestFactory.request({
         ...invalidBodyField,
       })
       const postOrderResponse = await postOrderHandler.handler(invalidEvent as any, {} as any)
@@ -289,7 +289,7 @@ describe('Testing post limit order handler.', () => {
 
     it('should not call StepFunctions', async () => {
       validatorMock.mockReturnValue({ valid: true })
-      await postOrderHandler.handler(PostOrderFactory.createInputEvent(), {} as any)
+      await postOrderHandler.handler(PostOrderRequestFactory.request(), {} as any)
       expect(mockSfnClient).not.toHaveBeenCalled()
     })
   })
@@ -307,7 +307,7 @@ describe('Testing post limit order handler.', () => {
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
-        PostOrderFactory.createInputEvent({
+        PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
         }),
         {} as any
@@ -337,7 +337,7 @@ describe('Testing post limit order handler.', () => {
 
       const order = SDKDutchOrderFactory.buildLimitOrder()
       const postOrderResponse = await postOrderHandler.handler(
-        PostOrderFactory.createInputEvent({
+        PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
         }),
         {} as any
@@ -362,7 +362,7 @@ describe('Testing post limit order handler.', () => {
 
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.POLYGON)
       const postOrderResponse = await postOrderHandler.handler(
-        PostOrderFactory.createInputEvent({ chainId: ChainId.POLYGON, encodedOrder: order.serialize() }),
+        PostOrderRequestFactory.request({ chainId: ChainId.POLYGON, encodedOrder: order.serialize() }),
         {} as any
       )
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
