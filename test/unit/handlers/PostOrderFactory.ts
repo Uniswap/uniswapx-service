@@ -1,5 +1,8 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
 
+export const QUOTE_ID = '55e2cfca-5521-4a0a-b597-7bfb569032d7'
+export const SIGNATURE =
+  '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010'
 export class PostOrderFactory {
   static createInputEvent = (
     config: { encodedOrder?: string; orderHash?: string; signature?: string; chainId?: number; quoteId?: string } = {}
