@@ -298,19 +298,21 @@ describe('Testing post order handler.', () => {
 
     it('should fail if tokenIn = address(0)', async () => {
       validatorMock.mockReturnValue({ valid: true })
-      //@ts-ignore
-      DutchOrder.parse.mockReturnValueOnce(
-        Object.assign({}, DECODED_ORDER, {
-          info: Object.assign({}, ORDER_INFO, {
-            input: {
-              token: '0x0000000000000000000000000000000000000000',
-              endAmount: BigNumber.from(30),
-              startAmount: BigNumber.from(30),
-            },
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+        input: {
+          token: '0x0000000000000000000000000000000000000000',
+          endAmount: '30',
+          startAmount: '30',
+        },
+      })
+      expect(
+        await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
           }),
-        })
-      )
-      expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+          EVENT_CONTEXT
+        )
+      ).toMatchObject({
         body: JSON.stringify({
           errorCode: ErrorCode.InvalidTokenInAddress,
           id: 'testRequest',
