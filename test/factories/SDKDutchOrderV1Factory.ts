@@ -1,18 +1,19 @@
 import { DutchOrder as SDKDutchOrder, DutchOrderBuilder, DutchOrderInfoJSON } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
+import { ChainId } from '../../lib/util/chain'
 
-const USDC_MAINNET = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
-const WETH_MAINNET = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+export const USDC_MAINNET = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+export const WETH_MAINNET = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 
 export class SDKDutchOrderFactory {
-  static buildDutchOrder(chainId: number, overrides: Partial<DutchOrderInfoJSON> = {}): SDKDutchOrder {
+  static buildDutchOrder(chainId = ChainId.MAINNET, overrides: Partial<DutchOrderInfoJSON> = {}): SDKDutchOrder {
     const builder = this.createBuilder(chainId, overrides)
     const output = overrides.outputs ? overrides.outputs[0] : undefined
 
     builder.output({
       token: output?.token ?? WETH_MAINNET,
-      startAmount: output?.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000'),
-      endAmount: output?.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('1000000'),
+      startAmount: output?.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000000000000000'),
+      endAmount: output?.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('900000000000000000'),
       recipient: output?.recipient ?? '0x0000000000000000000000000000000000000000',
     })
     return builder.build()
@@ -55,10 +56,8 @@ export class SDKDutchOrderFactory {
         token: overrides.input?.token ?? USDC_MAINNET,
         startAmount: overrides.input?.startAmount
           ? BigNumber.from(overrides.input?.startAmount)
-          : BigNumber.from('1000000000000000000'),
-        endAmount: overrides.input?.endAmount
-          ? BigNumber.from(overrides.input?.endAmount)
-          : BigNumber.from('900000000000000000'),
+          : BigNumber.from('1000000'),
+        endAmount: overrides.input?.endAmount ? BigNumber.from(overrides.input?.endAmount) : BigNumber.from('1000000'),
       })
 
     // Single support for outputs right now - can enhance this in the future.
