@@ -8,6 +8,10 @@ import { BigNumber, constants } from 'ethers'
 import { ChainId } from '../../lib/util/chain'
 import { Tokens } from '../unit/fixtures'
 
+type PartialDeep<K> = {
+  [attr in keyof K]?: K[attr] extends object ? PartialDeep<K[attr]> : K[attr]
+}
+
 /**
  * Helper class for building CosignedV2DutchOrders.
  * All values adpated from  https://github.com/Uniswap/uniswapx-sdk/blob/7949043e7d2434553f84f588e1405e87d249a5aa/src/builder/V2DutchOrderBuilder.test.ts#L22
@@ -15,7 +19,7 @@ import { Tokens } from '../unit/fixtures'
 export class SDKDutchOrderV2Factory {
   static buildDutchV2Order(
     chainId = ChainId.MAINNET,
-    overrides: Partial<CosignedV2DutchOrderInfoJSON> = {}
+    overrides: PartialDeep<CosignedV2DutchOrderInfoJSON> = {}
   ): SDKDutchOrderV2 {
     // Values adapted from https://github.com/Uniswap/uniswapx-sdk/blob/7949043e7d2434553f84f588e1405e87d249a5aa/src/utils/order.test.ts#L28
     const nowInSeconds = Math.floor(Date.now() / 1000)
@@ -56,10 +60,10 @@ export class SDKDutchOrderV2Factory {
     ]
     for (const output of outputs) {
       builder = builder.output({
-        token: output.token,
-        startAmount: BigNumber.from(output.startAmount),
-        endAmount: BigNumber.from(output.endAmount),
-        recipient: output.recipient,
+        token: output?.token ?? Tokens.MAINNET.WETH,
+        startAmount: output?.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000000000000000'),
+        endAmount: output?.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('1000000000000000000'),
+        recipient: output?.recipient ?? '0x0000000000000000000000000000000000000000',
       })
     }
 

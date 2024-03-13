@@ -65,6 +65,18 @@ describe('PostOrderBodyParser', () => {
       expect(actual.signature).toEqual(SIGNATURE)
     })
 
+    it('throws on an invalid DutchV1Order', () => {
+      expect(() =>
+        parser.fromPostRequest({
+          chainId: ChainId.MAINNET,
+          orderType: OrderType.Dutch,
+          encodedOrder: 'fakeEncodedOrder',
+          signature: SIGNATURE,
+          quoteId: QUOTE_ID,
+        })
+      ).toThrow()
+    })
+
     it('parses a Limit order', () => {
       const limitOrder = SDKDutchOrderFactory.buildLimitOrder()
       const actual = parser.fromPostRequest({
@@ -79,6 +91,18 @@ describe('PostOrderBodyParser', () => {
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)
+    })
+
+    it('throws on an invalid Limit order', () => {
+      expect(() =>
+        parser.fromPostRequest({
+          chainId: ChainId.MAINNET,
+          orderType: OrderType.Limit,
+          encodedOrder: 'fakeEncodedOrder',
+          signature: SIGNATURE,
+          quoteId: QUOTE_ID,
+        })
+      ).toThrow()
     })
 
     it.skip('parses a DutchV2 order', () => {
@@ -107,6 +131,17 @@ describe('PostOrderBodyParser', () => {
       expect(actual.inner).toEqual(relayOrder)
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.signature).toEqual(SIGNATURE)
+    })
+
+    it('throws on an invalid Relay order', () => {
+      expect(() =>
+        parser.fromPostRequest({
+          chainId: ChainId.MAINNET,
+          orderType: OrderType.Relay,
+          encodedOrder: 'invalid relay order',
+          signature: SIGNATURE,
+        })
+      ).toThrow()
     })
   })
 })
