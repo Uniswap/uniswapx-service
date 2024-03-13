@@ -7,6 +7,7 @@ import { DEFAULT_MAX_OPEN_ORDERS } from '../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
+import { PostOrderBodyParser } from '../../../lib/handlers/post-order/PostOrderBodyParser'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../lib/HttpStatusCode'
 import { log } from '../../../lib/Logging'
@@ -108,7 +109,8 @@ describe('Testing post order handler.', () => {
         logCancelled: jest.fn(),
         logInsufficientFunds: jest.fn(),
       }
-    )
+    ),
+    new PostOrderBodyParser(mockLog)
   )
 
   beforeAll(() => {

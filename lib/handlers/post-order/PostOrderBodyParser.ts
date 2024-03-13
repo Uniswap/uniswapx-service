@@ -7,13 +7,13 @@ import {
   RelayOrderParser,
   UniswapXOrderParser,
 } from '@uniswap/uniswapx-sdk'
+import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { DutchV1Order } from '../../models/DutchV1Order'
 import { DutchV2Order } from '../../models/DutchV2Order'
 import { LimitOrder } from '../../models/LimitOrder'
 import { Order } from '../../models/Order'
 import { RelayOrder } from '../../models/RelayOrder'
 import { PostOrderRequestBody } from './schema'
-import { UnexpectedOrderTypeError } from './UnexpectedOrderTypeError'
 
 export class PostOrderBodyParser {
   private readonly uniswapXParser = new UniswapXOrderParser()

@@ -12,6 +12,7 @@ import { OrderValidator } from '../../util/order-validator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
+import { PostOrderBodyParser } from './PostOrderBodyParser'
 
 const onChainValidatorMap = new OnChainValidatorMap()
 
@@ -36,7 +37,12 @@ const uniswapXOrderService = new UniswapXOrderService(
   OrderType.Dutch,
   AnalyticsService.create()
 )
-const postOrderHandler = new PostOrderHandler('postOrdersHandler', postOrderInjectorPromise, uniswapXOrderService)
+const postOrderHandler = new PostOrderHandler(
+  'postOrdersHandler',
+  postOrderInjectorPromise,
+  uniswapXOrderService,
+  new PostOrderBodyParser(log)
+)
 
 module.exports = {
   postOrderHandler: postOrderHandler.handler,

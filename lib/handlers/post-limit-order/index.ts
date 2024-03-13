@@ -11,6 +11,7 @@ import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
 import { OrderValidator } from '../../util/order-validator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from '../post-order/handler'
+import { PostOrderBodyParser } from '../post-order/PostOrderBodyParser'
 import { getMaxLimitOpenOrders, PostLimitOrderInjector } from './injector'
 
 const onChainValidatorMap = new OnChainValidatorMap()
@@ -42,7 +43,8 @@ const uniswapXOrderService = new UniswapXOrderService(
 const postLimitOrderHandler = new PostOrderHandler(
   'postLimitOrdersHandler',
   postLimitOrderInjectorPromise,
-  uniswapXOrderService
+  uniswapXOrderService,
+  new PostOrderBodyParser(log)
 )
 
 module.exports = {

@@ -5,6 +5,7 @@ import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
+import { PostOrderBodyParser } from '../../../lib/handlers/post-order/PostOrderBodyParser'
 import { HttpStatusCode } from '../../../lib/HttpStatusCode'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../lib/util/chain'
@@ -89,7 +90,8 @@ describe('Testing post limit order handler.', () => {
         logCancelled: jest.fn(),
         logInsufficientFunds: jest.fn(),
       }
-    )
+    ),
+    new PostOrderBodyParser(mockLog)
   )
 
   beforeAll(() => {
