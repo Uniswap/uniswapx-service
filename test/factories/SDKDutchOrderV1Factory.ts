@@ -1,9 +1,7 @@
 import { DutchOrder as SDKDutchOrder, DutchOrderBuilder, DutchOrderInfoJSON } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ChainId } from '../../lib/util/chain'
-
-export const USDC_MAINNET = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
-export const WETH_MAINNET = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+import { Tokens } from '../unit/fixtures'
 
 /**
  * Helper class for building DutchV1 and Limit orders.
@@ -15,7 +13,7 @@ export class SDKDutchOrderFactory {
 
     const outputs = overrides.outputs ?? [
       {
-        token: WETH_MAINNET,
+        token: Tokens.MAINNET.WETH,
         startAmount: '1000000000000000000',
         endAmount: '900000000000000000',
         recipient: '0x0000000000000000000000000000000000000000',
@@ -37,7 +35,7 @@ export class SDKDutchOrderFactory {
     const builder = this.createBuilder(chainId, overrides)
     const outputs = overrides.outputs ?? [
       {
-        token: WETH_MAINNET,
+        token: Tokens.MAINNET.USDC,
         startAmount: '1000000000000000000',
         endAmount: '1000000000000000000',
         recipient: '0x0000000000000000000000000000000000000000',
@@ -48,7 +46,7 @@ export class SDKDutchOrderFactory {
         throw new Error('Limit order with output overrides must have matching startAmount + endAmount')
       }
       builder.output({
-        token: output.token ?? WETH_MAINNET,
+        token: output.token ?? Tokens.MAINNET.WETH,
         // start + end amount must be the same for an input order
         startAmount: output.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000000000000000'),
         endAmount: output.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('1000000000000000000'),
@@ -75,7 +73,7 @@ export class SDKDutchOrderFactory {
       .swapper(overrides.swapper ?? '0x0000000000000000000000000000000000000001')
       .nonce(overrides.nonce ? BigNumber.from(overrides.nonce) : BigNumber.from(100))
       .input({
-        token: overrides.input?.token ?? USDC_MAINNET,
+        token: overrides.input?.token ?? Tokens.MAINNET.USDC,
         startAmount: overrides.input?.startAmount
           ? BigNumber.from(overrides.input?.startAmount)
           : BigNumber.from('1000000'),
