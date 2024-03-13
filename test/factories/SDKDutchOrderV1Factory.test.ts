@@ -2,7 +2,7 @@ import { SDKDutchOrderFactory } from './SDKDutchOrderV1Factory'
 
 describe('SDKDutchOrderV1Factory', () => {
   describe('Dutch Order', () => {
-    it('builds a default Dutch Order', () => {
+    it('smoke test - builds a default Dutch Order', () => {
       expect(SDKDutchOrderFactory.buildDutchOrder(1)).toBeDefined()
     })
 
@@ -31,7 +31,7 @@ describe('SDKDutchOrderV1Factory', () => {
   })
 
   describe('Limit Order', () => {
-    it('builds a default Limit order', () => {
+    it('smoke test - builds a default Limit order', () => {
       expect(SDKDutchOrderFactory.buildLimitOrder(1)).toBeDefined()
     })
 
