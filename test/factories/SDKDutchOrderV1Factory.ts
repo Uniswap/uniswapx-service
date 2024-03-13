@@ -12,32 +12,50 @@ export const WETH_MAINNET = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 export class SDKDutchOrderFactory {
   static buildDutchOrder(chainId = ChainId.MAINNET, overrides: Partial<DutchOrderInfoJSON> = {}): SDKDutchOrder {
     const builder = this.createBuilder(chainId, overrides)
-    const output = overrides.outputs ? overrides.outputs[0] : undefined
 
-    builder.output({
-      token: output?.token ?? WETH_MAINNET,
-      startAmount: output?.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000000000000000'),
-      endAmount: output?.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('900000000000000000'),
-      recipient: output?.recipient ?? '0x0000000000000000000000000000000000000000',
-    })
+    const outputs = overrides.outputs ?? [
+      {
+        token: WETH_MAINNET,
+        startAmount: '1000000000000000000',
+        endAmount: '900000000000000000',
+        recipient: '0x0000000000000000000000000000000000000000',
+      },
+    ]
+    for (const output of outputs) {
+      builder.output({
+        token: output.token,
+        startAmount: BigNumber.from(output.startAmount),
+        endAmount: BigNumber.from(output.endAmount),
+        recipient: output.recipient,
+      })
+    }
+
     return builder.build()
   }
 
   static buildLimitOrder(chainId = ChainId.MAINNET, overrides: Partial<DutchOrderInfoJSON> = {}) {
     const builder = this.createBuilder(chainId, overrides)
-    const output = overrides.outputs ? overrides.outputs[0] : undefined
-
-    if (output?.startAmount && output?.endAmount && output?.startAmount !== output?.endAmount) {
-      throw new Error('Limit order with output overrides must have matching startAmount + endAmount')
+    const outputs = overrides.outputs ?? [
+      {
+        token: WETH_MAINNET,
+        startAmount: '1000000000000000000',
+        endAmount: '1000000000000000000',
+        recipient: '0x0000000000000000000000000000000000000000',
+      },
+    ]
+    for (const output of outputs) {
+      if (output?.startAmount && output?.endAmount && output?.startAmount !== output?.endAmount) {
+        throw new Error('Limit order with output overrides must have matching startAmount + endAmount')
+      }
+      builder.output({
+        token: output.token ?? WETH_MAINNET,
+        // start + end amount must be the same for an input order
+        startAmount: output.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000000000000000'),
+        endAmount: output.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('1000000000000000000'),
+        recipient: output.recipient ?? '0x0000000000000000000000000000000000000000',
+      })
     }
 
-    builder.output({
-      token: output?.token ?? WETH_MAINNET,
-      // start + end amount must be the same for an input order
-      startAmount: output?.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000000000000000'),
-      endAmount: output?.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('1000000000000000000'),
-      recipient: output?.recipient ?? '0x0000000000000000000000000000000000000000',
-    })
     return builder.build()
   }
 
@@ -63,13 +81,6 @@ export class SDKDutchOrderFactory {
           : BigNumber.from('1000000'),
         endAmount: overrides.input?.endAmount ? BigNumber.from(overrides.input?.endAmount) : BigNumber.from('1000000'),
       })
-
-    // Single support for outputs right now - can enhance this in the future.
-    if (overrides.outputs && overrides.outputs.length > 1) {
-      throw new Error(
-        "SDKDutchOrderFactory currently only supports one output override. Enhance the 'buildDutchOrder' to support multiple."
-      )
-    }
 
     return builder
   }
