@@ -5,6 +5,10 @@ import { ChainId } from '../../lib/util/chain'
 export const USDC_MAINNET = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
 export const WETH_MAINNET = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
 
+/**
+ * Helper class for building DutchV1 and Limit orders.
+ * All values adpated from https://github.com/Uniswap/uniswapx-sdk/blob/7949043e7d2434553f84f588e1405e87d249a5aa/src/utils/order.test.ts#L28
+ */
 export class SDKDutchOrderFactory {
   static buildDutchOrder(chainId = ChainId.MAINNET, overrides: Partial<DutchOrderInfoJSON> = {}): SDKDutchOrder {
     const builder = this.createBuilder(chainId, overrides)
