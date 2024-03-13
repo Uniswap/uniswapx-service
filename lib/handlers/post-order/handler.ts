@@ -63,7 +63,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
 
     try {
-      const orderHash = await this.service.createOrder(order.inner, order.signature, order.quoteId)
+      const orderHash = await this.service.createOrder(order)
       return {
         statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },
