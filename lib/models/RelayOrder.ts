@@ -7,6 +7,6 @@ export class RelayOrder extends Order {
   }
 
   get orderType(): OrderType {
-    return OrderType.Dutch
+    return OrderType.Relay
   }
 }

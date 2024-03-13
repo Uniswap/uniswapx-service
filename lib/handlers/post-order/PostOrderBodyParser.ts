@@ -26,10 +26,9 @@ export class PostOrderBodyParser {
       case OrderType.Dutch:
         return this.tryParseDutchV1Order(encodedOrder, signature, chainId, body.quoteId)
       case OrderType.Limit:
-        return this.tryParseLimitOrder(body.encodedOrder, body.signature, body.chainId, body.quoteId)
+        return this.tryParseLimitOrder(encodedOrder, signature, chainId, body.quoteId)
       case OrderType.Dutch_V2:
         return this.tryParseDutchV2Order(encodedOrder, signature, chainId)
-
       case OrderType.Relay:
         return this.tryParseRelayOrder(encodedOrder, signature, chainId)
 
@@ -37,8 +36,6 @@ export class PostOrderBodyParser {
         // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
         // Try to parse both and see which hits.
         return this.tryParseDutchOrder(encodedOrder, signature, chainId, body.quoteId)
-      default:
-        throw new Error(`No parser configured for orderType ${orderType}`)
     }
   }
 

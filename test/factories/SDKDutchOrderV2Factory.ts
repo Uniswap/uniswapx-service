@@ -31,7 +31,7 @@ export class SDKDutchOrderV2Factory {
       .deadline(overrides.deadline ?? futureTime)
       .decayEndTime(overrides.cosignerData?.decayEndTime ?? futureTime)
       .decayStartTime(overrides.cosignerData?.decayStartTime ?? nowInSeconds)
-      .swapper(overrides.swapper ?? '0x0000000000000000000000000000000000000001')
+      .swapper(overrides.swapper ?? '0x0000000000000000000000000000000000000000')
       .nonce(overrides.nonce ? BigNumber.from(overrides.nonce) : BigNumber.from(100))
       .input({
         token: overrides.input?.token ?? Tokens.MAINNET.USDC,

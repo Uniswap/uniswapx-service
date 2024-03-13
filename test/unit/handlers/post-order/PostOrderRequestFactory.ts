@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { QUOTE_ID, SIGNATURE } from '../fixtures'
+import { QUOTE_ID, SIGNATURE } from '../../fixtures'
 
 export class PostOrderRequestFactory {
   static request = (
