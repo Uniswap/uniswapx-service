@@ -19,7 +19,7 @@ export class SDKDutchOrderFactory {
     return builder.build()
   }
 
-  static buildLimitOrder(chainId: number, overrides: Partial<DutchOrderInfoJSON> = {}) {
+  static buildLimitOrder(chainId = ChainId.MAINNET, overrides: Partial<DutchOrderInfoJSON> = {}) {
     const builder = this.createBuilder(chainId, overrides)
     const output = overrides.outputs ? overrides.outputs[0] : undefined
 
