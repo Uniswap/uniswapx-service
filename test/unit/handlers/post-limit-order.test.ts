@@ -107,7 +107,7 @@ describe('Testing post limit order handler.', () => {
       validatorMock.mockReturnValue({ valid: true })
       const order = SDKDutchOrderFactory.buildLimitOrder()
 
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. This should be OrderType.Limit
+      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
@@ -141,7 +141,7 @@ describe('Testing post limit order handler.', () => {
 
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.GÖRLI)
 
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. This should be OrderType.Limit
+      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
@@ -303,7 +303,7 @@ describe('Testing post limit order handler.', () => {
       validatorMock.mockReturnValue({ valid: true })
 
       const order = SDKDutchOrderFactory.buildLimitOrder()
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. This should be OrderType.Limit
+      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
