@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
+import { BigNumber } from 'ethers';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
@@ -302,6 +303,29 @@ describe('Testing post order handler.', () => {
       countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
       expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
         statusCode: HttpStatusCode.InternalServerError,
+      })
+    })
+
+    it('should fail if tokenIn = address(0)', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+      //@ts-ignore
+      DutchOrder.parse.mockReturnValueOnce(
+        Object.assign({}, DECODED_ORDER, {
+          info: Object.assign({}, ORDER_INFO, {
+            input: {
+              token: '0x0000000000000000000000000000000000000000',
+              endAmount: BigNumber.from(30),
+              startAmount: BigNumber.from(30),
+            },
+          }),
+        })
+      )
+      expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+        body: JSON.stringify({
+          errorCode: ErrorCode.InvalidTokenInAddress,
+          id: 'testRequest',
+        }),
+        statusCode: HttpStatusCode.BadRequest,
       })
     })
   })

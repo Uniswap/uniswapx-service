@@ -1,7 +1,9 @@
 import { Logger } from '@aws-lambda-powertools/logger'
+import { ethers } from 'ethers';
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { OrderEntity, ORDER_STATUS } from '../entities'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
+import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
@@ -49,6 +51,10 @@ export class UniswapXOrderService {
     if (onChainValidationResult !== OrderValidation.OK) {
       const failureReason = OrderValidation[onChainValidationResult]
       throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)
+    }
+
+    if (order.info.input.token === ethers.constants.AddressZero) {
+      throw new InvalidTokenInAddress();
     }
   }
 
