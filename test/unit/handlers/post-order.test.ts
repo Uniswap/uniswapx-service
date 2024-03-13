@@ -338,7 +338,7 @@ describe('Testing post order handler.', () => {
       const invalidEvent = PostOrderRequestFactory.request({
         ...invalidBodyField,
       })
-      const postOrderResponse = await postOrderHandler.handler(invalidEvent, {} as any)
+      const postOrderResponse = await postOrderHandler.handler(invalidEvent, EVENT_CONTEXT)
       expect(postOrderResponse.statusCode).toEqual(400)
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))

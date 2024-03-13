@@ -279,7 +279,7 @@ describe('Testing post limit order handler.', () => {
       const invalidEvent = PostOrderRequestFactory.request({
         ...invalidBodyField,
       })
-      const postOrderResponse = await postOrderHandler.handler(invalidEvent as any, {} as any)
+      const postOrderResponse = await postOrderHandler.handler(invalidEvent, EVENT_CONTEXT)
       expect(validatorMock).not.toHaveBeenCalled()
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.BadRequest)
@@ -289,7 +289,7 @@ describe('Testing post limit order handler.', () => {
 
     it('should not call StepFunctions', async () => {
       validatorMock.mockReturnValue({ valid: true })
-      await postOrderHandler.handler(PostOrderRequestFactory.request(), {} as any)
+      await postOrderHandler.handler(PostOrderRequestFactory.request(), EVENT_CONTEXT)
       expect(mockSfnClient).not.toHaveBeenCalled()
     })
   })
