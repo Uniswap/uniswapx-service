@@ -14,7 +14,7 @@ import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
-jest.mock('../../../lib/handlers/shared/sfn', () => {
+jest.mock('../../../../lib/handlers/shared/sfn', () => {
   return {
     kickoffOrderTrackingSfn: jest.fn(),
   }
