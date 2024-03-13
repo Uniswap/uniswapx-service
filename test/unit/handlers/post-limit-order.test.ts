@@ -182,7 +182,7 @@ describe('Testing post limit order handler.', () => {
             PostOrderRequestFactory.request({
               encodedOrder: order.serialize(),
             }),
-            {} as any
+            EVENT_CONTEXT
           )
         ).toMatchObject({
           body: JSON.stringify({

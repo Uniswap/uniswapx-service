@@ -413,7 +413,7 @@ describe('Testing post order handler.', () => {
         PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
         }),
-        {} as any
+        EVENT_CONTEXT
       )
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
