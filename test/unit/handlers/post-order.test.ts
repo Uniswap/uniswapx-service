@@ -14,7 +14,8 @@ import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService
 import { ChainId } from '../../../lib/util/chain'
 import { formatOrderEntity } from '../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
-import { PostOrderFactory, QUOTE_ID, SIGNATURE } from './PostOrderFactory'
+import { QUOTE_ID, SIGNATURE } from '../fixtures'
+import { PostOrderFactory } from './PostOrderFactory'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_5 = 'MOCK_ARN_5'

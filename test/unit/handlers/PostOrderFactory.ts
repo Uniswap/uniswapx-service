@@ -1,19 +1,11 @@
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { QUOTE_ID, SIGNATURE } from '../fixtures'
 
-export const QUOTE_ID = '55e2cfca-5521-4a0a-b597-7bfb569032d7'
-export const SIGNATURE =
-  '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010'
 export class PostOrderFactory {
   static createInputEvent = (
     config: { encodedOrder?: string; orderHash?: string; signature?: string; chainId?: number; quoteId?: string } = {}
   ): APIGatewayProxyEvent => {
-    const {
-      encodedOrder = '0x01',
-      orderHash = '0x01',
-      signature = '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
-      chainId = 1,
-      quoteId = '55e2cfca-5521-4a0a-b597-7bfb569032d7',
-    } = config
+    const { encodedOrder = '0x01', orderHash = '0x01', signature = SIGNATURE, chainId = 1, quoteId = QUOTE_ID } = config
     return {
       queryStringParameters: {},
       body: JSON.stringify({
