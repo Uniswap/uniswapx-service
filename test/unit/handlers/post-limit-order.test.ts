@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { ErrorCode } from '../../../lib/handlers/base'

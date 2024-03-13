@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-import { BigNumber } from 'ethers';
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
