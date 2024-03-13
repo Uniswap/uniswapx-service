@@ -1,58 +1,14 @@
 import { TABLE_KEY } from '../../../lib/config/dynamodb'
 import { OrderEntity, ORDER_STATUS } from '../../../lib/entities'
-import { GetOrdersQueryParams } from '../../../lib/handlers/get-orders/schema'
+import { GET_QUERY_PARAMS } from '../../../lib/handlers/get-orders/schema'
 import { DutchIndexMapper } from '../../../lib/repositories/IndexMappers/DutchIndexMapper'
 import { MOCK_ORDER_ENTITY } from '../../test-data'
+import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 
-class QueryParamsBuilder {
-  constructor(private params: GetOrdersQueryParams = {}) {}
-
-  withFiller(value?: string) {
-    this.params.filler = value || '0xFiller'
-    return this
-  }
-
-  withOfferer(value?: string) {
-    this.params.offerer = value || '0xOfferer'
-    return this
-  }
-
-  withOrderStatus(value?: string) {
-    this.params.orderStatus = value || 'open'
-    return this
-  }
-
-  withChainId(value?: number) {
-    this.params.chainId = value || 1
-    return this
-  }
-
-  public build() {
-    return { ...this.params }
-  }
-}
-// queryParams:{
-//     limit?: number
-//     orderStatus?: string
-//     orderHash?: string
-//     sortKey?: SORT_FIELDS
-//     sort?: string
-//     filler?: string
-//     cursor?: string
-//     chainId?: number
-//     desc?: boolean
-//     offerer?: string
-//     orderHashes?: string[]
-// }
 describe('DutchIndexMapper', () => {
   const indexMapper: DutchIndexMapper = new DutchIndexMapper()
-
+  const queryParamsBuilder = new QueryParamsBuilder()
   describe('getIndexFromParams', () => {
-    let queryParamsBuilder: QueryParamsBuilder
-    beforeEach(() => {
-      queryParamsBuilder = new QueryParamsBuilder()
-    })
-
     it('should give filler_offerer_orderStatus index', async () => {
       const queryParams = queryParamsBuilder.withFiller().withOfferer().withOrderStatus().build()
       expect(indexMapper.getIndexFromParams(queryParams)).toEqual({
@@ -185,6 +141,13 @@ describe('DutchIndexMapper', () => {
         offerer_orderStatus: '0xOfferer_insufficient-funds',
         orderStatus: 'insufficient-funds',
       })
+    })
+  })
+
+  describe('getRequestedParams', () => {
+    it('should ignore sort fields', () => {
+      const queryParams = queryParamsBuilder.withDesc().withSort().withSortKey().withChainId().build()
+      expect(indexMapper.getRequestedParams(queryParams)).toEqual([GET_QUERY_PARAMS.CHAIN_ID])
     })
   })
 })

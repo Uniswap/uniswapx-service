@@ -4,12 +4,11 @@ import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../../handlers/get-order
 import { IndexFieldsForUpdate, IndexMapper } from './IndexMapper'
 
 export class DutchIndexMapper implements IndexMapper<OrderEntity> {
-  private getRequestedParams(queryFilters: GetOrdersQueryParams) {
-    return Object.keys(queryFilters).filter((requestedParam) => {
-      return ![GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC].includes(
-        requestedParam as GET_QUERY_PARAMS
-      )
-    })
+  public getRequestedParams(queryFilters: GetOrdersQueryParams) {
+    const SORT_FIELDS = [GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC]
+    const isSortKey = (requestedParam: string) => SORT_FIELDS.includes(requestedParam as GET_QUERY_PARAMS)
+
+    return Object.keys(queryFilters).filter((param) => !isSortKey(param))
   }
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
