@@ -2,7 +2,7 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { TABLE_KEY } from '../config/dynamodb'
-import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities'
+import { ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { log } from '../Logging'
 import { checkDefined } from '../preconditions/preconditions'
@@ -10,22 +10,25 @@ import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
-import { BaseOrdersRepository, QueryResult } from './base'
+import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
+import { IndexMapper } from './IndexMappers/IndexMapper'
 
 export const MAX_ORDERS = 50
 // Shared implementation for Dutch and Limit orders
 // will work for orders with the same GSIs
-export class GenericOrdersRepository<
+export abstract class GenericOrdersRepository<
   TableName extends string,
   PartitionKey extends string,
-  SortKey extends string | null
-> implements BaseOrdersRepository
+  SortKey extends string | null,
+  T extends OrderEntityType
+> implements BaseOrdersRepository<T>
 {
   public constructor(
     private readonly table: Table<TableName, PartitionKey, SortKey>,
     private readonly entity: Entity,
     private readonly nonceEntity: Entity,
-    private readonly log: Logger
+    private readonly log: Logger,
+    private readonly indexMapper: IndexMapper<T>
   ) {}
 
   public async getByOfferer(
@@ -50,31 +53,9 @@ export class GenericOrdersRepository<
     return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort, desc)
   }
 
-  public async getByFiller(
-    filler: string,
-    limit: number,
-    cursor?: string,
-    sortKey?: SORT_FIELDS,
-    sort?: string,
-    desc?: boolean
-  ): Promise<QueryResult> {
-    return await this.queryOrderEntity(filler, TABLE_KEY.FILLER, limit, cursor, sortKey, sort, desc)
-  }
-
-  public async getByChainId(
-    chainId: number,
-    limit: number,
-    cursor?: string,
-    sortKey?: SORT_FIELDS,
-    sort?: string,
-    desc?: boolean
-  ): Promise<QueryResult> {
-    return await this.queryOrderEntity(chainId, TABLE_KEY.CHAIN_ID, limit, cursor, sortKey, sort, desc)
-  }
-
-  public async getByHash(hash: string): Promise<OrderEntity | undefined> {
+  public async getByHash(hash: string): Promise<T | undefined> {
     const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
-    return res.Item as OrderEntity
+    return res.Item as T
   }
 
   public async getNonceByAddressAndChain(address: string, chainId: number): Promise<string> {
@@ -100,18 +81,12 @@ export class GenericOrdersRepository<
     return res.Count || 0
   }
 
-  public async putOrderAndUpdateNonceTransaction(order: OrderEntity): Promise<void> {
+  public async putOrderAndUpdateNonceTransaction(order: T): Promise<void> {
     await this.table.transactWrite(
       [
         this.entity.putTransaction({
           ...order,
-          offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
-          filler_orderStatus: `${order.filler}_${order.orderStatus}`,
-          filler_offerer: `${order.filler}_${order.offerer}`,
-          chainId_filler: `${order.chainId}_${order.filler}`,
-          chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
-          chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
-          filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
+          ...this.indexMapper.getIndexFieldsForUpdate(order),
           createdAt: currentTimestampInSeconds(),
         }),
         this.nonceEntity.updateTransaction({
@@ -140,12 +115,7 @@ export class GenericOrdersRepository<
 
       await this.entity.update({
         [TABLE_KEY.ORDER_HASH]: orderHash,
-        orderStatus: status,
-        offerer_orderStatus: `${order.offerer}_${status}`,
-        filler_orderStatus: `${order.filler}_${status}`,
-        filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${status}`,
-        chainId_orderStatus: `${order.chainId}_${status}`,
-        chainId_orderStatus_filler: `${order.chainId}_${status}_${order.filler}`,
+        ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
         ...(txHash && { txHash }),
         ...(settledAmounts && { settledAmounts }),
       })
@@ -165,91 +135,21 @@ export class GenericOrdersRepository<
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
     const requestedParams = this.getRequestedParams(queryFilters)
     // Query Orders table based on the requested params
+    const compoundIndex = this.indexMapper.getIndexFromParams(queryFilters)
+
+    if (compoundIndex) {
+      return this.queryOrderEntity(
+        compoundIndex.partitionKey,
+        compoundIndex.index,
+        limit,
+        cursor,
+        queryFilters['sortKey'],
+        queryFilters['sort'],
+        queryFilters['desc']
+      )
+    }
+
     switch (true) {
-      case this.areParamsRequested(
-        //map to the correct gsi
-        [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS],
-        requestedParams
-      ):
-        return await this.queryOrderEntity(
-          `${queryFilters['filler']}_${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-          limit,
-          cursor, //encoded paging object
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.CHAIN_ID, GET_QUERY_PARAMS.FILLER], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['chainId']}_${queryFilters['filler']}`,
-          `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.CHAIN_ID, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['chainId']}_${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested(
-        [GET_QUERY_PARAMS.CHAIN_ID, GET_QUERY_PARAMS.ORDER_STATUS, GET_QUERY_PARAMS.FILLER],
-        requestedParams
-      ):
-        return await this.queryOrderEntity(
-          `${queryFilters['chainId']}_${queryFilters['orderStatus']}_${queryFilters['filler']}`,
-          `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['filler']}_${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['filler']}_${queryFilters['offerer']}`,
-          `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.queryOrderEntity(
-          `${queryFilters['offerer']}_${queryFilters['orderStatus']}`,
-          `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
         const order = await this.getByHash(queryFilters['orderHash'] as string)
         return { orders: order ? [order] : [] }
@@ -264,46 +164,6 @@ export class GenericOrdersRepository<
         const tableName = this.table.name
         return { orders: batchQuery.Responses[tableName] }
       }
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.OFFERER], requestedParams):
-        return await this.getByOfferer(
-          queryFilters['offerer'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.ORDER_STATUS], requestedParams):
-        return await this.getByOrderStatus(
-          queryFilters['orderStatus'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.FILLER], requestedParams):
-        return await this.getByFiller(
-          queryFilters['filler'] as string,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
-
-      case this.areParamsRequested([GET_QUERY_PARAMS.CHAIN_ID], requestedParams):
-        return await this.getByChainId(
-          queryFilters['chainId'] as number,
-          limit,
-          cursor,
-          queryFilters['sortKey'],
-          queryFilters['sort'],
-          queryFilters['desc']
-        )
 
       default: {
         throw new Error(
@@ -341,15 +201,9 @@ export class GenericOrdersRepository<
     })
 
     return {
-      orders: queryResult.Items as OrderEntity[],
+      orders: queryResult.Items as T[],
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
     }
-  }
-
-  private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
-    return (
-      requestedParams.length == queryParams.length && queryParams.every((filter) => requestedParams.includes(filter))
-    )
   }
 
   private getRequestedParams(queryFilters: GetOrdersQueryParams) {

@@ -7,13 +7,16 @@ export const MODEL_NAME = {
 }
 
 export type QueryResult = {
-  orders: OrderEntity[]
+  orders: OrderEntityType[]
   cursor?: string
 }
 
-export interface BaseOrdersRepository {
-  getByHash: (hash: string) => Promise<OrderEntity | undefined>
-  putOrderAndUpdateNonceTransaction: (order: OrderEntity) => Promise<void>
+//indirect for multiple types
+export type OrderEntityType = OrderEntity
+
+export interface BaseOrdersRepository<T extends OrderEntityType> {
+  getByHash: (hash: string) => Promise<T | undefined>
+  putOrderAndUpdateNonceTransaction: (order: T) => Promise<void>
   countOrdersByOffererAndStatus: (offerer: string, orderStatus: ORDER_STATUS) => Promise<number>
   getOrders: (limit: number, queryFilters: GetOrdersQueryParams, cursor?: string) => Promise<QueryResult>
   getByOfferer: (offerer: string, limit: number) => Promise<QueryResult>

@@ -1,13 +1,14 @@
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { Context } from 'aws-lambda'
 import bunyan, { default as Logger } from 'bunyan'
+import { OrderEntity } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
 
 export interface ContainerInjected {
-  dbInterface: BaseOrdersRepository
+  dbInterface: BaseOrdersRepository<OrderEntity>
 }
 
 export type GetRequestInjected = {

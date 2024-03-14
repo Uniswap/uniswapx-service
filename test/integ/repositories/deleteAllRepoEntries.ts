@@ -1,7 +1,8 @@
+import { OrderEntity } from '../../../lib/entities'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { DYNAMO_BATCH_WRITE_MAX } from '../../../lib/util/constants'
 
-export async function deleteAllRepoEntries(ordersRepository: BaseOrdersRepository) {
+export async function deleteAllRepoEntries(ordersRepository: BaseOrdersRepository<OrderEntity>) {
   let orders = await ordersRepository.getOrders(DYNAMO_BATCH_WRITE_MAX, { chainId: 1 })
   if (!orders.orders.length) {
     return

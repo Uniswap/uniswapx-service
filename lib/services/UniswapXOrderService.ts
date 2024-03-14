@@ -17,7 +17,7 @@ export class UniswapXOrderService {
   constructor(
     private readonly orderValidator: OffChainOrderValidator,
     private readonly onChainValidatorMap: OnChainValidatorMap,
-    private readonly repository: BaseOrdersRepository,
+    private readonly repository: BaseOrdersRepository<OrderEntity>,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
     private orderType: OrderType,

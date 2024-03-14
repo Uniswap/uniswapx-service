@@ -3,7 +3,7 @@ import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 
 import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
-import { ORDER_STATUS } from '../entities'
+import { OrderEntity, ORDER_STATUS } from '../entities'
 import { BaseOrdersRepository } from '../repositories/base'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
 import { DYNAMO_BATCH_WRITE_MAX, ONE_HOUR_IN_SECONDS } from '../util/constants'
@@ -25,7 +25,7 @@ async function main(metrics: MetricsLogger) {
 }
 
 export async function deleteStaleOrders(
-  repo: BaseOrdersRepository,
+  repo: BaseOrdersRepository<OrderEntity>,
   log: Logger,
   metrics?: MetricsLogger
 ): Promise<void> {
