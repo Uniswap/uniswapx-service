@@ -11,7 +11,7 @@
     "build": "tsc",
     "clean": "rm -rf dist cdk.out",
     "watch": "tsc -w",
-    "test": "jest --testPathPattern=test/unit/",
+    "test": "jest --testPathPattern=\"test/(unit|factories)\"",
     "test:watch": "yarn test --watch",
     "test:integ": "jest --detectOpenHandles --forceExit --testPathPattern=test/integ/",
     "test:e2e": "jest --detectOpenHandles --runInBand --testPathPattern=test/e2e/",

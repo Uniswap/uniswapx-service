@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { DutchOrder, OrderType, OrderValidation, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { ErrorCode } from '../../../lib/handlers/base'
@@ -12,7 +11,11 @@ import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../lib/HttpStatusCode'
 import { log } from '../../../lib/Logging'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
-import { ORDER_INFO } from '../fixtures'
+import { ChainId } from '../../../lib/util/chain'
+import { formatOrderEntity } from '../../../lib/util/order'
+import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
+import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../fixtures'
+import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_5 = 'MOCK_ARN_5'
@@ -40,42 +43,12 @@ mockSfnClient
   })
   .resolves({})
 
-const DECODED_ORDER = {
-  info: ORDER_INFO,
-  hash: () => '0x0000000000000000000000000000000000000000000000000000000000000006',
-  serialize: () => '0x01',
-  chainId: 1,
-}
-
-jest.mock('@uniswap/uniswapx-sdk', () => {
-  const originalSdk = jest.requireActual('@uniswap/uniswapx-sdk')
-  return {
-    ...originalSdk,
-    DutchOrder: { parse: jest.fn() },
-    OrderType: { Dutch: 'Dutch' },
-  }
-})
-
 describe('Testing post order handler.', () => {
   const putOrderAndUpdateNonceTransactionMock = jest.fn()
   const countOrdersByOffererAndStatusMock = jest.fn()
   const validatorMock = jest.fn()
   const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
-  const encodedOrder = '0x01'
-  const postRequestBody = {
-    encodedOrder: encodedOrder,
-    orderHash: '0x01',
-    signature:
-      '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
-    chainId: 1,
-    quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
-  }
-
-  const event = {
-    queryStringParameters: {},
-    body: JSON.stringify(postRequestBody),
-  }
 
   const mockLog = {
     info: () => jest.fn(),
@@ -84,37 +57,6 @@ describe('Testing post order handler.', () => {
   const requestInjected = {
     requestId: 'testRequest',
     log: mockLog,
-  }
-
-  const ORDER = {
-    encodedOrder: encodedOrder,
-    chainId: 1,
-    filler: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
-    signature:
-      '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010',
-    nonce: '40',
-    orderHash: '0x0000000000000000000000000000000000000000000000000000000000000006',
-    orderStatus: ORDER_STATUS.OPEN,
-    offerer: '0x0000000000000000000000000000000000000001',
-    reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch]!.toLowerCase(),
-    decayStartTime: 20,
-    decayEndTime: 10,
-    deadline: 10,
-    quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
-    type: 'Dutch',
-    input: {
-      endAmount: '30',
-      startAmount: '30',
-      token: '0x0000000000000000000000000000000000000003',
-    },
-    outputs: [
-      {
-        endAmount: '50',
-        startAmount: '60',
-        token: '0x0000000000000000000000000000000000000005',
-        recipient: '0x0000000000000000000000000000000000000004',
-      },
-    ],
   }
 
   const onChainValidatorMap = new OnChainValidatorMap([
@@ -173,9 +115,11 @@ describe('Testing post order handler.', () => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
     process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
     process.env['REGION'] = 'region'
-    //@ts-ignore
-    DutchOrder.parse.mockImplementation((_order: any, chainId: number) => ({ ...DECODED_ORDER, chainId }))
     log.setLogLevel('SILENT')
+  })
+
+  beforeEach(() => {
+    jest.spyOn(Date, 'now').mockImplementation(() => 100)
   })
 
   afterEach(() => {
@@ -187,16 +131,30 @@ describe('Testing post order handler.', () => {
     it('Testing valid request and response.', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
+      const order = SDKDutchOrderFactory.buildDutchOrder()
+      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
+
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.serialize(),
+          signature: SIGNATURE,
+          quoteId: QUOTE_ID,
+        }),
+        EVENT_CONTEXT
+      )
+
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
+
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(onchainValidationSucceededMock).toBeCalled()
-      expect(validatorMock).toBeCalledWith(DECODED_ORDER)
+      expect(validatorMock).toBeCalledWith(order)
       expect(mockSfnClient.calls()).toHaveLength(1)
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
         stateMachineArn: MOCK_ARN_1,
       })
+
       expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
+        body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
         statusCode: HttpStatusCode.Created,
         headers: {
           'Access-Control-Allow-Credentials': true,
@@ -210,23 +168,29 @@ describe('Testing post order handler.', () => {
     it('Testing valid request and response on another chain', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
-      const postOrderResponse = await postOrderHandler.handler(
-        {
-          queryStringParameters: {},
-          body: JSON.stringify({ ...postRequestBody, chainId: 5 }),
-        } as any,
-        {} as any
-      )
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.GÖRLI)
+      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
-      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith({ ...ORDER, chainId: 5 })
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.serialize(),
+          signature: SIGNATURE,
+          quoteId: QUOTE_ID,
+          chainId: ChainId.GÖRLI,
+        }),
+        EVENT_CONTEXT
+      )
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
+
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(onchainValidationSucceededMock).toBeCalled()
-      expect(validatorMock).toBeCalledWith({ ...DECODED_ORDER, chainId: 5 })
+      expect(validatorMock).toBeCalledWith(order)
       expect(mockSfnClient.calls()).toHaveLength(1)
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
         stateMachineArn: MOCK_ARN_5,
       })
       expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ hash: '0x0000000000000000000000000000000000000000000000000000000000000006' }),
+        body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
         statusCode: HttpStatusCode.Created,
         headers: {
           'Access-Control-Allow-Credentials': true,
@@ -243,7 +207,19 @@ describe('Testing post order handler.', () => {
       it('should reject order submission for offerer when too many open orders exist', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_MAX_OPEN_ORDERS + 1)
         validatorMock.mockReturnValue({ valid: true })
-        expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+
+        const order = SDKDutchOrderFactory.buildDutchOrder()
+        const response = await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
+            signature: SIGNATURE,
+            quoteId: QUOTE_ID,
+          }),
+          EVENT_CONTEXT
+        )
+        expect(response.statusCode).toEqual(HttpStatusCode.Forbidden)
+
+        expect(response).toMatchObject({
           body: JSON.stringify({
             errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
@@ -258,15 +234,18 @@ describe('Testing post order handler.', () => {
       it('should allow more orders if in the high list', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
         validatorMock.mockReturnValue({ valid: true })
-        //@ts-ignore
-        DutchOrder.parse.mockReturnValueOnce(
-          Object.assign({}, DECODED_ORDER, {
-            info: Object.assign({}, ORDER_INFO, {
-              swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
-            }),
-          })
+
+        const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+          swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
+        })
+
+        const response = await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
+          }),
+          EVENT_CONTEXT
         )
-        expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+        expect(response).toMatchObject({
           statusCode: HttpStatusCode.Created,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
@@ -277,15 +256,19 @@ describe('Testing post order handler.', () => {
       it('should reject order submission for offerer in high list at higher order count', async () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
         validatorMock.mockReturnValue({ valid: true })
-        //@ts-ignore
-        DutchOrder.parse.mockReturnValueOnce(
-          Object.assign({}, DECODED_ORDER, {
-            info: Object.assign({}, ORDER_INFO, {
-              offerer: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
+
+        const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+          swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
+        })
+
+        expect(
+          await postOrderHandler.handler(
+            PostOrderRequestFactory.request({
+              encodedOrder: order.serialize(),
             }),
-          })
-        )
-        expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+            EVENT_CONTEXT
+          )
+        ).toMatchObject({
           body: JSON.stringify({
             errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
@@ -299,9 +282,42 @@ describe('Testing post order handler.', () => {
     })
 
     it('should return 500 if DDB call throws', async () => {
+      const order = SDKDutchOrderFactory.buildDutchOrder()
       countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
-      expect(await postOrderHandler.handler(event as any, {} as any)).toMatchObject({
+      expect(
+        await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
+          }),
+          EVENT_CONTEXT
+        )
+      ).toMatchObject({
         statusCode: HttpStatusCode.InternalServerError,
+      })
+    })
+
+    it('should fail if tokenIn = address(0)', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+        input: {
+          token: '0x0000000000000000000000000000000000000000',
+          endAmount: '30',
+          startAmount: '30',
+        },
+      })
+      expect(
+        await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
+          }),
+          EVENT_CONTEXT
+        )
+      ).toMatchObject({
+        body: JSON.stringify({
+          errorCode: ErrorCode.InvalidTokenInAddress,
+          id: 'testRequest',
+        }),
+        statusCode: HttpStatusCode.BadRequest,
       })
     })
   })
@@ -319,22 +335,21 @@ describe('Testing post order handler.', () => {
       [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 5, 137]","errorCode":"VALIDATION_ERROR"}`],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
-      const invalidEvent = {
-        body: JSON.stringify({ ...postRequestBody, ...invalidBodyField }),
-        queryStringParameters: {},
-      }
-      const postOrderResponse = await postOrderHandler.handler(invalidEvent as any, {} as any)
-      expect(validatorMock).not.toHaveBeenCalled()
-      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
+      const invalidEvent = PostOrderRequestFactory.request({
+        ...invalidBodyField,
+      })
+      const postOrderResponse = await postOrderHandler.handler(invalidEvent, EVENT_CONTEXT)
       expect(postOrderResponse.statusCode).toEqual(400)
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
+      expect(validatorMock).not.toHaveBeenCalled()
+      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
     })
 
     it('should call StepFunctions.startExecution method with the correct params', async () => {
       const sfnInput = {
         orderHash: '0xhash',
-        chainId: 1,
+        chainId: ChainId.MAINNET,
         quoteId: 'quoteId',
         orderStatus: ORDER_STATUS.OPEN,
         orderType: OrderType.Dutch,
@@ -361,12 +376,17 @@ describe('Testing post order handler.', () => {
 
       validatorMock.mockReturnValue({ valid: true })
 
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBody),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
-      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(ORDER)
+      const order = SDKDutchOrderFactory.buildDutchOrder()
+      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.serialize(),
+          signature: SIGNATURE,
+          quoteId: QUOTE_ID,
+        }),
+        EVENT_CONTEXT
+      )
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ detail: 'database unavailable', errorCode: ErrorCode.InternalError, id: 'testRequest' }),
         statusCode: HttpStatusCode.InternalServerError,
@@ -388,11 +408,13 @@ describe('Testing post order handler.', () => {
         valid: false,
         errorString,
       })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify(postRequestBody),
-      }
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
+      const order = SDKDutchOrderFactory.buildDutchOrder()
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.serialize(),
+        }),
+        EVENT_CONTEXT
+      )
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ detail: errorString, errorCode, id: 'testRequest' }),
@@ -407,22 +429,17 @@ describe('Testing post order handler.', () => {
     })
 
     it('on-chain validation failed; throws 400', async () => {
-      //@ts-ignore
-      DutchOrder.parse.mockReturnValue({
-        ...DECODED_ORDER,
-        chainId: 137,
-      })
-      const event = {
-        queryStringParameters: {},
-        body: JSON.stringify({
-          ...postRequestBody,
-          chainId: 137,
-        }),
-      }
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.POLYGON)
       validatorMock.mockReturnValue({
         valid: true,
       })
-      const postOrderResponse = await postOrderHandler.handler(event as any, {} as any)
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          chainId: ChainId.POLYGON,
+          encodedOrder: order.serialize(),
+        }),
+        EVENT_CONTEXT
+      )
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({
