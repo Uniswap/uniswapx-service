@@ -2,13 +2,14 @@ import { RelayOrder as SDKRelayOrder, RelayOrderBuilder, RelayOrderInfoJSON } fr
 import { BigNumber } from 'ethers'
 import { ChainId } from '../../lib/util/chain'
 import { Tokens } from '../unit/fixtures'
+import { PartialDeep } from './PartialDeep'
 
 /**
  * Helper class for building RelayOrders.
  * All values adpated from  https://github.com/Uniswap/uniswapx-sdk/blob/7949043e7d2434553f84f588e1405e87d249a5aa/src/builder/RelayOrderBuilder.test.ts#L30
  */
 export class SDKRelayOrderFactory {
-  static buildRelayOrder(chainId = ChainId.MAINNET, overrides: Partial<RelayOrderInfoJSON> = {}): SDKRelayOrder {
+  static buildRelayOrder(chainId = ChainId.MAINNET, overrides: PartialDeep<RelayOrderInfoJSON> = {}): SDKRelayOrder {
     // Values adapted from https://github.com/Uniswap/uniswapx-sdk/blob/7949043e7d2434553f84f588e1405e87d249a5aa/src/utils/order.test.ts#L28
     const nowInSeconds = Math.floor(Date.now() / 1000)
 

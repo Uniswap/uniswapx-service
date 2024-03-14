@@ -7,10 +7,7 @@ import {
 import { BigNumber, constants } from 'ethers'
 import { ChainId } from '../../lib/util/chain'
 import { Tokens } from '../unit/fixtures'
-
-type PartialDeep<K> = {
-  [attr in keyof K]?: K[attr] extends object ? PartialDeep<K[attr]> : K[attr]
-}
+import { PartialDeep } from './PartialDeep'
 
 /**
  * Helper class for building CosignedV2DutchOrders.

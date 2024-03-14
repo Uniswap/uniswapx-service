@@ -2,13 +2,14 @@ import { DutchOrder as SDKDutchOrder, DutchOrderBuilder, DutchOrderInfoJSON } fr
 import { BigNumber } from 'ethers'
 import { ChainId } from '../../lib/util/chain'
 import { Tokens } from '../unit/fixtures'
+import { PartialDeep } from './PartialDeep'
 
 /**
  * Helper class for building DutchV1 and Limit orders.
  * All values adpated from https://github.com/Uniswap/uniswapx-sdk/blob/7949043e7d2434553f84f588e1405e87d249a5aa/src/utils/order.test.ts#L28
  */
 export class SDKDutchOrderFactory {
-  static buildDutchOrder(chainId = ChainId.MAINNET, overrides: Partial<DutchOrderInfoJSON> = {}): SDKDutchOrder {
+  static buildDutchOrder(chainId = ChainId.MAINNET, overrides: PartialDeep<DutchOrderInfoJSON> = {}): SDKDutchOrder {
     const builder = this.createBuilder(chainId, overrides)
 
     const outputs = overrides.outputs ?? [
@@ -21,17 +22,17 @@ export class SDKDutchOrderFactory {
     ]
     for (const output of outputs) {
       builder.output({
-        token: output.token,
-        startAmount: BigNumber.from(output.startAmount),
-        endAmount: BigNumber.from(output.endAmount),
-        recipient: output.recipient,
+        token: output?.token ?? Tokens.MAINNET.WETH,
+        startAmount: output?.startAmount ? BigNumber.from(output.startAmount) : BigNumber.from('1000000000000000000'),
+        endAmount: output?.endAmount ? BigNumber.from(output.endAmount) : BigNumber.from('900000000000000000'),
+        recipient: output?.recipient ?? '0x0000000000000000000000000000000000000000',
       })
     }
 
     return builder.build()
   }
 
-  static buildLimitOrder(chainId = ChainId.MAINNET, overrides: Partial<DutchOrderInfoJSON> = {}) {
+  static buildLimitOrder(chainId = ChainId.MAINNET, overrides: PartialDeep<DutchOrderInfoJSON> = {}) {
     const builder = this.createBuilder(chainId, overrides)
     const outputs = overrides.outputs ?? [
       {
@@ -46,18 +47,18 @@ export class SDKDutchOrderFactory {
         throw new Error('Limit order with output overrides must have matching startAmount + endAmount')
       }
       builder.output({
-        token: output.token ?? Tokens.MAINNET.WETH,
+        token: output?.token ?? Tokens.MAINNET.WETH,
         // start + end amount must be the same for an input order
-        startAmount: output.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000000000000000'),
-        endAmount: output.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('1000000000000000000'),
-        recipient: output.recipient ?? '0x0000000000000000000000000000000000000000',
+        startAmount: output?.startAmount ? BigNumber.from(output?.startAmount) : BigNumber.from('1000000000000000000'),
+        endAmount: output?.endAmount ? BigNumber.from(output?.endAmount) : BigNumber.from('1000000000000000000'),
+        recipient: output?.recipient ?? '0x0000000000000000000000000000000000000000',
       })
     }
 
     return builder.build()
   }
 
-  static createBuilder(chainId: number, overrides: Partial<DutchOrderInfoJSON>) {
+  static createBuilder(chainId: number, overrides: PartialDeep<DutchOrderInfoJSON>) {
     // Values adapted from https://github.com/Uniswap/uniswapx-sdk/blob/7949043e7d2434553f84f588e1405e87d249a5aa/src/utils/order.test.ts#L28
     const nowInSeconds = Math.floor(Date.now() / 1000)
 
