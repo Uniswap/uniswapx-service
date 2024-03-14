@@ -406,7 +406,12 @@ describe('/dutch-auction/order', () => {
     })
   })
 
-  describe('+ attempt to fill', () => {
+  // TODO: Migrate to Sepolia/other test chain
+  // GOERLI chain is deprecated.
+  // 1. change RPC_5
+  // 2. Deploy contracts
+  // 3. fund wallets(alice,filler)
+  describe.skip('+ attempt to fill', () => {
     it('erc20 to eth', async () => {
       const { order, signature } = await buildAndSubmitOrder(
         aliceAddress,
