@@ -1,12 +1,14 @@
-import { DutchOrder } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Joi from 'joi'
 
-import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
+import { OrderType } from '@uniswap/uniswapx-sdk'
 import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
+import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
+import { DutchV1Order } from '../../models/DutchV1Order'
+import { LimitOrder } from '../../models/LimitOrder'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
 import {
@@ -18,6 +20,7 @@ import {
   ErrorResponse,
   Response,
 } from '../base'
+import { PostOrderBodyParser } from './PostOrderBodyParser'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
 export class PostOrderHandler extends APIGLambdaHandler<
@@ -30,7 +33,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
   constructor(
     handlerName: string,
     injectorPromise: Promise<ApiInjector<unknown, ApiRInj, PostOrderRequestBody, void>>,
-    private readonly service: UniswapXOrderService
+    private readonly service: UniswapXOrderService,
+    private readonly bodyParser: PostOrderBodyParser
   ) {
     super(handlerName, injectorPromise)
   }
@@ -39,15 +43,16 @@ export class PostOrderHandler extends APIGLambdaHandler<
     params: APIHandleRequestParams<unknown, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
-      requestBody: { encodedOrder, signature, chainId, quoteId },
+      requestBody,
       requestInjected: { log },
     } = params
 
     log.info('Handling POST order request', params)
-    let decodedOrder: DutchOrder
+
+    let order: DutchV1Order | LimitOrder
 
     try {
-      decodedOrder = DutchOrder.parse(encodedOrder, chainId) as DutchOrder
+      order = this.createOrderFromBody(requestBody)
     } catch (e: unknown) {
       log.error(e, 'Failed to parse order')
       return {
@@ -58,7 +63,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
 
     try {
-      const orderHash = await this.service.createOrder(decodedOrder, signature, quoteId)
+      const orderHash = await this.service.createOrder(order)
       return {
         statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },
@@ -92,6 +97,18 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(err instanceof Error && { detail: err.message }),
       }
     }
+  }
+
+  private createOrderFromBody(body: PostOrderRequestBody): DutchV1Order | LimitOrder {
+    const order = this.bodyParser.fromPostRequest(body)
+    if (order.orderType === OrderType.Dutch) {
+      return order as DutchV1Order
+    }
+
+    if (order.orderType === OrderType.Limit) {
+      return order as LimitOrder
+    }
+    throw new Error(`No handler available for order type: ${order.orderType}`)
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {

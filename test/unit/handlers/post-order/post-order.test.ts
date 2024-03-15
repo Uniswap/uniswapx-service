@@ -1,34 +1,55 @@
+import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
-import { ORDER_STATUS } from '../../../lib/entities'
-import { ErrorCode } from '../../../lib/handlers/base'
-import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../lib/handlers/constants'
-import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
-import { getMaxLimitOpenOrders } from '../../../lib/handlers/post-limit-order/injector'
-import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
-import { HttpStatusCode } from '../../../lib/HttpStatusCode'
-import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
-import { ChainId } from '../../../lib/util/chain'
-import { formatOrderEntity } from '../../../lib/util/order'
-import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
-import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../fixtures'
+import { mockClient } from 'aws-sdk-client-mock'
+import { ORDER_STATUS } from '../../../../lib/entities'
+import { ErrorCode } from '../../../../lib/handlers/base'
+import { DEFAULT_MAX_OPEN_ORDERS } from '../../../../lib/handlers/constants'
+import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
+import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
+import { getMaxOpenOrders } from '../../../../lib/handlers/post-order/injector'
+import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
+import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
+import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
+import { log } from '../../../../lib/Logging'
+import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
+import { ChainId } from '../../../../lib/util/chain'
+import { formatOrderEntity } from '../../../../lib/util/order'
+import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
+import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
-
-jest.mock('../../../lib/handlers/shared/sfn', () => {
-  return {
-    kickoffOrderTrackingSfn: jest.fn(),
-  }
-})
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_5 = 'MOCK_ARN_5'
+const MOCK_HASH = '0xhash'
+const MOCK_START_EXECUTION_INPUT = JSON.stringify({
+  orderHash: MOCK_HASH,
+  chainId: 1,
+  orderStatus: ORDER_STATUS.OPEN,
+})
 
-describe('Testing post limit order handler.', () => {
+const mockSfnClient = mockClient(SFNClient)
+mockSfnClient
+  .on(StartExecutionCommand, {
+    stateMachineArn: MOCK_ARN_1,
+    name: MOCK_HASH,
+    input: MOCK_START_EXECUTION_INPUT,
+  })
+  .resolves({})
+
+mockSfnClient
+  .on(StartExecutionCommand, {
+    stateMachineArn: MOCK_ARN_5,
+    name: MOCK_HASH,
+    input: MOCK_START_EXECUTION_INPUT,
+  })
+  .resolves({})
+
+describe('Testing post order handler.', () => {
   const putOrderAndUpdateNonceTransactionMock = jest.fn()
   const countOrdersByOffererAndStatusMock = jest.fn()
   const validatorMock = jest.fn()
   const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
-  const mockSfnClient = jest.fn()
 
   const mockLog = {
     info: () => jest.fn(),
@@ -58,7 +79,6 @@ describe('Testing post limit order handler.', () => {
         validate: validationFailedValidatorMock,
       },
     ],
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ] as any)
 
@@ -70,7 +90,7 @@ describe('Testing post limit order handler.', () => {
   }
 
   const postOrderHandler = new PostOrderHandler(
-    'post-limit-order',
+    'post-order',
     injectorPromiseMock,
     new UniswapXOrderService(
       {
@@ -82,32 +102,38 @@ describe('Testing post limit order handler.', () => {
         countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
       } as any,
       mockLog,
-      getMaxLimitOpenOrders,
-      OrderType.Limit,
+      getMaxOpenOrders,
+      OrderType.Dutch,
       {
         logOrderPosted: jest.fn(),
         logCancelled: jest.fn(),
         logInsufficientFunds: jest.fn(),
       }
-    )
+    ),
+    new PostOrderBodyParser(mockLog)
   )
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
     process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
     process.env['REGION'] = 'region'
+    log.setLogLevel('SILENT')
+  })
+
+  beforeEach(() => {
+    jest.spyOn(Date, 'now').mockImplementation(() => 100)
   })
 
   afterEach(() => {
     jest.clearAllMocks()
+    mockSfnClient.reset()
   })
 
   describe('Testing valid request and response', () => {
     it('Testing valid request and response.', async () => {
       validatorMock.mockReturnValue({ valid: true })
-      const order = SDKDutchOrderFactory.buildLimitOrder()
 
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
+      const order = SDKDutchOrderFactory.buildDutchOrder()
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
@@ -124,6 +150,11 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(order)
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_1,
+      })
+
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
         statusCode: HttpStatusCode.Created,
@@ -139,9 +170,7 @@ describe('Testing post limit order handler.', () => {
     it('Testing valid request and response on another chain', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
-      const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.GÖRLI)
-
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.GÖRLI)
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
@@ -158,6 +187,10 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(order)
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_5,
+      })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
         statusCode: HttpStatusCode.Created,
@@ -174,17 +207,21 @@ describe('Testing post limit order handler.', () => {
   describe('Test order submission blocking', () => {
     describe('Max open orders', () => {
       it('should reject order submission for offerer when too many open orders exist', async () => {
-        countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_MAX_OPEN_LIMIT_ORDERS + 1)
+        countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_MAX_OPEN_ORDERS + 1)
         validatorMock.mockReturnValue({ valid: true })
-        const order = SDKDutchOrderFactory.buildLimitOrder()
-        expect(
-          await postOrderHandler.handler(
-            PostOrderRequestFactory.request({
-              encodedOrder: order.serialize(),
-            }),
-            EVENT_CONTEXT
-          )
-        ).toMatchObject({
+
+        const order = SDKDutchOrderFactory.buildDutchOrder()
+        const response = await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
+            signature: SIGNATURE,
+            quoteId: QUOTE_ID,
+          }),
+          EVENT_CONTEXT
+        )
+        expect(response.statusCode).toEqual(HttpStatusCode.Forbidden)
+
+        expect(response).toMatchObject({
           body: JSON.stringify({
             errorCode: ErrorCode.TooManyOpenOrders,
             id: 'testRequest',
@@ -200,18 +237,17 @@ describe('Testing post limit order handler.', () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
         validatorMock.mockReturnValue({ valid: true })
 
-        const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
+        const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
           swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
         })
 
-        expect(
-          await postOrderHandler.handler(
-            PostOrderRequestFactory.request({
-              encodedOrder: order.serialize(),
-            }),
-            EVENT_CONTEXT
-          )
-        ).toMatchObject({
+        const response = await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
+          }),
+          EVENT_CONTEXT
+        )
+        expect(response).toMatchObject({
           statusCode: HttpStatusCode.Created,
         })
         expect(countOrdersByOffererAndStatusMock).toBeCalled()
@@ -223,9 +259,10 @@ describe('Testing post limit order handler.', () => {
         countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
         validatorMock.mockReturnValue({ valid: true })
 
-        const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
+        const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
           swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
         })
+
         expect(
           await postOrderHandler.handler(
             PostOrderRequestFactory.request({
@@ -247,9 +284,8 @@ describe('Testing post limit order handler.', () => {
     })
 
     it('should return 500 if DDB call throws', async () => {
+      const order = SDKDutchOrderFactory.buildDutchOrder()
       countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
-      const order = SDKDutchOrderFactory.buildLimitOrder()
-
       expect(
         await postOrderHandler.handler(
           PostOrderRequestFactory.request({
@@ -259,6 +295,31 @@ describe('Testing post limit order handler.', () => {
         )
       ).toMatchObject({
         statusCode: HttpStatusCode.InternalServerError,
+      })
+    })
+
+    it('should fail if tokenIn = address(0)', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+        input: {
+          token: '0x0000000000000000000000000000000000000000',
+          endAmount: '30',
+          startAmount: '30',
+        },
+      })
+      expect(
+        await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
+          }),
+          EVENT_CONTEXT
+        )
+      ).toMatchObject({
+        body: JSON.stringify({
+          errorCode: ErrorCode.InvalidTokenInAddress,
+          id: 'testRequest',
+        }),
+        statusCode: HttpStatusCode.BadRequest,
       })
     })
   })
@@ -280,17 +341,32 @@ describe('Testing post limit order handler.', () => {
         ...invalidBodyField,
       })
       const postOrderResponse = await postOrderHandler.handler(invalidEvent, EVENT_CONTEXT)
-      expect(validatorMock).not.toHaveBeenCalled()
-      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
-      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.BadRequest)
+      expect(postOrderResponse.statusCode).toEqual(400)
       expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
       expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
+      expect(validatorMock).not.toHaveBeenCalled()
+      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
     })
 
-    it('should not call StepFunctions', async () => {
-      validatorMock.mockReturnValue({ valid: true })
-      await postOrderHandler.handler(PostOrderRequestFactory.request(), EVENT_CONTEXT)
-      expect(mockSfnClient).not.toHaveBeenCalled()
+    it('should call StepFunctions.startExecution method with the correct params', async () => {
+      const sfnInput = {
+        orderHash: '0xhash',
+        chainId: ChainId.MAINNET,
+        quoteId: 'quoteId',
+        orderStatus: ORDER_STATUS.OPEN,
+        orderType: OrderType.Dutch,
+        stateMachineArn: MOCK_ARN_1,
+      }
+      expect(async () => await kickoffOrderTrackingSfn(sfnInput, MOCK_ARN_1)).not.toThrow()
+      expect(mockSfnClient.calls()).toHaveLength(1)
+
+      expect(mockSfnClient.call(0).args[0].input).toStrictEqual(
+        new StartExecutionCommand({
+          stateMachineArn: MOCK_ARN_1,
+          input: JSON.stringify(sfnInput),
+          name: expect.any(String),
+        }).input
+      )
     })
   })
 
@@ -302,13 +378,13 @@ describe('Testing post limit order handler.', () => {
 
       validatorMock.mockReturnValue({ valid: true })
 
-      const order = SDKDutchOrderFactory.buildLimitOrder()
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
+      const order = SDKDutchOrderFactory.buildDutchOrder()
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
-
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
+          signature: SIGNATURE,
+          quoteId: QUOTE_ID,
         }),
         EVENT_CONTEXT
       )
@@ -334,8 +410,7 @@ describe('Testing post limit order handler.', () => {
         valid: false,
         errorString,
       })
-
-      const order = SDKDutchOrderFactory.buildLimitOrder()
+      const order = SDKDutchOrderFactory.buildDutchOrder()
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
@@ -356,13 +431,15 @@ describe('Testing post limit order handler.', () => {
     })
 
     it('on-chain validation failed; throws 400', async () => {
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.POLYGON)
       validatorMock.mockReturnValue({
         valid: true,
       })
-
-      const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.POLYGON)
       const postOrderResponse = await postOrderHandler.handler(
-        PostOrderRequestFactory.request({ chainId: ChainId.POLYGON, encodedOrder: order.serialize() }),
+        PostOrderRequestFactory.request({
+          chainId: ChainId.POLYGON,
+          encodedOrder: order.serialize(),
+        }),
         EVENT_CONTEXT
       )
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()

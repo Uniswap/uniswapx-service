@@ -1,12 +1,14 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { ethers } from 'ethers';
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { ethers } from 'ethers'
 import { OrderEntity, ORDER_STATUS } from '../entities'
-import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
+import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
+import { DutchV1Order } from '../models/DutchV1Order'
+import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { formatOrderEntity } from '../util/order'
@@ -24,9 +26,15 @@ export class UniswapXOrderService {
     private analyticsService: AnalyticsServiceInterface
   ) {}
 
-  async createOrder(order: DutchOrder, signature: string, quoteId: string | undefined): Promise<string> {
-    await this.validateOrder(order, signature, order.chainId)
-    const orderEntity = formatOrderEntity(order, signature, OrderType.Dutch, ORDER_STATUS.OPEN, quoteId)
+  async createOrder(order: DutchV1Order | LimitOrder): Promise<string> {
+    await this.validateOrder(order.inner, order.signature, order.chainId)
+    const orderEntity = formatOrderEntity(
+      order.inner,
+      order.signature,
+      OrderType.Dutch,
+      ORDER_STATUS.OPEN,
+      order.quoteId
+    )
 
     const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
     if (!canPlaceNewOrder) {
@@ -35,7 +43,7 @@ export class UniswapXOrderService {
 
     await this.persistOrder(orderEntity)
     await this.logOrderCreatedEvent(orderEntity, this.orderType)
-    await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, this.orderType)
+    await this.startOrderTracker(orderEntity.orderHash, order.chainId, order.quoteId, this.orderType)
 
     return orderEntity.orderHash
   }
@@ -54,7 +62,7 @@ export class UniswapXOrderService {
     }
 
     if (order.info.input.token === ethers.constants.AddressZero) {
-      throw new InvalidTokenInAddress();
+      throw new InvalidTokenInAddress()
     }
   }
 
