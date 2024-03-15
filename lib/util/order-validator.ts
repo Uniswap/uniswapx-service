@@ -1,4 +1,10 @@
-import { DutchOrder, DutchOutput, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import {
+  CosignedV2DutchOrder,
+  DutchOrder,
+  DutchOutput,
+  OrderType,
+  REACTOR_ADDRESS_MAPPING,
+} from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ONE_DAY_IN_SECONDS } from './constants'
 import FieldValidator from './field-validator'
@@ -19,7 +25,7 @@ export class OrderValidator {
     private readonly skipValidationMap?: SkipValidationMap
   ) {}
 
-  validate(order: DutchOrder): OrderValidationResponse {
+  validate(order: DutchOrder | CosignedV2DutchOrder): OrderValidationResponse {
     const chainIdValidation = this.validateChainId(order.chainId)
     if (!chainIdValidation.valid) {
       return chainIdValidation
@@ -35,8 +41,15 @@ export class OrderValidator {
       return deadlineValidation
     }
 
+    //TODO: split validator to multiple classes
     if (!this.skipValidationMap || !this.skipValidationMap.SkipDecayStartTimeValidation) {
-      const decayStartTimeValidation = this.validateDecayStartTime(order.info.decayStartTime, order.info.deadline)
+      let decayStartTime = 0
+      if ((order as DutchOrder).info.decayStartTime) {
+        decayStartTime = (order as DutchOrder).info.decayStartTime
+      } else if ((order as CosignedV2DutchOrder).info.cosignerData) {
+        decayStartTime = (order as CosignedV2DutchOrder).info.cosignerData.decayStartTime
+      }
+      const decayStartTimeValidation = this.validateDecayStartTime(decayStartTime, order.info.deadline)
       if (!decayStartTimeValidation.valid) {
         return decayStartTimeValidation
       }

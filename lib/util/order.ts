@@ -1,4 +1,4 @@
-import { DutchOrder, OrderType, UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
+import { CosignedV2DutchOrder, DutchOrder, OrderType, UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 
@@ -79,6 +79,44 @@ export const formatOrderEntity = (
     deadline: decodedOrder.info.deadline,
     filler: decodedOrder.info?.exclusiveFiller?.toLowerCase(),
     ...(quoteId && { quoteId: quoteId }),
+  }
+
+  return order
+}
+
+export const formatDutchV2OrderEntity = (
+  decodedOrder: CosignedV2DutchOrder,
+  signature: string,
+  orderStatus: ORDER_STATUS
+): UniswapXOrderEntity => {
+  const { input, outputs } = decodedOrder.info
+  const order: UniswapXOrderEntity = {
+    type: OrderType.Dutch_V2,
+    encodedOrder: decodedOrder.serialize(),
+    signature,
+    nonce: decodedOrder.info.nonce.toString(),
+    orderHash: decodedOrder.hash().toLowerCase(),
+    chainId: decodedOrder.chainId,
+    orderStatus: orderStatus,
+    offerer: decodedOrder.info.swapper.toLowerCase(),
+    input: {
+      token: input.token,
+      startAmount: input.startAmount.toString(),
+      endAmount: input.endAmount.toString(),
+    },
+    outputs: outputs.map((output) => ({
+      token: output.token,
+      startAmount: output.startAmount.toString(),
+      endAmount: output.endAmount.toString(),
+      recipient: output.recipient.toLowerCase(),
+    })),
+    reactor: decodedOrder.info.reactor.toLowerCase(),
+    decayStartTime: decodedOrder.info.cosignerData.decayStartTime,
+    decayEndTime: decodedOrder.info.deadline,
+    deadline: decodedOrder.info.deadline,
+    filler: decodedOrder.info?.cosignerData?.exclusiveFiller.toLowerCase(),
+    cosignerData: decodedOrder.info.cosignerData,
+    cosignature: decodedOrder.info.cosignature,
   }
 
   return order

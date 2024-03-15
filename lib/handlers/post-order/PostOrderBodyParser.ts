@@ -1,5 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import {
+  CosignedV2DutchOrder,
   CosignedV2DutchOrder as SDKV2DutchOrder,
   DutchOrder as SDKDutchOrder,
   OrderType,
@@ -83,8 +84,8 @@ export class PostOrderBodyParser {
 
   private tryParseDutchV2Order(encodedOrder: string, signature: string, chainId: number): DutchV2Order {
     try {
-      const order = this.uniswapXParser.parseOrder(encodedOrder, chainId)
-      const orderType = this.uniswapXParser.getOrderType(order)
+      const order = CosignedV2DutchOrder.parse(encodedOrder, chainId)
+      const orderType = OrderType.Dutch_V2
       if (orderType === OrderType.Dutch_V2) {
         return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId)
       }

@@ -9,6 +9,7 @@ import { OrderValidationFailedError } from '../../errors/OrderValidationFailedEr
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
 import { DutchV1Order } from '../../models/DutchV1Order'
+import { DutchV2Order } from '../../models/DutchV2Order'
 import { LimitOrder } from '../../models/LimitOrder'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { metrics } from '../../util/metrics'
@@ -50,7 +51,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     log.info('Handling POST order request', params)
 
-    let order: DutchV1Order | LimitOrder
+    let order: DutchV1Order | LimitOrder | DutchV2Order
 
     try {
       order = this.createOrderFromBody(requestBody)
@@ -106,7 +107,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
   }
 
-  private createOrderFromBody(body: PostOrderRequestBody): DutchV1Order | LimitOrder {
+  private createOrderFromBody(body: PostOrderRequestBody): DutchV1Order | LimitOrder | DutchV2Order {
     const order = this.bodyParser.fromPostRequest(body)
     if (order.orderType === OrderType.Dutch) {
       return order as DutchV1Order
@@ -115,6 +116,11 @@ export class PostOrderHandler extends APIGLambdaHandler<
     if (order.orderType === OrderType.Limit) {
       return order as LimitOrder
     }
+
+    if (order.orderType === OrderType.Dutch_V2) {
+      return order as DutchV2Order
+    }
+
     throw new Error(`No handler available for order type: ${order.orderType}`)
   }
 

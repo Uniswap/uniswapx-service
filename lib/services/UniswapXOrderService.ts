@@ -8,10 +8,11 @@ import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { DutchV1Order } from '../models/DutchV1Order'
+import { DutchV2Order } from '../models/DutchV2Order'
 import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
-import { formatOrderEntity } from '../util/order'
+import { formatDutchV2OrderEntity, formatOrderEntity } from '../util/order'
 import { OrderValidator as OffChainOrderValidator } from '../util/order-validator'
 import { AnalyticsServiceInterface } from './analytics-service'
 
@@ -26,15 +27,26 @@ export class UniswapXOrderService {
     private analyticsService: AnalyticsServiceInterface
   ) {}
 
-  async createOrder(order: DutchV1Order | LimitOrder): Promise<string> {
-    await this.validateOrder(order.inner, order.signature, order.chainId)
-    const orderEntity = formatOrderEntity(
-      order.inner,
-      order.signature,
-      OrderType.Dutch,
-      ORDER_STATUS.OPEN,
-      order.quoteId
-    )
+  async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order): Promise<string> {
+    let orderEntity
+    switch (order.orderType) {
+      case OrderType.Dutch:
+      case OrderType.Limit:
+        await this.validateOrder((order as DutchV1Order).inner, order.signature, order.chainId)
+        orderEntity = formatOrderEntity(
+          (order as DutchV1Order).inner,
+          order.signature,
+          OrderType.Dutch,
+          ORDER_STATUS.OPEN,
+          (order as DutchV1Order).quoteId
+        )
+        break
+      case OrderType.Dutch_V2:
+        orderEntity = formatDutchV2OrderEntity((order as DutchV2Order).inner, order.signature, ORDER_STATUS.OPEN)
+        break
+      default:
+        throw new Error('unsupported OrderType')
+    }
 
     const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
     if (!canPlaceNewOrder) {
@@ -43,7 +55,7 @@ export class UniswapXOrderService {
 
     await this.persistOrder(orderEntity)
     await this.logOrderCreatedEvent(orderEntity, this.orderType)
-    await this.startOrderTracker(orderEntity.orderHash, order.chainId, order.quoteId, this.orderType)
+    await this.startOrderTracker(orderEntity.orderHash, order.chainId, (order as DutchV1Order).quoteId, this.orderType)
 
     return orderEntity.orderHash
   }
