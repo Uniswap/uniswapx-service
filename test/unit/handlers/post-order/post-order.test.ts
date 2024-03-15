@@ -1,6 +1,8 @@
+import { Logger } from '@aws-lambda-powertools/logger'
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
+import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_ORDERS } from '../../../../lib/handlers/constants'
@@ -11,6 +13,7 @@ import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrd
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
+import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
@@ -51,10 +54,7 @@ describe('Testing post order handler.', () => {
   const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
 
-  const mockLog = {
-    info: () => jest.fn(),
-    error: () => jest.fn(),
-  } as any
+  const mockLog = mock<Logger>()
   const requestInjected = {
     requestId: 'testRequest',
     log: mockLog,
@@ -92,23 +92,26 @@ describe('Testing post order handler.', () => {
   const postOrderHandler = new PostOrderHandler(
     'post-order',
     injectorPromiseMock,
-    new UniswapXOrderService(
-      {
-        validate: validatorMock,
-      } as any,
-      onChainValidatorMap,
-      {
-        putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-        countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-      } as any,
-      mockLog,
-      getMaxOpenOrders,
-      OrderType.Dutch,
-      {
-        logOrderPosted: jest.fn(),
-        logCancelled: jest.fn(),
-        logInsufficientFunds: jest.fn(),
-      }
+    new OrderDispatcher(
+      new UniswapXOrderService(
+        {
+          validate: validatorMock,
+        } as any,
+        onChainValidatorMap,
+        {
+          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+        } as any,
+        mockLog,
+        getMaxOpenOrders,
+        OrderType.Dutch,
+        {
+          logOrderPosted: jest.fn(),
+          logCancelled: jest.fn(),
+          logInsufficientFunds: jest.fn(),
+        }
+      ),
+      mockLog
     ),
     new PostOrderBodyParser(mockLog)
   )

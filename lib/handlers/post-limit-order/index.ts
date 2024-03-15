@@ -5,6 +5,7 @@ import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { AnalyticsService } from '../../services/analytics-service'
+import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
@@ -43,7 +44,7 @@ const uniswapXOrderService = new UniswapXOrderService(
 const postLimitOrderHandler = new PostOrderHandler(
   'postLimitOrdersHandler',
   postLimitOrderInjectorPromise,
-  uniswapXOrderService,
+  new OrderDispatcher(uniswapXOrderService, log),
   new PostOrderBodyParser(log)
 )
 
