@@ -2,6 +2,7 @@ import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import Joi from 'joi'
+import { OrderEntity } from '../../entities'
 import { CheckOrderStatusHandlerMetricNames, powertoolsMetric } from '../../Metrics'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
@@ -18,7 +19,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
   private _checkLimitOrderStatusService!: CheckOrderStatusService
 
   // TODO: Inject this
-  private getCheckOrderStatusService(dbInterface: BaseOrdersRepository) {
+  private getCheckOrderStatusService(dbInterface: BaseOrdersRepository<OrderEntity>) {
     if (!this._checkOrderStatusService) {
       this._checkOrderStatusService = new CheckOrderStatusService(
         dbInterface,
