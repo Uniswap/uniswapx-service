@@ -1,6 +1,6 @@
 import { DutchOrder, EventWatcher, FillInfo, OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
+import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -137,7 +137,7 @@ export class CheckOrderStatusService {
     quoteId: string
     chainId: number
     startingBlockNumber: number
-    order: OrderEntity
+    order: UniswapXOrderEntity
     orderHash: string
     provider: ethers.providers.JsonRpcProvider
     getFillLogAttempts: number

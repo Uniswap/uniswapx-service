@@ -29,7 +29,7 @@ export type SettledAmount = {
   amountIn: string
 }
 
-export type OrderEntity = {
+export type UniswapXOrderEntity = {
   type: OrderType
   encodedOrder: string
   signature: string

@@ -2,7 +2,11 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { TABLE_KEY } from '../config/dynamodb'
+<<<<<<< HEAD
 import { ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities'
+=======
+import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
+>>>>>>> b004e64 (rename orderEntity -> UniswapXOrderEntity)
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
 import { log } from '../Logging'
 import { checkDefined } from '../preconditions/preconditions'
@@ -53,9 +57,37 @@ export abstract class GenericOrdersRepository<
     return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort, desc)
   }
 
+<<<<<<< HEAD
   public async getByHash(hash: string): Promise<T | undefined> {
     const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
     return res.Item as T
+=======
+  public async getByFiller(
+    filler: string,
+    limit: number,
+    cursor?: string,
+    sortKey?: SORT_FIELDS,
+    sort?: string,
+    desc?: boolean
+  ): Promise<QueryResult> {
+    return await this.queryOrderEntity(filler, TABLE_KEY.FILLER, limit, cursor, sortKey, sort, desc)
+  }
+
+  public async getByChainId(
+    chainId: number,
+    limit: number,
+    cursor?: string,
+    sortKey?: SORT_FIELDS,
+    sort?: string,
+    desc?: boolean
+  ): Promise<QueryResult> {
+    return await this.queryOrderEntity(chainId, TABLE_KEY.CHAIN_ID, limit, cursor, sortKey, sort, desc)
+  }
+
+  public async getByHash(hash: string): Promise<UniswapXOrderEntity | undefined> {
+    const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
+    return res.Item as UniswapXOrderEntity
+>>>>>>> b004e64 (rename orderEntity -> UniswapXOrderEntity)
   }
 
   public async getNonceByAddressAndChain(address: string, chainId: number): Promise<string> {
@@ -201,7 +233,11 @@ export abstract class GenericOrdersRepository<
     })
 
     return {
+<<<<<<< HEAD
       orders: queryResult.Items as T[],
+=======
+      orders: queryResult.Items as UniswapXOrderEntity[],
+>>>>>>> b004e64 (rename orderEntity -> UniswapXOrderEntity)
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
     }
   }

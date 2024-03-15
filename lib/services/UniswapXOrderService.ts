@@ -1,7 +1,7 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { OrderEntity, ORDER_STATUS } from '../entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
@@ -85,7 +85,7 @@ export class UniswapXOrderService {
     }
   }
 
-  private async persistOrder(order: OrderEntity): Promise<void> {
+  private async persistOrder(order: UniswapXOrderEntity): Promise<void> {
     try {
       await this.repository.putOrderAndUpdateNonceTransaction(order)
       this.logger.info(`Successfully inserted Order ${order.orderHash} into DB`)
@@ -97,7 +97,7 @@ export class UniswapXOrderService {
     }
   }
 
-  private async logOrderCreatedEvent(order: OrderEntity, orderType: OrderType) {
+  private async logOrderCreatedEvent(order: UniswapXOrderEntity, orderType: OrderType) {
     // Log used for cw dashboard and redshift metrics, do not modify
     // skip fee output logging
     this.analyticsService.logOrderPosted(order, orderType)
