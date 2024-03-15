@@ -5,6 +5,7 @@ import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { AnalyticsService } from '../../services/analytics-service'
+import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
@@ -40,7 +41,7 @@ const uniswapXOrderService = new UniswapXOrderService(
 const postOrderHandler = new PostOrderHandler(
   'postOrdersHandler',
   postOrderInjectorPromise,
-  uniswapXOrderService,
+  new OrderDispatcher(uniswapXOrderService, log),
   new PostOrderBodyParser(log)
 )
 

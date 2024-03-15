@@ -4,12 +4,13 @@ import Joi from 'joi'
 
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
+import { NoHandlerConfiguredError } from '../../errors/NoHandlerConfiguredError'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
 import { DutchV1Order } from '../../models/DutchV1Order'
 import { LimitOrder } from '../../models/LimitOrder'
-import { UniswapXOrderService } from '../../services/UniswapXOrderService'
+import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { metrics } from '../../util/metrics'
 import {
   APIGLambdaHandler,
@@ -33,7 +34,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
   constructor(
     handlerName: string,
     injectorPromise: Promise<ApiInjector<unknown, ApiRInj, PostOrderRequestBody, void>>,
-    private readonly service: UniswapXOrderService,
+    private readonly orderDispatcher: OrderDispatcher,
     private readonly bodyParser: PostOrderBodyParser
   ) {
     super(handlerName, injectorPromise)
@@ -63,7 +64,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
 
     try {
-      const orderHash = await this.service.createOrder(order)
+      const orderHash = await this.orderDispatcher.createOrder(order)
       return {
         statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },
@@ -88,6 +89,12 @@ export class PostOrderHandler extends APIGLambdaHandler<
         return {
           statusCode: HttpStatusCode.BadRequest,
           errorCode: ErrorCode.InvalidTokenInAddress,
+        }
+      }
+
+      if (err instanceof NoHandlerConfiguredError) {
+        return {
+          statusCode: HttpStatusCode.InternalServerError,
         }
       }
 
