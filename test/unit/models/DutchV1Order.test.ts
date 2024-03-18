@@ -63,7 +63,7 @@ describe('DutchV1Order', () => {
     expect(order.quoteId).toEqual(QUOTE_ID)
   })
 
-  it('toEntity - single output', () => {
+  it('toEntity + fromEntity - single output', () => {
     const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -86,9 +86,9 @@ describe('DutchV1Order', () => {
     })
     const order = DutchV1Order.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
 
-    const actual = order.toEntity()
+    const orderEntity = order.toEntity()
 
-    expect(actual).toEqual({
+    expect(orderEntity).toEqual({
       chainId: 1,
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -117,9 +117,12 @@ describe('DutchV1Order', () => {
       signature: SIGNATURE,
       type: 'Dutch',
     })
+
+    const fromEntity = DutchV1Order.fromEntity(orderEntity)
+    expect(fromEntity).toEqual(order)
   })
 
-  it('toEntity - multiple outputs', () => {
+  it('toEntity/fromEntity - multiple outputs', () => {
     const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -148,9 +151,9 @@ describe('DutchV1Order', () => {
     })
     const order = DutchV1Order.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
 
-    const actual = order.toEntity()
+    const orderEntity = order.toEntity()
 
-    expect(actual).toEqual({
+    expect(orderEntity).toEqual({
       chainId: 1,
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -185,6 +188,8 @@ describe('DutchV1Order', () => {
       signature: SIGNATURE,
       type: 'Dutch',
     })
+    const fromEntity = DutchV1Order.fromEntity(orderEntity)
+    expect(fromEntity).toEqual(order)
   })
 
   it('toSDK - single output', () => {

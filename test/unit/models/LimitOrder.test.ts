@@ -63,7 +63,7 @@ describe('LimitOrder', () => {
     expect(order.quoteId).toEqual(QUOTE_ID)
   })
 
-  it('toEntity - single output', () => {
+  it('to/fromEntity - single output', () => {
     const nowInSeconds = Date.now()
     const futureTime = nowInSeconds + 30
 
@@ -89,9 +89,9 @@ describe('LimitOrder', () => {
     })
     const order = LimitOrder.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
 
-    const actual = order.toEntity()
+    const orderEntity = order.toEntity()
 
-    expect(actual).toEqual({
+    expect(orderEntity).toEqual({
       chainId: 1,
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -120,6 +120,8 @@ describe('LimitOrder', () => {
       signature: SIGNATURE,
       type: 'Limit',
     })
+
+    expect(LimitOrder.fromEntity(orderEntity)).toEqual(order)
   })
 
   it('toEntity - multiple outputs', () => {
@@ -154,9 +156,9 @@ describe('LimitOrder', () => {
     })
     const order = LimitOrder.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
 
-    const actual = order.toEntity()
+    const orderEntity = order.toEntity()
 
-    expect(actual).toEqual({
+    expect(orderEntity).toEqual({
       chainId: 1,
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -191,6 +193,7 @@ describe('LimitOrder', () => {
       signature: SIGNATURE,
       type: 'Limit',
     })
+    expect(LimitOrder.fromEntity(orderEntity)).toEqual(order)
   })
 
   it('toSDK - single output', () => {

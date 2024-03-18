@@ -73,6 +73,42 @@ export class DutchV1Order implements IOrder {
     return order
   }
 
+  static fromEntity(entity: DutchOrderEntity): DutchV1Order {
+    return new DutchV1Order(
+      entity.chainId,
+      entity.signature,
+      entity.orderStatus,
+
+      entity.offerer,
+      entity.encodedOrder,
+
+      BigNumber.from(entity.nonce),
+      entity.orderHash,
+
+      {
+        token: entity.input.token,
+        startAmount: BigNumber.from(entity.input.startAmount),
+        endAmount: BigNumber.from(entity.input.endAmount),
+      },
+      entity.outputs.map((output) => ({
+        token: output.token,
+        startAmount: BigNumber.from(output.startAmount),
+        endAmount: BigNumber.from(output.endAmount),
+        recipient: output.recipient.toLowerCase(),
+      })),
+
+      entity.reactor,
+
+      entity.decayStartTime,
+      entity.decayEndTime,
+      entity.deadline,
+
+      entity.filler,
+
+      entity.quoteId
+    )
+  }
+
   toSDK(): SDKDutchOrder {
     let builder = new DutchOrderBuilder(this.chainId)
     builder = builder
