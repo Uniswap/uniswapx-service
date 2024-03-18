@@ -11,30 +11,87 @@ import { ChainId } from '../util/chain'
 import { IOrder } from './IOrder'
 
 export class DutchV1Order implements IOrder {
-  private constructor(
-    readonly chainId: ChainId,
-    readonly signature: string,
-    readonly orderStatus: ORDER_STATUS,
-    readonly offerer: string,
+  readonly chainId: ChainId
+  readonly signature: string
+  readonly orderStatus: ORDER_STATUS
+  readonly offerer: string
 
-    readonly encodedOrder: string,
-    readonly nonce: BigNumber,
-    readonly orderHash: string,
+  readonly encodedOrder: string
+  readonly nonce: BigNumber
+  readonly orderHash: string
 
-    readonly input: DutchInput,
-    readonly outputs: DutchOutput[],
+  readonly input: DutchInput
+  readonly outputs: DutchOutput[]
 
-    readonly reactor: string,
+  readonly reactor: string
 
-    readonly decayStartTime: number,
-    readonly decayEndTime: number,
-    readonly deadline: number,
+  readonly decayStartTime: number
+  readonly decayEndTime: number
+  readonly deadline: number
 
-    readonly filler?: string,
+  readonly filler?: string
 
-    readonly quoteId?: string
-  ) {
-    return
+  readonly quoteId?: string
+
+  private constructor({
+    chainId,
+    signature,
+    orderStatus,
+    offerer,
+    encodedOrder,
+    nonce,
+    orderHash,
+    input,
+    outputs,
+    reactor,
+    decayStartTime,
+    decayEndTime,
+    deadline,
+    filler,
+    quoteId,
+  }: {
+    chainId: ChainId
+    signature: string
+    orderStatus: ORDER_STATUS
+    offerer: string
+
+    encodedOrder: string
+    nonce: BigNumber
+    orderHash: string
+
+    input: DutchInput
+    outputs: DutchOutput[]
+
+    reactor: string
+
+    decayStartTime: number
+    decayEndTime: number
+    deadline: number
+
+    filler?: string
+
+    quoteId?: string
+  }) {
+    this.chainId = chainId
+    this.signature = signature
+    this.orderStatus = orderStatus
+
+    this.offerer = offerer
+
+    this.encodedOrder = encodedOrder
+    this.nonce = nonce
+    this.orderHash = orderHash
+
+    this.input = input
+    this.outputs = outputs
+
+    this.reactor = reactor
+    this.decayStartTime = decayStartTime
+    this.decayEndTime = decayEndTime
+    this.deadline = deadline
+
+    this.filler = filler
+    this.quoteId = quoteId
   }
 
   get orderType(): OrderType.Dutch {
@@ -74,39 +131,39 @@ export class DutchV1Order implements IOrder {
   }
 
   static fromEntity(entity: DutchOrderEntity): DutchV1Order {
-    return new DutchV1Order(
-      entity.chainId,
-      entity.signature,
-      entity.orderStatus,
+    return new DutchV1Order({
+      chainId: entity.chainId,
+      signature: entity.signature,
+      orderStatus: entity.orderStatus,
 
-      entity.offerer,
-      entity.encodedOrder,
+      offerer: entity.offerer,
+      encodedOrder: entity.encodedOrder,
 
-      BigNumber.from(entity.nonce),
-      entity.orderHash,
+      nonce: BigNumber.from(entity.nonce),
+      orderHash: entity.orderHash,
 
-      {
+      input: {
         token: entity.input.token,
         startAmount: BigNumber.from(entity.input.startAmount),
         endAmount: BigNumber.from(entity.input.endAmount),
       },
-      entity.outputs.map((output) => ({
+      outputs: entity.outputs.map((output) => ({
         token: output.token,
         startAmount: BigNumber.from(output.startAmount),
         endAmount: BigNumber.from(output.endAmount),
         recipient: output.recipient.toLowerCase(),
       })),
 
-      entity.reactor,
+      reactor: entity.reactor,
 
-      entity.decayStartTime,
-      entity.decayEndTime,
-      entity.deadline,
+      decayStartTime: entity.decayStartTime,
+      decayEndTime: entity.decayEndTime,
+      deadline: entity.deadline,
 
-      entity.filler,
+      filler: entity.filler,
 
-      entity.quoteId
-    )
+      quoteId: entity.quoteId,
+    })
   }
 
   toSDK(): SDKDutchOrder {
@@ -142,27 +199,27 @@ export class DutchV1Order implements IOrder {
     orderStatus: ORDER_STATUS,
     quoteId?: string
   ): DutchV1Order {
-    return new DutchV1Order(
-      chainId,
-      signature,
-      orderStatus,
+    return new DutchV1Order({
+      chainId: chainId,
+      signature: signature,
+      orderStatus: orderStatus,
 
-      inner.info.swapper.toLowerCase(),
-      inner.serialize(),
+      offerer: inner.info.swapper.toLowerCase(),
+      encodedOrder: inner.serialize(),
 
-      inner.info.nonce,
-      inner.hash().toLowerCase(),
+      nonce: inner.info.nonce,
+      orderHash: inner.hash().toLowerCase(),
 
-      inner.info.input,
-      inner.info.outputs,
-      inner.info.reactor.toLowerCase(),
+      input: inner.info.input,
+      outputs: inner.info.outputs,
+      reactor: inner.info.reactor.toLowerCase(),
 
-      inner.info.decayStartTime,
-      inner.info.decayEndTime,
-      inner.info.deadline,
+      decayStartTime: inner.info.decayStartTime,
+      decayEndTime: inner.info.decayEndTime,
+      deadline: inner.info.deadline,
 
-      inner.info?.exclusiveFiller?.toLowerCase(),
-      quoteId
-    )
+      filler: inner.info?.exclusiveFiller?.toLowerCase(),
+      quoteId: quoteId,
+    })
   }
 }
