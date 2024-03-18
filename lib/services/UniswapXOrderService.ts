@@ -32,7 +32,7 @@ export class UniswapXOrderService {
       order.inner,
       order.signature,
       OrderType.Dutch,
-      ORDER_STATUS.OPEN,
+      order.orderStatus,
       order.quoteId
     )
 
