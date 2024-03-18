@@ -1,5 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { DutchOrderEntity, ORDER_STATUS } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
@@ -26,7 +26,13 @@ export class UniswapXOrderService {
   ) {}
 
   async createOrder(order: DutchV1Order | LimitOrder): Promise<string> {
-    await this.validateOrder(order.inner, order.signature, order.chainId)
+    await this.validateOrder(order)
+
+    const canPlaceNewOrder = await this.userCanPlaceNewOrder(order.offerer)
+    if (!canPlaceNewOrder) {
+      throw new TooManyOpenOrdersError()
+    }
+
     const orderEntity = order.toEntity()
 
     // Hack (andy.smith):  Until this bug is fixed in UniswapXOrderService, call everything a Dutch order.
@@ -34,32 +40,28 @@ export class UniswapXOrderService {
     // https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
     orderEntity.type = OrderType.Dutch
 
-    const canPlaceNewOrder = await this.userCanPlaceNewOrder(order.offerer)
-    if (!canPlaceNewOrder) {
-      throw new TooManyOpenOrdersError()
-    }
-
     await this.persistOrder(orderEntity)
-    await this.logOrderCreatedEvent(orderEntity, this.orderType)
+
+    this.analyticsService.logOrderPosted(order)
     await this.startOrderTracker(orderEntity.orderHash, order.chainId, order.quoteId, this.orderType)
 
     return orderEntity.orderHash
   }
 
-  private async validateOrder(order: DutchOrder, signature: string, chainId: number): Promise<void> {
-    const offChainValidationResult = this.orderValidator.validate(order)
+  private async validateOrder(order: DutchV1Order | LimitOrder): Promise<void> {
+    const offChainValidationResult = this.orderValidator.validate(order.inner)
     if (!offChainValidationResult.valid) {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
 
-    const onChainValidator = this.onChainValidatorMap.get(chainId)
-    const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
+    const onChainValidator = this.onChainValidatorMap.get(order.chainId)
+    const onChainValidationResult = await onChainValidator.validate({ order: order.inner, signature: order.signature })
     if (onChainValidationResult !== OrderValidation.OK) {
       const failureReason = OrderValidation[onChainValidationResult]
       throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)
     }
 
-    if (order.info.input.token === ethers.constants.AddressZero) {
+    if (order.inner.info.input.token === ethers.constants.AddressZero) {
       throw new InvalidTokenInAddress()
     }
   }
@@ -93,12 +95,6 @@ export class UniswapXOrderService {
       })
       throw e
     }
-  }
-
-  private async logOrderCreatedEvent(order: DutchOrderEntity, orderType: OrderType) {
-    // Log used for cw dashboard and redshift metrics, do not modify
-    // skip fee output logging
-    this.analyticsService.logOrderPosted(order, orderType)
   }
 
   private async startOrderTracker(

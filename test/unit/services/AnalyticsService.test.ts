@@ -1,7 +1,12 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { mock } from 'jest-mock-extended'
 import { DutchOrderEntity, ORDER_STATUS } from '../../../lib/entities'
+import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
+import { ChainId } from '../../../lib/util/chain'
+import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
+import { QUOTE_ID, SIGNATURE, Tokens } from '../fixtures'
 
 describe('Analytics Service', () => {
   const mockedOrder: DutchOrderEntity = {
@@ -33,32 +38,58 @@ describe('Analytics Service', () => {
       const service = AnalyticsService.create()
       expect(service).toBeDefined()
     })
+
     test('it creates an event with all fields defined', () => {
-      const log = { info: jest.fn() } as unknown as Logger
+      const nowInSeconds = Date.now()
+      const futureTime = nowInSeconds + 30
+      const sdkOrder = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
+        deadline: futureTime,
+        decayEndTime: futureTime,
+        decayStartTime: nowInSeconds,
+        swapper: '0x0000000000000000000000000000000000000001',
+        nonce: '500',
+        input: {
+          token: Tokens.MAINNET.USDC,
+          startAmount: '3000000',
+          endAmount: '3000000',
+        },
+        outputs: [
+          {
+            token: Tokens.MAINNET.UNI,
+            startAmount: '1000000000000000000',
+            endAmount: '1000000000000000000',
+            recipient: '0x0000000000000000000000000000000000000000',
+          },
+        ],
+      })
+
+      const order = LimitOrder.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
+
+      const log = mock<Logger>()
       const analyticsService = new AnalyticsService(
         log,
         jest.fn().mockReturnValueOnce('123'),
         jest.fn().mockReturnValue('0xGetAddress')
       )
 
-      analyticsService.logOrderPosted(mockedOrder, OrderType.Limit)
+      analyticsService.logOrderPosted(order)
 
       expect(log.info).toHaveBeenCalledWith('Analytics Message', {
         eventType: 'OrderPosted',
         body: {
-          quoteId: mockedOrder.quoteId,
+          quoteId: QUOTE_ID,
           createdAt: '123',
-          orderHash: mockedOrder.orderHash,
-          startTime: mockedOrder.decayStartTime,
-          endTime: mockedOrder.decayEndTime,
-          deadline: mockedOrder.deadline,
-          chainId: mockedOrder.chainId,
-          inputStartAmount: mockedOrder.input?.startAmount,
-          inputEndAmount: mockedOrder.input?.endAmount,
-          tokenIn: mockedOrder.input?.token,
-          outputStartAmount: '7000',
-          outputEndAmount: '8000',
-          tokenOut: '0xOutputToken',
+          orderHash: order.inner.hash(),
+          startTime: nowInSeconds,
+          endTime: futureTime,
+          deadline: futureTime,
+          chainId: ChainId.MAINNET,
+          inputStartAmount: '3000000',
+          inputEndAmount: '3000000',
+          tokenIn: Tokens.MAINNET.USDC,
+          outputStartAmount: '1000000000000000000',
+          outputEndAmount: '1000000000000000000',
+          tokenOut: Tokens.MAINNET.UNI,
           filler: '0xGetAddress',
           orderType: 'Limit',
         },
@@ -66,35 +97,65 @@ describe('Analytics Service', () => {
     })
 
     test('it selects the correct startAmount', () => {
+      const nowInSeconds = Date.now()
+      const futureTime = nowInSeconds + 30
+      const sdkOrder = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
+        deadline: futureTime,
+        decayEndTime: futureTime,
+        decayStartTime: nowInSeconds,
+        swapper: '0x0000000000000000000000000000000000000001',
+        nonce: '500',
+        input: {
+          token: Tokens.MAINNET.USDC,
+          startAmount: '3000000',
+          endAmount: '3000000',
+        },
+        outputs: [
+          {
+            token: Tokens.MAINNET.UNI,
+            startAmount: '1000000000000000000',
+            endAmount: '1000000000000000000',
+            recipient: '0x0000000000000000000000000000000000000000',
+          },
+          {
+            token: Tokens.MAINNET.WETH,
+            startAmount: '4000000000000000000',
+            endAmount: '4000000000000000000',
+            recipient: '0x0000000000000000000000000000000000000003',
+          },
+        ],
+      })
+
+      const order = LimitOrder.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
       const log = { info: jest.fn() } as unknown as Logger
       const analyticsService = new AnalyticsService(
         log,
         jest.fn().mockReturnValueOnce('123'),
         jest.fn().mockReturnValue('0xGetAddress')
       )
-      const order = { ...mockedOrder }
-      ;(order.outputs = [
-        { token: '0xOutputToken', startAmount: '1', endAmount: '1', recipient: '0xRecipient' },
-        { token: '0xOutputToken', startAmount: '7000', endAmount: '8000', recipient: '0xRecipient' },
-      ]),
-        analyticsService.logOrderPosted(mockedOrder, OrderType.Limit)
+      // const order = { ...mockedOrder }
+      // ;(order.outputs = [
+      //   { token: '0xOutputToken', startAmount: '1', endAmount: '1', recipient: '0xRecipient' },
+      //   { token: '0xOutputToken', startAmount: '7000', endAmount: '8000', recipient: '0xRecipient' },
+      // ]),
+      analyticsService.logOrderPosted(order)
 
       expect(log.info).toHaveBeenCalledWith('Analytics Message', {
         eventType: 'OrderPosted',
         body: {
-          quoteId: mockedOrder.quoteId,
+          quoteId: QUOTE_ID,
           createdAt: '123',
-          orderHash: mockedOrder.orderHash,
-          startTime: mockedOrder.decayStartTime,
-          endTime: mockedOrder.decayEndTime,
-          deadline: mockedOrder.deadline,
-          chainId: mockedOrder.chainId,
-          inputStartAmount: mockedOrder.input?.startAmount,
-          inputEndAmount: mockedOrder.input?.endAmount,
-          tokenIn: mockedOrder.input?.token,
-          outputStartAmount: '7000',
-          outputEndAmount: '8000',
-          tokenOut: '0xOutputToken',
+          orderHash: order.inner.hash(),
+          startTime: nowInSeconds,
+          endTime: futureTime,
+          deadline: futureTime,
+          chainId: ChainId.MAINNET,
+          inputStartAmount: '3000000',
+          inputEndAmount: '3000000',
+          tokenIn: Tokens.MAINNET.USDC,
+          outputStartAmount: '4000000000000000000',
+          outputEndAmount: '4000000000000000000',
+          tokenOut: Tokens.MAINNET.WETH,
           filler: '0xGetAddress',
           orderType: 'Limit',
         },
