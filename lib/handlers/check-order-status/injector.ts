@@ -3,7 +3,7 @@ import { MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ethers } from 'ethers'
-import { OrderEntity, ORDER_STATUS } from '../../entities'
+import { DutchOrderEntity, ORDER_STATUS } from '../../entities'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
@@ -26,7 +26,7 @@ export interface RequestInjected {
 }
 
 export interface ContainerInjected {
-  dbInterface: BaseOrdersRepository<OrderEntity>
+  dbInterface: BaseOrdersRepository<DutchOrderEntity>
 }
 
 export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, RequestInjected> {

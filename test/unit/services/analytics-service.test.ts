@@ -1,10 +1,10 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { OrderEntity, ORDER_STATUS } from '../../../lib/entities'
+import { DutchOrderEntity, ORDER_STATUS } from '../../../lib/entities'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 
 describe('Analytics Service', () => {
-  const mockedOrder: OrderEntity = {
+  const mockedOrder: DutchOrderEntity = {
     type: OrderType.Limit,
     encodedOrder: '0x01',
     signature: '0x02',

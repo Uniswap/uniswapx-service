@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { OrderEntity, SORT_FIELDS } from '../../../entities'
+import { DutchOrderEntity, SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 
 const sortKeyJoi = FieldValidator.isValidSortKey()
@@ -64,7 +64,7 @@ export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
 }
 
 export type GetOrdersResponse = {
-  orders: (OrderEntity | undefined)[]
+  orders: (DutchOrderEntity | undefined)[]
   cursor?: string
 }
 

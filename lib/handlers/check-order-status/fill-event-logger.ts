@@ -1,14 +1,14 @@
 import { FillInfo } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { BigNumber, ethers } from 'ethers'
-import { OrderEntity, SettledAmount } from '../../entities'
+import { DutchOrderEntity, SettledAmount } from '../../entities'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { logFillInfo } from './util'
 
 export type ProcessFillEventRequest = {
   fillEvent: FillInfo
-  order: OrderEntity
+  order: DutchOrderEntity
   chainId: number
   startingBlockNumber: number
   settledAmounts: SettledAmount[]

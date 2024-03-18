@@ -1,6 +1,6 @@
 import { DutchOrder, EventWatcher, FillInfo, OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { OrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
+import { DutchOrderEntity, ORDER_STATUS, SettledAmount } from '../../entities'
 import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -40,7 +40,7 @@ type ExtraUpdateInfo = {
 export class CheckOrderStatusService {
   private readonly fillEventLogger
   constructor(
-    private dbInterface: BaseOrdersRepository<OrderEntity>,
+    private dbInterface: BaseOrdersRepository<DutchOrderEntity>,
     private serviceOrderType: OrderType,
     private analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
@@ -137,7 +137,7 @@ export class CheckOrderStatusService {
     quoteId: string
     chainId: number
     startingBlockNumber: number
-    order: OrderEntity
+    order: DutchOrderEntity
     orderHash: string
     provider: ethers.providers.JsonRpcProvider
     getFillLogAttempts: number

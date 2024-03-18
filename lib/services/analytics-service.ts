@@ -2,12 +2,12 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { OrderEntity, ORDER_STATUS } from '../entities'
+import { DutchOrderEntity, ORDER_STATUS } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
 
 export interface AnalyticsServiceInterface {
-  logOrderPosted(order: OrderEntity, orderType: OrderType): void
+  logOrderPosted(order: DutchOrderEntity, orderType: OrderType): void
   logCancelled(orderHash: string, orderType: OrderType, quoteId?: string): void
   logInsufficientFunds(orderHash: string, orderType: OrderType, quoteId?: string): void
 }
@@ -24,7 +24,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
     return new AnalyticsService(log, currentTimestampInSeconds, getAddress)
   }
 
-  public logOrderPosted(order: OrderEntity, orderType: OrderType) {
+  public logOrderPosted(order: DutchOrderEntity, orderType: OrderType) {
     const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
     this.logger.info('Analytics Message', {
       eventType: 'OrderPosted',
