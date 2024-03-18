@@ -40,7 +40,7 @@ type ExtraUpdateInfo = {
 export class CheckOrderStatusService {
   private readonly fillEventLogger
   constructor(
-    private dbInterface: BaseOrdersRepository<OrderEntity>,
+    private dbInterface: BaseOrdersRepository<UniswapXOrderEntity>,
     private serviceOrderType: OrderType,
     private analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,

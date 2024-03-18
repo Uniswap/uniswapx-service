@@ -1,9 +1,9 @@
 import { TABLE_KEY } from '../../config/dynamodb'
-import { OrderEntity, ORDER_STATUS } from '../../entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../../entities'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../../handlers/get-orders/schema'
 import { IndexFieldsForUpdate, IndexMapper } from './IndexMapper'
 
-export class DutchIndexMapper implements IndexMapper<OrderEntity> {
+export class DutchIndexMapper implements IndexMapper<UniswapXOrderEntity> {
   public getRequestedParams(queryFilters: GetOrdersQueryParams) {
     const SORT_FIELDS = [GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC]
     const isSortKey = (requestedParam: string) => SORT_FIELDS.includes(requestedParam as GET_QUERY_PARAMS)
@@ -89,7 +89,7 @@ export class DutchIndexMapper implements IndexMapper<OrderEntity> {
     return undefined
   }
 
-  getIndexFieldsForUpdate(order: OrderEntity): IndexFieldsForUpdate {
+  getIndexFieldsForUpdate(order: UniswapXOrderEntity): IndexFieldsForUpdate {
     return {
       offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
       filler_orderStatus: `${order.filler}_${order.orderStatus}`,
@@ -101,7 +101,7 @@ export class DutchIndexMapper implements IndexMapper<OrderEntity> {
     }
   }
 
-  getIndexFieldsForStatusUpdate(order: OrderEntity, newStatus: ORDER_STATUS): IndexFieldsForUpdate {
+  getIndexFieldsForStatusUpdate(order: UniswapXOrderEntity, newStatus: ORDER_STATUS): IndexFieldsForUpdate {
     return {
       orderStatus: newStatus,
       offerer_orderStatus: `${order.offerer}_${newStatus}`,
