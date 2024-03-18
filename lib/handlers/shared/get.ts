@@ -57,7 +57,7 @@ export function getSharedRequestInjected({
 
 export const parseGetQueryParams = (
   requestQueryParams: RawGetOrdersQueryParams
-): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string } => {
+): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; includeV2?: boolean } => {
   // default to no limit
   const limit = requestQueryParams?.limit ?? 0
   const orderStatus = requestQueryParams?.orderStatus
@@ -72,9 +72,10 @@ export const parseGetQueryParams = (
   const chainId = requestQueryParams?.chainId
   const desc = requestQueryParams?.desc
   const orderHashes = requestQueryParams?.orderHashes?.split(',').map((orderHash: string) => orderHash.toLowerCase())
-
+  const includeV2 = requestQueryParams?.includeV2 || false
   return {
     limit: limit,
+    includeV2,
     queryFilters: {
       ...(orderStatus && { orderStatus: orderStatus }),
       ...(orderHash && { orderHash: orderHash }),

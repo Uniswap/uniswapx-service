@@ -34,6 +34,8 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         createdAt: { type: DYNAMODB_TYPES.NUMBER },
         type: { type: DYNAMODB_TYPES.STRING },
         chainId: { type: DYNAMODB_TYPES.NUMBER },
+        cosignerData: { type: DYNAMODB_TYPES.MAP },
+        cosignature: { type: DYNAMODB_TYPES.STRING },
 
         //on chain data
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },

@@ -1,4 +1,4 @@
-import { CosignedV2DutchOrder, DutchOrder, OrderType, UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
+import { CosignedV2DutchOrder, CosignerData, DutchOrder, OrderType, UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 
@@ -115,9 +115,19 @@ export const formatDutchV2OrderEntity = (
     decayEndTime: decodedOrder.info.deadline,
     deadline: decodedOrder.info.deadline,
     filler: decodedOrder.info?.cosignerData?.exclusiveFiller.toLowerCase(),
-    cosignerData: decodedOrder.info.cosignerData,
+    cosignerData: mapCosignerData(decodedOrder.info.cosignerData),
     cosignature: decodedOrder.info.cosignature,
   }
 
   return order
+}
+
+function mapCosignerData(sdkCosignerData: CosignerData) {
+  return {
+    decayStartTime: sdkCosignerData.decayStartTime,
+    decayEndTime: sdkCosignerData.decayEndTime,
+    exclusiveFiller: sdkCosignerData.exclusiveFiller,
+    inputOverride: sdkCosignerData.inputOverride.toString(),
+    outputOverrides: sdkCosignerData.outputOverrides.map((o) => o.toString()),
+  }
 }

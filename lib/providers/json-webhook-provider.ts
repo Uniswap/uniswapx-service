@@ -21,9 +21,9 @@ export function findEndpointsMatchingFilter(filter: OrderFilter, definition: Web
   const catchallEndpoints = definition['*'] ?? []
   endpoints.push(...catchallEndpoints)
 
-  // remove limit orders when matching webhooks
+  // remove limit orders and dutch_v2 orders when matching webhooks
   // webhook is currently used only to fill dutch orders
-  if (filter.orderType !== OrderType.Limit) {
+  if (filter.orderType !== OrderType.Limit && filter.orderType !== OrderType.Dutch_V2) {
     const supportedFilterKeys: (FILTER_FIELD.FILLER | FILTER_FIELD.OFFERER | FILTER_FIELD.ORDER_STATUS)[] = [
       FILTER_FIELD.FILLER,
       FILTER_FIELD.ORDER_STATUS,

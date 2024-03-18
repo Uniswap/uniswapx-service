@@ -53,7 +53,13 @@ export type UniswapXOrderEntity = {
   txHash?: string
   // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
   settledAmounts?: SettledAmount[]
-  cosignerData?: any
+  cosignerData?: {
+    decayStartTime: number
+    decayEndTime: number
+    exclusiveFiller: string
+    inputOverride: string
+    outputOverrides: string[]
+  }
   cosignature?: string
 }
 
