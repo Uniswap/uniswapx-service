@@ -1,6 +1,7 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
+import { ORDER_STATUS } from '../../../../lib/entities'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
 import { DutchV1Order } from '../../../../lib/models/DutchV1Order'
 import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
@@ -25,8 +26,9 @@ describe('PostOrderBodyParser', () => {
         quoteId: QUOTE_ID,
       }) as DutchV1Order
       expect(actual.orderType).toBe(OrderType.Dutch)
-      expect(actual.toSDK()).toEqual(dutchV1Order)
+      expect(actual instanceof DutchV1Order).toBeTruthy()
       expect(actual.chainId).toEqual(ChainId.MAINNET)
+      expect(actual.orderStatus).toEqual(ORDER_STATUS.OPEN)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)
     })
@@ -41,8 +43,9 @@ describe('PostOrderBodyParser', () => {
         quoteId: QUOTE_ID,
       }) as LimitOrder
       expect(actual.orderType).toBe(OrderType.Limit)
-      expect(actual.toSDK()).toEqual(limitOrder)
+      expect(actual instanceof LimitOrder).toBeTruthy()
       expect(actual.chainId).toEqual(ChainId.MAINNET)
+      expect(actual.orderStatus).toEqual(ORDER_STATUS.OPEN)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)
     })
@@ -59,7 +62,7 @@ describe('PostOrderBodyParser', () => {
         quoteId: QUOTE_ID,
       }) as DutchV1Order
       expect(actual.orderType).toBe(OrderType.Dutch)
-      expect(actual.toSDK()).toEqual(dutchV1Order)
+      expect(actual instanceof DutchV1Order).toBeTruthy()
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)
@@ -87,7 +90,7 @@ describe('PostOrderBodyParser', () => {
         quoteId: QUOTE_ID,
       }) as LimitOrder
       expect(actual.orderType).toBe(OrderType.Limit)
-      expect(actual.toSDK()).toEqual(limitOrder)
+      expect(actual instanceof LimitOrder).toBeTruthy()
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)
@@ -127,6 +130,7 @@ describe('PostOrderBodyParser', () => {
         encodedOrder: relayOrder.serialize(),
         signature: SIGNATURE,
       }) as RelayOrder
+      expect(actual instanceof RelayOrder).toBeTruthy()
       expect(actual.orderType).toBe(OrderType.Relay)
       expect(actual.inner).toEqual(relayOrder)
       expect(actual.chainId).toEqual(ChainId.MAINNET)

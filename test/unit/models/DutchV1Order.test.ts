@@ -1,4 +1,5 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { DutchV1Order } from '../../../lib/models/DutchV1Order'
 import { ChainId } from '../../../lib/util/chain'
@@ -6,23 +7,63 @@ import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { QUOTE_ID, SIGNATURE, Tokens } from '../fixtures'
 
 describe('DutchV1Order', () => {
+  const nowInSeconds = Date.now()
+  const futureTime = nowInSeconds + 30
+
   it('builds an order from the SDK DutchOrder', () => {
-    const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET)
+    const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+      deadline: futureTime,
+      decayEndTime: futureTime,
+      decayStartTime: nowInSeconds,
+      swapper: '0x0000000000000000000000000000000000000001',
+      nonce: '500',
+      input: {
+        token: Tokens.MAINNET.USDC,
+        startAmount: '9000000',
+        endAmount: '3000000',
+      },
+      outputs: [
+        {
+          token: Tokens.MAINNET.UNI,
+          startAmount: '1000000000000000000',
+          endAmount: '1000000000000000000',
+          recipient: '0x0000000000000000000000000000000000000005',
+        },
+      ],
+    })
 
     const order = DutchV1Order.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
 
     expect(order.chainId).toEqual(ChainId.MAINNET)
     expect(order.orderType).toEqual(OrderType.Dutch)
     expect(order.signature).toEqual(SIGNATURE)
-    expect(order.toSDK()).toEqual(sdkOrder)
+
+    expect(order.deadline).toEqual(futureTime)
+    expect(order.decayEndTime).toEqual(futureTime)
+    expect(order.decayStartTime).toEqual(nowInSeconds)
+
+    expect(order.offerer).toEqual('0x0000000000000000000000000000000000000001')
+    expect(order.nonce).toEqual(BigNumber.from('500'))
+
+    expect(order.input).toEqual({
+      token: Tokens.MAINNET.USDC,
+      startAmount: BigNumber.from('9000000'),
+      endAmount: BigNumber.from('3000000'),
+    })
+
+    expect(order.outputs).toEqual([
+      {
+        token: Tokens.MAINNET.UNI,
+        startAmount: BigNumber.from('1000000000000000000'),
+        endAmount: BigNumber.from('1000000000000000000'),
+        recipient: '0x0000000000000000000000000000000000000005',
+      },
+    ])
     expect(order.orderStatus).toEqual(ORDER_STATUS.OPEN)
     expect(order.quoteId).toEqual(QUOTE_ID)
   })
 
   it('toEntity - single output', () => {
-    const nowInSeconds = Date.now()
-    const futureTime = nowInSeconds + 30
-
     const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -79,9 +120,6 @@ describe('DutchV1Order', () => {
   })
 
   it('toEntity - multiple outputs', () => {
-    const nowInSeconds = Date.now()
-    const futureTime = nowInSeconds + 30
-
     const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -150,9 +188,6 @@ describe('DutchV1Order', () => {
   })
 
   it('toSDK - single output', () => {
-    const nowInSeconds = Date.now()
-    const futureTime = nowInSeconds + 30
-
     const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       deadline: futureTime,
       decayEndTime: futureTime,
@@ -179,9 +214,6 @@ describe('DutchV1Order', () => {
   })
 
   it('toSDK - multiple outputs', () => {
-    const nowInSeconds = Date.now()
-    const futureTime = nowInSeconds + 30
-
     const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       deadline: futureTime,
       decayEndTime: futureTime,
