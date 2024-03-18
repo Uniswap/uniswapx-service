@@ -293,9 +293,7 @@ describe('/dutch-auction/order', () => {
     populatedTx.gasLimit = BigNumber.from(700_000)
 
     const tx = await filler.sendTransaction(populatedTx)
-    console.log('awaiting receipt')
     const receipt = await tx.wait()
-    console.log('got receipt')
 
     return receipt.transactionHash
   }

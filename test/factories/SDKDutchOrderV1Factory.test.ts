@@ -3,8 +3,6 @@ import { SDKDutchOrderFactory } from './SDKDutchOrderV1Factory'
 describe('SDKDutchOrderV1Factory', () => {
   describe('Dutch Order', () => {
     it('smoke test - builds a default Dutch Order', () => {
-      const o = SDKDutchOrderFactory.buildDutchOrder().toJSON()
-      console.log(JSON.stringify(o))
       expect(SDKDutchOrderFactory.buildDutchOrder(1)).toBeDefined()
     })
 
