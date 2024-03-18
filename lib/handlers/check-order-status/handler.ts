@@ -80,6 +80,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         stateMachineArn: input.requestInjected.stateMachineArn,
       }
     } else {
+      // TODO: @robert refactor this
+      // Dutch, Dutch_V2
       return {
         ...(await this.getCheckOrderStatusService(input.containerInjected.dbInterface).handleRequest(
           input.requestInjected

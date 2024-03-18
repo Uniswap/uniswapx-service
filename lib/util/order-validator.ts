@@ -31,7 +31,13 @@ export class OrderValidator {
       return chainIdValidation
     }
 
-    const reactorAddressValidation = this.validateReactorAddress(order.info.reactor, order.chainId)
+    const orderType =
+      order instanceof DutchOrder
+        ? OrderType.Dutch
+        : order instanceof CosignedV2DutchOrder
+        ? OrderType.Dutch_V2
+        : undefined
+    const reactorAddressValidation = this.validateReactorAddress(order.info.reactor, order.chainId, orderType)
     if (!reactorAddressValidation.valid) {
       return reactorAddressValidation
     }
@@ -112,8 +118,12 @@ export class OrderValidator {
     }
   }
 
-  private validateReactorAddress(reactor: string, chainId: number): OrderValidationResponse {
-    if (reactor.toLowerCase() != REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch]!.toLowerCase()) {
+  private validateReactorAddress(
+    reactor: string,
+    chainId: number,
+    orderType: OrderType | undefined
+  ): OrderValidationResponse {
+    if (!orderType || reactor.toLowerCase() != REACTOR_ADDRESS_MAPPING[chainId][orderType]!.toLowerCase()) {
       return {
         valid: false,
         errorString: `Invalid reactor address`,

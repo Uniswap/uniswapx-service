@@ -117,11 +117,6 @@ describe('Testing get orders handler.', () => {
   })
 
   it('Testing valid request and response for Dutch_V2 without includeV2 flag, removes Dutch_V2 orders', async () => {
-    const event = {
-      queryStringParameters: queryFiltersMock,
-      body: null,
-    }
-
     const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
 
     getOrdersMock.mockReturnValue({
@@ -141,11 +136,6 @@ describe('Testing get orders handler.', () => {
   })
 
   it('Testing valid request and response for Dutch_V2 with includeV2 flag, returns Dutch_V2 orders', async () => {
-    const event = {
-      queryStringParameters: queryFiltersMock,
-      body: null,
-    }
-
     injectorPromiseMock.getRequestInjected = () => {
       return { ...requestInjectedMock, includeV2: true }
     }

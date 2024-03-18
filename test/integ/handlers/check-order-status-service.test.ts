@@ -102,6 +102,7 @@ describe('checkOrderStatusService', () => {
         getFillLogAttempts: 0,
         startingBlockNumber: 0,
         retryCount: 0,
+        orderType: OrderType.Dutch,
       }
     })
 
