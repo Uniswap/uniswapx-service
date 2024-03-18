@@ -7,6 +7,7 @@ import {
   RelayOrderParser,
   UniswapXOrderParser,
 } from '@uniswap/uniswapx-sdk'
+import { ORDER_STATUS } from '../../entities'
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { DutchV1Order } from '../../models/DutchV1Order'
 import { DutchV2Order } from '../../models/DutchV2Order'
@@ -15,6 +16,7 @@ import { LimitOrder } from '../../models/LimitOrder'
 import { RelayOrder } from '../../models/RelayOrder'
 import { PostOrderRequestBody } from './schema'
 
+const INITIAL_ORDER_STATUS = ORDER_STATUS.OPEN
 export class PostOrderBodyParser {
   private readonly uniswapXParser = new UniswapXOrderParser()
   private readonly relayParser = new RelayOrderParser()
@@ -44,7 +46,7 @@ export class PostOrderBodyParser {
       const order = this.relayParser.parseOrder(encodedOrder, chainId)
       const orderType = this.relayParser.getOrderType(order)
       if (orderType === OrderType.Relay) {
-        return RelayOrder.fromSDK(chainId, signature, order as SDKRelayOrder)
+        return RelayOrder.fromSDK(chainId, signature, order as SDKRelayOrder, INITIAL_ORDER_STATUS)
       }
       throw new UnexpectedOrderTypeError(orderType)
     } catch (err) {
@@ -86,7 +88,7 @@ export class PostOrderBodyParser {
       const order = this.uniswapXParser.parseOrder(encodedOrder, chainId)
       const orderType = this.uniswapXParser.getOrderType(order)
       if (orderType === OrderType.Dutch_V2) {
-        return DutchV2Order.fromSDK(chainId, signature, order as SDKV2DutchOrder)
+        return DutchV2Order.fromSDK(chainId, signature, order as SDKV2DutchOrder, INITIAL_ORDER_STATUS)
       }
       throw new UnexpectedOrderTypeError(orderType)
     } catch (err) {
@@ -123,9 +125,9 @@ export class PostOrderBodyParser {
       const order = this.uniswapXParser.parseOrder(encodedOrder, chainId)
       const orderType = this.uniswapXParser.getOrderType(order)
       if (orderType === OrderType.Limit) {
-        return LimitOrder.fromSDK(chainId, signature, order as SDKDutchOrder, quoteId)
+        return LimitOrder.fromSDK(chainId, signature, order as SDKDutchOrder, INITIAL_ORDER_STATUS, quoteId)
       } else if (orderType === OrderType.Dutch) {
-        return DutchV1Order.fromSDK(chainId, signature, order as SDKDutchOrder, quoteId)
+        return DutchV1Order.fromSDK(chainId, signature, order as SDKDutchOrder, INITIAL_ORDER_STATUS, quoteId)
       } else {
         throw new UnexpectedOrderTypeError(orderType)
       }
