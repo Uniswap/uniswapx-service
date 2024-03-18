@@ -11,7 +11,6 @@ import { DutchV1Order } from '../models/DutchV1Order'
 import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
-import { formatOrderEntity } from '../util/order'
 import { OrderValidator as OffChainOrderValidator } from '../util/order-validator'
 import { AnalyticsServiceInterface } from './analytics-service'
 
@@ -28,13 +27,12 @@ export class UniswapXOrderService {
 
   async createOrder(order: DutchV1Order | LimitOrder): Promise<string> {
     await this.validateOrder(order.inner, order.signature, order.chainId)
-    const orderEntity = formatOrderEntity(
-      order.inner,
-      order.signature,
-      OrderType.Dutch,
-      order.orderStatus,
-      order.quoteId
-    )
+    const orderEntity = order.toEntity()
+
+    // Hack (andy.smith):  Until this bug is fixed in UniswapXOrderService, call everything a Dutch order.
+    // Once the migration is ready, we can remove this line and the orderType will be properly set.
+    // https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
+    orderEntity.type = OrderType.Dutch
 
     const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
     if (!canPlaceNewOrder) {
