@@ -5,7 +5,7 @@ import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { QUOTE_ID, SIGNATURE, Tokens } from '../fixtures'
 
-describe('DutchV1Order', () => {
+describe.only('DutchV1Order', () => {
   it('builds an order from the SDK DutchOrder', () => {
     const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET)
 
@@ -147,5 +147,68 @@ describe('DutchV1Order', () => {
       signature: SIGNATURE,
       type: 'Dutch',
     })
+  })
+
+  it('toSDK - single output', () => {
+    const nowInSeconds = Date.now()
+    const futureTime = nowInSeconds + 30
+
+    const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+      deadline: futureTime,
+      decayEndTime: futureTime,
+      decayStartTime: nowInSeconds,
+      swapper: '0x0000000000000000000000000000000000000001',
+      nonce: '500',
+      input: {
+        token: Tokens.MAINNET.USDC,
+        startAmount: '5000000',
+        endAmount: '3000000',
+      },
+      outputs: [
+        {
+          token: Tokens.MAINNET.UNI,
+          startAmount: '1000000000000000000',
+          endAmount: '1000000000000000000',
+          recipient: '0x0000000000000000000000000000000000000000',
+        },
+      ],
+    })
+    const order = DutchV1Order.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
+
+    expect(order.toSDK()).toEqual(sdkOrder)
+  })
+
+  it('toSDK - multiple outputs', () => {
+    const nowInSeconds = Date.now()
+    const futureTime = nowInSeconds + 30
+
+    const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+      deadline: futureTime,
+      decayEndTime: futureTime,
+      decayStartTime: nowInSeconds,
+      swapper: '0x0000000000000000000000000000000000000001',
+      nonce: '500',
+      input: {
+        token: Tokens.MAINNET.USDC,
+        startAmount: '5000000',
+        endAmount: '3000000',
+      },
+      outputs: [
+        {
+          token: Tokens.MAINNET.UNI,
+          startAmount: '1000000000000000000',
+          endAmount: '1000000000000000000',
+          recipient: '0x0000000000000000000000000000000000000000',
+        },
+        {
+          token: Tokens.MAINNET.WETH,
+          startAmount: '2000000000000000000',
+          endAmount: '2000000000000000000',
+          recipient: '0x0000000000000000000000000000000000000007',
+        },
+      ],
+    })
+    const order = DutchV1Order.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
+    expect(order.toSDK()).toEqual(sdkOrder)
   })
 })

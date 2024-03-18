@@ -147,4 +147,66 @@ describe('LimitOrder', () => {
       type: 'Limit',
     })
   })
+
+  it('toSDK - single output', () => {
+    const nowInSeconds = Date.now()
+    const futureTime = nowInSeconds + 30
+
+    const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+      deadline: futureTime,
+      decayEndTime: futureTime,
+      decayStartTime: nowInSeconds,
+      swapper: '0x0000000000000000000000000000000000000001',
+      nonce: '500',
+      input: {
+        token: Tokens.MAINNET.USDC,
+        startAmount: '3000000',
+        endAmount: '3000000',
+      },
+      outputs: [
+        {
+          token: Tokens.MAINNET.UNI,
+          startAmount: '1000000000000000000',
+          endAmount: '1000000000000000000',
+          recipient: '0x0000000000000000000000000000000000000000',
+        },
+      ],
+    })
+    const order = LimitOrder.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
+    expect(order.toSDK()).toEqual(sdkOrder)
+  })
+
+  it('toSDK - multiple outputs', () => {
+    const nowInSeconds = Date.now()
+    const futureTime = nowInSeconds + 30
+
+    const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+      deadline: futureTime,
+      decayEndTime: futureTime,
+      decayStartTime: nowInSeconds,
+      swapper: '0x0000000000000000000000000000000000000001',
+      nonce: '500',
+      input: {
+        token: Tokens.MAINNET.USDC,
+        startAmount: '3000000',
+        endAmount: '3000000',
+      },
+      outputs: [
+        {
+          token: Tokens.MAINNET.UNI,
+          startAmount: '1000000000000000000',
+          endAmount: '1000000000000000000',
+          recipient: '0x0000000000000000000000000000000000000000',
+        },
+        {
+          token: Tokens.MAINNET.WETH,
+          startAmount: '2000000000000000000',
+          endAmount: '2000000000000000000',
+          recipient: '0x0000000000000000000000000000000000000003',
+        },
+      ],
+    })
+    const order = LimitOrder.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
+    expect(order.toSDK()).toEqual(sdkOrder)
+  })
 })

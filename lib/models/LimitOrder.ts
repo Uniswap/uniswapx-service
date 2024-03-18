@@ -1,4 +1,10 @@
-import { DutchInput, DutchOrder as SDKDutchOrder, DutchOutput, OrderType } from '@uniswap/uniswapx-sdk'
+import {
+  DutchInput,
+  DutchOrder as SDKDutchOrder,
+  DutchOrderBuilder,
+  DutchOutput,
+  OrderType,
+} from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { DutchOrderEntity, ORDER_STATUS } from '../entities'
 import { ChainId } from '../util/chain'
@@ -64,6 +70,32 @@ export class LimitOrder implements IOrder {
     }
 
     return order
+  }
+
+  toSDK(): SDKDutchOrder {
+    let builder = new DutchOrderBuilder(this.chainId)
+    builder = builder
+      .deadline(this.deadline)
+      .decayEndTime(this.decayEndTime)
+      .decayStartTime(this.decayStartTime)
+      .swapper(this.offerer)
+      .nonce(this.nonce)
+      .input({
+        token: this.input.token,
+        startAmount: this.input.startAmount,
+        endAmount: this.input.endAmount,
+      })
+
+    for (const output of this.outputs) {
+      builder.output({
+        token: output.token,
+        startAmount: output.startAmount,
+        endAmount: output.endAmount,
+        recipient: output.recipient,
+      })
+    }
+
+    return builder.build()
   }
 
   static fromSDK(
