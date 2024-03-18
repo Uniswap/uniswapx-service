@@ -8,7 +8,7 @@ import {
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
 } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
-import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
+import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH, MOCK_V2_ORDER_ENTITY } from '../../test-data'
 
 jest.mock('../../../lib/handlers/check-order-status/util', () => {
   const original = jest.requireActual('../../../lib/handlers/check-order-status/util')
@@ -367,6 +367,93 @@ describe('checkOrderStatusService', () => {
         expect(result).toEqual(
           expect.objectContaining({
             orderStatus: 'open',
+          })
+        )
+      })
+    })
+
+    describe('OrderType', () => {
+      beforeEach(() => {
+        validatorMock.validate.mockResolvedValue(OrderValidation.Expired)
+      })
+      it('should close with filled for Dutch_V2 orderType', async () => {
+        getFillInfoMock.mockImplementation(() => {
+          return [
+            {
+              orderHash: MOCK_ORDER_HASH,
+              filler: '0x123',
+              nonce: BigNumber.from(1),
+              swapper: '0x123',
+              blockNumber: 12321312313,
+              txHash: '0x1244345323',
+              inputs: [{ token: 'USDC', amount: BigNumber.from(100) }],
+              outputs: [{ token: 'WETH', amount: BigNumber.from(1) }],
+            },
+          ]
+        })
+
+        openOrderRequest.orderType = OrderType.Dutch_V2
+        ordersRepositoryMock.getByHash.mockResolvedValue(MOCK_V2_ORDER_ENTITY)
+
+        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+
+        expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
+        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
+        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(providerMock.getTransaction).toHaveBeenCalled()
+        expect(validatorMock.validate).toHaveBeenCalled()
+        expect(result).toEqual(
+          expect.objectContaining({
+            orderStatus: 'filled',
+            settledAmounts: [
+              {
+                tokenIn: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+                amountIn: '1000000',
+                tokenOut: 'WETH',
+                amountOut: '1',
+              },
+            ],
+            txHash: '0x1244345323',
+          })
+        )
+      })
+      it('should close with filled for Limit orderType', async () => {
+        getFillInfoMock.mockImplementation(() => {
+          return [
+            {
+              orderHash: MOCK_ORDER_HASH,
+              filler: '0x123',
+              nonce: BigNumber.from(1),
+              swapper: '0x123',
+              blockNumber: 12321312313,
+              txHash: '0x1244345323',
+              inputs: [{ token: 'USDC', amount: BigNumber.from(100) }],
+              outputs: [{ token: 'WETH', amount: BigNumber.from(1) }],
+            },
+          ]
+        })
+
+        openOrderRequest.orderType = OrderType.Limit
+
+        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+
+        expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
+        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
+        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(providerMock.getTransaction).toHaveBeenCalled()
+        expect(validatorMock.validate).toHaveBeenCalled()
+        expect(result).toEqual(
+          expect.objectContaining({
+            orderStatus: 'filled',
+            settledAmounts: [
+              {
+                tokenIn: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+                amountIn: '1000000000000000000',
+                tokenOut: 'WETH',
+                amountOut: '1',
+              },
+            ],
+            txHash: '0x1244345323',
           })
         )
       })

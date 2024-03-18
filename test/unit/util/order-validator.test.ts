@@ -301,8 +301,8 @@ describe('Testing off chain validation', () => {
   describe('Testing order hash', () => {
     it('Testing invalid hash.', async () => {
       const order = newOrder({})
-      const mockOrder = { ...order, hash: () => '0xfoo' }
-      const validationResp = validationProvider.validate(mockOrder as any)
+      order.hash = () => '0xfoo'
+      const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         errorString:
           'Invalid orderHash: ValidationError: "value" with value "0xfoo" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{64}$/',
