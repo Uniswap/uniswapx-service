@@ -2,6 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { mock } from 'jest-mock-extended'
 import { NoHandlerConfiguredError } from '../../../lib/errors/NoHandlerConfiguredError'
 import { DutchV1Order } from '../../../lib/models/DutchV1Order'
+import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../lib/util/chain'
@@ -16,7 +17,7 @@ describe('OrderDispatcher', () => {
       uniswapXServiceMock.createOrder.mockResolvedValueOnce('orderHash')
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, logger)
       const result = await dispatcher.createOrder(
-        new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), SIGNATURE, ChainId.MAINNET)
+        DutchV1Order.fromSDK(ChainId.MAINNET, SIGNATURE, SDKDutchOrderFactory.buildDutchOrder())
       )
       expect(result).toEqual('orderHash')
     })
@@ -26,7 +27,7 @@ describe('OrderDispatcher', () => {
       uniswapXServiceMock.createOrder.mockResolvedValueOnce('orderHash')
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, logger)
       const result = await dispatcher.createOrder(
-        new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), SIGNATURE, ChainId.MAINNET)
+        LimitOrder.fromSDK(ChainId.MAINNET, SIGNATURE, SDKDutchOrderFactory.buildLimitOrder())
       )
       expect(result).toEqual('orderHash')
     })

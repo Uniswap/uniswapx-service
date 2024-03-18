@@ -44,7 +44,7 @@ export class PostOrderBodyParser {
       const order = this.relayParser.parseOrder(encodedOrder, chainId)
       const orderType = this.relayParser.getOrderType(order)
       if (orderType === OrderType.Relay) {
-        return new RelayOrder(order as SDKRelayOrder, signature, chainId)
+        return RelayOrder.fromSDK(chainId, signature, order as SDKRelayOrder)
       }
       throw new UnexpectedOrderTypeError(orderType)
     } catch (err) {
@@ -86,7 +86,7 @@ export class PostOrderBodyParser {
       const order = this.uniswapXParser.parseOrder(encodedOrder, chainId)
       const orderType = this.uniswapXParser.getOrderType(order)
       if (orderType === OrderType.Dutch_V2) {
-        return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId)
+        return DutchV2Order.fromSDK(chainId, signature, order as SDKV2DutchOrder)
       }
       throw new UnexpectedOrderTypeError(orderType)
     } catch (err) {
@@ -123,9 +123,9 @@ export class PostOrderBodyParser {
       const order = this.uniswapXParser.parseOrder(encodedOrder, chainId)
       const orderType = this.uniswapXParser.getOrderType(order)
       if (orderType === OrderType.Limit) {
-        return new LimitOrder(order as SDKDutchOrder, signature, chainId, quoteId)
+        return LimitOrder.fromSDK(chainId, signature, order as SDKDutchOrder, quoteId)
       } else if (orderType === OrderType.Dutch) {
-        return new DutchV1Order(order as SDKDutchOrder, signature, chainId, quoteId)
+        return DutchV1Order.fromSDK(chainId, signature, order as SDKDutchOrder, quoteId)
       } else {
         throw new UnexpectedOrderTypeError(orderType)
       }

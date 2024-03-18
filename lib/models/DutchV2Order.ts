@@ -2,9 +2,13 @@ import { CosignedV2DutchOrder as SDKV2DutchOrder, OrderType } from '@uniswap/uni
 import { IOrder } from './IOrder'
 
 export class DutchV2Order implements IOrder {
-  constructor(readonly inner: SDKV2DutchOrder, readonly signature: string, readonly chainId: number) {}
+  private constructor(readonly chainId: number, readonly signature: string, readonly inner: SDKV2DutchOrder) {}
 
   get orderType(): OrderType {
     return OrderType.Dutch_V2
+  }
+
+  static fromSDK(chainId: number, signature: string, inner: SDKV2DutchOrder) {
+    return new DutchV2Order(chainId, signature, inner)
   }
 }
