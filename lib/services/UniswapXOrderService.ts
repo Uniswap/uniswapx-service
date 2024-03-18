@@ -12,7 +12,7 @@ import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { OrderValidator as OffChainOrderValidator } from '../util/order-validator'
-import { AnalyticsServiceInterface } from './analytics-service'
+import { AnalyticsServiceInterface } from './AnalyticsService'
 
 export class UniswapXOrderService {
   constructor(
