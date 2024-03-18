@@ -34,7 +34,7 @@ export class UniswapXOrderService {
     // https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
     orderEntity.type = OrderType.Dutch
 
-    const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
+    const canPlaceNewOrder = await this.userCanPlaceNewOrder(order.offerer)
     if (!canPlaceNewOrder) {
       throw new TooManyOpenOrdersError()
     }

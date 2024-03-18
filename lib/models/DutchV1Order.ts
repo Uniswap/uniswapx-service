@@ -9,6 +9,7 @@ export class DutchV1Order implements IOrder {
     readonly signature: string,
     readonly inner: SDKDutchOrder,
     readonly orderStatus: ORDER_STATUS,
+    readonly offerer: string,
     readonly quoteId?: string
   ) {
     return
@@ -28,7 +29,7 @@ export class DutchV1Order implements IOrder {
       orderHash: this.inner.hash().toLowerCase(),
       chainId: this.inner.chainId,
       orderStatus: this.orderStatus,
-      offerer: this.inner.info.swapper.toLowerCase(),
+      offerer: this.offerer,
       input: {
         token: input.token,
         startAmount: input.startAmount.toString(),
@@ -58,6 +59,6 @@ export class DutchV1Order implements IOrder {
     orderStatus: ORDER_STATUS,
     quoteId?: string
   ): DutchV1Order {
-    return new DutchV1Order(chainId, signature, inner, orderStatus, quoteId)
+    return new DutchV1Order(chainId, signature, inner, orderStatus, inner.info.swapper.toLowerCase(), quoteId)
   }
 }

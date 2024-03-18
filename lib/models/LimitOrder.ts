@@ -9,6 +9,7 @@ export class LimitOrder implements IOrder {
     readonly signature: string,
     readonly inner: SDKDutchOrder,
     readonly orderStatus: ORDER_STATUS,
+    readonly offerer: string,
     readonly quoteId?: string
   ) {}
 
@@ -26,7 +27,7 @@ export class LimitOrder implements IOrder {
       orderHash: this.inner.hash().toLowerCase(),
       chainId: this.inner.chainId,
       orderStatus: this.orderStatus,
-      offerer: this.inner.info.swapper.toLowerCase(),
+      offerer: this.offerer,
       input: {
         token: input.token,
         startAmount: input.startAmount.toString(),
@@ -56,6 +57,6 @@ export class LimitOrder implements IOrder {
     orderStatus: ORDER_STATUS,
     quoteId?: string
   ) {
-    return new LimitOrder(chainId, signature, inner, orderStatus, quoteId)
+    return new LimitOrder(chainId, signature, inner, orderStatus, inner.info.swapper.toLowerCase(), quoteId)
   }
 }
