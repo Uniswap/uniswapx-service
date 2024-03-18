@@ -16,8 +16,9 @@ import { log } from '../../../../lib/Logging'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../../lib/util/chain'
-import { formatOrderEntity } from '../../../../lib/util/order'
+import { formatDutchV2OrderEntity, formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
+import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
@@ -144,6 +145,43 @@ describe('Testing post order handler.', () => {
           encodedOrder: order.serialize(),
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
+        }),
+        EVENT_CONTEXT
+      )
+
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
+
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
+      expect(onchainValidationSucceededMock).toBeCalled()
+      expect(validatorMock).toBeCalledWith(order)
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_1,
+      })
+
+      expect(postOrderResponse).toEqual({
+        body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
+        statusCode: HttpStatusCode.Created,
+        headers: {
+          'Access-Control-Allow-Credentials': true,
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+      })
+    })
+
+    it('Testing valid request and response.', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const expectedOrderEntity = formatDutchV2OrderEntity(order, SIGNATURE, ORDER_STATUS.OPEN)
+
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.serialize(),
+          signature: SIGNATURE,
+          orderType: OrderType.Dutch_V2,
         }),
         EVENT_CONTEXT
       )

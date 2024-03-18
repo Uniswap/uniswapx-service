@@ -1,5 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { CosignedV2DutchOrder, DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
@@ -42,6 +42,7 @@ export class UniswapXOrderService {
         )
         break
       case OrderType.Dutch_V2:
+        await this.validateOrder((order as DutchV2Order).inner, order.signature, order.chainId)
         orderEntity = formatDutchV2OrderEntity((order as DutchV2Order).inner, order.signature, ORDER_STATUS.OPEN)
         break
       default:
@@ -60,7 +61,11 @@ export class UniswapXOrderService {
     return orderEntity.orderHash
   }
 
-  private async validateOrder(order: DutchOrder, signature: string, chainId: number): Promise<void> {
+  private async validateOrder(
+    order: DutchOrder | CosignedV2DutchOrder,
+    signature: string,
+    chainId: number
+  ): Promise<void> {
     const offChainValidationResult = this.orderValidator.validate(order)
     if (!offChainValidationResult.valid) {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
