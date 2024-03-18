@@ -14,8 +14,6 @@ export class DutchV1Order implements IOrder {
   private constructor(
     readonly chainId: ChainId,
     readonly signature: string,
-    readonly inner: SDKDutchOrder,
-
     readonly orderStatus: ORDER_STATUS,
     readonly offerer: string,
 
@@ -111,7 +109,6 @@ export class DutchV1Order implements IOrder {
     return new DutchV1Order(
       chainId,
       signature,
-      inner,
       orderStatus,
 
       inner.info.swapper.toLowerCase(),

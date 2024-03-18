@@ -15,7 +15,7 @@ describe('LimitOrder', () => {
     expect(order.orderType).toEqual(OrderType.Limit)
     expect(order.signature).toEqual(SIGNATURE)
     expect(order.orderStatus).toEqual(ORDER_STATUS.OPEN)
-    expect(order.inner).toEqual(sdkOrder)
+    expect(order.toSDK()).toEqual(sdkOrder)
   })
 
   it('toEntity - single output', () => {

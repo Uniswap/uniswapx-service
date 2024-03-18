@@ -14,7 +14,6 @@ export class LimitOrder implements IOrder {
   private constructor(
     readonly chainId: ChainId,
     readonly signature: string,
-    readonly inner: SDKDutchOrder,
 
     readonly orderStatus: ORDER_STATUS,
     readonly offerer: string,
@@ -108,7 +107,6 @@ export class LimitOrder implements IOrder {
     return new LimitOrder(
       chainId,
       signature,
-      inner,
       orderStatus,
 
       inner.info.swapper.toLowerCase(),

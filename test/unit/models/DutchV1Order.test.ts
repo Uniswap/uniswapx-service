@@ -5,7 +5,7 @@ import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { QUOTE_ID, SIGNATURE, Tokens } from '../fixtures'
 
-describe.only('DutchV1Order', () => {
+describe('DutchV1Order', () => {
   it('builds an order from the SDK DutchOrder', () => {
     const sdkOrder = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET)
 
@@ -14,7 +14,7 @@ describe.only('DutchV1Order', () => {
     expect(order.chainId).toEqual(ChainId.MAINNET)
     expect(order.orderType).toEqual(OrderType.Dutch)
     expect(order.signature).toEqual(SIGNATURE)
-    expect(order.inner).toEqual(sdkOrder)
+    expect(order.toSDK()).toEqual(sdkOrder)
     expect(order.orderStatus).toEqual(ORDER_STATUS.OPEN)
     expect(order.quoteId).toEqual(QUOTE_ID)
   })

@@ -25,7 +25,7 @@ describe('PostOrderBodyParser', () => {
         quoteId: QUOTE_ID,
       }) as DutchV1Order
       expect(actual.orderType).toBe(OrderType.Dutch)
-      expect(actual.inner).toEqual(dutchV1Order)
+      expect(actual.toSDK()).toEqual(dutchV1Order)
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)
@@ -41,7 +41,7 @@ describe('PostOrderBodyParser', () => {
         quoteId: QUOTE_ID,
       }) as LimitOrder
       expect(actual.orderType).toBe(OrderType.Limit)
-      expect(actual.inner).toEqual(limitOrder)
+      expect(actual.toSDK()).toEqual(limitOrder)
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)
@@ -59,7 +59,7 @@ describe('PostOrderBodyParser', () => {
         quoteId: QUOTE_ID,
       }) as DutchV1Order
       expect(actual.orderType).toBe(OrderType.Dutch)
-      expect(actual.inner).toEqual(dutchV1Order)
+      expect(actual.toSDK()).toEqual(dutchV1Order)
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)
@@ -87,7 +87,7 @@ describe('PostOrderBodyParser', () => {
         quoteId: QUOTE_ID,
       }) as LimitOrder
       expect(actual.orderType).toBe(OrderType.Limit)
-      expect(actual.inner).toEqual(limitOrder)
+      expect(actual.toSDK()).toEqual(limitOrder)
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.quoteId).toEqual(QUOTE_ID)
       expect(actual.signature).toEqual(SIGNATURE)

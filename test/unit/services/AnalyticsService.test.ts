@@ -79,7 +79,7 @@ describe('Analytics Service', () => {
         body: {
           quoteId: QUOTE_ID,
           createdAt: '123',
-          orderHash: order.inner.hash(),
+          orderHash: order.orderHash,
           startTime: nowInSeconds,
           endTime: futureTime,
           deadline: futureTime,
@@ -127,17 +127,12 @@ describe('Analytics Service', () => {
       })
 
       const order = LimitOrder.fromSDK(ChainId.MAINNET, SIGNATURE, sdkOrder, ORDER_STATUS.OPEN, QUOTE_ID)
-      const log = { info: jest.fn() } as unknown as Logger
+      const log = mock<Logger>()
       const analyticsService = new AnalyticsService(
         log,
         jest.fn().mockReturnValueOnce('123'),
         jest.fn().mockReturnValue('0xGetAddress')
       )
-      // const order = { ...mockedOrder }
-      // ;(order.outputs = [
-      //   { token: '0xOutputToken', startAmount: '1', endAmount: '1', recipient: '0xRecipient' },
-      //   { token: '0xOutputToken', startAmount: '7000', endAmount: '8000', recipient: '0xRecipient' },
-      // ]),
       analyticsService.logOrderPosted(order)
 
       expect(log.info).toHaveBeenCalledWith('Analytics Message', {
@@ -145,7 +140,7 @@ describe('Analytics Service', () => {
         body: {
           quoteId: QUOTE_ID,
           createdAt: '123',
-          orderHash: order.inner.hash(),
+          orderHash: order.orderHash,
           startTime: nowInSeconds,
           endTime: futureTime,
           deadline: futureTime,
@@ -164,7 +159,7 @@ describe('Analytics Service', () => {
   })
   describe('logOrderCancelled', () => {
     test('it logs the orderHash and status cancelled', () => {
-      const log = { info: jest.fn() } as unknown as Logger
+      const log = mock<Logger>()
       const analyticsService = new AnalyticsService(
         log,
         jest.fn().mockReturnValueOnce('123'),
@@ -184,7 +179,7 @@ describe('Analytics Service', () => {
     })
 
     test('it logs the orderHash and status cancelled', () => {
-      const log = { info: jest.fn() } as unknown as Logger
+      const log = mock<Logger>()
       const analyticsService = new AnalyticsService(
         log,
         jest.fn().mockReturnValueOnce('123'),
@@ -205,7 +200,7 @@ describe('Analytics Service', () => {
   })
   describe('logOrderInsufficientFunds', () => {
     test('it logs the orderHash and status insufficient funds', () => {
-      const log = { info: jest.fn() } as unknown as Logger
+      const log = mock<Logger>()
       const analyticsService = new AnalyticsService(
         log,
         jest.fn().mockReturnValueOnce('123'),

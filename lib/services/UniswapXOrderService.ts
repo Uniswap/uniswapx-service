@@ -42,19 +42,22 @@ export class UniswapXOrderService {
   }
 
   private async validateOrder(order: DutchV1Order | LimitOrder): Promise<void> {
-    const offChainValidationResult = this.orderValidator.validate(order.inner)
+    const offChainValidationResult = this.orderValidator.validate(order.toSDK())
     if (!offChainValidationResult.valid) {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
 
     const onChainValidator = this.onChainValidatorMap.get(order.chainId)
-    const onChainValidationResult = await onChainValidator.validate({ order: order.inner, signature: order.signature })
+    const onChainValidationResult = await onChainValidator.validate({
+      order: order.toSDK(),
+      signature: order.signature,
+    })
     if (onChainValidationResult !== OrderValidation.OK) {
       const failureReason = OrderValidation[onChainValidationResult]
       throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)
     }
 
-    if (order.inner.info.input.token === ethers.constants.AddressZero) {
+    if (order.input.token === ethers.constants.AddressZero) {
       throw new InvalidTokenInAddress()
     }
   }
