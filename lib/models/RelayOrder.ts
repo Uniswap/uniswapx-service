@@ -1,10 +1,8 @@
 import { OrderType, RelayOrder as SDKRelayOrder } from '@uniswap/uniswapx-sdk'
-import { Order } from './Order'
+import { IOrder } from './IOrder'
 
-export class RelayOrder extends Order {
-  constructor(readonly inner: SDKRelayOrder, readonly signature: string, readonly chainId: number) {
-    super()
-  }
+export class RelayOrder implements IOrder {
+  constructor(readonly inner: SDKRelayOrder, readonly signature: string, readonly chainId: number) {}
 
   get orderType(): OrderType {
     return OrderType.Relay

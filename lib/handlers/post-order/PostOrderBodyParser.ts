@@ -10,8 +10,8 @@ import {
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { DutchV1Order } from '../../models/DutchV1Order'
 import { DutchV2Order } from '../../models/DutchV2Order'
+import { IOrder } from '../../models/IOrder'
 import { LimitOrder } from '../../models/LimitOrder'
-import { Order } from '../../models/Order'
 import { RelayOrder } from '../../models/RelayOrder'
 import { PostOrderRequestBody } from './schema'
 
@@ -20,7 +20,7 @@ export class PostOrderBodyParser {
   private readonly relayParser = new RelayOrderParser()
 
   constructor(private readonly logger: Logger) {}
-  fromPostRequest(body: PostOrderRequestBody): Order {
+  fromPostRequest(body: PostOrderRequestBody): IOrder {
     const { encodedOrder, signature, chainId, orderType } = body
     switch (orderType) {
       case OrderType.Dutch:
