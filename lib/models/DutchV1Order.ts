@@ -1,4 +1,5 @@
-import { DutchOrder as SDKDutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
+import { DutchInput, DutchOrder as SDKDutchOrder, DutchOutput, OrderType } from '@uniswap/uniswapx-sdk'
+import { BigNumber } from 'ethers'
 import { DutchOrderEntity, ORDER_STATUS } from '../entities'
 import { ChainId } from '../util/chain'
 import { IOrder } from './IOrder'
@@ -8,8 +9,25 @@ export class DutchV1Order implements IOrder {
     readonly chainId: ChainId,
     readonly signature: string,
     readonly inner: SDKDutchOrder,
+
     readonly orderStatus: ORDER_STATUS,
     readonly offerer: string,
+
+    readonly encodedOrder: string,
+    readonly nonce: BigNumber,
+    readonly orderHash: string,
+
+    readonly input: DutchInput,
+    readonly outputs: DutchOutput[],
+
+    readonly reactor: string,
+
+    readonly decayStartTime: number,
+    readonly decayEndTime: number,
+    readonly deadline: number,
+
+    readonly filler?: string,
+
     readonly quoteId?: string
   ) {
     return
@@ -20,32 +38,31 @@ export class DutchV1Order implements IOrder {
   }
 
   toEntity(): DutchOrderEntity {
-    const { input, outputs } = this.inner.info
     const order: DutchOrderEntity = {
       type: this.orderType,
-      encodedOrder: this.inner.serialize(),
+      encodedOrder: this.encodedOrder,
       signature: this.signature,
-      nonce: this.inner.info.nonce.toString(),
-      orderHash: this.inner.hash().toLowerCase(),
-      chainId: this.inner.chainId,
+      nonce: this.nonce.toString(),
+      orderHash: this.orderHash,
+      chainId: this.chainId,
       orderStatus: this.orderStatus,
       offerer: this.offerer,
       input: {
-        token: input.token,
-        startAmount: input.startAmount.toString(),
-        endAmount: input.endAmount.toString(),
+        token: this.input.token,
+        startAmount: this.input.startAmount.toString(),
+        endAmount: this.input.endAmount.toString(),
       },
-      outputs: outputs.map((output) => ({
+      outputs: this.outputs.map((output) => ({
         token: output.token,
         startAmount: output.startAmount.toString(),
         endAmount: output.endAmount.toString(),
         recipient: output.recipient.toLowerCase(),
       })),
-      reactor: this.inner.info.reactor.toLowerCase(),
-      decayStartTime: this.inner.info.decayStartTime,
-      decayEndTime: this.inner.info.deadline,
-      deadline: this.inner.info.deadline,
-      filler: this.inner.info?.exclusiveFiller?.toLowerCase(),
+      reactor: this.reactor,
+      decayStartTime: this.decayStartTime,
+      decayEndTime: this.decayEndTime,
+      deadline: this.deadline,
+      filler: this.filler,
       ...(this.quoteId && { quoteId: this.quoteId }),
     }
 
@@ -59,6 +76,28 @@ export class DutchV1Order implements IOrder {
     orderStatus: ORDER_STATUS,
     quoteId?: string
   ): DutchV1Order {
-    return new DutchV1Order(chainId, signature, inner, orderStatus, inner.info.swapper.toLowerCase(), quoteId)
+    return new DutchV1Order(
+      chainId,
+      signature,
+      inner,
+      orderStatus,
+
+      inner.info.swapper.toLowerCase(),
+      inner.serialize(),
+
+      inner.info.nonce,
+      inner.hash().toLowerCase(),
+
+      inner.info.input,
+      inner.info.outputs,
+      inner.info.reactor.toLowerCase(),
+
+      inner.info.decayStartTime,
+      inner.info.decayEndTime,
+      inner.info.deadline,
+
+      inner.info?.exclusiveFiller?.toLowerCase(),
+      quoteId
+    )
   }
 }

@@ -33,19 +33,12 @@ export class UniswapXOrderService {
       throw new TooManyOpenOrdersError()
     }
 
-    const orderEntity = order.toEntity()
-
-    // Hack (andy.smith):  Until this bug is fixed in UniswapXOrderService, call everything a Dutch order.
-    // Once the migration is ready, we can remove this line and the orderType will be properly set.
-    // https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-    orderEntity.type = OrderType.Dutch
-
-    await this.persistOrder(orderEntity)
+    await this.persistOrder(order)
 
     this.analyticsService.logOrderPosted(order)
-    await this.startOrderTracker(orderEntity.orderHash, order.chainId, order.quoteId, this.orderType)
+    await this.startOrderTracker(order.orderHash, order.chainId, order.quoteId, this.orderType)
 
-    return orderEntity.orderHash
+    return order.orderHash
   }
 
   private async validateOrder(order: DutchV1Order | LimitOrder): Promise<void> {
@@ -85,9 +78,16 @@ export class UniswapXOrderService {
     }
   }
 
-  private async persistOrder(order: DutchOrderEntity): Promise<void> {
+  private async persistOrder(order: DutchV1Order | LimitOrder): Promise<void> {
     try {
-      await this.repository.putOrderAndUpdateNonceTransaction(order)
+      const orderEntity = order.toEntity()
+
+      // Hack (andy.smith):  Until this bug is fixed in UniswapXOrderService, call everything a Dutch order.
+      // Once the migration is ready, we can remove this line and the orderType will be properly set.
+      // https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
+      orderEntity.type = OrderType.Dutch
+
+      await this.repository.putOrderAndUpdateNonceTransaction(orderEntity)
       this.logger.info(`Successfully inserted Order ${order.orderHash} into DB`)
     } catch (e: unknown) {
       this.logger.error(`Failed to insert order ${order.orderHash} into DB`, {
