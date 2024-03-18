@@ -162,6 +162,6 @@ describe('Testing new order Notification handler.', () => {
   })
 
   it('Testing no records validation error.', async () => {
-    expect(async () => await orderNotificationHandler(MOCK_ORDER, {})).rejects.toThrow(Error)
+    await expect(async () => await orderNotificationHandler(MOCK_ORDER, {})).rejects.toThrow(Error)
   })
 })

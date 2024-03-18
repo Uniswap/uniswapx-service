@@ -171,7 +171,7 @@ describe('Testing post order handler.', () => {
       })
     })
 
-    it('Testing valid request and response.', async () => {
+    it('Testing valid request and response for Dutch_V2', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
       const order = SDKDutchOrderV2Factory.buildDutchV2Order()

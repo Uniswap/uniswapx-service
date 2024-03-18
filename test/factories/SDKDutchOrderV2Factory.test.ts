@@ -2,7 +2,7 @@ import { BigNumber } from 'ethers'
 import { SDKDutchOrderV2Factory } from './SDKDutchOrderV2Factory'
 
 describe('SDKDutchOrderV2Factory', () => {
-  it.only('smoke test - builds a default DutchV2 Order', () => {
+  it('smoke test - builds a default DutchV2 Order', () => {
     expect(SDKDutchOrderV2Factory.buildDutchV2Order()).toBeDefined()
   })
 
