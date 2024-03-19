@@ -79,6 +79,15 @@ describe('Testing off chain validation', () => {
       )
       expect(validationResp).toEqual({ valid: false, errorString: 'Invalid orderType' })
     })
+
+    it('Should throw invalid deadline with v2 order', () => {
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const validationResp = new OrderValidator(() => 10, ONE_DAY_IN_SECONDS).validate(order)
+      expect(validationResp).toEqual({
+        valid: false,
+        errorString: 'Deadline field invalid: Order expiry cannot be larger than 1440 minutes',
+      })
+    })
   })
 
   describe('Testing deadline', () => {
