@@ -1,13 +1,14 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { CosignedV2DutchOrder, DutchOrder, OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { OrderEntity, ORDER_STATUS } from '../entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { DutchV1Order } from '../models/DutchV1Order'
+import { DutchV2Order } from '../models/DutchV2Order'
 import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
@@ -19,22 +20,23 @@ export class UniswapXOrderService {
   constructor(
     private readonly orderValidator: OffChainOrderValidator,
     private readonly onChainValidatorMap: OnChainValidatorMap,
-    private readonly repository: BaseOrdersRepository<OrderEntity>,
+    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
-    private orderType: OrderType,
     private analyticsService: AnalyticsServiceInterface
   ) {}
 
-  async createOrder(order: DutchV1Order | LimitOrder): Promise<string> {
-    await this.validateOrder(order.inner, order.signature, order.chainId)
-    const orderEntity = formatOrderEntity(
-      order.inner,
-      order.signature,
-      OrderType.Dutch,
-      ORDER_STATUS.OPEN,
-      order.quoteId
-    )
+  async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order): Promise<string> {
+    let orderEntity
+    if (order instanceof DutchV1Order || order instanceof LimitOrder) {
+      await this.validateOrder(order.inner, order.signature, order.chainId)
+      orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
+    } else if (order instanceof DutchV2Order) {
+      await this.validateOrder(order.inner, order.signature, order.chainId)
+      orderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
+    } else {
+      throw new Error('unsupported OrderType')
+    }
 
     const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
     if (!canPlaceNewOrder) {
@@ -42,13 +44,22 @@ export class UniswapXOrderService {
     }
 
     await this.persistOrder(orderEntity)
-    await this.logOrderCreatedEvent(orderEntity, this.orderType)
-    await this.startOrderTracker(orderEntity.orderHash, order.chainId, order.quoteId, this.orderType)
+
+    const realOrderType = order.orderType
+    await this.logOrderCreatedEvent(orderEntity, realOrderType)
+
+    // TODO: cleanup with generic order model
+    const quoteId = 'quoteId' in order ? order.quoteId : undefined
+    await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, realOrderType)
 
     return orderEntity.orderHash
   }
 
-  private async validateOrder(order: DutchOrder, signature: string, chainId: number): Promise<void> {
+  private async validateOrder(
+    order: DutchOrder | CosignedV2DutchOrder,
+    signature: string,
+    chainId: number
+  ): Promise<void> {
     const offChainValidationResult = this.orderValidator.validate(order)
     if (!offChainValidationResult.valid) {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
@@ -85,7 +96,7 @@ export class UniswapXOrderService {
     }
   }
 
-  private async persistOrder(order: OrderEntity): Promise<void> {
+  private async persistOrder(order: UniswapXOrderEntity): Promise<void> {
     try {
       await this.repository.putOrderAndUpdateNonceTransaction(order)
       this.logger.info(`Successfully inserted Order ${order.orderHash} into DB`)
@@ -97,7 +108,7 @@ export class UniswapXOrderService {
     }
   }
 
-  private async logOrderCreatedEvent(order: OrderEntity, orderType: OrderType) {
+  private async logOrderCreatedEvent(order: UniswapXOrderEntity, orderType: OrderType) {
     // Log used for cw dashboard and redshift metrics, do not modify
     // skip fee output logging
     this.analyticsService.logOrderPosted(order, orderType)

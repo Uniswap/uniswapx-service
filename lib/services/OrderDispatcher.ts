@@ -1,9 +1,8 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'
-import { DutchV1Order } from '../models/DutchV1Order'
-import { LimitOrder } from '../models/LimitOrder'
 import { Order } from '../models/Order'
+import { UniswapXOrder } from '../models/UniswapXOrder'
 import { UniswapXOrderService } from './UniswapXOrderService'
 
 export class OrderDispatcher {
@@ -19,9 +18,11 @@ export class OrderDispatcher {
     throw new NoHandlerConfiguredError(order.orderType)
   }
 
-  private isUniswapXOrder(order: Order): order is DutchV1Order | LimitOrder {
-    // Once the UniswapXService supports Xv2, add the type check here and change the
-    // typeguard to order is UniswapXOrder
-    return order.orderType === OrderType.Dutch || order.orderType === OrderType.Limit
+  private isUniswapXOrder(order: Order): order is UniswapXOrder {
+    return (
+      order.orderType === OrderType.Dutch ||
+      order.orderType === OrderType.Limit ||
+      order.orderType === OrderType.Dutch_V2
+    )
   }
 }

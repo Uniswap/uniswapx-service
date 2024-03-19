@@ -29,7 +29,8 @@ export type SettledAmount = {
   amountIn: string
 }
 
-export type OrderEntity = {
+// Db representation of Dutch V1, Dutch V2, or Limit Order
+export type UniswapXOrderEntity = {
   type: OrderType
   encodedOrder: string
   signature: string
@@ -52,6 +53,14 @@ export type OrderEntity = {
   txHash?: string
   // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
   settledAmounts?: SettledAmount[]
+  cosignerData?: {
+    decayStartTime: number
+    decayEndTime: number
+    exclusiveFiller: string
+    inputOverride: string
+    outputOverrides: string[]
+  }
+  cosignature?: string
 }
 
 export type RelayOrderEntity = {

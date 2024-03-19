@@ -2,6 +2,8 @@ import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswap
 import { BigNumber } from 'ethers'
 import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
 import { OrderValidator } from '../../../lib/util/order-validator'
+import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
+import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 
 const CURRENT_TIME = 10
 const validationProvider = new OrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
@@ -56,6 +58,38 @@ function newOrder({
 }
 
 describe('Testing off chain validation', () => {
+  describe('Testing orderType', () => {
+    it('Should set orderType with CosignedV2DutchOrder', () => {
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
+      expect(validationResp).toEqual({ valid: true })
+    })
+
+    it('Should set orderType with DutchOrder', () => {
+      const order = SDKDutchOrderFactory.buildDutchOrder()
+      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
+      expect(validationResp).toEqual({ valid: true })
+    })
+
+    it('Should throw with invalid orderType', () => {
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const noInstanceOrder = { ...order }
+      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
+        noInstanceOrder as any
+      )
+      expect(validationResp).toEqual({ valid: false, errorString: 'Invalid orderType' })
+    })
+
+    it('Should throw invalid deadline with v2 order', () => {
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const validationResp = new OrderValidator(() => 10, ONE_DAY_IN_SECONDS).validate(order)
+      expect(validationResp).toEqual({
+        valid: false,
+        errorString: 'Deadline field invalid: Order expiry cannot be larger than 1440 minutes',
+      })
+    })
+  })
+
   describe('Testing deadline', () => {
     it('Testing deadline < current time.', async () => {
       const order = newOrder({ deadline: 9 })
@@ -301,8 +335,8 @@ describe('Testing off chain validation', () => {
   describe('Testing order hash', () => {
     it('Testing invalid hash.', async () => {
       const order = newOrder({})
-      const mockOrder = { ...order, hash: () => '0xfoo' }
-      const validationResp = validationProvider.validate(mockOrder as any)
+      order.hash = () => '0xfoo'
+      const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         errorString:
           'Invalid orderHash: ValidationError: "value" with value "0xfoo" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{64}$/',

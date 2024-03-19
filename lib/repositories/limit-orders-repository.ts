@@ -3,14 +3,14 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
-import { OrderEntity } from '../entities'
+import { UniswapXOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { DutchIndexMapper } from './IndexMappers/DutchIndexMapper'
 import { getTableIndices, TABLE_NAMES } from './util'
 
-export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null, OrderEntity> {
-  static create(documentClient: DocumentClient): BaseOrdersRepository<OrderEntity> {
+export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null, UniswapXOrderEntity> {
+  static create(documentClient: DocumentClient): BaseOrdersRepository<UniswapXOrderEntity> {
     const log = Logger.createLogger({
       name: 'LimitOrdersRepository',
       serializers: Logger.stdSerializers,

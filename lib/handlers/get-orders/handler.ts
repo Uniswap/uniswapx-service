@@ -1,5 +1,6 @@
 import Joi from 'joi'
 
+import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { log } from '../../util/log'
@@ -25,7 +26,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
   ): Promise<Response<GetOrdersResponse> | ErrorResponse> {
     const {
-      requestInjected: { limit, queryFilters, cursor },
+      requestInjected: { limit, queryFilters, cursor, includeV2 },
       containerInjected: { dbInterface },
     } = params
 
@@ -33,6 +34,10 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
     try {
       const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
+
+      if (!includeV2) {
+        getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
+      }
 
       return {
         statusCode: 200,

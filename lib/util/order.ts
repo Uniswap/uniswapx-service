@@ -1,6 +1,6 @@
 import { DutchOrder, OrderType, UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
-import { OrderEntity, ORDER_STATUS } from '../entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 
 export const DUTCH_LIMIT = 'DutchLimit'
 
@@ -51,9 +51,9 @@ export const formatOrderEntity = (
   orderType: OrderType,
   orderStatus: ORDER_STATUS,
   quoteId?: string
-): OrderEntity => {
+): UniswapXOrderEntity => {
   const { input, outputs } = decodedOrder.info
-  const order: OrderEntity = {
+  const order: UniswapXOrderEntity = {
     type: orderType,
     encodedOrder: decodedOrder.serialize(),
     signature,

@@ -48,7 +48,12 @@ export default class FieldValidator {
 
   // TODO: DutchLimit type is deprecated but we allow it in the response to remain backwards compatible.
   // Remove this field from Joi once we have purge job to delete all DutchLimit orders from the database.
-  private static readonly ORDER_TYPE_JOI = Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT)
+  private static readonly ORDER_TYPE_JOI = Joi.string().valid(
+    OrderType.Dutch,
+    DUTCH_LIMIT,
+    OrderType.Dutch_V2,
+    OrderType.Limit
+  )
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.isAddress(value)) {

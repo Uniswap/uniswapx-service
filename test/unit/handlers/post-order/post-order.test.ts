@@ -13,11 +13,13 @@ import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrd
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
+import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
+import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
@@ -104,7 +106,6 @@ describe('Testing post order handler.', () => {
         } as any,
         mockLog,
         getMaxOpenOrders,
-        OrderType.Dutch,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
@@ -153,6 +154,45 @@ describe('Testing post order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(order)
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_1,
+        input:
+          '{"orderHash":"0x4ab4f60562fadec8a074b65c834c0414f990ac51742d4fe96c2271d22aeba6b2","chainId":1,"orderStatus":"open","quoteId":"55e2cfca-5521-4a0a-b597-7bfb569032d7","orderType":"Dutch","stateMachineArn":"MOCK_ARN_1"}',
+      })
+
+      expect(postOrderResponse).toEqual({
+        body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
+        statusCode: HttpStatusCode.Created,
+        headers: {
+          'Access-Control-Allow-Credentials': true,
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+      })
+    })
+
+    it('Testing valid request and response for Dutch_V2', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+
+      const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), SIGNATURE, 1)
+      const expectedOrderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
+
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.inner.serialize(),
+          signature: SIGNATURE,
+          orderType: OrderType.Dutch_V2,
+        }),
+        EVENT_CONTEXT
+      )
+
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
+
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
+      expect(onchainValidationSucceededMock).toBeCalled()
+      expect(validatorMock).toBeCalledWith(order.inner)
       expect(mockSfnClient.calls()).toHaveLength(1)
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
         stateMachineArn: MOCK_ARN_1,

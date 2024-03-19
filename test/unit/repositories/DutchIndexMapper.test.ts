@@ -1,5 +1,5 @@
 import { TABLE_KEY } from '../../../lib/config/dynamodb'
-import { OrderEntity, ORDER_STATUS } from '../../../lib/entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { GET_QUERY_PARAMS } from '../../../lib/handlers/get-orders/schema'
 import { DutchIndexMapper } from '../../../lib/repositories/IndexMappers/DutchIndexMapper'
 import { MOCK_ORDER_ENTITY } from '../../test-data'
@@ -105,7 +105,7 @@ describe('DutchIndexMapper', () => {
 
   describe('getIndexFieldsForUpdate', () => {
     it('should give all index fields from order', () => {
-      const order: OrderEntity = {
+      const order: UniswapXOrderEntity = {
         ...MOCK_ORDER_ENTITY,
         orderStatus: ORDER_STATUS.FILLED,
         offerer: '0xOfferer',
@@ -126,7 +126,7 @@ describe('DutchIndexMapper', () => {
 
   describe('getIndexFieldsForStatusUpdate', () => {
     it('should give all index fields from order', () => {
-      const order: OrderEntity = {
+      const order: UniswapXOrderEntity = {
         ...MOCK_ORDER_ENTITY,
         orderStatus: ORDER_STATUS.OPEN,
         offerer: '0xOfferer',

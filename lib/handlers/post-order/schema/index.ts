@@ -8,6 +8,7 @@ export const PostOrderRequestBodyJoi = Joi.object({
   signature: FieldValidator.isValidSignature().required(),
   chainId: FieldValidator.isValidChainId().required(),
   quoteId: FieldValidator.isValidQuoteId(),
+  orderType: FieldValidator.isValidOrderType(),
 })
 
 export const PostOrderResponseJoi = Joi.object({

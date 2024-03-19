@@ -145,7 +145,7 @@ describe('/dutch-auction/order', () => {
         axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
       )
       const responses = await Promise.all(promises)
-      expect(responses.every((resp) => resp.status === 200))
+      expect(responses.every((resp) => resp.status === 200)).toBe(true)
       const orders = responses.map((resp) => resp.data.orders[0])
       expect(orders.length).toEqual(orderHashes.length)
       const orderStatuses = orders.map((order) => order!.orderStatus)
@@ -293,9 +293,7 @@ describe('/dutch-auction/order', () => {
     populatedTx.gasLimit = BigNumber.from(700_000)
 
     const tx = await filler.sendTransaction(populatedTx)
-    console.log('awaiting receipt')
     const receipt = await tx.wait()
-    console.log('got receipt')
 
     return receipt.transactionHash
   }

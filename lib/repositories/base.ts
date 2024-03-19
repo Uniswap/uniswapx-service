@@ -1,4 +1,4 @@
-import { OrderEntity, ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities/index'
+import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities/index'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export const MODEL_NAME = {
@@ -12,7 +12,7 @@ export type QueryResult = {
 }
 
 //indirect for multiple types
-export type OrderEntityType = OrderEntity
+export type OrderEntityType = UniswapXOrderEntity
 
 export interface BaseOrdersRepository<T extends OrderEntityType> {
   getByHash: (hash: string) => Promise<T | undefined>

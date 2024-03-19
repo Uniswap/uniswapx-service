@@ -2,7 +2,7 @@ import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
-import { OrderEntity } from '../../entities'
+import { UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
@@ -13,10 +13,11 @@ export interface RequestInjected extends ApiRInj {
   limit: number
   queryFilters: GetOrdersQueryParams
   cursor?: string
+  includeV2?: boolean
 }
 
 export interface ContainerInjected {
-  dbInterface: BaseOrdersRepository<OrderEntity>
+  dbInterface: BaseOrdersRepository<UniswapXOrderEntity>
 }
 
 export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams> {

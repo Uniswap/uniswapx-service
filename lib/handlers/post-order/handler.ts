@@ -2,14 +2,12 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Joi from 'joi'
 
-import { OrderType } from '@uniswap/uniswapx-sdk'
 import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
 import { NoHandlerConfiguredError } from '../../errors/NoHandlerConfiguredError'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
-import { DutchV1Order } from '../../models/DutchV1Order'
-import { LimitOrder } from '../../models/LimitOrder'
+import { Order } from '../../models/Order'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { metrics } from '../../util/metrics'
 import {
@@ -50,10 +48,10 @@ export class PostOrderHandler extends APIGLambdaHandler<
 
     log.info('Handling POST order request', params)
 
-    let order: DutchV1Order | LimitOrder
+    let order: Order
 
     try {
-      order = this.createOrderFromBody(requestBody)
+      order = this.bodyParser.fromPostRequest(requestBody)
     } catch (e: unknown) {
       log.error(e, 'Failed to parse order')
       return {
@@ -104,18 +102,6 @@ export class PostOrderHandler extends APIGLambdaHandler<
         ...(err instanceof Error && { detail: err.message }),
       }
     }
-  }
-
-  private createOrderFromBody(body: PostOrderRequestBody): DutchV1Order | LimitOrder {
-    const order = this.bodyParser.fromPostRequest(body)
-    if (order.orderType === OrderType.Dutch) {
-      return order as DutchV1Order
-    }
-
-    if (order.orderType === OrderType.Limit) {
-      return order as LimitOrder
-    }
-    throw new Error(`No handler available for order type: ${order.orderType}`)
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {

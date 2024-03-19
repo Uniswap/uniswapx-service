@@ -1,4 +1,4 @@
-import { OrderType, OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
+import { OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { ethers } from 'ethers'
 import { CONFIG } from '../../Config'
@@ -37,7 +37,6 @@ const uniswapXOrderService = new UniswapXOrderService(
   repo,
   log,
   getMaxLimitOpenOrders,
-  OrderType.Limit,
   AnalyticsService.create()
 )
 

@@ -380,7 +380,7 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.orders.length).toEqual(2)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
     expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, orders.cursor)).rejects.toThrow(
+    await expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, orders.cursor)).rejects.toThrow(
       Error('Invalid cursor.')
     )
   })
@@ -390,7 +390,7 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.orders.length).toEqual(2)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
     expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, 'wrong_cursor')).rejects.toThrow(
+    await expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, 'wrong_cursor')).rejects.toThrow(
       Error('Invalid cursor.')
     )
   })

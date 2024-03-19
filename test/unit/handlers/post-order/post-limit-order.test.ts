@@ -8,6 +8,7 @@ import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMa
 import { getMaxLimitOpenOrders } from '../../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
+import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
@@ -85,7 +86,6 @@ describe('Testing post limit order handler.', () => {
         } as any,
         mockLog,
         getMaxLimitOpenOrders,
-        OrderType.Limit,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
@@ -129,6 +129,10 @@ describe('Testing post limit order handler.', () => {
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(order)
+      expect(kickoffOrderTrackingSfn).toHaveBeenCalledWith(
+        expect.objectContaining({ orderType: 'Limit' }),
+        expect.anything()
+      )
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
         statusCode: HttpStatusCode.Created,

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { DutchInput, DutchOutput, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
+import { DutchInput, DutchOutput, OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { CheckOrderStatusHandler } from '../../../lib/handlers/check-order-status/handler'
@@ -41,6 +41,7 @@ describe('Testing check order status handler', () => {
           retryCount: retryCount,
           orderStatus: orderStatus,
           log,
+          orderType: OrderType.Dutch,
           orderQuoter: {
             validate: validateMock,
           },
@@ -112,6 +113,7 @@ describe('Testing check order status handler', () => {
       orderHash: MOCK_ORDER_HASH,
       orderStatus: ORDER_STATUS.OPEN as string,
       chainId: 1,
+      orderType: OrderType.Dutch,
     }
 
     beforeEach(() => {
@@ -222,6 +224,7 @@ describe('Testing check order status handler', () => {
         retryWaitSeconds: 12,
         chainId: 1,
         startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
+        orderType: OrderType.Dutch,
       })
     })
   })

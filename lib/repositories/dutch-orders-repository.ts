@@ -3,14 +3,14 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
-import { OrderEntity } from '../entities'
+import { UniswapXOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { DutchIndexMapper } from './IndexMappers/DutchIndexMapper'
 import { getTableIndices, TABLE_NAMES } from './util'
 
-export class DutchOrdersRepository extends GenericOrdersRepository<string, string, null, OrderEntity> {
-  static create(documentClient: DocumentClient): BaseOrdersRepository<OrderEntity> {
+export class DutchOrdersRepository extends GenericOrdersRepository<string, string, null, UniswapXOrderEntity> {
+  static create(documentClient: DocumentClient): BaseOrdersRepository<UniswapXOrderEntity> {
     const log = Logger.createLogger({
       name: 'DutchOrdersRepository',
       serializers: Logger.stdSerializers,
@@ -34,6 +34,8 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         createdAt: { type: DYNAMODB_TYPES.NUMBER },
         type: { type: DYNAMODB_TYPES.STRING },
         chainId: { type: DYNAMODB_TYPES.NUMBER },
+        cosignerData: { type: DYNAMODB_TYPES.MAP },
+        cosignature: { type: DYNAMODB_TYPES.STRING },
 
         //on chain data
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },

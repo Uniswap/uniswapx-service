@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { OrderEntity, SORT_FIELDS } from '../../../entities'
+import { SORT_FIELDS, UniswapXOrderEntity } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 
 const sortKeyJoi = FieldValidator.isValidSortKey()
@@ -26,6 +26,7 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   swapper: FieldValidator.isValidEthAddress(),
   orderStatus: FieldValidator.isValidOrderStatus(),
   desc: Joi.boolean(),
+  includeV2: Joi.boolean(),
 })
   .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler')
   .when('.chainId', {
@@ -57,6 +58,7 @@ export type SharedGetOrdersQueryParams = {
 export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
   swapper?: string
   orderHashes: string
+  includeV2?: boolean
 }
 export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
   offerer?: string
@@ -64,7 +66,7 @@ export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
 }
 
 export type GetOrdersResponse = {
-  orders: (OrderEntity | undefined)[]
+  orders: (UniswapXOrderEntity | undefined)[]
   cursor?: string
 }
 
@@ -72,6 +74,14 @@ export const OrderInputJoi = Joi.object({
   token: FieldValidator.isValidEthAddress().required(),
   startAmount: FieldValidator.isValidAmount(),
   endAmount: FieldValidator.isValidAmount(),
+})
+
+export const CosignerDataJoi = Joi.object({
+  decayStartTime: Joi.number(),
+  decayEndTime: Joi.number(),
+  exclusiveFiller: FieldValidator.isValidEthAddress(),
+  inputOverride: FieldValidator.isValidAmount(),
+  outputOverrides: Joi.array().items(FieldValidator.isValidAmount()),
 })
 
 export const OrderOutputJoi = Joi.object({
@@ -106,6 +116,8 @@ export const OrderResponseEntryJoi = Joi.object({
   settledAmounts: Joi.array().items(SettledAmount),
   chainId: FieldValidator.isValidChainId(),
   quoteId: FieldValidator.isValidQuoteId(),
+  cosignerData: CosignerDataJoi,
+  cosignature: Joi.string(),
 }).keys({
   ...OrderRepsonseEntryJoiMigrations,
 })
