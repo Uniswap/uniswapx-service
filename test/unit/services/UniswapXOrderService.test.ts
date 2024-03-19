@@ -40,7 +40,6 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      OrderType.Dutch,
       AnalyticsService
     )
 

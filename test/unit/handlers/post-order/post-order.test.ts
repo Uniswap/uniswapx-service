@@ -106,7 +106,6 @@ describe('Testing post order handler.', () => {
         } as any,
         mockLog,
         getMaxOpenOrders,
-        OrderType.Dutch,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),

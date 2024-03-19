@@ -23,7 +23,6 @@ export class UniswapXOrderService {
     private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
-    private orderType: OrderType,
     private analyticsService: AnalyticsServiceInterface
   ) {}
 
