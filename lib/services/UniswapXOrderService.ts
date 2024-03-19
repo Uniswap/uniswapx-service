@@ -28,24 +28,14 @@ export class UniswapXOrderService {
 
   async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order): Promise<string> {
     let orderEntity
-    switch (order.orderType) {
-      case OrderType.Dutch:
-      case OrderType.Limit:
-        await this.validateOrder((order as DutchV1Order).inner, order.signature, order.chainId)
-        orderEntity = formatOrderEntity(
-          (order as DutchV1Order).inner,
-          order.signature,
-          OrderType.Dutch,
-          ORDER_STATUS.OPEN,
-          (order as DutchV1Order).quoteId
-        )
-        break
-      case OrderType.Dutch_V2:
-        await this.validateOrder((order as DutchV2Order).inner, order.signature, order.chainId)
-        orderEntity = (order as DutchV2Order).formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
-        break
-      default:
-        throw new Error('unsupported OrderType')
+    if (order instanceof DutchV1Order || order instanceof LimitOrder) {
+      await this.validateOrder(order.inner, order.signature, order.chainId)
+      orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
+    } else if (order instanceof DutchV2Order) {
+      await this.validateOrder(order.inner, order.signature, order.chainId)
+      orderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
+    } else {
+      throw new Error('unsupported OrderType')
     }
 
     const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
