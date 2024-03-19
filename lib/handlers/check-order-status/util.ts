@@ -1,4 +1,5 @@
 import {
+  CosignedV2DutchOrder,
   DutchOrder,
   EventWatcher,
   FillInfo,
@@ -49,7 +50,11 @@ export function logFillInfo(
  * get the ammounts transfered on chain
  * used for logging
  */
-export function getSettledAmounts(fill: FillInfo, fillTimestamp: number, parsedOrder: DutchOrder): SettledAmount[] {
+export function getSettledAmounts(
+  fill: FillInfo,
+  fillTimestamp: number,
+  parsedOrder: DutchOrder | CosignedV2DutchOrder
+): SettledAmount[] {
   const nativeOutputs = parsedOrder.info.outputs.filter((output) => output.token.toLowerCase() === NATIVE_ADDRESS)
   const settledAmounts: SettledAmount[] = []
   let amountIn: string

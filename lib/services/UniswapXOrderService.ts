@@ -55,8 +55,13 @@ export class UniswapXOrderService {
     }
 
     await this.persistOrder(orderEntity)
-    await this.logOrderCreatedEvent(orderEntity, this.orderType)
-    await this.startOrderTracker(orderEntity.orderHash, order.chainId, (order as DutchV1Order).quoteId, this.orderType)
+
+    const realOrderType = order.orderType
+    await this.logOrderCreatedEvent(orderEntity, realOrderType)
+
+    // TODO: cleanup with generic order model
+    const quoteId = 'quoteId' in order ? order.quoteId : undefined
+    await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, realOrderType)
 
     return orderEntity.orderHash
   }

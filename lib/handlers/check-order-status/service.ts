@@ -1,4 +1,12 @@
-import { DutchOrder, EventWatcher, FillInfo, OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
+import {
+  CosignedV2DutchOrder,
+  DutchOrder,
+  EventWatcher,
+  FillInfo,
+  OrderType,
+  OrderValidation,
+  OrderValidator,
+} from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { log } from '../../Logging'
@@ -28,6 +36,7 @@ export type CheckOrderStatusRequest = {
   orderWatcher: EventWatcher
   orderQuoter: OrderValidator
   quoteId: string //only used for logging
+  orderType: OrderType
 }
 
 type ExtraUpdateInfo = {
@@ -60,6 +69,7 @@ export class CheckOrderStatusService {
     orderWatcher,
     orderQuoter,
     orderStatus,
+    orderType,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order = checkDefined(
       await wrapWithTimerMetric(
@@ -68,7 +78,19 @@ export class CheckOrderStatusService {
       ),
       'cannot find order by hash when updating order status'
     )
-    const parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
+
+    let parsedOrder
+    switch (orderType) {
+      case OrderType.Dutch:
+      case OrderType.Limit:
+        parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
+        break
+      case OrderType.Dutch_V2:
+        parsedOrder = CosignedV2DutchOrder.parse(order.encodedOrder, chainId)
+        break
+      default:
+        throw new Error(`Unsupported OrderType ${orderType}, No Parser Configured`)
+    }
 
     const validation = await wrapWithTimerMetric(
       orderQuoter.validate({
@@ -133,7 +155,7 @@ export class CheckOrderStatusService {
     orderWatcher,
   }: {
     validation: OrderValidation
-    parsedOrder: DutchOrder
+    parsedOrder: DutchOrder | CosignedV2DutchOrder
     quoteId: string
     chainId: number
     startingBlockNumber: number
