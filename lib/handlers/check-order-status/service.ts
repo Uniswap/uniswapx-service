@@ -89,7 +89,7 @@ export class CheckOrderStatusService {
         parsedOrder = CosignedV2DutchOrder.parse(order.encodedOrder, chainId)
         break
       default:
-        throw new Error(`unsupported OrderType ${orderType}`)
+        throw new Error(`Unsupported OrderType ${orderType}, No Parser Configured`)
     }
 
     const validation = await wrapWithTimerMetric(

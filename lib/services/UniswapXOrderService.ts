@@ -56,13 +56,9 @@ export class UniswapXOrderService {
 
     await this.persistOrder(orderEntity)
 
-    // TODO: @robert p0 remove order type from injected props,
-    // cleanup database so limits are orderType: Limit
-    let realOrderType = this.orderType
-    if (this.orderType === OrderType.Dutch) {
-      if (order.orderType === OrderType.Dutch_V2) {
-        realOrderType = OrderType.Dutch_V2
-      }
+    let realOrderType = order.orderType
+    if (order instanceof DutchV1Order) {
+      realOrderType = order.isLimit() ? OrderType.Limit : OrderType.Dutch
     }
 
     await this.logOrderCreatedEvent(orderEntity, realOrderType)
