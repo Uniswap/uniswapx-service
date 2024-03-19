@@ -57,11 +57,10 @@ export class UniswapXOrderService {
     await this.persistOrder(orderEntity)
 
     let realOrderType = order.orderType
-    if (order instanceof DutchV1Order) {
-      realOrderType = order.isLimit() ? OrderType.Limit : OrderType.Dutch
-    }
 
     await this.logOrderCreatedEvent(orderEntity, realOrderType)
+
+    // TODO: cleanup with generic order model
     const quoteId = 'quoteId' in order ? order.quoteId : undefined
     await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, realOrderType)
 

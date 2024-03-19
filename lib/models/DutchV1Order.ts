@@ -15,8 +15,4 @@ export class DutchV1Order extends Order {
   get orderType(): OrderType {
     return OrderType.Dutch
   }
-
-  public isLimit() {
-    return this.uniswapXOrderParse.getOrderType(this.inner) === OrderType.Limit
-  }
 }

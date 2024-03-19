@@ -4,7 +4,7 @@ import { mock } from 'jest-mock-extended'
 import { UniswapXOrderEntity } from '../../../lib/entities'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
-import { DutchV1Order } from '../../../lib/models/DutchV1Order'
+import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
@@ -18,7 +18,7 @@ jest.mock('../../../lib/preconditions/preconditions', () => {
   return { checkDefined: jest.fn() }
 })
 describe('UniswapXOrderService', () => {
-  test('createOrder with DutchV1Order that is really a LimitOrder, propagates correct type', async () => {
+  test('createOrder with LimitOrder, propagates correct type', async () => {
     const mockOrderValidator = mock<OffChainOrderValidator>()
     mockOrderValidator.validate.mockReturnValue({ valid: true })
 
@@ -46,7 +46,7 @@ describe('UniswapXOrderService', () => {
 
     const order = SDKDutchOrderFactory.buildLimitOrder()
 
-    const response = await service.createOrder(new DutchV1Order(order, '0x00', 1))
+    const response = await service.createOrder(new LimitOrder(order, '0x00', 1))
 
     expect(response).not.toBeNull()
     expect(mockOrderValidator.validate).toHaveBeenCalled()
