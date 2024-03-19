@@ -12,7 +12,7 @@ import { DutchV2Order } from '../models/DutchV2Order'
 import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
-import { formatDutchV2OrderEntity, formatOrderEntity } from '../util/order'
+import { formatOrderEntity } from '../util/order'
 import { OrderValidator as OffChainOrderValidator } from '../util/order-validator'
 import { AnalyticsServiceInterface } from './analytics-service'
 
@@ -43,7 +43,7 @@ export class UniswapXOrderService {
         break
       case OrderType.Dutch_V2:
         await this.validateOrder((order as DutchV2Order).inner, order.signature, order.chainId)
-        orderEntity = formatDutchV2OrderEntity((order as DutchV2Order).inner, order.signature, ORDER_STATUS.OPEN)
+        orderEntity = (order as DutchV2Order).formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
         break
       default:
         throw new Error('unsupported OrderType')

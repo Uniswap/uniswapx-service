@@ -1,4 +1,6 @@
+import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
 import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
 import { HeaderExpectation } from '../../HeaderExpectation'
@@ -78,7 +80,7 @@ describe('Testing get orders handler.', () => {
       limit: 10,
       cursor: 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0=',
       queryFilters: queryFiltersMock,
-      log: { info: () => jest.fn(), error: () => jest.fn() },
+      log: mock<Logger>(),
     }
     injectorPromiseMock = {
       getContainerInjected: () => {

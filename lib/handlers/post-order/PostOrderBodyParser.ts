@@ -85,11 +85,7 @@ export class PostOrderBodyParser {
   private tryParseDutchV2Order(encodedOrder: string, signature: string, chainId: number): DutchV2Order {
     try {
       const order = CosignedV2DutchOrder.parse(encodedOrder, chainId)
-      const orderType = OrderType.Dutch_V2
-      if (orderType === OrderType.Dutch_V2) {
-        return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId)
-      }
-      throw new UnexpectedOrderTypeError(orderType)
+      return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV2 order', {
         err,

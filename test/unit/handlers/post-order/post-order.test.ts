@@ -13,10 +13,11 @@ import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrd
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
+import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../../lib/util/chain'
-import { formatDutchV2OrderEntity, formatOrderEntity } from '../../../../lib/util/order'
+import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
@@ -176,12 +177,12 @@ describe('Testing post order handler.', () => {
     it('Testing valid request and response for Dutch_V2', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
-      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
-      const expectedOrderEntity = formatDutchV2OrderEntity(order, SIGNATURE, ORDER_STATUS.OPEN)
+      const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), SIGNATURE, 1)
+      const expectedOrderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
 
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({
-          encodedOrder: order.serialize(),
+          encodedOrder: order.inner.serialize(),
           signature: SIGNATURE,
           orderType: OrderType.Dutch_V2,
         }),
@@ -192,7 +193,7 @@ describe('Testing post order handler.', () => {
 
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
       expect(onchainValidationSucceededMock).toBeCalled()
-      expect(validatorMock).toBeCalledWith(order)
+      expect(validatorMock).toBeCalledWith(order.inner)
       expect(mockSfnClient.calls()).toHaveLength(1)
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
         stateMachineArn: MOCK_ARN_1,
