@@ -76,13 +76,12 @@ export const OrderInputJoi = Joi.object({
   endAmount: FieldValidator.isValidAmount(),
 })
 
-// TODO: use real validations
 export const CosignerDataJoi = Joi.object({
-  decayStartTime: Joi.any(),
-  decayEndTime: Joi.any(),
-  exclusiveFiller: Joi.any(), //FieldValidator.isValidEthAddress(),
-  inputOverride: Joi.any(), //FieldValidator.isValidAmount(),
-  outputOverrides: Joi.any(), //Joi.array().items(FieldValidator.isValidAmount()),
+  decayStartTime: Joi.number(),
+  decayEndTime: Joi.number(),
+  exclusiveFiller: FieldValidator.isValidEthAddress(),
+  inputOverride: FieldValidator.isValidAmount(),
+  outputOverrides: Joi.array().items(FieldValidator.isValidAmount()),
 })
 
 export const OrderOutputJoi = Joi.object({
@@ -118,7 +117,7 @@ export const OrderResponseEntryJoi = Joi.object({
   chainId: FieldValidator.isValidChainId(),
   quoteId: FieldValidator.isValidQuoteId(),
   cosignerData: CosignerDataJoi,
-  cosignature: Joi.any(),
+  cosignature: Joi.string(),
 }).keys({
   ...OrderRepsonseEntryJoiMigrations,
 })
