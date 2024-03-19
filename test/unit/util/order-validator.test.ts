@@ -2,6 +2,8 @@ import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswap
 import { BigNumber } from 'ethers'
 import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
 import { OrderValidator } from '../../../lib/util/order-validator'
+import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
+import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 
 const CURRENT_TIME = 10
 const validationProvider = new OrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
@@ -56,6 +58,29 @@ function newOrder({
 }
 
 describe('Testing off chain validation', () => {
+  describe('Testing orderType', () => {
+    it('Should set orderType with CosignedV2DutchOrder', () => {
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
+      expect(validationResp).toEqual({ valid: true })
+    })
+
+    it('Should set orderType with DutchOrder', () => {
+      const order = SDKDutchOrderFactory.buildDutchOrder()
+      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
+      expect(validationResp).toEqual({ valid: true })
+    })
+
+    it('Should throw with invalid orderType', () => {
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const noInstanceOrder = { ...order }
+      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
+        noInstanceOrder as any
+      )
+      expect(validationResp).toEqual({ valid: false, errorString: 'Invalid orderType' })
+    })
+  })
+
   describe('Testing deadline', () => {
     it('Testing deadline < current time.', async () => {
       const order = newOrder({ deadline: 9 })

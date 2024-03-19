@@ -1,8 +1,7 @@
-import { DutchOrder as SDKDutchOrder, OrderType, UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
+import { DutchOrder as SDKDutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
 import { Order } from './Order'
 
 export class DutchV1Order extends Order {
-  private uniswapXOrderParse = new UniswapXOrderParser()
   constructor(
     readonly inner: SDKDutchOrder,
     readonly signature: string,

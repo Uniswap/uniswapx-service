@@ -56,8 +56,7 @@ export class UniswapXOrderService {
 
     await this.persistOrder(orderEntity)
 
-    let realOrderType = order.orderType
-
+    const realOrderType = order.orderType
     await this.logOrderCreatedEvent(orderEntity, realOrderType)
 
     // TODO: cleanup with generic order model

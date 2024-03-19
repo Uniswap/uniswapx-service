@@ -26,17 +26,23 @@ export class OrderValidator {
   ) {}
 
   validate(order: DutchOrder | CosignedV2DutchOrder): OrderValidationResponse {
+    let orderType
+    if (order instanceof DutchOrder) {
+      orderType = OrderType.Dutch
+    } else if (order instanceof CosignedV2DutchOrder) {
+      orderType = OrderType.Dutch_V2
+    } else {
+      return {
+        valid: false,
+        errorString: 'Invalid orderType',
+      }
+    }
+
     const chainIdValidation = this.validateChainId(order.chainId)
     if (!chainIdValidation.valid) {
       return chainIdValidation
     }
 
-    const orderType =
-      order instanceof DutchOrder
-        ? OrderType.Dutch
-        : order instanceof CosignedV2DutchOrder
-        ? OrderType.Dutch_V2
-        : undefined
     const reactorAddressValidation = this.validateReactorAddress(order.info.reactor, order.chainId, orderType)
     if (!reactorAddressValidation.valid) {
       return reactorAddressValidation
