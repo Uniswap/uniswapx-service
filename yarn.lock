@@ -3457,10 +3457,10 @@
     tiny-invariant "^1.1.0"
     toformat "^2.0.0"
 
-"@uniswap/uniswapx-sdk@2.0.0":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-2.0.0.tgz#fc544feeadf1ea2816ccbae0ca8e86d9c7415f9e"
-  integrity sha512-3kQNUf1uqfmhbR4Ue8Ua1VA3WnNxrWZc0lU73S3Bbx0L4iXYWUfQvDHte+Ok/fLs4xmb/Eat0I6i6AF3oO79oQ==
+"@uniswap/uniswapx-sdk@2.0.1-alpha.0":
+  version "2.0.1-alpha.0"
+  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-2.0.1-alpha.0.tgz#77587b4adc64f2e5274fbfe5115973db2f8a5c84"
+  integrity sha512-eg0zzt0+L9Qr0GhMlxmVXsSlaByvchHbSp5fwM5gADIPt4NnQT+r3xiYFZ03YQRqP/uYRgGvSc9qlHYq1YdGnA==
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"
@@ -4568,11 +4568,6 @@ eslint-plugin-jest@^27.9.0:
   integrity sha512-QIT7FH7fNmd9n4se7FFKHbsLKGQiw885Ds6Y/sxKgCZ6natwCsXdgPOADnYVxN2QrRweF0FZWbJ6S7Rsn7llug==
   dependencies:
     "@typescript-eslint/utils" "^5.10.0"
-
-eslint-plugin-no-only-tests@^3.1.0:
-  version "3.1.0"
-  resolved "https://registry.yarnpkg.com/eslint-plugin-no-only-tests/-/eslint-plugin-no-only-tests-3.1.0.tgz#f38e4935c6c6c4842bf158b64aaa20c366fe171b"
-  integrity sha512-Lf4YW/bL6Un1R6A76pRZyE1dl1vr31G/ev8UzIc/geCgFWyrKil8hVjYqWVKGB/UIGmb6Slzs9T0wNezdSVegw==
 
 eslint-scope@^5.1.1:
   version "5.1.1"
