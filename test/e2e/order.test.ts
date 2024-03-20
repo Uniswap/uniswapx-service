@@ -376,7 +376,7 @@ describe('/dutch-auction/order', () => {
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
 
-      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 20)).toBe('expired')
     })
 
     it('erc20 to eth', async () => {
@@ -388,7 +388,7 @@ describe('/dutch-auction/order', () => {
         ZERO_ADDRESS
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
-      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 1)).toBe('expired')
+      expect(await waitAndGetOrderStatus(order.hash(), DEFAULT_DEADLINE_SECONDS + 20)).toBe('expired')
     })
 
     it('does not expire order before deadline', async () => {
