@@ -179,6 +179,7 @@ describe('Testing post order handler.', () => {
       const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), SIGNATURE, 1)
       const expectedOrderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
 
+      console.log(order.inner.serialize())
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({
           encodedOrder: order.inner.serialize(),
@@ -371,7 +372,7 @@ describe('Testing post order handler.', () => {
     it.each([
       [
         { encodedOrder: '0xbad_order' },
-        '{"detail":"\\"encodedOrder\\" with value \\"0xbad_order\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{0,2000}$/","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"\\"encodedOrder\\" with value \\"0xbad_order\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{0,3000}$/","errorCode":"VALIDATION_ERROR"}',
       ],
       [
         { signature: '0xbad_signature' },

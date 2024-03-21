@@ -100,7 +100,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const validatedField = FieldValidator.isValidEncodedOrder().validate(invalidOrder)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
-        `"value" with value "${invalidOrder}" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{0,2000}$/`
+        `"value" with value "${invalidOrder}" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{0,3000}$/`
       )
     })
   })

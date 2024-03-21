@@ -10,7 +10,7 @@ export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
 
 export default class FieldValidator {
-  private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(2000, true))
+  private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(3000, true))
   private static readonly SIGNATURE_JOI = Joi.string().regex(this.getHexiDecimalRegex(130))
   private static readonly ORDER_HASH_JOI = Joi.string().regex(this.getHexiDecimalRegex(64))
   private static readonly ORDER_HASHES_JOI = Joi.string()
