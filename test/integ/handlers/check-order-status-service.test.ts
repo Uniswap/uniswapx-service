@@ -407,8 +407,8 @@ describe('checkOrderStatusService', () => {
             orderStatus: 'filled',
             settledAmounts: [
               {
-                tokenIn: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-                amountIn: '1000000',
+                tokenIn: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+                amountIn: '10000000000000000000',
                 tokenOut: 'WETH',
                 amountOut: '1',
               },
