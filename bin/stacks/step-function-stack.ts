@@ -63,9 +63,8 @@ export class StepFunctionStack extends cdk.NestedStack {
     if (props.envVars['FILL_EVENT_DESTINATION_ARN']) {
       new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
         destinationArn: checkDefined(props.envVars['FILL_EVENT_DESTINATION_ARN']),
-        // filter patterns should match ORDER_STATUS.FILLED, ORDER_STATUS.CANCELLED, ORDER_STATUS.INSUFFICIENT_FUNDS
-        filterPattern:
-          '{ $.orderInfo.orderStatus = "filled" || $.orderInfo.orderStatus = "cancelled" || $.orderInfo.orderStatus = "insufficient-funds" }',
+        // filter patterns should match ORDER_STATUS.FILLED, ORDER_STATUS.CANCELLED
+        filterPattern: '{ $.orderInfo.orderStatus = "filled" || $.orderInfo.orderStatus = "cancelled" }',
         logGroupName: checkStatusFunction.logGroup.logGroupName,
       })
     }
