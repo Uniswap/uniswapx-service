@@ -179,7 +179,6 @@ describe('Testing post order handler.', () => {
       const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), SIGNATURE, 1)
       const expectedOrderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
 
-      console.log(order.inner.serialize())
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({
           encodedOrder: order.inner.serialize(),
