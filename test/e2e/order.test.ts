@@ -191,7 +191,10 @@ describe('/dutch-auction/order', () => {
       .nonce(nonce)
       .input({
         token: inputToken,
-        startAmount: amount,
+        // limit orders have all start amounts = all endamounts: e.g.
+        // input.startAmount==input.endAmount && all(outputs[i].startAmount==outputs[i].endAmount)
+        // and this test is for dutch orders
+        startAmount: amount.sub(1),
         endAmount: amount,
       })
       .output({
