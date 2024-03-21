@@ -191,7 +191,7 @@ describe('/dutch-auction/order', () => {
       .nonce(nonce)
       .input({
         token: inputToken,
-        startAmount: amount,
+        startAmount: amount.sub(1),
         endAmount: amount,
       })
       .output({
