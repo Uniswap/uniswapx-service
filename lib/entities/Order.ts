@@ -63,35 +63,6 @@ export type UniswapXOrderEntity = {
   cosignature?: string
 }
 
-export type RelayOrderEntity = {
-  type: OrderType
-  encodedOrder: string
-  signature: string
-  nonce: string
-  orderHash: string
-  orderStatus: ORDER_STATUS
-  chainId: number
-  offerer: string
-  reactor: string
-  decayStartTime: number
-  decayEndTime: number
-  deadline: number
-  input: {
-    token: string
-    amount: string
-    recipient: string
-  }
-  outputs: OrderOutput[]
-  // Filler field is defined when the order has been filled and the status tracking function has recorded the filler address.
-  filler?: string
-  // QuoteId field is defined when the order has a quote associated with it.
-  quoteId?: string
-  // TxHash field is defined when the order has been filled and there is a txHash associated with the fill.
-  txHash?: string
-  // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
-  settledAmounts?: SettledAmount[]
-}
-
 export enum SORT_FIELDS {
   CREATED_AT = 'createdAt',
 }
