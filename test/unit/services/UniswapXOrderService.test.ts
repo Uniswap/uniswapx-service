@@ -25,7 +25,7 @@ describe('UniswapXOrderService', () => {
     const onChainValidator = mock<OrderValidator>()
     onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
 
-    const onChainValidatorMap = mock<OnChainValidatorMap>()
+    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
     onChainValidatorMap.get.mockReturnValue(onChainValidator)
 
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()

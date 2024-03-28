@@ -1,6 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation, OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../../lib/entities'
@@ -15,6 +15,7 @@ import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
 import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
+import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
@@ -61,8 +62,7 @@ describe('Testing post order handler.', () => {
     requestId: 'testRequest',
     log: mockLog,
   }
-
-  const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>([
+  const validatorMockMapping = [
     [
       1,
       {
@@ -81,9 +81,9 @@ describe('Testing post order handler.', () => {
         validate: validationFailedValidatorMock,
       },
     ],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ] as any)
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ] as any
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
       return {}
@@ -99,7 +99,24 @@ describe('Testing post order handler.', () => {
         {
           validate: validatorMock,
         } as any,
-        onChainValidatorMap,
+        new OnChainValidatorMap<OrderValidator>(validatorMockMapping),
+        {
+          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+        } as any,
+        mockLog,
+        getMaxOpenOrders,
+        {
+          logOrderPosted: jest.fn(),
+          logCancelled: jest.fn(),
+          logInsufficientFunds: jest.fn(),
+        }
+      ),
+      new RelayOrderService(
+        {
+          validate: validatorMock,
+        } as any,
+        new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
         {
           putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
