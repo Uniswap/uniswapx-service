@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { SORT_FIELDS, UniswapXOrderEntity } from '../../../entities'
+import { RelayOrderEntity, SORT_FIELDS, UniswapXOrderEntity } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 
 const sortKeyJoi = FieldValidator.isValidSortKey()
@@ -66,7 +66,7 @@ export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
 }
 
 export type GetOrdersResponse = {
-  orders: (UniswapXOrderEntity | undefined)[]
+  orders: (UniswapXOrderEntity | RelayOrderEntity | undefined)[]
   cursor?: string
 }
 
