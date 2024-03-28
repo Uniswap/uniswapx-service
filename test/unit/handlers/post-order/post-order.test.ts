@@ -1,6 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
-import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../../lib/entities'
@@ -62,7 +62,7 @@ describe('Testing post order handler.', () => {
     log: mockLog,
   }
 
-  const onChainValidatorMap = new OnChainValidatorMap([
+  const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>([
     [
       1,
       {

@@ -15,7 +15,7 @@ import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
 
-const onChainValidatorMap = new OnChainValidatorMap()
+const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
 
 for (const chainId of SUPPORTED_CHAINS) {
   onChainValidatorMap.set(

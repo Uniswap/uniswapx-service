@@ -1,16 +1,16 @@
-import { OrderValidator } from '@uniswap/uniswapx-sdk'
+import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { ChainId } from '../util/chain'
 
-export class OnChainValidatorMap {
-  private chainIdToValidators: Map<ChainId, OrderValidator> = new Map()
+export class OnChainValidatorMap<T extends OrderValidator | RelayOrderValidator> {
+  private chainIdToValidators: Map<ChainId, T> = new Map()
 
-  constructor(initial: Array<[ChainId, OrderValidator]> = []) {
+  constructor(initial: Array<[ChainId, T]> = []) {
     for (const [chainId, validator] of initial) {
       this.chainIdToValidators.set(chainId, validator)
     }
   }
 
-  get(chainId: ChainId): OrderValidator {
+  get(chainId: ChainId): T {
     const validator = this.chainIdToValidators.get(chainId)
     if (!validator) {
       throw new Error(`No onchain validator for chain ${chainId}`)
@@ -19,7 +19,7 @@ export class OnChainValidatorMap {
     return validator
   }
 
-  set(chainId: ChainId, validator: OrderValidator): void {
+  set(chainId: ChainId, validator: T): void {
     this.chainIdToValidators.set(chainId, validator)
   }
 

@@ -1,5 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
@@ -41,7 +41,7 @@ describe('Testing post limit order handler.', () => {
     log: mockLog,
   }
 
-  const onChainValidatorMap = new OnChainValidatorMap([
+  const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>([
     [
       1,
       {
