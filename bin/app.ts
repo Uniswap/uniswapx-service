@@ -154,6 +154,9 @@ export class APIPipeline extends Stack {
         DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
+        ACTIVE_ORDER_EVENT_DESTINATION_ARN: resourceArnSecret
+          .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_BETA')
+          .toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
@@ -179,6 +182,9 @@ export class APIPipeline extends Stack {
       envVars: {
         ...jsonRpcUrls,
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
+        ACTIVE_ORDER_EVENT_DESTINATION_ARN: resourceArnSecret
+          .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_PROD')
+          .toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
