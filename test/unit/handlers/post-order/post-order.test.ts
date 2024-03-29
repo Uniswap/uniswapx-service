@@ -24,7 +24,7 @@ import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
-const MOCK_ARN_5 = 'MOCK_ARN_5'
+const MOCK_ARN_11155111 = 'MOCK_ARN_11155111'
 const MOCK_HASH = '0xhash'
 const MOCK_START_EXECUTION_INPUT = JSON.stringify({
   orderHash: MOCK_HASH,
@@ -43,7 +43,7 @@ mockSfnClient
 
 mockSfnClient
   .on(StartExecutionCommand, {
-    stateMachineArn: MOCK_ARN_5,
+    stateMachineArn: MOCK_ARN_11155111,
     name: MOCK_HASH,
     input: MOCK_START_EXECUTION_INPUT,
   })
@@ -70,7 +70,7 @@ describe('Testing post order handler.', () => {
       },
     ],
     [
-      5,
+      11155111,
       {
         validate: onchainValidationSucceededMock,
       },
@@ -119,7 +119,7 @@ describe('Testing post order handler.', () => {
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
-    process.env['STATE_MACHINE_ARN_5'] = MOCK_ARN_5
+    process.env['STATE_MACHINE_ARN_11155111'] = MOCK_ARN_11155111
     process.env['REGION'] = 'region'
     log.setLogLevel('SILENT')
   })
@@ -213,7 +213,7 @@ describe('Testing post order handler.', () => {
     it('Testing valid request and response on another chain', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
-      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.GÖRLI)
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.SEPOLIA)
       const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
@@ -221,7 +221,7 @@ describe('Testing post order handler.', () => {
           encodedOrder: order.serialize(),
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
-          chainId: ChainId.GÖRLI,
+          chainId: ChainId.SEPOLIA,
         }),
         EVENT_CONTEXT
       )
@@ -232,7 +232,7 @@ describe('Testing post order handler.', () => {
       expect(validatorMock).toBeCalledWith(order)
       expect(mockSfnClient.calls()).toHaveLength(1)
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
-        stateMachineArn: MOCK_ARN_5,
+        stateMachineArn: MOCK_ARN_11155111,
       })
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
@@ -377,7 +377,7 @@ describe('Testing post order handler.', () => {
         { signature: '0xbad_signature' },
         '{"detail":"\\"signature\\" with value \\"0xbad_signature\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/","errorCode":"VALIDATION_ERROR"}',
       ],
-      [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 5, 137]","errorCode":"VALIDATION_ERROR"}`],
+      [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 137, 11155111]","errorCode":"VALIDATION_ERROR"}`],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
       const invalidEvent = PostOrderRequestFactory.request({
