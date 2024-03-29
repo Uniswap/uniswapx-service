@@ -7,12 +7,13 @@ import { ethers } from 'ethers'
 import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
+import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
-import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
+import { ONE_DAY_IN_SECONDS, ONE_YEAR_IN_SECONDS } from '../../util/constants'
 import { OrderValidator } from '../../util/order-validator'
 import { RelayOrderValidator } from '../../util/RelayOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
@@ -58,7 +59,7 @@ for (const chainId of SUPPORTED_CHAINS) {
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
-  null, //repo
+  RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
   () => 0, // hack disable posting relay orders to limit route
   AnalyticsService.create()

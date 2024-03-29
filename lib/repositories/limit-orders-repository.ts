@@ -6,7 +6,7 @@ import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { UniswapXOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
-import { DutchIndexMapper } from './IndexMappers/DutchIndexMapper'
+import { OffchainOrderIndexMapper } from './IndexMappers/DutchIndexMapper'
 import { getTableIndices, TABLE_NAMES } from './util'
 
 export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null, UniswapXOrderEntity> {
@@ -71,6 +71,12 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
       table: nonceTable,
     } as const)
 
-    return new LimitOrdersRepository(limitOrdersTable, limitOrderEntity, nonceEntity, log, new DutchIndexMapper())
+    return new LimitOrdersRepository(
+      limitOrdersTable,
+      limitOrderEntity,
+      nonceEntity,
+      log,
+      new OffchainOrderIndexMapper()
+    )
   }
 }

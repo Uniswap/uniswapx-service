@@ -7,6 +7,7 @@ import { ethers } from 'ethers'
 import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
@@ -56,7 +57,7 @@ for (const chainId of SUPPORTED_CHAINS) {
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
-  null, //repo
+  RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
   getMaxOpenOrders,
   AnalyticsService.create()
