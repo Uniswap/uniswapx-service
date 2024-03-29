@@ -13,10 +13,10 @@ describe('SDKDutchOrderV2Factory', () => {
   it('respects input startAmount overrides', () => {
     const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
       input: {
-        startAmount: '200000',
+        startAmount: '20000000',
       },
     })
-    expect(actual.info.input.startAmount).toEqual(BigNumber.from('200000'))
+    expect(actual.info.input.startAmount).toEqual(BigNumber.from('20000000'))
   })
 
   it('respects input endAmount overrides', () => {
@@ -31,10 +31,10 @@ describe('SDKDutchOrderV2Factory', () => {
   it('respects input cosignerData inputOveride', () => {
     const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
       cosignerData: {
-        inputOverride: '50000000',
+        inputOverride: '5000',
       },
     })
-    expect(actual.info.cosignerData.inputOverride).toEqual(BigNumber.from('50000000'))
+    expect(actual.info.cosignerData.inputOverride).toEqual(BigNumber.from('5000'))
   })
 
   it('respects single output overrides', () => {
@@ -47,6 +47,7 @@ describe('SDKDutchOrderV2Factory', () => {
           recipient: '0xdef',
         },
       ],
+      cosignerData: { outputOverrides: ['4000000000000000000'] },
     })
     expect(actual.info.outputs).toEqual([
       {
@@ -86,6 +87,7 @@ describe('SDKDutchOrderV2Factory', () => {
           recipient: '0xjkl',
         },
       ],
+      cosignerData: { outputOverrides: ['4000000000000000000', '6000000000000000000'] },
     })
     expect(actual.info.outputs).toEqual([
       {
@@ -106,11 +108,11 @@ describe('SDKDutchOrderV2Factory', () => {
   it('respects outputOverrides', () => {
     const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
       cosignerData: {
-        outputOverrides: ['3000000'],
+        outputOverrides: ['3000000000000000000'],
       },
     })
 
-    expect(actual.info.cosignerData.outputOverrides).toEqual([BigNumber.from('3000000')])
+    expect(actual.info.cosignerData.outputOverrides).toEqual([BigNumber.from('3000000000000000000')])
   })
 
   it('respects nonce overrides', () => {
