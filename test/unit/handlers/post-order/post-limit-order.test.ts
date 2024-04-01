@@ -163,7 +163,7 @@ describe('Testing post limit order handler.', () => {
       })
     })
 
-    it.only('Testing valid request and response on another chain', async () => {
+    it('Testing valid request and response on another chain', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.SEPOLIA)
