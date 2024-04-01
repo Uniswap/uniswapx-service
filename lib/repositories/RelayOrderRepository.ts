@@ -3,28 +3,28 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
-import { UniswapXOrderEntity } from '../entities'
+import { RelayOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
 import { getTableIndices, TABLE_NAMES } from './util'
 
-export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null, UniswapXOrderEntity> {
-  static create(documentClient: DocumentClient): BaseOrdersRepository<UniswapXOrderEntity> {
+export class RelayOrderRepository extends GenericOrdersRepository<string, string, null, RelayOrderEntity> {
+  static create(documentClient: DocumentClient): BaseOrdersRepository<RelayOrderEntity> {
     const log = Logger.createLogger({
-      name: 'LimitOrdersRepository',
+      name: 'RelayOrdersRepository',
       serializers: Logger.stdSerializers,
     })
 
-    const limitOrdersTable = new Table({
-      name: TABLE_NAMES.LimitOrders,
+    const relayOrdersTable = new Table({
+      name: TABLE_NAMES.RelayOrders,
       partitionKey: 'orderHash',
       DocumentClient: documentClient,
-      indexes: getTableIndices(TABLE_NAMES.LimitOrders),
+      indexes: getTableIndices(TABLE_NAMES.RelayOrders),
     })
 
-    const limitOrderEntity = new Entity({
-      name: MODEL_NAME.LIMIT,
+    const relayOrderEntity = new Entity({
+      name: MODEL_NAME.Relay,
       attributes: {
         orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },
@@ -33,15 +33,17 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
         offerer: { type: DYNAMODB_TYPES.STRING, required: true },
         filler: { type: DYNAMODB_TYPES.STRING },
-        decayStartTime: { type: DYNAMODB_TYPES.NUMBER },
-        decayEndTime: { type: DYNAMODB_TYPES.NUMBER },
         deadline: { type: DYNAMODB_TYPES.NUMBER },
         createdAt: { type: DYNAMODB_TYPES.NUMBER },
         reactor: { type: DYNAMODB_TYPES.STRING },
         type: { type: DYNAMODB_TYPES.STRING },
         chainId: { type: DYNAMODB_TYPES.NUMBER },
         input: { type: DYNAMODB_TYPES.MAP },
-        outputs: { type: DYNAMODB_TYPES.LIST },
+        relayFee: { type: DYNAMODB_TYPES.MAP },
+        quoteId: { type: DYNAMODB_TYPES.STRING },
+        txHash: { type: DYNAMODB_TYPES.STRING },
+        settledAmounts: { type: DYNAMODB_TYPES.LIST },
+
         offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
         filler_orderStatus: { type: DYNAMODB_TYPES.STRING },
         filler_offerer: { type: DYNAMODB_TYPES.STRING },
@@ -49,12 +51,9 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
         chainId_orderStatus: { type: DYNAMODB_TYPES.STRING },
         chainId_orderStatus_filler: { type: DYNAMODB_TYPES.STRING },
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
-        quoteId: { type: DYNAMODB_TYPES.STRING },
-        txHash: { type: DYNAMODB_TYPES.STRING },
-        settledAmounts: { type: DYNAMODB_TYPES.LIST },
       },
-      table: limitOrdersTable,
-    } as const)
+      table: relayOrdersTable,
+    })
 
     const nonceTable = new Table({
       name: TABLE_NAMES.Nonces,
@@ -71,12 +70,12 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
       table: nonceTable,
     } as const)
 
-    return new LimitOrdersRepository(
-      limitOrdersTable,
-      limitOrderEntity,
+    return new RelayOrderRepository(
+      relayOrdersTable,
+      relayOrderEntity,
       nonceEntity,
       log,
-      new OffchainOrderIndexMapper()
+      new OffchainOrderIndexMapper<RelayOrderEntity>()
     )
   }
 }

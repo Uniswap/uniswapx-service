@@ -1,9 +1,10 @@
-import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities/index'
+import { ORDER_STATUS, RelayOrderEntity, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export const MODEL_NAME = {
   DUTCH: 'Order',
   LIMIT: 'LimitOrder',
+  Relay: 'RelayOrder',
 }
 
 export type QueryResult = {
@@ -11,8 +12,7 @@ export type QueryResult = {
   cursor?: string
 }
 
-//indirect for multiple types
-export type OrderEntityType = UniswapXOrderEntity
+export type OrderEntityType = UniswapXOrderEntity | RelayOrderEntity
 
 export interface BaseOrdersRepository<T extends OrderEntityType> {
   getByHash: (hash: string) => Promise<T | undefined>

@@ -2,15 +2,23 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'
 import { Order } from '../models/Order'
+import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
+import { RelayOrderService } from './RelayOrderService'
 import { UniswapXOrderService } from './UniswapXOrderService'
 
 export class OrderDispatcher {
-  constructor(private readonly uniswapXService: UniswapXOrderService, private readonly logger: Logger) {}
+  constructor(
+    private readonly uniswapXService: UniswapXOrderService,
+    private readonly relayOrderService: RelayOrderService,
+    private readonly logger: Logger
+  ) {}
 
   createOrder(order: Order): Promise<string> {
     if (this.isUniswapXOrder(order)) {
       return this.uniswapXService.createOrder(order)
+    } else if (this.isRelayOrder(order)) {
+      return this.relayOrderService.createOrder(order)
     }
 
     this.logger.error(`No createOrder handler configured for orderType: ${order.orderType}!`)
@@ -24,5 +32,9 @@ export class OrderDispatcher {
       order.orderType === OrderType.Limit ||
       order.orderType === OrderType.Dutch_V2
     )
+  }
+
+  private isRelayOrder(order: Order): order is RelayOrder {
+    return order.orderType === OrderType.Relay
   }
 }

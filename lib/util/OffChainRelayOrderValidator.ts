@@ -1,45 +1,20 @@
-import {
-  CosignedV2DutchOrder,
-  DutchOrder,
-  DutchOutput,
-  OrderType,
-  REACTOR_ADDRESS_MAPPING,
-} from '@uniswap/uniswapx-sdk'
+import { OrderType, REACTOR_ADDRESS_MAPPING, RelayOrder } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ONE_DAY_IN_SECONDS } from './constants'
 import FieldValidator from './field-validator'
 import { OrderValidationResponse } from './OrderValidationResponse'
 
-export type SkipValidationMap = {
-  SkipDecayStartTimeValidation: boolean
-}
+export class OffChainRelayOrderValidator {
+  private readonly deadlineValidityPeriodSeconds = ONE_DAY_IN_SECONDS
+  constructor(private readonly getCurrentTime: () => number) {}
 
-export class OrderValidator {
-  constructor(
-    private readonly getCurrentTime: () => number,
-    private readonly deadlineValidityPeriodSeconds = ONE_DAY_IN_SECONDS,
-    private readonly skipValidationMap?: SkipValidationMap
-  ) {}
-
-  validate(order: DutchOrder | CosignedV2DutchOrder): OrderValidationResponse {
-    let orderType
-    if (order instanceof DutchOrder) {
-      orderType = OrderType.Dutch
-    } else if (order instanceof CosignedV2DutchOrder) {
-      orderType = OrderType.Dutch_V2
-    } else {
-      return {
-        valid: false,
-        errorString: 'Invalid orderType',
-      }
-    }
-
+  validate(order: RelayOrder): OrderValidationResponse {
     const chainIdValidation = this.validateChainId(order.chainId)
     if (!chainIdValidation.valid) {
       return chainIdValidation
     }
 
-    const reactorAddressValidation = this.validateReactorAddress(order.info.reactor, order.chainId, orderType)
+    const reactorAddressValidation = this.validateReactorAddress(order.info.reactor, order.chainId)
     if (!reactorAddressValidation.valid) {
       return reactorAddressValidation
     }
@@ -47,20 +22,6 @@ export class OrderValidator {
     const deadlineValidation = this.validateDeadline(order.info.deadline)
     if (!deadlineValidation.valid) {
       return deadlineValidation
-    }
-
-    //TODO: split validator to multiple classes
-    if (!this.skipValidationMap || !this.skipValidationMap.SkipDecayStartTimeValidation) {
-      let decayStartTime = 0
-      if ((order as DutchOrder).info.decayStartTime) {
-        decayStartTime = (order as DutchOrder).info.decayStartTime
-      } else if ((order as CosignedV2DutchOrder).info.cosignerData) {
-        decayStartTime = (order as CosignedV2DutchOrder).info.cosignerData.decayStartTime
-      }
-      const decayStartTimeValidation = this.validateDecayStartTime(decayStartTime, order.info.deadline)
-      if (!decayStartTimeValidation.valid) {
-        return decayStartTimeValidation
-      }
     }
 
     const nonceValidation = this.validateNonce(order.info.nonce)
@@ -83,19 +44,9 @@ export class OrderValidator {
       return inputTokenValidation
     }
 
-    const inputStartAmountValidation = this.validateInputAmount(order.info.input.startAmount)
-    if (!inputStartAmountValidation.valid) {
-      return inputStartAmountValidation
-    }
-
-    const inputEndAmountValidation = this.validateInputAmount(order.info.input.endAmount)
-    if (!inputEndAmountValidation.valid) {
-      return inputStartAmountValidation
-    }
-
-    const outputsValidation = this.validateOutputs(order.info.outputs)
-    if (!outputsValidation.valid) {
-      return outputsValidation
+    const inputAmountValidation = this.validateInputAmount(order.info.input.amount)
+    if (!inputAmountValidation.valid) {
+      return inputAmountValidation
     }
 
     const orderHashValidation = this.validateHash(order.hash())
@@ -120,12 +71,8 @@ export class OrderValidator {
     }
   }
 
-  private validateReactorAddress(
-    reactor: string,
-    chainId: number,
-    orderType: OrderType | undefined
-  ): OrderValidationResponse {
-    if (!orderType || reactor.toLowerCase() != REACTOR_ADDRESS_MAPPING[chainId][orderType]!.toLowerCase()) {
+  private validateReactorAddress(reactor: string, chainId: number): OrderValidationResponse {
+    if (reactor.toLowerCase() != REACTOR_ADDRESS_MAPPING[chainId][OrderType.Relay]!.toLowerCase()) {
       return {
         valid: false,
         errorString: `Invalid reactor address`,
@@ -149,18 +96,6 @@ export class OrderValidator {
         errorString: `Deadline field invalid: Order expiry cannot be larger than ${
           this.deadlineValidityPeriodSeconds / 60
         } minutes`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validateDecayStartTime(decayStartTime: number, deadline: number): OrderValidationResponse {
-    if (decayStartTime > deadline) {
-      return {
-        valid: false,
-        errorString: 'Invalid decayStartTime: decayStartTime > deadline',
       }
     }
     return {
@@ -194,8 +129,6 @@ export class OrderValidator {
     }
   }
 
-  // TODO: Once deployed contracts are finalized, we can restrict this
-  // to check against a known set of addresses.
   private validateReactor(reactor: string): OrderValidationResponse {
     const error = FieldValidator.isValidEthAddress().validate(reactor).error
     if (error) {
@@ -234,54 +167,7 @@ export class OrderValidator {
     }
   }
 
-  private validateOutputs(dutchOutputs: DutchOutput[]): OrderValidationResponse {
-    if (dutchOutputs.length == 0) {
-      return {
-        valid: false,
-        errorString: `Invalid number of outputs: 0`,
-      }
-    }
-    for (const output of dutchOutputs) {
-      const { token, recipient, startAmount, endAmount } = output
-      if (FieldValidator.isValidEthAddress().validate(token).error) {
-        return {
-          valid: false,
-          errorString: `Invalid output token ${token}`,
-        }
-      }
-
-      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
-        return {
-          valid: false,
-          errorString: `Invalid recipient ${recipient}`,
-        }
-      }
-
-      if (!this.isValidUint256(startAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid startAmount ${startAmount.toString()}`,
-        }
-      }
-
-      if (!this.isValidUint256(endAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid endAmount ${endAmount.toString()}`,
-        }
-      }
-
-      if (endAmount.gt(startAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid endAmount > startAmount`,
-        }
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
+  //TODO: validate router calldata?
 
   private validateHash(orderHash: string): OrderValidationResponse {
     const error = FieldValidator.isValidOrderHash().validate(orderHash).error

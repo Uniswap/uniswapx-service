@@ -1,5 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation, OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
@@ -11,6 +11,7 @@ import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrd
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
+import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
@@ -40,8 +41,7 @@ describe('Testing post limit order handler.', () => {
     requestId: 'testRequest',
     log: mockLog,
   }
-
-  const onChainValidatorMap = new OnChainValidatorMap([
+  const validatorMockMapping = [
     [
       1,
       {
@@ -62,7 +62,7 @@ describe('Testing post limit order handler.', () => {
     ],
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ] as any)
+  ] as any
 
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
@@ -79,7 +79,7 @@ describe('Testing post limit order handler.', () => {
         {
           validate: validatorMock,
         } as any,
-        onChainValidatorMap,
+        new OnChainValidatorMap<OrderValidator>(validatorMockMapping),
         {
           putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
@@ -91,6 +91,18 @@ describe('Testing post limit order handler.', () => {
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
         }
+      ),
+      new RelayOrderService(
+        {
+          validate: validatorMock,
+        } as any,
+        new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
+        {
+          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+        } as any,
+        mockLog,
+        getMaxLimitOpenOrders
       ),
       mockLog
     ),
