@@ -102,12 +102,7 @@ describe('Testing post limit order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mockLog,
-        getMaxLimitOpenOrders,
-        {
-          logOrderPosted: jest.fn(),
-          logCancelled: jest.fn(),
-          logInsufficientFunds: jest.fn(),
-        }
+        getMaxLimitOpenOrders
       ),
       mockLog
     ),

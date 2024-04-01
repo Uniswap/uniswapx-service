@@ -12,7 +12,7 @@ export type SkipValidationMap = {
   SkipDecayStartTimeValidation: boolean
 }
 
-export class RelayOrderValidator {
+export class OffChainRelayOrderValidator {
   constructor(
     private readonly getCurrentTime: () => number,
     private readonly deadlineValidityPeriodSeconds = ONE_DAY_IN_SECONDS

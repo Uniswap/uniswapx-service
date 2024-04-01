@@ -10,17 +10,15 @@ import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { RelayOrder } from '../models/RelayOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
-import { RelayOrderValidator } from '../util/RelayOrderValidator'
-import { AnalyticsServiceInterface } from './analytics-service'
+import { OffChainRelayOrderValidator } from '../util/OffChainRelayOrderValidator'
 
 export class RelayOrderService {
   constructor(
-    private readonly orderValidator: RelayOrderValidator,
+    private readonly orderValidator: OffChainRelayOrderValidator,
     private readonly onChainValidatorMap: OnChainValidatorMap<OnChainRelayOrderValidator>,
     private readonly repository: BaseOrdersRepository<RelayOrderEntity>,
     private logger: Logger,
-    private readonly getMaxOpenOrders: (offerer: string) => number,
-    private analyticsService: AnalyticsServiceInterface
+    private readonly getMaxOpenOrders: (offerer: string) => number
   ) {}
 
   async createOrder(order: RelayOrder): Promise<string> {
@@ -34,7 +32,6 @@ export class RelayOrderService {
     }
 
     await this.persistOrder(orderEntity)
-    await this.logOrderCreatedEvent(orderEntity, order.orderType)
     await this.startOrderTracker(orderEntity.orderHash, order.chainId, '', order.orderType)
 
     return orderEntity.orderHash
@@ -87,11 +84,6 @@ export class RelayOrderService {
       })
       throw e
     }
-  }
-
-  private async logOrderCreatedEvent(order: RelayOrderEntity, orderType: OrderType) {
-    // TODO: figure out what to log
-    // this.analyticsService.logOrderPosted(order, orderType)
   }
 
   private async startOrderTracker(

@@ -122,12 +122,7 @@ describe('Testing post order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mockLog,
-        getMaxOpenOrders,
-        {
-          logOrderPosted: jest.fn(),
-          logCancelled: jest.fn(),
-          logInsufficientFunds: jest.fn(),
-        }
+        getMaxOpenOrders
       ),
       mockLog
     ),

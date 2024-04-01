@@ -14,8 +14,8 @@ import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
+import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OrderValidator } from '../../util/order-validator'
-import { RelayOrderValidator } from '../../util/RelayOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
@@ -45,7 +45,7 @@ const uniswapXOrderService = new UniswapXOrderService(
 )
 
 // const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
-const relayOrderValidator = new RelayOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
+const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
 
 for (const chainId of SUPPORTED_CHAINS) {
@@ -59,8 +59,7 @@ const relayOrderService = new RelayOrderService(
   relayOrderValidatorMap,
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
-  getMaxOpenOrders,
-  AnalyticsService.create()
+  getMaxOpenOrders
 )
 
 const postOrderHandler = new PostOrderHandler(
