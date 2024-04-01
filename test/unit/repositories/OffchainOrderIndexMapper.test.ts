@@ -1,11 +1,11 @@
 import { TABLE_KEY } from '../../../lib/config/dynamodb'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { GET_QUERY_PARAMS } from '../../../lib/handlers/get-orders/schema'
-import { OffchainOrderIndexMapper } from '../../../lib/repositories/IndexMappers/DutchIndexMapper'
+import { OffchainOrderIndexMapper } from '../../../lib/repositories/IndexMappers/OffchainOrderIndexMapper'
 import { MOCK_ORDER_ENTITY } from '../../test-data'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 
-describe('DutchIndexMapper', () => {
+describe('OffchainOrderIndexMapper', () => {
   const indexMapper: OffchainOrderIndexMapper<UniswapXOrderEntity> = new OffchainOrderIndexMapper()
   const queryParamsBuilder = new QueryParamsBuilder()
   describe('getIndexFromParams', () => {

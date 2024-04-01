@@ -46,7 +46,6 @@ const uniswapXOrderService = new UniswapXOrderService(
   AnalyticsService.create()
 )
 
-// const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
 
@@ -61,7 +60,7 @@ const relayOrderService = new RelayOrderService(
   relayOrderValidatorMap,
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
-  () => 0 // hack disable posting relay orders to limit route
+  () => 0 // set max open orders to 0 for relay orders posted to limit route, essentially disable this
 )
 
 const postLimitOrderHandler = new PostOrderHandler(

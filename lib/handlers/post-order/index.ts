@@ -44,7 +44,6 @@ const uniswapXOrderService = new UniswapXOrderService(
   AnalyticsService.create()
 )
 
-// const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
 for (const chainId of SUPPORTED_CHAINS) {
