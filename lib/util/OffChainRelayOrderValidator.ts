@@ -141,8 +141,6 @@ export class OffChainRelayOrderValidator {
     }
   }
 
-  // TODO: Once deployed contracts are finalized, we can restrict this
-  // to check against a known set of addresses.
   private validateReactor(reactor: string): OrderValidationResponse {
     const error = FieldValidator.isValidEthAddress().validate(reactor).error
     if (error) {
@@ -181,55 +179,7 @@ export class OffChainRelayOrderValidator {
     }
   }
 
-  //   validate calldata?
-  //   private validateOutputs(dutchOutputs: DutchOutput[]): OrderValidationResponse {
-  //     if (dutchOutputs.length == 0) {
-  //       return {
-  //         valid: false,
-  //         errorString: `Invalid number of outputs: 0`,
-  //       }
-  //     }
-  //     for (const output of dutchOutputs) {
-  //       const { token, recipient, startAmount, endAmount } = output
-  //       if (FieldValidator.isValidEthAddress().validate(token).error) {
-  //         return {
-  //           valid: false,
-  //           errorString: `Invalid output token ${token}`,
-  //         }
-  //       }
-
-  //       if (FieldValidator.isValidEthAddress().validate(recipient).error) {
-  //         return {
-  //           valid: false,
-  //           errorString: `Invalid recipient ${recipient}`,
-  //         }
-  //       }
-
-  //       if (!this.isValidUint256(startAmount)) {
-  //         return {
-  //           valid: false,
-  //           errorString: `Invalid startAmount ${startAmount.toString()}`,
-  //         }
-  //       }
-
-  //       if (!this.isValidUint256(endAmount)) {
-  //         return {
-  //           valid: false,
-  //           errorString: `Invalid endAmount ${endAmount.toString()}`,
-  //         }
-  //       }
-
-  //       if (endAmount.gt(startAmount)) {
-  //         return {
-  //           valid: false,
-  //           errorString: `Invalid endAmount > startAmount`,
-  //         }
-  //       }
-  //     }
-  //     return {
-  //       valid: true,
-  //     }
-  //   }
+  //TODO: validate router calldata?
 
   private validateHash(orderHash: string): OrderValidationResponse {
     const error = FieldValidator.isValidOrderHash().validate(orderHash).error
