@@ -2,21 +2,11 @@ import { OrderType, REACTOR_ADDRESS_MAPPING, RelayOrder } from '@uniswap/uniswap
 import { BigNumber } from 'ethers'
 import { ONE_DAY_IN_SECONDS } from './constants'
 import FieldValidator from './field-validator'
-
-export type OrderValidationResponse = {
-  valid: boolean
-  errorString?: string
-}
-
-export type SkipValidationMap = {
-  SkipDecayStartTimeValidation: boolean
-}
+import { OrderValidationResponse } from './OrderValidationResponse'
 
 export class OffChainRelayOrderValidator {
-  constructor(
-    private readonly getCurrentTime: () => number,
-    private readonly deadlineValidityPeriodSeconds = ONE_DAY_IN_SECONDS
-  ) {}
+  private readonly deadlineValidityPeriodSeconds = ONE_DAY_IN_SECONDS
+  constructor(private readonly getCurrentTime: () => number) {}
 
   validate(order: RelayOrder): OrderValidationResponse {
     const chainIdValidation = this.validateChainId(order.chainId)
@@ -58,8 +48,6 @@ export class OffChainRelayOrderValidator {
     if (!inputAmountValidation.valid) {
       return inputAmountValidation
     }
-
-    // validate calldata?
 
     const orderHashValidation = this.validateHash(order.hash())
     if (!orderHashValidation.valid) {

@@ -24,7 +24,7 @@ export class RelayOrderService {
   async createOrder(order: RelayOrder): Promise<string> {
     await this.validateOrder(order, order.signature, order.chainId)
 
-    const orderEntity = order.formatRelayOrderEntity(ORDER_STATUS.OPEN)
+    const orderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
     const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
     if (!canPlaceNewOrder) {

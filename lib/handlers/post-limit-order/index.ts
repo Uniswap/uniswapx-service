@@ -13,7 +13,7 @@ import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
-import { ONE_DAY_IN_SECONDS, ONE_YEAR_IN_SECONDS } from '../../util/constants'
+import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OrderValidator } from '../../util/order-validator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
@@ -46,7 +46,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   AnalyticsService.create()
 )
 
-const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
+const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
 
 for (const chainId of SUPPORTED_CHAINS) {

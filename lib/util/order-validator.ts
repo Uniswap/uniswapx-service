@@ -8,11 +8,7 @@ import {
 import { BigNumber } from 'ethers'
 import { ONE_DAY_IN_SECONDS } from './constants'
 import FieldValidator from './field-validator'
-
-export type OrderValidationResponse = {
-  valid: boolean
-  errorString?: string
-}
+import { OrderValidationResponse } from './OrderValidationResponse'
 
 export type SkipValidationMap = {
   SkipDecayStartTimeValidation: boolean

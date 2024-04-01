@@ -44,7 +44,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   AnalyticsService.create()
 )
 
-const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
+const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
 for (const chainId of SUPPORTED_CHAINS) {
   relayOrderValidatorMap.set(
@@ -53,12 +53,6 @@ for (const chainId of SUPPORTED_CHAINS) {
   )
 }
 
-for (const chainId of SUPPORTED_CHAINS) {
-  onChainValidatorMap.set(
-    chainId,
-    new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)), chainId)
-  )
-}
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,

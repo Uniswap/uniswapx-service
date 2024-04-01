@@ -11,7 +11,7 @@ export class RelayOrder extends Order {
     return OrderType.Relay
   }
 
-  public formatRelayOrderEntity(orderStatus: ORDER_STATUS): RelayOrderEntity {
+  public toEntity(orderStatus: ORDER_STATUS): RelayOrderEntity {
     const { input } = this.inner.info
     const decodedOrder = this.inner
     const order: RelayOrderEntity = {
