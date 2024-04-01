@@ -47,6 +47,12 @@ const uniswapXOrderService = new UniswapXOrderService(
 // const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
+for (const chainId of SUPPORTED_CHAINS) {
+  relayOrderValidatorMap.set(
+    chainId,
+    new OnChainRelayOrderValidator(new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)), chainId)
+  )
+}
 
 for (const chainId of SUPPORTED_CHAINS) {
   onChainValidatorMap.set(

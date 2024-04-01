@@ -164,6 +164,7 @@ export class APIPipeline extends Stack {
       tableCapacityConfig: {
         order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
+        relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
       },
     })
@@ -305,6 +306,7 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   tableCapacityConfig: {
     order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
+    relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   },
 })

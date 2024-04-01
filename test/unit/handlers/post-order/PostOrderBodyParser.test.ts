@@ -105,7 +105,7 @@ describe('PostOrderBodyParser', () => {
       ).toThrow()
     })
 
-    it.skip('parses a DutchV2 order', () => {
+    it('parses a DutchV2 order', () => {
       const dutchV2Order = SDKDutchOrderV2Factory.buildDutchV2Order()
       const actual = parser.fromPostRequest({
         chainId: ChainId.MAINNET,

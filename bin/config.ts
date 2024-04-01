@@ -18,5 +18,6 @@ export const PROD_INDEX_CAPACITY: IndexCapacityConfig = {
 export const PROD_TABLE_CAPACITY: TableCapacityConfig = {
   order: { billingMode: BillingMode.PAY_PER_REQUEST },
   limitOrder: { billingMode: BillingMode.PAY_PER_REQUEST },
+  relayOrder: { billingMode: BillingMode.PAY_PER_REQUEST },
   nonce: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 1000 },
 }

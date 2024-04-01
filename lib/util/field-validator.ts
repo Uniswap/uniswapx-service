@@ -52,7 +52,8 @@ export default class FieldValidator {
     OrderType.Dutch,
     DUTCH_LIMIT,
     OrderType.Dutch_V2,
-    OrderType.Limit
+    OrderType.Limit,
+    OrderType.Relay
   )
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
