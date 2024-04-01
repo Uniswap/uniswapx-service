@@ -389,7 +389,10 @@ describe('Testing post order handler.', () => {
         { signature: '0xbad_signature' },
         '{"detail":"\\"signature\\" with value \\"0xbad_signature\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/","errorCode":"VALIDATION_ERROR"}',
       ],
-      [{ chainId: 0 }, `{"detail":"\\"chainId\\" must be one of [1, 137, 11155111]","errorCode":"VALIDATION_ERROR"}`],
+      [
+        { chainId: 0 },
+        `{"detail":"\\"chainId\\" must be one of [1, 137, 11155111, 5]","errorCode":"VALIDATION_ERROR"}`,
+      ],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
       const invalidEvent = PostOrderRequestFactory.request({
