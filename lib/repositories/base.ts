@@ -4,6 +4,7 @@ import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 export const MODEL_NAME = {
   DUTCH: 'Order',
   LIMIT: 'LimitOrder',
+  Relay: 'RelayOrder',
 }
 
 export type QueryResult = {

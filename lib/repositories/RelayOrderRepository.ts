@@ -12,7 +12,7 @@ import { getTableIndices, TABLE_NAMES } from './util'
 export class RelayOrderRepository extends GenericOrdersRepository<string, string, null, RelayOrderEntity> {
   static create(documentClient: DocumentClient): BaseOrdersRepository<RelayOrderEntity> {
     const log = Logger.createLogger({
-      name: 'LimitOrdersRepository',
+      name: 'RelayOrdersRepository',
       serializers: Logger.stdSerializers,
     })
 
@@ -23,8 +23,8 @@ export class RelayOrderRepository extends GenericOrdersRepository<string, string
       indexes: getTableIndices(TABLE_NAMES.RelayOrders),
     })
 
-    const limitOrderEntity = new Entity({
-      name: MODEL_NAME.LIMIT,
+    const relayOrderEntity = new Entity({
+      name: MODEL_NAME.Relay,
       attributes: {
         orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },
@@ -53,7 +53,7 @@ export class RelayOrderRepository extends GenericOrdersRepository<string, string
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
       },
       table: relayOrdersTable,
-    } as const)
+    })
 
     const nonceTable = new Table({
       name: TABLE_NAMES.Nonces,
@@ -72,7 +72,7 @@ export class RelayOrderRepository extends GenericOrdersRepository<string, string
 
     return new RelayOrderRepository(
       relayOrdersTable,
-      limitOrderEntity,
+      relayOrderEntity,
       nonceEntity,
       log,
       new OffchainOrderIndexMapper<RelayOrderEntity>()
