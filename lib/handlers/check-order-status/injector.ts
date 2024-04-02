@@ -53,12 +53,13 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     const rpcURL = process.env[`RPC_${chainId}`]
     const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
     const quoter = new OrderValidator(provider, chainId)
+    const orderType = event.orderType as OrderType
 
     // TODO: use different reactor address for different order type
-    if (!REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch]) {
-      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType${OrderType.Dutch}`)
+    if (!REACTOR_ADDRESS_MAPPING[chainId][orderType]) {
+      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType${orderType}`)
     }
-    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch] as string)
+    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][orderType] as string)
 
     return {
       log,
@@ -72,7 +73,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       provider: provider,
       orderWatcher: watcher,
       orderQuoter: quoter,
-      orderType: event.orderType as OrderType,
+      orderType: orderType,
       stateMachineArn: event.stateMachineArn as string,
     }
   }
