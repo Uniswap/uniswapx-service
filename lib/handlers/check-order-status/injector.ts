@@ -55,11 +55,11 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     const quoter = new OrderValidator(provider, chainId)
     const orderType = event.orderType as OrderType
 
-    // TODO: use different reactor address for different order type
-    if (!REACTOR_ADDRESS_MAPPING[chainId][orderType]) {
-      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType${orderType}`)
+    const reactorType = orderType === OrderType.Limit ? OrderType.Dutch : orderType
+    if (!REACTOR_ADDRESS_MAPPING[chainId][reactorType]) {
+      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType:${reactorType}`)
     }
-    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][orderType] as string)
+    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][reactorType] as string)
 
     return {
       log,
