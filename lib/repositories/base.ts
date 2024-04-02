@@ -7,8 +7,8 @@ export const MODEL_NAME = {
   Relay: 'RelayOrder',
 }
 
-export type QueryResult = {
-  orders: OrderEntityType[]
+export type QueryResult<T extends OrderEntityType> = {
+  orders: T[]
   cursor?: string
 }
 
@@ -18,8 +18,8 @@ export interface BaseOrdersRepository<T extends OrderEntityType> {
   getByHash: (hash: string) => Promise<T | undefined>
   putOrderAndUpdateNonceTransaction: (order: T) => Promise<void>
   countOrdersByOffererAndStatus: (offerer: string, orderStatus: ORDER_STATUS) => Promise<number>
-  getOrders: (limit: number, queryFilters: GetOrdersQueryParams, cursor?: string) => Promise<QueryResult>
-  getByOfferer: (offerer: string, limit: number) => Promise<QueryResult>
+  getOrders: (limit: number, queryFilters: GetOrdersQueryParams, cursor?: string) => Promise<QueryResult<T>>
+  getByOfferer: (offerer: string, limit: number) => Promise<QueryResult<T>>
   getByOrderStatus: (
     orderStatus: string,
     limit: number,
@@ -27,7 +27,7 @@ export interface BaseOrdersRepository<T extends OrderEntityType> {
     sortKey?: SORT_FIELDS,
     sort?: string,
     desc?: boolean
-  ) => Promise<QueryResult>
+  ) => Promise<QueryResult<T>>
   getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string>
   updateOrderStatus: (
     orderHash: string,

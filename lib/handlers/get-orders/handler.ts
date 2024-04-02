@@ -3,7 +3,9 @@ import Joi from 'joi'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
+import { RelayOrderEntity, UniswapXOrderEntity } from '../../entities'
 import { log as plog } from '../../Logging'
+import { RelayOrder } from '../../models'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { log } from '../../util/log'
 import { metrics } from '../../util/metrics'
@@ -16,20 +18,16 @@ import {
   Response,
 } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
-import {
-  GetOrdersQueryParams,
-  GetOrdersQueryParamsJoi,
-  GetOrdersResponse,
-  GetOrdersResponseJoi,
-  RawGetOrdersQueryParams,
-} from './schema/index'
+import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
+import { GetRelayOrderResponse, mapRelayOrderModelToGetResponse } from './schema/GetRelayOrderResponse'
+import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
   void,
   RawGetOrdersQueryParams,
-  GetOrdersResponse
+  GetOrdersResponse<UniswapXOrderEntity | GetRelayOrderResponse | undefined>
 > {
   constructor(
     handlerName: string,
@@ -41,7 +39,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
-  ): Promise<Response<GetOrdersResponse> | ErrorResponse> {
+  ): Promise<Response<GetOrdersResponse<UniswapXOrderEntity | GetRelayOrderResponse | undefined>> | ErrorResponse> {
     const {
       requestInjected: { limit, queryFilters, cursor, includeV2, orderType },
       containerInjected: { dbInterface },
@@ -50,16 +48,23 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     this.logMetrics(queryFilters)
 
     try {
-      plog.warn('orderType**', { orderType })
       if (orderType === OrderType.Relay) {
-        const getOrdersResult = await this.orderDispatcher.getOrder(orderType, { limit, params: queryFilters, cursor })
+        const getOrdersResult = await this.orderDispatcher.getOrder<RelayOrderEntity>(orderType, {
+          limit,
+          params: queryFilters,
+          cursor,
+        })
+        const resultList: GetRelayOrderResponse[] = []
+        for (let i = 0; i < getOrdersResult.orders.length; i++) {
+          resultList.push(mapRelayOrderModelToGetResponse(RelayOrder.fromEntity(getOrdersResult.orders[i])))
+        }
         return {
           statusCode: 200,
-          body: getOrdersResult,
+          body: { orders: resultList, cursor },
         }
       } else {
         const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
-
+        plog.warn('result', getOrdersResult)
         if (!includeV2) {
           getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
         }

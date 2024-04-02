@@ -111,7 +111,7 @@ export class RelayOrderService {
     limit: number,
     params: GetOrdersQueryParams,
     cursor: string | undefined
-  ): Promise<QueryResult> {
+  ): Promise<QueryResult<RelayOrderEntity>> {
     return await this.repository.getOrders(limit, params, cursor)
   }
 }

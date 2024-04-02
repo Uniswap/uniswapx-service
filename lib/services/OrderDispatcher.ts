@@ -5,6 +5,7 @@ import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
+import { OrderEntityType, QueryResult } from '../repositories/base'
 import { RelayOrderService } from './RelayOrderService'
 import { UniswapXOrderService } from './UniswapXOrderService'
 
@@ -27,13 +28,13 @@ export class OrderDispatcher {
     throw new NoHandlerConfiguredError(order.orderType)
   }
 
-  getOrder(
+  async getOrder<T extends OrderEntityType>(
     orderType: OrderType,
     { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
-  ) {
+  ): Promise<QueryResult<T>> {
     switch (orderType) {
       case OrderType.Relay:
-        return this.relayOrderService.getOrders(limit, params, cursor)
+        return (await this.relayOrderService.getOrders(limit, params, cursor)) as QueryResult<T>
       case OrderType.Dutch:
       case OrderType.Dutch_V2:
       case OrderType.Limit:

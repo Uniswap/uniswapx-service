@@ -3,7 +3,12 @@ import { ORDER_STATUS, RelayOrderEntity } from '../entities'
 import { Order } from './Order'
 
 export class RelayOrder extends Order {
-  constructor(readonly inner: SDKRelayOrder, readonly signature: string, readonly chainId: number) {
+  constructor(
+    readonly inner: SDKRelayOrder,
+    readonly signature: string,
+    readonly chainId: number,
+    readonly orderStatus?: ORDER_STATUS
+  ) {
     super()
   }
 
@@ -38,7 +43,15 @@ export class RelayOrder extends Order {
       reactor: decodedOrder.info.reactor.toLowerCase(),
       deadline: decodedOrder.info.deadline,
     }
-
     return order
+  }
+
+  public static fromEntity(entity: RelayOrderEntity) {
+    return new RelayOrder(
+      SDKRelayOrder.parse(entity.encodedOrder, entity.chainId),
+      entity.signature,
+      entity.chainId,
+      entity.orderStatus
+    )
   }
 }

@@ -38,7 +38,7 @@ export abstract class GenericOrdersRepository<
     sortKey?: SORT_FIELDS,
     sort?: string,
     desc?: boolean
-  ): Promise<QueryResult> {
+  ): Promise<QueryResult<T>> {
     return await this.queryOrderEntity(offerer, TABLE_KEY.OFFERER, limit, cursor, sortKey, sort, desc)
   }
 
@@ -49,7 +49,7 @@ export abstract class GenericOrdersRepository<
     sortKey?: SORT_FIELDS,
     sort?: string,
     desc?: boolean
-  ): Promise<QueryResult> {
+  ): Promise<QueryResult<T>> {
     return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort, desc)
   }
 
@@ -132,7 +132,7 @@ export abstract class GenericOrdersRepository<
     )
   }
 
-  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult> {
+  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult<T>> {
     const requestedParams = this.getRequestedParams(queryFilters)
     // Query Orders table based on the requested params
     const compoundIndex = this.indexMapper.getIndexFromParams(queryFilters)
@@ -181,7 +181,7 @@ export abstract class GenericOrdersRepository<
     sortKey?: SORT_FIELDS | undefined,
     sort?: string | undefined, // ex gt(123)
     desc = true
-  ): Promise<QueryResult> {
+  ): Promise<QueryResult<T>> {
     let comparison: ComparisonFilter | undefined = undefined
     if (sortKey) {
       comparison = parseComparisonFilter(sort)

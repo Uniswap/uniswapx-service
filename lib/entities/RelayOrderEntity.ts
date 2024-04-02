@@ -26,6 +26,8 @@ export type RelayOrderEntity = {
     startTime: number
     endTime: number
   }
+
+  createdAt?: number
   // Filler field is defined when the order has been filled and the status tracking function has recorded the filler address.
   filler?: string
   // QuoteId field is defined when the order has a quote associated with it.

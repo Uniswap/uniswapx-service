@@ -1,5 +1,5 @@
 import Joi from 'joi'
-import { RelayOrderEntity, SORT_FIELDS, UniswapXOrderEntity } from '../../../entities'
+import { SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 
 const sortKeyJoi = FieldValidator.isValidSortKey()
@@ -66,68 +66,6 @@ export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
   offerer?: string
   orderHashes?: string[]
 }
-
-export type GetOrdersResponse = {
-  orders: (UniswapXOrderEntity | RelayOrderEntity | undefined)[]
-  cursor?: string
-}
-
-export const OrderInputJoi = Joi.object({
-  token: FieldValidator.isValidEthAddress().required(),
-  startAmount: FieldValidator.isValidAmount(),
-  endAmount: FieldValidator.isValidAmount(),
-})
-
-export const CosignerDataJoi = Joi.object({
-  decayStartTime: Joi.number(),
-  decayEndTime: Joi.number(),
-  exclusiveFiller: FieldValidator.isValidEthAddress(),
-  inputOverride: FieldValidator.isValidAmount(),
-  outputOverrides: Joi.array().items(FieldValidator.isValidAmount()),
-})
-
-export const OrderOutputJoi = Joi.object({
-  token: FieldValidator.isValidEthAddress().required(),
-  startAmount: FieldValidator.isValidAmount().required(),
-  endAmount: FieldValidator.isValidAmount().required(),
-  recipient: FieldValidator.isValidEthAddress().required(),
-})
-
-export const SettledAmount = Joi.object({
-  tokenOut: FieldValidator.isValidEthAddress(),
-  amountOut: FieldValidator.isValidAmount(),
-  tokenIn: FieldValidator.isValidEthAddress(),
-  amountIn: FieldValidator.isValidAmount(),
-})
-
-const OrderRepsonseEntryJoiMigrations = {
-  chainId: FieldValidator.isValidChainId().valid(12341234),
-}
-
-export const OrderResponseEntryJoi = Joi.object({
-  createdAt: FieldValidator.isValidCreatedAt(),
-  encodedOrder: FieldValidator.isValidEncodedOrder(),
-  signature: FieldValidator.isValidSignature(),
-  orderStatus: FieldValidator.isValidOrderStatus(),
-  orderHash: FieldValidator.isValidOrderHash(),
-  swapper: FieldValidator.isValidEthAddress(),
-  txHash: FieldValidator.isValidTxHash(),
-  type: FieldValidator.isValidOrderType(),
-  input: OrderInputJoi,
-  outputs: Joi.array().items(OrderOutputJoi),
-  settledAmounts: Joi.array().items(SettledAmount),
-  chainId: FieldValidator.isValidChainId(),
-  quoteId: FieldValidator.isValidQuoteId(),
-  cosignerData: CosignerDataJoi,
-  cosignature: Joi.string(),
-}).keys({
-  ...OrderRepsonseEntryJoiMigrations,
-})
-
-export const GetOrdersResponseJoi = Joi.object({
-  orders: Joi.array().items(OrderResponseEntryJoi),
-  cursor: FieldValidator.isValidCursor(),
-})
 
 export enum GET_QUERY_PARAMS {
   LIMIT = 'limit',
