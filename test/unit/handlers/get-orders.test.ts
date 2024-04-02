@@ -3,6 +3,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
 import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
+import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { HeaderExpectation } from '../../HeaderExpectation'
 
 describe('Testing get orders handler.', () => {
@@ -105,7 +106,8 @@ describe('Testing get orders handler.', () => {
       body: null,
     }
 
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
     expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
@@ -119,7 +121,8 @@ describe('Testing get orders handler.', () => {
   })
 
   it('Testing valid request and response for Dutch_V2 without includeV2 flag, removes Dutch_V2 orders', async () => {
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     getOrdersMock.mockReturnValue({
       orders: [MOCK_ORDER, MOCK_V2_ORDER],
@@ -142,7 +145,8 @@ describe('Testing get orders handler.', () => {
       return { ...requestInjectedMock, includeV2: true }
     }
 
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     getOrdersMock.mockReturnValue({
       orders: [MOCK_ORDER, MOCK_V2_ORDER],
@@ -170,7 +174,8 @@ describe('Testing get orders handler.', () => {
       body: null,
     }
 
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     const tempQueryFilters = {
       chainId: 1,
@@ -234,7 +239,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       const invalidEvent = {
         ...event,
@@ -267,7 +273,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
@@ -286,7 +293,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       const error = new Error('Oh no! This is an error.')
       getOrdersMock.mockImplementation(() => {
@@ -319,7 +327,7 @@ describe('Testing get orders handler.', () => {
         }
 
         const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-          new GetOrdersHandler('get-orders', injectedMock)
+          new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
         getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...deprecatedField }] })
         const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
         expect(getOrdersMock).toBeCalledWith(
@@ -339,7 +347,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: '4385e89a-0553-46fa-9b7e-464c1fa7822f' }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
@@ -359,7 +368,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: undefined }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)

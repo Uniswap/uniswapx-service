@@ -111,7 +111,7 @@ describe('/dutch-auction/order', () => {
     //       await receipt.wait()
     //     }
 
-    //     const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']
+    //     const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.SEPOLIA]['Dutch']
     //     // check approvals on reactor
     //     const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
     //     const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
@@ -161,7 +161,7 @@ describe('/dutch-auction/order', () => {
     /// We have to wait for the sfn to fire, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
     // The next retry is usually in 12 seconds but can take longer to complete
-    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI) * 2) * 1000
+    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.SEPOLIA) * 2) * 1000
     await new Promise((resolve) => setTimeout(resolve, timeToWait))
 
     const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
@@ -182,7 +182,7 @@ describe('/dutch-auction/order', () => {
   ): Promise<{ order: DutchOrder; payload: { encodedOrder: string; signature: string; chainId: ChainId } }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
     const decayStartTime = Math.round(new Date().getTime() / 1000)
-    const order = new DutchOrderBuilder(ChainId.GÖRLI)
+    const order = new DutchOrderBuilder(ChainId.SEPOLIA)
       .deadline(deadline)
       .decayEndTime(deadline)
       .decayStartTime(decayStartTime)
@@ -211,7 +211,7 @@ describe('/dutch-auction/order', () => {
 
     return {
       order,
-      payload: { encodedOrder: encodedOrder, signature: signature, chainId: ChainId.GÖRLI },
+      payload: { encodedOrder: encodedOrder, signature: signature, chainId: ChainId.SEPOLIA },
     }
   }
 
@@ -232,9 +232,11 @@ describe('/dutch-auction/order', () => {
         url: `${URL}dutch-auction/order`,
         data: payload,
       })
+      console.log(postResponse)
       expect(postResponse.status).toEqual(201)
       return { order, signature: payload.signature }
     } catch (err: any) {
+      console.log(err)
       console.log(err.message)
       throw err
     }
@@ -263,7 +265,7 @@ describe('/dutch-auction/order', () => {
           signature,
         },
       ],
-      reactor: REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']!,
+      reactor: REACTOR_ADDRESS_MAPPING[ChainId.SEPOLIA]['Dutch']!,
       // direct fill is 0x01
       fillContract: '0x0000000000000000000000000000000000000001',
       fillData: '0x',

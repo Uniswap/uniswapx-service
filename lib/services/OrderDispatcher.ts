@@ -1,6 +1,7 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'
+import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
@@ -24,6 +25,21 @@ export class OrderDispatcher {
     this.logger.error(`No createOrder handler configured for orderType: ${order.orderType}!`)
     // When a RelayOrderService is configured, add the additional check here.
     throw new NoHandlerConfiguredError(order.orderType)
+  }
+
+  getOrder(
+    orderType: OrderType,
+    { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
+  ) {
+    switch (orderType) {
+      case OrderType.Relay:
+        return this.relayOrderService.getOrders(limit, params, cursor)
+      case OrderType.Dutch:
+      case OrderType.Dutch_V2:
+      case OrderType.Limit:
+      case undefined:
+        throw new Error('Not Implemented')
+    }
   }
 
   private isUniswapXOrder(order: Order): order is UniswapXOrder {

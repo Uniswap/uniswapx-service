@@ -15,7 +15,7 @@ import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
-import { OrderValidator } from '../../util/order-validator'
+import { OffChainUniswapXOrderValidator } from '../../util/order-validator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
@@ -33,7 +33,7 @@ for (const chainId of SUPPORTED_CHAINS) {
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 
 const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
-const orderValidator = new OrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
+const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 
 const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,

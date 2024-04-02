@@ -8,7 +8,7 @@ import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
-import { OrderValidator as OffChainOrderValidator } from '../../../lib/util/order-validator'
+import { OffChainUniswapXOrderValidator } from '../../../lib/util/order-validator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -19,7 +19,7 @@ jest.mock('../../../lib/preconditions/preconditions', () => {
 })
 describe('UniswapXOrderService', () => {
   test('createOrder with LimitOrder, propagates correct type', async () => {
-    const mockOrderValidator = mock<OffChainOrderValidator>()
+    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
     mockOrderValidator.validate.mockReturnValue({ valid: true })
 
     const onChainValidator = mock<OrderValidator>()

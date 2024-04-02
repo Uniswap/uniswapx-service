@@ -5,11 +5,12 @@ import { ORDER_STATUS, RelayOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
+import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { RelayOrder } from '../models/RelayOrder'
 import { checkDefined } from '../preconditions/preconditions'
-import { BaseOrdersRepository } from '../repositories/base'
+import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 import { OffChainRelayOrderValidator } from '../util/OffChainRelayOrderValidator'
 
 export class RelayOrderService {
@@ -104,5 +105,13 @@ export class RelayOrderService {
       },
       stateMachineArn
     )
+  }
+
+  public async getOrders(
+    limit: number,
+    params: GetOrdersQueryParams,
+    cursor: string | undefined
+  ): Promise<QueryResult> {
+    return await this.repository.getOrders(limit, params, cursor)
   }
 }

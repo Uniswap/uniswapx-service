@@ -14,6 +14,7 @@ export interface RequestInjected extends ApiRInj {
   queryFilters: GetOrdersQueryParams
   cursor?: string
   includeV2?: boolean
+  orderType?: string
 }
 
 export interface ContainerInjected {

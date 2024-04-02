@@ -1,12 +1,12 @@
 import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
-import { OrderValidator } from '../../../lib/util/order-validator'
+import { OffChainUniswapXOrderValidator } from '../../../lib/util/order-validator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 
 const CURRENT_TIME = 10
-const validationProvider = new OrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
+const validationProvider = new OffChainUniswapXOrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
 const INPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000022'
 const OUTPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000033'
 const EXCLUSIVE_FILLER = '0x0000000000000000000000000000000000000044'
@@ -61,20 +61,24 @@ describe('Testing off chain validation', () => {
   describe('Testing orderType', () => {
     it('Should set orderType with CosignedV2DutchOrder', () => {
       const order = SDKDutchOrderV2Factory.buildDutchV2Order()
-      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
+      const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
+        order
+      )
       expect(validationResp).toEqual({ valid: true })
     })
 
     it('Should set orderType with DutchOrder', () => {
       const order = SDKDutchOrderFactory.buildDutchOrder()
-      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
+      const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
+        order
+      )
       expect(validationResp).toEqual({ valid: true })
     })
 
     it('Should throw with invalid orderType', () => {
       const order = SDKDutchOrderV2Factory.buildDutchV2Order()
       const noInstanceOrder = { ...order }
-      const validationResp = new OrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
+      const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
         noInstanceOrder as any
       )
       expect(validationResp).toEqual({ valid: false, errorString: 'Invalid orderType' })
@@ -82,7 +86,7 @@ describe('Testing off chain validation', () => {
 
     it('Should throw invalid deadline with v2 order', () => {
       const order = SDKDutchOrderV2Factory.buildDutchV2Order()
-      const validationResp = new OrderValidator(() => 10, ONE_DAY_IN_SECONDS).validate(order)
+      const validationResp = new OffChainUniswapXOrderValidator(() => 10, ONE_DAY_IN_SECONDS).validate(order)
       expect(validationResp).toEqual({
         valid: false,
         errorString: 'Deadline field invalid: Order expiry cannot be larger than 1440 minutes',
@@ -119,7 +123,7 @@ describe('Testing off chain validation', () => {
     })
     it('Testing parsed decayStartTime > deadline but ignored', async () => {
       const order = newOrder({ deadline: 20, decayStartTime: 21 })
-      const validationProvider = new OrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS, {
+      const validationProvider = new OffChainUniswapXOrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS, {
         SkipDecayStartTimeValidation: true,
       })
       const validationResp = validationProvider.validate(order)

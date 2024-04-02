@@ -19,12 +19,12 @@ import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { formatOrderEntity } from '../util/order'
-import { OrderValidator as OffChainOrderValidator } from '../util/order-validator'
+import { OffChainUniswapXOrderValidator } from '../util/order-validator'
 import { AnalyticsServiceInterface } from './analytics-service'
 
 export class UniswapXOrderService {
   constructor(
-    private readonly orderValidator: OffChainOrderValidator,
+    private readonly orderValidator: OffChainUniswapXOrderValidator,
     private readonly onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>,
     private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
     private logger: Logger,
