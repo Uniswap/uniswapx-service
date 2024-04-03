@@ -235,11 +235,9 @@ describe('/dutch-auction/order', () => {
         url: `${URL}dutch-auction/order`,
         data: payload,
       })
-      console.log(postResponse)
       expect(postResponse.status).toEqual(201)
       return { order, signature: payload.signature }
     } catch (err: any) {
-      console.log(err)
       console.log(err.message)
       throw err
     }
