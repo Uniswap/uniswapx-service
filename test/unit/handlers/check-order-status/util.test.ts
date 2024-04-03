@@ -40,6 +40,13 @@ describe('getWatcher', () => {
     expect(watcher).not.toBe(watcher2)
   })
 
+  test('does not mix up cached chainIds', () => {
+    const watcher = getWatcher(mock<StaticJsonRpcProvider>(), 1, OrderType.Dutch)
+    const watcher2 = getWatcher(mock<StaticJsonRpcProvider>(), 137, OrderType.Dutch)
+
+    expect(watcher).not.toBe(watcher2)
+  })
+
   test('throws an error with no reactor mapping', () => {
     expect(() => {
       getWatcher(mock<StaticJsonRpcProvider>(), 1, 'someOtherType' as OrderType)
