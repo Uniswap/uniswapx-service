@@ -4,7 +4,6 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { RelayOrderEntity, UniswapXOrderEntity } from '../../entities'
-import { log as plog } from '../../Logging'
 import { RelayOrder } from '../../models'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { log } from '../../util/log'
@@ -19,7 +18,7 @@ import {
 } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
 import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
-import { GetRelayOrderResponse, mapRelayOrderModelToGetResponse } from './schema/GetRelayOrderResponse'
+import { GetRelayOrderResponse } from './schema/GetRelayOrderResponse'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -56,23 +55,22 @@ export class GetOrdersHandler extends APIGLambdaHandler<
         })
         const resultList: GetRelayOrderResponse[] = []
         for (let i = 0; i < getOrdersResult.orders.length; i++) {
-          resultList.push(mapRelayOrderModelToGetResponse(RelayOrder.fromEntity(getOrdersResult.orders[i])))
+          const relayOrder = RelayOrder.fromEntity(getOrdersResult.orders[i])
+          resultList.push(relayOrder.toGetResponse())
         }
         return {
           statusCode: 200,
           body: { orders: resultList, cursor },
         }
-      } else {
-        const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
-        plog.warn('result', getOrdersResult)
-        if (!includeV2) {
-          getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
-        }
+      }
+      const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
+      if (!includeV2) {
+        getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
+      }
 
-        return {
-          statusCode: 200,
-          body: getOrdersResult,
-        }
+      return {
+        statusCode: 200,
+        body: getOrdersResult,
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error
