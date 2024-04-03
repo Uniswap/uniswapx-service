@@ -39,7 +39,7 @@ export class UniswapXOrderService {
       orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
     } else if (order instanceof DutchV2Order) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
-      orderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
+      orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else {
       throw new Error('unsupported OrderType')
     }

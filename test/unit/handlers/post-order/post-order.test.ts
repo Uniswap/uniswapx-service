@@ -189,7 +189,7 @@ describe('Testing post order handler.', () => {
       validatorMock.mockReturnValue({ valid: true })
 
       const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), SIGNATURE, 1)
-      const expectedOrderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
+      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({

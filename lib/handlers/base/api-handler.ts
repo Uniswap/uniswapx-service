@@ -350,7 +350,6 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
     if (!responseSchema) {
       return { state: 'valid', response: body as Res }
     }
-
     const res = responseSchema.validate(body, {
       allowUnknown: true,
       stripUnknown: true, // Ensure no unexpected fields returned to users.
