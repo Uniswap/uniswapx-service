@@ -17,7 +17,7 @@ import {
   Response,
 } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
-import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
+import { GetOrdersResponse, GetOrdersResponseJoi, GetRelayOrdersResponseJoi } from './schema/GetOrdersResponse'
 import { GetRelayOrderResponse } from './schema/GetRelayOrderResponse'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
 
@@ -95,8 +95,8 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     return GetOrdersQueryParamsJoi
   }
 
-  protected responseBodySchema(): Joi.ObjectSchema | null {
-    return GetOrdersResponseJoi
+  protected responseBodySchema(): Joi.Schema | null {
+    return Joi.alternatives(GetOrdersResponseJoi, GetRelayOrdersResponseJoi)
   }
 
   protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {

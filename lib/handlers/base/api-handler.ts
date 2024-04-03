@@ -11,7 +11,7 @@ import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
 import { ErrorCode } from './ErrorCode'
 
-const INTERNAL_ERROR = (id?: string) => {
+export const INTERNAL_ERROR = (id?: string) => {
   return {
     statusCode: 500,
     body: JSON.stringify({
@@ -154,8 +154,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
         }
 
         const { requestId: id } = requestInjected
-
-        ;({ log } = requestInjected)
+        log = requestInjected.log
 
         let headers: { [key: string]: string }
         let statusCode: number
@@ -231,7 +230,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
 
   protected abstract requestBodySchema(): Joi.ObjectSchema | null
   protected abstract requestQueryParamsSchema(): Joi.ObjectSchema | null
-  protected abstract responseBodySchema(): Joi.ObjectSchema | null
+  protected abstract responseBodySchema(): Joi.Schema | null
 
   /*
    * Used for emitting metrics *after* a response has been fully generated.

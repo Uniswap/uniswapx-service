@@ -28,9 +28,6 @@ describe('RelayOrder Model', () => {
     const entity: RelayOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
     const fromEntity = RelayOrder.fromEntity(entity)
 
-    console.log(entity)
-    console.log(fromEntity)
-
     expect(order).toEqual(fromEntity)
   })
 
