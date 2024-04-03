@@ -7,8 +7,9 @@ import { UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
 
 const { ExclusiveDutchOrderReactor__factory } = factories
 
+import { UniswapXOrderEntity } from '../../lib/entities'
 import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/util'
-import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema'
+import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema/GetOrdersResponse'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from './abis/erc20.json'
 const { abi } = ERC20_ABI
@@ -111,7 +112,7 @@ describe('/dutch-auction/order', () => {
     //       await receipt.wait()
     //     }
 
-    //     const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.SEPOLIA]['Dutch']
+    //     const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']
     //     // check approvals on reactor
     //     const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
     //     const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
@@ -142,7 +143,7 @@ describe('/dutch-auction/order', () => {
     // check that orders are open, retrying if status is unverified, with backoff
     for (let i = 0; i < 5; i++) {
       const promises = orderHashes.map((orderHash) =>
-        axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
+        axios.get<GetOrdersResponse<UniswapXOrderEntity>>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
       )
       const responses = await Promise.all(promises)
       expect(responses.every((resp) => resp.status === 200)).toBe(true)
@@ -161,10 +162,12 @@ describe('/dutch-auction/order', () => {
     /// We have to wait for the sfn to fire, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
     // The next retry is usually in 12 seconds but can take longer to complete
-    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.SEPOLIA) * 2) * 1000
+    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI) * 2) * 1000
     await new Promise((resolve) => setTimeout(resolve, timeToWait))
 
-    const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?orderHash=${orderHash}`)
+    const resp = await axios.get<GetOrdersResponse<UniswapXOrderEntity>>(
+      `${URL}dutch-auction/orders?orderHash=${orderHash}`
+    )
     expect(resp.status).toEqual(200)
     expect(resp.data.orders.length).toEqual(1)
     const order = resp.data.orders[0]
@@ -182,7 +185,7 @@ describe('/dutch-auction/order', () => {
   ): Promise<{ order: DutchOrder; payload: { encodedOrder: string; signature: string; chainId: ChainId } }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
     const decayStartTime = Math.round(new Date().getTime() / 1000)
-    const order = new DutchOrderBuilder(ChainId.SEPOLIA)
+    const order = new DutchOrderBuilder(ChainId.GÖRLI)
       .deadline(deadline)
       .decayEndTime(deadline)
       .decayStartTime(decayStartTime)
@@ -211,7 +214,7 @@ describe('/dutch-auction/order', () => {
 
     return {
       order,
-      payload: { encodedOrder: encodedOrder, signature: signature, chainId: ChainId.SEPOLIA },
+      payload: { encodedOrder: encodedOrder, signature: signature, chainId: ChainId.GÖRLI },
     }
   }
 
@@ -265,7 +268,7 @@ describe('/dutch-auction/order', () => {
           signature,
         },
       ],
-      reactor: REACTOR_ADDRESS_MAPPING[ChainId.SEPOLIA]['Dutch']!,
+      reactor: REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']!,
       // direct fill is 0x01
       fillContract: '0x0000000000000000000000000000000000000001',
       fillData: '0x',
@@ -334,16 +337,18 @@ describe('/dutch-auction/order', () => {
         }, '')
 
         if (status == 200) {
-          const resp = await axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?${queryParams}`)
+          const resp = await axios.get<GetOrdersResponse<UniswapXOrderEntity>>(
+            `${URL}dutch-auction/orders?${queryParams}`
+          )
           expect(resp.status).toEqual(200)
         } else {
-          await expect(axios.get<GetOrdersResponse>(`${URL}dutch-auction/orders?${queryParams}`)).rejects.toMatchObject(
-            {
-              response: {
-                status,
-              },
-            }
-          )
+          await expect(
+            axios.get<GetOrdersResponse<UniswapXOrderEntity>>(`${URL}dutch-auction/orders?${queryParams}`)
+          ).rejects.toMatchObject({
+            response: {
+              status,
+            },
+          })
         }
       }
     )
