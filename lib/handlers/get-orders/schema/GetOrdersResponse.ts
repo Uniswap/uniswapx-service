@@ -2,6 +2,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
 import { UniswapXOrderEntity } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
+import { DUTCH_LIMIT } from '../../../util/order'
 import { GetRelayOrderResponse } from './GetRelayOrderResponse'
 
 export type GetOrdersResponse<T extends UniswapXOrderEntity | GetRelayOrderResponse | undefined> = {
@@ -48,7 +49,8 @@ export const OrderResponseEntryJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash(),
   swapper: FieldValidator.isValidEthAddress(),
   txHash: FieldValidator.isValidTxHash(),
-  type: FieldValidator.isValidOrderType(),
+  //exclude relay
+  type: Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT, OrderType.Dutch_V2, OrderType.Limit),
   input: OrderInputJoi,
   outputs: Joi.array().items(OrderOutputJoi),
   settledAmounts: Joi.array().items(SettledAmount),
@@ -73,6 +75,7 @@ export const RelayOrderResponseEntryJoi = Joi.object({
   orderStatus: FieldValidator.isValidOrderStatus().required(),
   orderHash: FieldValidator.isValidOrderHash().required(),
   swapper: FieldValidator.isValidEthAddress().required(),
+  //apply to only relay
   type: Joi.string().valid(OrderType.Relay).required(),
 
   createdAt: FieldValidator.isValidCreatedAt(),
