@@ -1,7 +1,7 @@
 import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
-import { OffChainUniswapXOrderValidator } from '../../../lib/util/order-validator'
+import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 

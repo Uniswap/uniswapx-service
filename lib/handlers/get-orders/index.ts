@@ -13,7 +13,7 @@ import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
-import { OffChainUniswapXOrderValidator } from '../../util/order-validator'
+import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
 

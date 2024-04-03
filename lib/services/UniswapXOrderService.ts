@@ -18,8 +18,8 @@ import { DutchV2Order } from '../models/DutchV2Order'
 import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
+import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { formatOrderEntity } from '../util/order'
-import { OffChainUniswapXOrderValidator } from '../util/order-validator'
 import { AnalyticsServiceInterface } from './analytics-service'
 
 export class UniswapXOrderService {
