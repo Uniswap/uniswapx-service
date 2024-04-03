@@ -1,4 +1,4 @@
-import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import { EventWatcher, OrderType, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
@@ -9,6 +9,7 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
 import { SfnInjector, SfnStateInputOutput } from '../base/index'
+import { getWatcher } from './util'
 export interface RequestInjected {
   log: Logger
   chainId: number
@@ -55,11 +56,12 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     const quoter = new OrderValidator(provider, chainId)
     const orderType = event.orderType as OrderType
 
-    const reactorType = orderType === OrderType.Limit ? OrderType.Dutch : orderType
-    if (!REACTOR_ADDRESS_MAPPING[chainId][reactorType]) {
-      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType:${reactorType}`)
-    }
-    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][reactorType] as string)
+    // const reactorType = orderType === OrderType.Limit ? OrderType.Dutch : orderType
+    // if (!REACTOR_ADDRESS_MAPPING[chainId][reactorType]) {
+    //   throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType:${reactorType}`)
+    // }
+    const watcher = getWatcher(provider, chainId, orderType)
+    // const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][reactorType] as string)
 
     return {
       log,
