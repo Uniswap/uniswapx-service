@@ -27,7 +27,7 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   orderStatus: FieldValidator.isValidOrderStatus(),
   desc: Joi.boolean(),
   includeV2: Joi.boolean(),
-  orderType: Joi.string(),
+  orderType: FieldValidator.isValidOrderType(),
 })
   .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler')
   .when('.chainId', {

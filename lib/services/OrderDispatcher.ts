@@ -1,11 +1,14 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { UniswapXOrderEntity } from '../entities'
 import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
+import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
+import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
+import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
-import { OrderEntityType, QueryResult } from '../repositories/base'
 import { RelayOrderService } from './RelayOrderService'
 import { UniswapXOrderService } from './UniswapXOrderService'
 
@@ -28,18 +31,24 @@ export class OrderDispatcher {
     throw new NoHandlerConfiguredError(order.orderType)
   }
 
-  async getOrder<T extends OrderEntityType>(
+  async getOrder(
     orderType: OrderType,
     { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
-  ): Promise<QueryResult<T>> {
+  ): Promise<
+    GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse> | GetOrdersResponse<GetRelayOrderResponse>
+  > {
     switch (orderType) {
       case OrderType.Relay:
-        return (await this.relayOrderService.getOrders(limit, params, cursor)) as QueryResult<T>
-      case OrderType.Dutch:
+        return await this.relayOrderService.getOrders(limit, params, cursor)
       case OrderType.Dutch_V2:
+        return await this.uniswapXService.getDutchV2AndDutchOrders(limit, params, cursor)
+      case OrderType.Dutch:
+        return await this.uniswapXService.getDutchOrders(limit, params, cursor)
       case OrderType.Limit:
+        return await this.uniswapXService.getLimitOrders(limit, params, cursor)
       case undefined:
-        throw new Error('Not Implemented')
+      default:
+        throw new Error('OrderDispatcher Not Implemented')
     }
   }
 

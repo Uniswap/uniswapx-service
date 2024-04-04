@@ -12,12 +12,14 @@ import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
+import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
 
 const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
+const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 
@@ -25,6 +27,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,
   onChainValidatorMap,
   repo,
+  limitRepo,
   log,
   getMaxOpenOrders,
   AnalyticsService.create()

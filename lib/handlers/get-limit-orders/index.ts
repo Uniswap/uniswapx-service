@@ -1,6 +1,5 @@
 import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
-import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { RelayOrderService } from '../../services/RelayOrderService'
@@ -8,6 +7,7 @@ import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
+import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
@@ -16,7 +16,7 @@ import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
 import { GetLimitOrdersInjector } from './injector'
 
-const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
+const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 
@@ -24,6 +24,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,
   onChainValidatorMap,
   repo,
+  repo, //same as normal repo for limit orders
   log,
   getMaxOpenOrders,
   AnalyticsService.create()

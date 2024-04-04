@@ -41,6 +41,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,
   onChainValidatorMap,
   repo,
+  repo, // same repo for limit orders as
   log,
   getMaxLimitOpenOrders,
   AnalyticsService.create()

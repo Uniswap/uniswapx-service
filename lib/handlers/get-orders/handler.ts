@@ -3,8 +3,7 @@ import Joi from 'joi'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
-import { RelayOrderEntity, UniswapXOrderEntity } from '../../entities'
-import { DutchV2Order, RelayOrder } from '../../models'
+import { UniswapXOrderEntity } from '../../entities'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { log } from '../../util/log'
 import { metrics } from '../../util/metrics'
@@ -21,7 +20,6 @@ import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
 import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
-
 export class GetOrdersHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
@@ -51,42 +49,28 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     this.logMetrics(queryFilters)
 
     try {
-      if (orderType === OrderType.Relay) {
-        const getOrdersResult = await this.orderDispatcher.getOrder<RelayOrderEntity>(orderType, {
+      if (orderType) {
+        const getOrdersResult = await this.orderDispatcher.getOrder(orderType, {
           limit,
           params: queryFilters,
           cursor,
         })
-        const resultList: GetRelayOrderResponse[] = []
-        for (let i = 0; i < getOrdersResult.orders.length; i++) {
-          const relayOrder = RelayOrder.fromEntity(getOrdersResult.orders[i])
-          resultList.push(relayOrder.toGetResponse())
-        }
+
         return {
           statusCode: 200,
-          body: { orders: resultList, cursor },
+          body: getOrdersResult,
         }
       }
 
+      //without orderType specified, keep legacy implementation
       const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
-      const result: (UniswapXOrderEntity | GetDutchV2OrderResponse)[] = []
       if (!includeV2) {
         getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
       }
 
-      for (let i = 0; i < getOrdersResult.orders.length; i++) {
-        const order = getOrdersResult.orders[i]
-        if (order.type === OrderType.Dutch_V2) {
-          const dutchV2Order = DutchV2Order.fromEntity(order)
-          result.push(dutchV2Order.toGetResponse())
-        } else {
-          result.push(order)
-        }
-      }
-
       return {
         statusCode: 200,
-        body: { orders: result, cursor: getOrdersResult.cursor },
+        body: getOrdersResult,
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error
