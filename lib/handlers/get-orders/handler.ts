@@ -4,7 +4,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { RelayOrderEntity, UniswapXOrderEntity } from '../../entities'
-import { RelayOrder } from '../../models'
+import { DutchV2Order, RelayOrder } from '../../models'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { log } from '../../util/log'
 import { metrics } from '../../util/metrics'
@@ -17,8 +17,9 @@ import {
   Response,
 } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
-import { GetOrdersResponse, GetOrdersResponseJoi, GetRelayOrdersResponseJoi } from './schema/GetOrdersResponse'
-import { GetRelayOrderResponse } from './schema/GetRelayOrderResponse'
+import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
+import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
+import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -26,7 +27,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   RequestInjected,
   void,
   RawGetOrdersQueryParams,
-  GetOrdersResponse<UniswapXOrderEntity | GetRelayOrderResponse | undefined>
+  GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | undefined>
 > {
   constructor(
     handlerName: string,
@@ -38,7 +39,10 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
-  ): Promise<Response<GetOrdersResponse<UniswapXOrderEntity | GetRelayOrderResponse | undefined>> | ErrorResponse> {
+  ): Promise<
+    | Response<GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | undefined>>
+    | ErrorResponse
+  > {
     const {
       requestInjected: { limit, queryFilters, cursor, includeV2, orderType },
       containerInjected: { dbInterface },
@@ -63,14 +67,26 @@ export class GetOrdersHandler extends APIGLambdaHandler<
           body: { orders: resultList, cursor },
         }
       }
+
       const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
+      const result: (UniswapXOrderEntity | GetDutchV2OrderResponse)[] = []
       if (!includeV2) {
         getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
       }
 
+      for (let i = 0; i < getOrdersResult.orders.length; i++) {
+        const order = getOrdersResult.orders[i]
+        if (order.type === OrderType.Dutch_V2) {
+          const dutchV2Order = DutchV2Order.fromEntity(order)
+          result.push(dutchV2Order.toGetResponse())
+        } else {
+          result.push(order)
+        }
+      }
+
       return {
         statusCode: 200,
-        body: getOrdersResult,
+        body: { orders: result, cursor: getOrdersResult.cursor },
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error
