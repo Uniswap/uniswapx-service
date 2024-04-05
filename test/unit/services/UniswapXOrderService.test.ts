@@ -10,6 +10,7 @@ import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
+import { DUTCH_LIMIT } from '../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
@@ -95,6 +96,39 @@ describe('UniswapXOrderService', () => {
     const response = await service.getDutchOrders(limit, params, undefined)
 
     expect(response.orders).toHaveLength(3)
+    expect(response).toEqual(mockResponse)
+    expect(repository.getOrders).toHaveBeenCalledTimes(1)
+  })
+
+  test('getDutchOrders works with DUTCH_LIMIT orderType returned from db', async () => {
+    const mockOrder = [1, 2, 3].map(() =>
+      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+    )
+    mockOrder.forEach((o) => ((o as any).type = DUTCH_LIMIT))
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    const mockResponse = { orders: mockOrder, cursor: undefined }
+    repository.getOrders.mockResolvedValue({ ...mockResponse })
+
+    const service = new UniswapXOrderService(
+      mock<OffChainUniswapXOrderValidator>(),
+      mock<OnChainValidatorMap<OrderValidator>>(),
+      repository,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<AnalyticsService>()
+    )
+
+    const limit = 50
+    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
+    const response = await service.getDutchOrders(limit, params, undefined)
+
+    expect(response.orders).toHaveLength(3)
+    expect(response.orders[0].type).toEqual(DUTCH_LIMIT)
+    expect(response.orders[1].type).toEqual(DUTCH_LIMIT)
+    expect(response.orders[2].type).toEqual(DUTCH_LIMIT)
     expect(response).toEqual(mockResponse)
     expect(repository.getOrders).toHaveBeenCalledTimes(1)
   })
