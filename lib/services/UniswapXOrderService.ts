@@ -22,7 +22,7 @@ import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
-import { formatOrderEntity } from '../util/order'
+import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
 
 export class UniswapXOrderService {
@@ -169,7 +169,9 @@ export class UniswapXOrderService {
     cursor: string | undefined
   ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
     const queryResults = await this.repository.getOrders(limit, params, cursor)
-    queryResults.orders = queryResults.orders.filter((order) => order.type === OrderType.Dutch)
+    queryResults.orders = queryResults.orders.filter(
+      (order) => order.type === OrderType.Dutch || (order.type as string) === DUTCH_LIMIT
+    )
     return queryResults
   }
 
