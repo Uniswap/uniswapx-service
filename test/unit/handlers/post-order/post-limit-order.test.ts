@@ -1,7 +1,7 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType, OrderValidation, OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
-import { ORDER_STATUS } from '../../../../lib/entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
@@ -10,6 +10,7 @@ import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
+import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
@@ -90,6 +91,7 @@ describe('Testing post limit order handler.', () => {
           putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
+        mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
         mockLog,
         getMaxLimitOpenOrders,
         {

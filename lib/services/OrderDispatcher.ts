@@ -1,6 +1,11 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { UniswapXOrderEntity } from '../entities'
 import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'
+import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
+import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
+import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
+import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
@@ -24,6 +29,27 @@ export class OrderDispatcher {
     this.logger.error(`No createOrder handler configured for orderType: ${order.orderType}!`)
     // When a RelayOrderService is configured, add the additional check here.
     throw new NoHandlerConfiguredError(order.orderType)
+  }
+
+  async getOrder(
+    orderType: OrderType,
+    { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
+  ): Promise<
+    GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse> | GetOrdersResponse<GetRelayOrderResponse>
+  > {
+    switch (orderType) {
+      case OrderType.Relay:
+        return await this.relayOrderService.getOrders(limit, params, cursor)
+      case OrderType.Dutch_V2:
+        return await this.uniswapXService.getDutchV2AndDutchOrders(limit, params, cursor)
+      case OrderType.Dutch:
+        return await this.uniswapXService.getDutchOrders(limit, params, cursor)
+      case OrderType.Limit:
+        return await this.uniswapXService.getLimitOrders(limit, params, cursor)
+      case undefined:
+      default:
+        throw new Error('OrderDispatcher Not Implemented')
+    }
   }
 
   private isUniswapXOrder(order: Order): order is UniswapXOrder {

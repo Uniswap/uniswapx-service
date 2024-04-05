@@ -1,3 +1,4 @@
+import { OrderType } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { Context } from 'aws-lambda'
 import bunyan, { default as Logger } from 'bunyan'
@@ -57,7 +58,7 @@ export function getSharedRequestInjected({
 
 export const parseGetQueryParams = (
   requestQueryParams: RawGetOrdersQueryParams
-): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; includeV2?: boolean } => {
+): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; includeV2?: boolean; orderType?: string } => {
   // default to no limit
   const limit = requestQueryParams?.limit ?? 0
   const orderStatus = requestQueryParams?.orderStatus
@@ -73,9 +74,15 @@ export const parseGetQueryParams = (
   const desc = requestQueryParams?.desc
   const orderHashes = requestQueryParams?.orderHashes?.split(',').map((orderHash: string) => orderHash.toLowerCase())
   const includeV2 = requestQueryParams?.includeV2 || false
+  const orderType =
+    requestQueryParams?.orderType && requestQueryParams?.orderType in OrderType
+      ? requestQueryParams?.orderType
+      : undefined
+
   return {
     limit: limit,
     includeV2,
+    orderType,
     queryFilters: {
       ...(orderStatus && { orderStatus: orderStatus }),
       ...(orderHash && { orderHash: orderHash }),

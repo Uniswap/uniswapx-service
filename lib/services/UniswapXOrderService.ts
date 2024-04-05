@@ -11,6 +11,9 @@ import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
+import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
+import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
+import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { DutchV1Order } from '../models/DutchV1Order'
@@ -18,15 +21,16 @@ import { DutchV2Order } from '../models/DutchV2Order'
 import { LimitOrder } from '../models/LimitOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
+import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { formatOrderEntity } from '../util/order'
-import { OrderValidator as OffChainOrderValidator } from '../util/order-validator'
 import { AnalyticsServiceInterface } from './analytics-service'
 
 export class UniswapXOrderService {
   constructor(
-    private readonly orderValidator: OffChainOrderValidator,
+    private readonly orderValidator: OffChainUniswapXOrderValidator,
     private readonly onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>,
     private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
+    private readonly limitRepository: BaseOrdersRepository<UniswapXOrderEntity>,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
     private analyticsService: AnalyticsServiceInterface
@@ -39,7 +43,7 @@ export class UniswapXOrderService {
       orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
     } else if (order instanceof DutchV2Order) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
-      orderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
+      orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else {
       throw new Error('unsupported OrderType')
     }
@@ -138,5 +142,43 @@ export class UniswapXOrderService {
       },
       stateMachineArn
     )
+  }
+
+  public async getDutchV2AndDutchOrders(
+    limit: number,
+    params: GetOrdersQueryParams,
+    cursor: string | undefined
+  ): Promise<GetOrdersResponse<GetDutchV2OrderResponse | UniswapXOrderEntity>> {
+    const queryResults = await this.repository.getOrders(limit, params, cursor)
+    const resultList: (GetDutchV2OrderResponse | UniswapXOrderEntity)[] = []
+    for (let i = 0; i < queryResults.orders.length; i++) {
+      const order = queryResults.orders[i]
+      if (order.type === OrderType.Dutch_V2) {
+        const dutchV2Order = DutchV2Order.fromEntity(order)
+        resultList.push(dutchV2Order.toGetResponse())
+      } else {
+        resultList.push(order)
+      }
+    }
+    return { orders: resultList, cursor: queryResults.cursor }
+  }
+
+  public async getDutchOrders(
+    limit: number,
+    params: GetOrdersQueryParams,
+    cursor: string | undefined
+  ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
+    const queryResults = await this.repository.getOrders(limit, params, cursor)
+    queryResults.orders = queryResults.orders.filter((order) => order.type === OrderType.Dutch)
+    return queryResults
+  }
+
+  public async getLimitOrders(
+    limit: number,
+    params: GetOrdersQueryParams,
+    cursor: string | undefined
+  ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
+    const queryResults = await this.limitRepository.getOrders(limit, params, cursor)
+    return queryResults
   }
 }

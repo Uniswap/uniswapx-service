@@ -3,38 +3,67 @@ import Joi from 'joi'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
+import { UniswapXOrderEntity } from '../../entities'
+import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { log } from '../../util/log'
 import { metrics } from '../../util/metrics'
-import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base/index'
-import { ContainerInjected, RequestInjected } from './injector'
 import {
-  GetOrdersQueryParams,
-  GetOrdersQueryParamsJoi,
-  GetOrdersResponse,
-  GetOrdersResponseJoi,
-  RawGetOrdersQueryParams,
-} from './schema/index'
-
+  APIGLambdaHandler,
+  APIHandleRequestParams,
+  ApiInjector,
+  ErrorCode,
+  ErrorResponse,
+  Response,
+} from '../base/index'
+import { ContainerInjected, RequestInjected } from './injector'
+import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
+import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
+import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
+import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
 export class GetOrdersHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
   void,
   RawGetOrdersQueryParams,
-  GetOrdersResponse
+  GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | undefined>
 > {
+  constructor(
+    handlerName: string,
+    injectorPromise: Promise<ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>>,
+    private readonly orderDispatcher: OrderDispatcher
+  ) {
+    super(handlerName, injectorPromise)
+  }
+
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
-  ): Promise<Response<GetOrdersResponse> | ErrorResponse> {
+  ): Promise<
+    | Response<GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | undefined>>
+    | ErrorResponse
+  > {
     const {
-      requestInjected: { limit, queryFilters, cursor, includeV2 },
+      requestInjected: { limit, queryFilters, cursor, includeV2, orderType },
       containerInjected: { dbInterface },
     } = params
 
     this.logMetrics(queryFilters)
 
     try {
-      const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
+      if (orderType) {
+        const getOrdersResult = await this.orderDispatcher.getOrder(orderType, {
+          limit,
+          params: queryFilters,
+          cursor,
+        })
 
+        return {
+          statusCode: 200,
+          body: getOrdersResult,
+        }
+      }
+
+      //without orderType specified, keep legacy implementation
+      const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
       if (!includeV2) {
         getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
       }
@@ -66,8 +95,8 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     return GetOrdersQueryParamsJoi
   }
 
-  protected responseBodySchema(): Joi.ObjectSchema | null {
-    return GetOrdersResponseJoi
+  protected responseBodySchema(): Joi.Schema | null {
+    return Joi.alternatives(GetOrdersResponseJoi, GetRelayOrdersResponseJoi)
   }
 
   protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {

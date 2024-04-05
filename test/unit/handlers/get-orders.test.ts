@@ -3,6 +3,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
 import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
+import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { HeaderExpectation } from '../../HeaderExpectation'
 
 describe('Testing get orders handler.', () => {
@@ -13,7 +14,8 @@ describe('Testing get orders handler.', () => {
     orderHash: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae4',
     swapper: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
     createdAt: 1667276283251,
-    encodedOrder: '0xencoded000order',
+    encodedOrder:
+      '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000660dd1d600000000000000000000000000000000000000000000000000000000660dd1e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000002000000000000000000000000006000da47483062a0d734ba3dc7576ce6a0b645c400000000000000000000000011e4857bb9993a50c685a79afad4e6f65d518dda000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000660dd1e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000029a2241af62c00000000000000000000000000000000000000000000000000001bc16d674ec8000000000000000000000000000011e4857bb9993a50c685a79afad4e6f65d518dda',
     type: OrderType.Dutch,
     chainId: 1,
     input: {
@@ -35,10 +37,10 @@ describe('Testing get orders handler.', () => {
     signature:
       '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
     orderStatus: ORDER_STATUS.OPEN,
-    orderHash: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae4',
+    orderHash: '0xbfa41c91a61907aa4023a9f98da5ea1b18ea109bd092a62fc896299874019e19',
     swapper: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
-    createdAt: 1667276283251,
-    encodedOrder: '0xencoded000order',
+    encodedOrder:
+      '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000022000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000003867393cc6ea7b0414c2c3e1d9fe7cea987fd06600000000000000000000000011e4857bb9993a50c685a79afad4e6f65d518dda000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000660dd05e000000000000000000000000222222222222222222222222222222222222222200000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000660dd05e0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000029a2241af62c00000000000000000000000000000000000000000000000000001bc16d674ec8000000000000000000000000000011e4857bb9993a50c685a79afad4e6f65d518dda00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000029a2241af62c000000000000000000000000000000000000000000000000000000000000000000411c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b28341400000000000000000000000000000000000000000000000000000000000000',
     type: OrderType.Dutch_V2,
     chainId: 1,
     input: {
@@ -50,10 +52,11 @@ describe('Testing get orders handler.', () => {
       decayStartTime: 1,
       decayEndTime: 3,
       exclusiveFiller: '0x0000000000000000000000000000000000000000',
-      inputOverride: '10000',
-      outputOverrides: ['10000'],
+      inputOverride: '1000000000000000000',
+      outputOverrides: ['3000000000000000000'],
     },
-    cosignature: '0x0',
+    cosignature:
+      '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
     outputs: [
       {
         token: '0x0000000000000000000000000000000000000001',
@@ -105,7 +108,8 @@ describe('Testing get orders handler.', () => {
       body: null,
     }
 
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
     expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
@@ -119,7 +123,8 @@ describe('Testing get orders handler.', () => {
   })
 
   it('Testing valid request and response for Dutch_V2 without includeV2 flag, removes Dutch_V2 orders', async () => {
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     getOrdersMock.mockReturnValue({
       orders: [MOCK_ORDER, MOCK_V2_ORDER],
@@ -142,7 +147,8 @@ describe('Testing get orders handler.', () => {
       return { ...requestInjectedMock, includeV2: true }
     }
 
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     getOrdersMock.mockReturnValue({
       orders: [MOCK_ORDER, MOCK_V2_ORDER],
@@ -152,13 +158,12 @@ describe('Testing get orders handler.', () => {
     const getOrdersResponse = await getOrdersHandler().handler({} as any, {} as any)
 
     expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
-    expect(getOrdersResponse).toMatchObject({
-      body: JSON.stringify({
-        orders: [MOCK_ORDER, MOCK_V2_ORDER],
-        cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
-      }),
-      statusCode: 200,
+
+    expect(JSON.parse(getOrdersResponse.body)).toMatchObject({
+      orders: [MOCK_ORDER, MOCK_V2_ORDER],
+      cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
     })
+    expect(getOrdersResponse.statusCode).toEqual(200)
     expect(getOrdersResponse.headers).not.toBeUndefined()
     const headerExpectation = new HeaderExpectation(getOrdersResponse.headers)
     headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
@@ -170,7 +175,8 @@ describe('Testing get orders handler.', () => {
       body: null,
     }
 
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     const tempQueryFilters = {
       chainId: 1,
@@ -234,7 +240,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       const invalidEvent = {
         ...event,
@@ -267,7 +274,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
@@ -286,7 +294,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       const error = new Error('Oh no! This is an error.')
       getOrdersMock.mockImplementation(() => {
@@ -319,7 +328,7 @@ describe('Testing get orders handler.', () => {
         }
 
         const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-          new GetOrdersHandler('get-orders', injectedMock)
+          new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
         getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...deprecatedField }] })
         const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
         expect(getOrdersMock).toBeCalledWith(
@@ -339,7 +348,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: '4385e89a-0553-46fa-9b7e-464c1fa7822f' }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
@@ -359,7 +369,8 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) => new GetOrdersHandler('get-orders', injectedMock)
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: undefined }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)

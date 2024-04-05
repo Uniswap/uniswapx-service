@@ -1,3 +1,4 @@
+import { OrderType } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
@@ -14,6 +15,7 @@ export interface RequestInjected extends ApiRInj {
   queryFilters: GetOrdersQueryParams
   cursor?: string
   includeV2?: boolean
+  orderType?: OrderType
 }
 
 export interface ContainerInjected {

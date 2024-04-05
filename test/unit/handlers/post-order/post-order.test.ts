@@ -3,7 +3,7 @@ import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { OrderType, OrderValidation, OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { mock } from 'jest-mock-extended'
-import { ORDER_STATUS } from '../../../../lib/entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_ORDERS } from '../../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
@@ -14,6 +14,7 @@ import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
 import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
+import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
@@ -104,6 +105,7 @@ describe('Testing post order handler.', () => {
           putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
+        mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
         mockLog,
         getMaxOpenOrders,
         {
@@ -189,7 +191,7 @@ describe('Testing post order handler.', () => {
       validatorMock.mockReturnValue({ valid: true })
 
       const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), SIGNATURE, 1)
-      const expectedOrderEntity = order.formatDutchV2OrderEntity(ORDER_STATUS.OPEN)
+      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({

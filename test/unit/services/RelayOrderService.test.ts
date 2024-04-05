@@ -2,7 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { AddressZero } from '@ethersproject/constants'
 import { OrderValidation, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
-import { RelayOrderEntity } from '../../../lib/entities'
+import { ORDER_STATUS, RelayOrderEntity } from '../../../lib/entities'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
@@ -11,6 +11,7 @@ import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { RelayOrderService } from '../../../lib/services/RelayOrderService'
 import { OffChainRelayOrderValidator } from '../../../lib/util/OffChainRelayOrderValidator'
 import { SDKRelayOrderFactory } from '../../factories/SDKRelayOrderFactory'
+import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -186,5 +187,34 @@ describe('RelayOrderService', () => {
     await expect(service.createOrder(new RelayOrder(order, '0x00', 1))).rejects.toThrow(
       'Onchain validation failed: InsufficientFunds'
     )
+  })
+
+  test('getRelayOrders returns relay orders', async () => {
+    const mockOrder = [1, 2, 3].map(() =>
+      new RelayOrder(SDKRelayOrderFactory.buildRelayOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+    )
+    const repository = mock<BaseOrdersRepository<RelayOrderEntity>>()
+    const mockResponse = { orders: mockOrder, cursor: 'qxy' }
+    repository.getOrders.mockResolvedValue({ ...mockResponse })
+
+    const service = new RelayOrderService(
+      mock<OffChainRelayOrderValidator>(),
+      mock<OnChainValidatorMap<RelayOrderValidator>>(),
+      repository,
+      mock<Logger>(),
+      () => {
+        return 10
+      }
+    )
+
+    const limit = 50
+    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
+    const response = await service.getOrders(limit, params, undefined)
+    const expected = [...mockOrder.map((o) => RelayOrder.fromEntity(o).toGetResponse())]
+
+    expect(response.orders).toHaveLength(3)
+    expect(response.orders).toEqual(expected)
+    expect(response.cursor).toEqual('qxy')
+    expect(repository.getOrders).toHaveBeenCalledTimes(1)
   })
 })

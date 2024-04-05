@@ -5,6 +5,9 @@ import { ORDER_STATUS, RelayOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
+import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
+import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
+import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { RelayOrder } from '../models/RelayOrder'
@@ -104,5 +107,19 @@ export class RelayOrderService {
       },
       stateMachineArn
     )
+  }
+
+  public async getOrders(
+    limit: number,
+    params: GetOrdersQueryParams,
+    cursor: string | undefined
+  ): Promise<GetOrdersResponse<GetRelayOrderResponse>> {
+    const queryResults = await this.repository.getOrders(limit, params, cursor)
+    const resultList: GetRelayOrderResponse[] = []
+    for (let i = 0; i < queryResults.orders.length; i++) {
+      const relayOrder = RelayOrder.fromEntity(queryResults.orders[i])
+      resultList.push(relayOrder.toGetResponse())
+    }
+    return { orders: resultList, cursor: queryResults.cursor }
   }
 }

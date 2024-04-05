@@ -45,6 +45,7 @@ export type UniswapXOrderEntity = {
   deadline: number
   input: OrderInput
   outputs: OrderOutput[]
+  createdAt?: number
   // Filler field is defined when the order has been filled and the status tracking function has recorded the filler address.
   filler?: string
   // QuoteId field is defined when the order has a quote associated with it.
