@@ -5,46 +5,14 @@ import {
   OrderType,
   OrderValidator,
   REACTOR_ADDRESS_MAPPING,
+  RelayOrder,
   UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 
 import { ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
-import { log } from '../../Logging'
 import { ChainId } from '../../util/chain'
 import { NATIVE_ADDRESS } from '../../util/constants'
-
-export function logFillInfo(
-  fill: FillInfo,
-  quoteId: string | undefined,
-  timestamp: number,
-  gasCostInETH: string,
-  gasPriceWei: string,
-  gasUsed: string,
-  userAmount: SettledAmount
-): void {
-  log.info('Fill Info', {
-    orderInfo: {
-      orderStatus: ORDER_STATUS.FILLED,
-      orderHash: fill.orderHash,
-      quoteId: quoteId,
-      filler: fill.filler,
-      nonce: fill.nonce.toString(),
-      offerer: fill.swapper,
-      tokenIn: userAmount.tokenIn,
-      amountIn: userAmount.amountIn,
-      tokenOut: userAmount.tokenOut,
-      amountOut: userAmount.amountOut,
-      blockNumber: fill.blockNumber,
-      txHash: fill.txHash,
-      fillTimestamp: timestamp,
-      gasPriceWei: gasPriceWei,
-      gasUsed: gasUsed,
-      gasCostInETH: gasCostInETH,
-      logTime: Math.floor(Date.now() / 1000).toString(),
-    },
-  })
-}
 
 /**
  * get the ammounts transfered on chain
@@ -107,6 +75,20 @@ export function getSettledAmounts(
     })
   })
 
+  return settledAmounts
+}
+
+export function getRelaySettledAmounts(fill: FillInfo, parsedOrder: RelayOrder): SettledAmount[] {
+  const settledAmounts: SettledAmount[] = []
+  const amountIn = parsedOrder.info.input.amount.toString()
+  fill.outputs.forEach((output) => {
+    settledAmounts.push({
+      tokenIn: parsedOrder.info.input.token,
+      amountIn,
+      tokenOut: output.token,
+      amountOut: output.amount.toString(),
+    })
+  })
   return settledAmounts
 }
 

@@ -1,8 +1,8 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
-import { OrderType } from '@uniswap/uniswapx-sdk'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
+import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
+import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
 
@@ -66,6 +66,38 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         quoteId,
         orderType,
         orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+      },
+    })
+  }
+
+  public logFillInfo(
+    fill: FillInfo,
+    quoteId: string | undefined,
+    timestamp: number,
+    gasCostInETH: string,
+    gasPriceWei: string,
+    gasUsed: string,
+    userAmount: SettledAmount
+  ): void {
+    log.info('Fill Info', {
+      orderInfo: {
+        orderStatus: ORDER_STATUS.FILLED,
+        orderHash: fill.orderHash,
+        quoteId: quoteId,
+        filler: fill.filler,
+        nonce: fill.nonce.toString(),
+        offerer: fill.swapper,
+        tokenIn: userAmount.tokenIn,
+        amountIn: userAmount.amountIn,
+        tokenOut: userAmount.tokenOut,
+        amountOut: userAmount.amountOut,
+        blockNumber: fill.blockNumber,
+        txHash: fill.txHash,
+        fillTimestamp: timestamp,
+        gasPriceWei: gasPriceWei,
+        gasUsed: gasUsed,
+        gasCostInETH: gasCostInETH,
+        logTime: Math.floor(Date.now() / 1000).toString(),
       },
     })
   }
