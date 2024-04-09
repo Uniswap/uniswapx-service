@@ -1,11 +1,11 @@
 import {
   CosignedV2DutchOrder,
   DutchOrder,
-  EventWatcher,
   FillInfo,
   OrderType,
   OrderValidation,
   OrderValidator,
+  UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
@@ -33,7 +33,7 @@ export type CheckOrderStatusRequest = {
   getFillLogAttempts: number
   retryCount: number
   provider: ethers.providers.StaticJsonRpcProvider
-  orderWatcher: EventWatcher
+  orderWatcher: UniswapXEventWatcher
   orderQuoter: OrderValidator
   quoteId: string //only used for logging
   orderType: OrderType
@@ -165,7 +165,7 @@ export class CheckOrderStatusService {
     getFillLogAttempts: number
     fromBlock: number
     curBlockNumber: number
-    orderWatcher: EventWatcher
+    orderWatcher: UniswapXEventWatcher
   }): Promise<ExtraUpdateInfo> {
     let extraUpdateInfo: ExtraUpdateInfo
 
@@ -261,7 +261,7 @@ export class CheckOrderStatusService {
     orderHash: string,
     fromBlock: number,
     curBlockNumber: number,
-    orderWatcher: EventWatcher
+    orderWatcher: UniswapXEventWatcher
   ): Promise<FillInfo | undefined> {
     const fillEvents = await wrapWithTimerMetric(
       orderWatcher.getFillInfo(fromBlock, curBlockNumber),

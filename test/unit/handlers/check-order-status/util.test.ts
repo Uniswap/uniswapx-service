@@ -19,7 +19,7 @@ describe('getWatcher', () => {
     expect(watcher).toBeDefined()
   })
 
-  test('caches already used EventWatchers', () => {
+  test('caches already used UniswapXEventWatcher', () => {
     const watcher = getWatcher(mock<StaticJsonRpcProvider>(), 1, OrderType.Dutch)
     const watcher2 = getWatcher(mock<StaticJsonRpcProvider>(), 1, OrderType.Dutch)
 

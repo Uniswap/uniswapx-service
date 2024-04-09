@@ -30,6 +30,7 @@ export type SettledAmount = {
 }
 
 // Db representation of Dutch V1, Dutch V2, or Limit Order
+// indexes are returned at runtime but not represented on this type. Ideally we will include a mapping at repo layer boundary
 export type UniswapXOrderEntity = {
   type: OrderType
   encodedOrder: string
