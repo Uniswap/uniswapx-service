@@ -48,7 +48,7 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
 export const formatOrderEntity = (
   decodedOrder: DutchOrder,
   signature: string,
-  orderType: OrderType,
+  orderType: OrderType.Dutch | OrderType.Dutch_V2 | OrderType.Limit,
   orderStatus: ORDER_STATUS,
   quoteId?: string
 ): UniswapXOrderEntity => {
