@@ -1,11 +1,11 @@
 import {
   CosignedV2DutchOrder,
   DutchOrder,
-  EventWatcher,
   FillInfo,
   OrderType,
   OrderValidator,
   REACTOR_ADDRESS_MAPPING,
+  UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 
 import { ethers } from 'ethers'
@@ -150,21 +150,21 @@ export const LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): nu
   }
 }
 
-const watcherMap = new Map<string, EventWatcher>()
+const watcherMap = new Map<string, UniswapXEventWatcher>()
 export function getWatcher(
   provider: ethers.providers.StaticJsonRpcProvider,
   chainId: number,
   orderType: OrderType
-): EventWatcher {
+): UniswapXEventWatcher {
   const reactorType = orderType === OrderType.Limit ? OrderType.Dutch : orderType
   if (!REACTOR_ADDRESS_MAPPING[chainId][reactorType]) {
     throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType:${reactorType}`)
   }
   const mapKey = `${chainId}-${reactorType}`
   if (!watcherMap.get(mapKey)) {
-    watcherMap.set(mapKey, new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][reactorType] as string))
+    watcherMap.set(mapKey, new UniswapXEventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][reactorType] as string))
   }
-  return watcherMap.get(mapKey) as EventWatcher
+  return watcherMap.get(mapKey) as UniswapXEventWatcher
 }
 
 const providersMap = new Map<number, ethers.providers.StaticJsonRpcProvider>()

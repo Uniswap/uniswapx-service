@@ -1,4 +1,4 @@
-import { EventWatcher, OrderType, OrderValidator } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidator, UniswapXEventWatcher } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
@@ -20,7 +20,7 @@ export interface RequestInjected {
   getFillLogAttempts: number
   retryCount: number
   provider: ethers.providers.StaticJsonRpcProvider
-  orderWatcher: EventWatcher
+  orderWatcher: UniswapXEventWatcher
   orderQuoter: OrderValidator
   orderType: OrderType
   stateMachineArn: string
