@@ -5,8 +5,6 @@ import {
   OrderType,
   OrderValidation,
   OrderValidator,
-  RelayOrder,
-  RelayOrderValidator,
   UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
@@ -23,7 +21,6 @@ import { FillEventLogger } from './fill-event-logger'
 import {
   calculateDutchRetryWaitSeconds,
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
-  getRelaySettledAmounts,
   getSettledAmounts,
   IS_TERMINAL_STATE,
 } from './util'
@@ -53,7 +50,7 @@ export class CheckOrderStatusService {
   private readonly fillEventLogger
   private readonly checkOrderStatusUtils
   constructor(
-    private dbInterface: BaseOrdersRepository<UniswapXOrderEntity> | BaseOrdersRepository<RelayOrderEntity>,
+    private dbInterface: BaseOrdersRepository<UniswapXOrderEntity>,
     serviceOrderType: OrderType,
     analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
@@ -76,19 +73,20 @@ export class CheckOrderStatusService {
     startingBlockNumber,
     retryCount,
     provider,
+    orderQuoter,
     orderWatcher,
     orderStatus,
     orderType,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
-    const order: UniswapXOrderEntity | RelayOrderEntity = checkDefined(
-      await wrapWithTimerMetric<UniswapXOrderEntity | RelayOrderEntity | undefined>(
+    const order: UniswapXOrderEntity = checkDefined(
+      await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
         this.dbInterface.getByHash(orderHash),
         CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
       ),
       'cannot find order by hash when updating order status'
     )
 
-    let parsedOrder: DutchOrder | CosignedV2DutchOrder | RelayOrder
+    let parsedOrder: DutchOrder | CosignedV2DutchOrder
     switch (orderType) {
       case OrderType.Dutch:
       case OrderType.Limit:
@@ -97,35 +95,17 @@ export class CheckOrderStatusService {
       case OrderType.Dutch_V2:
         parsedOrder = CosignedV2DutchOrder.parse(order.encodedOrder, chainId)
         break
-      case OrderType.Relay:
-        parsedOrder = RelayOrder.parse(order.encodedOrder, chainId)
-        break
       default:
         throw new Error(`Unsupported OrderType ${orderType}, No Parser Configured`)
     }
 
-    let validation: OrderValidation
-    if (orderType === OrderType.Relay) {
-      const orderQuoter = new RelayOrderValidator(provider, chainId)
-      validation = await wrapWithTimerMetric(
-        orderQuoter.validate({
-          order: parsedOrder as RelayOrder,
-          signature: order.signature,
-        }),
-        CheckOrderStatusHandlerMetricNames.GetValidationTime
-      )
-    } else if (orderType === OrderType.Dutch || orderType === OrderType.Dutch_V2 || orderType === OrderType.Limit) {
-      const orderQuoter = new OrderValidator(provider, chainId)
-      validation = await wrapWithTimerMetric(
-        orderQuoter.validate({
-          order: parsedOrder as DutchOrder | CosignedV2DutchOrder,
-          signature: order.signature,
-        }),
-        CheckOrderStatusHandlerMetricNames.GetValidationTime
-      )
-    } else {
-      throw new Error(`Unsupported OrderType ${orderType}, No Validator Configured`)
-    }
+    const validation = await wrapWithTimerMetric(
+      orderQuoter.validate({
+        order: parsedOrder as DutchOrder | CosignedV2DutchOrder,
+        signature: order.signature,
+      }),
+      CheckOrderStatusHandlerMetricNames.GetValidationTime
+    )
 
     const curBlockNumber = await wrapWithTimerMetric(
       provider.getBlockNumber(),
@@ -153,10 +133,11 @@ export class CheckOrderStatusService {
           provider.getTransaction(fillEvent.txHash),
           provider.getBlock(fillEvent.blockNumber),
         ])
-        const settledAmounts =
-          orderType === OrderType.Relay
-            ? getRelaySettledAmounts(fillEvent, parsedOrder as RelayOrder)
-            : getSettledAmounts(fillEvent, block.timestamp, parsedOrder as DutchOrder | CosignedV2DutchOrder)
+        const settledAmounts = getSettledAmounts(
+          fillEvent,
+          block.timestamp,
+          parsedOrder as DutchOrder | CosignedV2DutchOrder
+        )
 
         await this.fillEventLogger.processFillEvent({
           fillEvent,
