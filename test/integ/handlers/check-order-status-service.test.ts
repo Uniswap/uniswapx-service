@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../../../lib/entities'
@@ -127,7 +126,7 @@ describe('checkOrderStatusService', () => {
           ]
         })
 
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
@@ -155,7 +154,7 @@ describe('checkOrderStatusService', () => {
           return []
         })
 
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
@@ -174,7 +173,7 @@ describe('checkOrderStatusService', () => {
           return []
         })
 
-        let result = await checkOrderStatusService.handleRequest({
+        const result = await checkOrderStatusService.handleRequest({
           ...openOrderRequest,
           getFillLogAttempts: 1,
         })
@@ -213,7 +212,7 @@ describe('checkOrderStatusService', () => {
           ]
         })
 
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
@@ -241,7 +240,7 @@ describe('checkOrderStatusService', () => {
           return []
         })
 
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
@@ -260,7 +259,7 @@ describe('checkOrderStatusService', () => {
           return []
         })
 
-        let result = await checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
+        const result = await checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
 
         expect(analyticsMock.logCancelled).toHaveBeenCalled()
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
@@ -282,7 +281,7 @@ describe('checkOrderStatusService', () => {
       })
 
       it('should update status with insufficient-funds', async () => {
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(analyticsMock.logInsufficientFunds).toHaveBeenCalled()
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
@@ -302,7 +301,7 @@ describe('checkOrderStatusService', () => {
       })
 
       it('should update status with error', async () => {
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
@@ -321,7 +320,7 @@ describe('checkOrderStatusService', () => {
       })
 
       it('should update status with error', async () => {
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
@@ -340,7 +339,7 @@ describe('checkOrderStatusService', () => {
       })
 
       it('should update status with error', async () => {
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
@@ -359,7 +358,7 @@ describe('checkOrderStatusService', () => {
       })
 
       it('should not update', async () => {
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
@@ -395,7 +394,7 @@ describe('checkOrderStatusService', () => {
         openOrderRequest.orderType = OrderType.Dutch_V2
         ordersRepositoryMock.getByHash.mockResolvedValue(MOCK_V2_ORDER_ENTITY)
 
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
@@ -435,7 +434,7 @@ describe('checkOrderStatusService', () => {
 
         openOrderRequest.orderType = OrderType.Limit
 
-        let result = await checkOrderStatusService.handleRequest(openOrderRequest)
+        const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
