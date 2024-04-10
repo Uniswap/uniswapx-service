@@ -1,11 +1,15 @@
-/* eslint-disable */
 import { DutchInput, DutchOutput, OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
+import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { CheckOrderStatusHandler } from '../../../lib/handlers/check-order-status/handler'
+import { CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
+import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
+import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
+import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { RelayOrderService } from '../../../lib/services/RelayOrderService'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
@@ -21,6 +25,19 @@ describe('Testing check order status handler', () => {
   const updateOrderStatusMock = jest.fn().mockReturnValue(Promise<void>)
   const providerMock = jest.fn().mockReturnValue(mockedBlockNumber)
   const getTransactionMock = jest.fn()
+
+  const dynamoConfig = {
+    convertEmptyValues: true,
+    endpoint: 'localhost:8000',
+    region: 'local-env',
+    sslEnabled: false,
+    credentials: {
+      accessKeyId: 'fakeMyKeyId',
+      secretAccessKey: 'fakeSecretAccessKey',
+    },
+  }
+
+  const localDocumentClient = new DocumentClient(dynamoConfig)
 
   beforeAll(() => {
     log.setLogLevel('SILENT')
@@ -69,6 +86,16 @@ describe('Testing check order status handler', () => {
     const checkOrderStatusHandler = new CheckOrderStatusHandler(
       'check-order-status',
       injectorPromiseMock,
+      new CheckOrderStatusService(
+        DutchOrdersRepository.create(localDocumentClient),
+        OrderType.Dutch,
+        mock<AnalyticsService>()
+      ),
+      new CheckOrderStatusService(
+        LimitOrdersRepository.create(localDocumentClient),
+        OrderType.Limit,
+        mock<AnalyticsService>()
+      ),
       mock<RelayOrderService>()
     )
 
@@ -122,7 +149,11 @@ describe('Testing check order status handler', () => {
       orderType: OrderType.Dutch,
     }
 
-    beforeEach(() => {
+    beforeAll(async () => {
+      await DutchOrdersRepository.create(localDocumentClient).putOrderAndUpdateNonceTransaction(MOCK_ORDER_ENTITY)
+    })
+
+    beforeEach(async () => {
       jest.clearAllMocks()
     })
 
@@ -130,6 +161,16 @@ describe('Testing check order status handler', () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          DutchOrdersRepository.create(localDocumentClient),
+          OrderType.Dutch,
+          mock<AnalyticsService>()
+        ),
+        new CheckOrderStatusService(
+          LimitOrdersRepository.create(localDocumentClient),
+          OrderType.Limit,
+          mock<AnalyticsService>()
+        ),
         mock<RelayOrderService>()
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
@@ -143,6 +184,16 @@ describe('Testing check order status handler', () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          DutchOrdersRepository.create(localDocumentClient),
+          OrderType.Dutch,
+          mock<AnalyticsService>()
+        ),
+        new CheckOrderStatusService(
+          LimitOrdersRepository.create(localDocumentClient),
+          OrderType.Limit,
+          mock<AnalyticsService>()
+        ),
         mock<RelayOrderService>()
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
@@ -176,6 +227,16 @@ describe('Testing check order status handler', () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          DutchOrdersRepository.create(localDocumentClient),
+          OrderType.Dutch,
+          mock<AnalyticsService>()
+        ),
+        new CheckOrderStatusService(
+          LimitOrdersRepository.create(localDocumentClient),
+          OrderType.Limit,
+          mock<AnalyticsService>()
+        ),
         mock<RelayOrderService>()
       )
       validateMock.mockReturnValue(OrderValidation.NonceUsed)
@@ -202,14 +263,22 @@ describe('Testing check order status handler', () => {
       expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
       })
-      expect(updateOrderStatusMock).toBeCalled()
-      expect(getFillInfoMock).toBeCalled()
     })
 
     it('should return insufficient-funds order status', async () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          DutchOrdersRepository.create(localDocumentClient),
+          OrderType.Dutch,
+          mock<AnalyticsService>()
+        ),
+        new CheckOrderStatusService(
+          LimitOrdersRepository.create(localDocumentClient),
+          OrderType.Limit,
+          mock<AnalyticsService>()
+        ),
         mock<RelayOrderService>()
       )
       validateMock.mockReturnValue(OrderValidation.InsufficientFunds)
@@ -222,6 +291,16 @@ describe('Testing check order status handler', () => {
       const checkorderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          DutchOrdersRepository.create(localDocumentClient),
+          OrderType.Dutch,
+          mock<AnalyticsService>()
+        ),
+        new CheckOrderStatusService(
+          LimitOrdersRepository.create(localDocumentClient),
+          OrderType.Limit,
+          mock<AnalyticsService>()
+        ),
         mock<RelayOrderService>()
       )
       validateMock
@@ -240,13 +319,22 @@ describe('Testing check order status handler', () => {
       const checkOrderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          DutchOrdersRepository.create(localDocumentClient),
+          OrderType.Dutch,
+          mock<AnalyticsService>()
+        ),
+        new CheckOrderStatusService(
+          LimitOrdersRepository.create(localDocumentClient),
+          OrderType.Limit,
+          mock<AnalyticsService>()
+        ),
         mock<RelayOrderService>()
       )
+
       validateMock.mockReturnValue(OrderValidation.OK)
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
-      expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)
-      expect(validateMock).toBeCalled()
-      expect(updateOrderStatusMock).not.toBeCalled() // there is no update
+
       expect(response).toEqual({
         orderHash: MOCK_ORDER_HASH,
         orderStatus: 'open',

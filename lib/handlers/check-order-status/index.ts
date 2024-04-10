@@ -1,9 +1,13 @@
-import { RelayOrderValidator as OnChainRelayOrderValidator } from '@uniswap/uniswapx-sdk'
+import { OrderType, RelayOrderValidator as OnChainRelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
+import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ethers } from 'ethers'
 import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
+import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
+import { AnalyticsService } from '../../services/analytics-service'
 import { RelayOrderService } from '../../services/RelayOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
@@ -14,6 +18,7 @@ import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
 import { CheckOrderStatusHandler } from './handler'
 import { CheckOrderStatusInjector } from './injector'
+import { CheckOrderStatusService } from './service'
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
@@ -38,6 +43,21 @@ const checkOrderStatusInjectorPromise = new CheckOrderStatusInjector('checkOrder
 const checkOrderStatusHandler = new CheckOrderStatusHandler(
   'checkOrderStatusHandler',
   checkOrderStatusInjectorPromise,
+  new CheckOrderStatusService(
+    DutchOrdersRepository.create(new DocumentClient()),
+    OrderType.Dutch,
+    AnalyticsService.create()
+  ),
+
+  new CheckOrderStatusService(
+    LimitOrdersRepository.create(new DocumentClient()),
+    OrderType.Limit,
+    AnalyticsService.create(),
+    FILL_EVENT_LOOKBACK_BLOCKS_ON,
+    () => {
+      return 30
+    }
+  ),
   relayOrderService
 )
 
