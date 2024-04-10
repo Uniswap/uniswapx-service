@@ -51,14 +51,21 @@ type ExtraUpdateInfo = {
 
 export class CheckOrderStatusService {
   private readonly fillEventLogger
+  private readonly checkOrderStatusUtils
   constructor(
     private dbInterface: BaseOrdersRepository<UniswapXOrderEntity> | BaseOrdersRepository<RelayOrderEntity>,
-    private serviceOrderType: OrderType,
-    private analyticsService: AnalyticsServiceInterface,
+    serviceOrderType: OrderType,
+    analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
-    private calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
+    calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
   ) {
     this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
+    this.checkOrderStatusUtils = new CheckOrderStatusUtils(
+      serviceOrderType,
+      analyticsService,
+      dbInterface,
+      calculateRetryWaitSeconds
+    )
   }
 
   public async handleRequest({
@@ -172,7 +179,7 @@ export class CheckOrderStatusService {
 
     //not filled
     if (!extraUpdateInfo) {
-      extraUpdateInfo = await this.getUnfilledStatusFromValidation({
+      extraUpdateInfo = await this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
         validation,
         getFillLogAttempts,
       })
@@ -183,10 +190,108 @@ export class CheckOrderStatusService {
       ...extraUpdateInfo,
     }
 
-    return this.updateStatusAndReturn(updateObject)
+    return this.checkOrderStatusUtils.updateStatusAndReturn(updateObject)
   }
 
-  private async getUnfilledStatusFromValidation({
+  private async getFillEventForOrder(
+    orderHash: string,
+    fromBlock: number,
+    curBlockNumber: number,
+    orderWatcher: UniswapXEventWatcher
+  ): Promise<FillInfo | undefined> {
+    const fillEvents = await wrapWithTimerMetric(
+      orderWatcher.getFillInfo(fromBlock, curBlockNumber),
+      CheckOrderStatusHandlerMetricNames.GetFillEventsTime
+    )
+
+    const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
+
+    return fillEvent
+  }
+}
+
+export class CheckOrderStatusUtils {
+  constructor(
+    private readonly serviceOrderType: OrderType,
+    private readonly analyticsService: AnalyticsServiceInterface,
+    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity> | BaseOrdersRepository<RelayOrderEntity>,
+    private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number
+  ) {}
+
+  public async updateStatusAndReturn(params: {
+    orderHash: string
+    retryCount: number
+    startingBlockNumber: number
+    chainId: number
+    lastStatus: ORDER_STATUS
+    orderStatus: ORDER_STATUS
+    validation: OrderValidation
+    quoteId: string
+    txHash?: string
+    settledAmounts?: SettledAmount[]
+    getFillLogAttempts?: number
+  }): Promise<SfnStateInputOutput> {
+    const {
+      orderHash,
+      quoteId,
+      retryCount,
+      startingBlockNumber,
+      chainId,
+      lastStatus,
+      orderStatus,
+      txHash,
+      settledAmounts,
+      getFillLogAttempts,
+      validation,
+    } = params
+
+    // Avoid updating the order if the status is unchanged.
+    // This also avoids unnecessarily triggering downstream events from dynamodb changes.
+    if (orderStatus !== lastStatus) {
+      if (orderStatus === ORDER_STATUS.INSUFFICIENT_FUNDS) {
+        this.analyticsService.logInsufficientFunds(orderHash, this.serviceOrderType, quoteId)
+      } else if (orderStatus === ORDER_STATUS.CANCELLED) {
+        this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
+      }
+      log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
+      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
+      if (IS_TERMINAL_STATE(orderStatus)) {
+        metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
+        metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
+        log.info('order in terminal state', {
+          terminalOrderInfo: {
+            orderStatus,
+            orderHash,
+            quoteId: quoteId,
+            getFillLogAttempts,
+            startingBlockNumber,
+            chainId: chainId,
+            settledAmounts: settledAmounts
+              ?.map((s) => JSON.stringify(s))
+              .join(',')
+              .toString(),
+            retryCount,
+            validation,
+          },
+        })
+      }
+    }
+
+    return {
+      orderHash: orderHash,
+      orderStatus: orderStatus,
+      retryCount: (retryCount || 0) + 1,
+      quoteId: quoteId,
+      retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount),
+      startingBlockNumber: startingBlockNumber,
+      chainId: chainId,
+      ...(settledAmounts && { settledAmounts }),
+      ...(txHash && { txHash }),
+      ...(getFillLogAttempts && { getFillLogAttempts }),
+    }
+  }
+
+  public async getUnfilledStatusFromValidation({
     validation,
     getFillLogAttempts,
   }: {
@@ -227,94 +332,5 @@ export class CheckOrderStatusService {
         break
     }
     return extraUpdateInfo
-  }
-
-  private async getFillEventForOrder(
-    orderHash: string,
-    fromBlock: number,
-    curBlockNumber: number,
-    orderWatcher: UniswapXEventWatcher
-  ): Promise<FillInfo | undefined> {
-    const fillEvents = await wrapWithTimerMetric(
-      orderWatcher.getFillInfo(fromBlock, curBlockNumber),
-      CheckOrderStatusHandlerMetricNames.GetFillEventsTime
-    )
-
-    const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
-
-    return fillEvent
-  }
-
-  private async updateStatusAndReturn(params: {
-    orderHash: string
-    retryCount: number
-    startingBlockNumber: number
-    chainId: number
-    lastStatus: ORDER_STATUS
-    orderStatus: ORDER_STATUS
-    validation: OrderValidation
-    quoteId: string
-    txHash?: string
-    settledAmounts?: SettledAmount[]
-    getFillLogAttempts?: number
-  }): Promise<SfnStateInputOutput> {
-    const {
-      orderHash,
-      quoteId,
-      retryCount,
-      startingBlockNumber,
-      chainId,
-      lastStatus,
-      orderStatus,
-      txHash,
-      settledAmounts,
-      getFillLogAttempts,
-      validation,
-    } = params
-
-    // Avoid updating the order if the status is unchanged.
-    // This also avoids unnecessarily triggering downstream events from dynamodb changes.
-    if (orderStatus !== lastStatus) {
-      if (orderStatus === ORDER_STATUS.INSUFFICIENT_FUNDS) {
-        this.analyticsService.logInsufficientFunds(orderHash, this.serviceOrderType, quoteId)
-      } else if (orderStatus === ORDER_STATUS.CANCELLED) {
-        this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
-      }
-      log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
-      await this.dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
-      if (IS_TERMINAL_STATE(orderStatus)) {
-        metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
-        metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
-        log.info('order in terminal state', {
-          terminalOrderInfo: {
-            orderStatus,
-            orderHash,
-            quoteId: quoteId,
-            getFillLogAttempts,
-            startingBlockNumber,
-            chainId: chainId,
-            settledAmounts: settledAmounts
-              ?.map((s) => JSON.stringify(s))
-              .join(',')
-              .toString(),
-            retryCount,
-            validation,
-          },
-        })
-      }
-    }
-
-    return {
-      orderHash: orderHash,
-      orderStatus: orderStatus,
-      retryCount: (retryCount || 0) + 1,
-      quoteId: quoteId,
-      retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount),
-      startingBlockNumber: startingBlockNumber,
-      chainId: chainId,
-      ...(settledAmounts && { settledAmounts }),
-      ...(txHash && { txHash }),
-      ...(getFillLogAttempts && { getFillLogAttempts }),
-    }
   }
 }

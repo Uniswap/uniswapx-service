@@ -1,9 +1,12 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { AddressZero } from '@ethersproject/constants'
-import { OrderValidation, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
+import { OrderValidation, RelayEventWatcher, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
+import { BigNumber, ethers } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, RelayOrderEntity } from '../../../lib/entities'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
+import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
+import { EventWatcherMap } from '../../../lib/handlers/EventWatcherMap'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { RelayOrder } from '../../../lib/models'
@@ -15,10 +18,6 @@ import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
-})
-
-jest.mock('../../../lib/preconditions/preconditions', () => {
-  return { checkDefined: jest.fn() }
 })
 
 describe('RelayOrderService', () => {
@@ -38,14 +37,17 @@ describe('RelayOrderService', () => {
     const service = new RelayOrderService(
       mockOrderValidator,
       onChainValidatorMap,
+      mock<EventWatcherMap<RelayEventWatcher>>(),
       repository as unknown as BaseOrdersRepository<RelayOrderEntity>,
       logger,
       () => {
         return 10
-      }
+      },
+      mock<FillEventLogger>()
     )
 
     const order = SDKRelayOrderFactory.buildRelayOrder()
+    process.env[`STATE_MACHINE_ARN_1`] = 'defined'
 
     const response = await service.createOrder(new RelayOrder(order, '0x00', 1))
 
@@ -61,9 +63,9 @@ describe('RelayOrderService', () => {
         orderStatus: 'open',
         orderType: 'Relay',
         quoteId: '',
-        stateMachineArn: undefined,
+        stateMachineArn: 'defined',
       },
-      undefined
+      'defined'
     )
   })
 
@@ -85,11 +87,13 @@ describe('RelayOrderService', () => {
     const service = new RelayOrderService(
       mockOrderValidator,
       onChainValidatorMap,
+      mock<EventWatcherMap<RelayEventWatcher>>(),
       repository as unknown as BaseOrdersRepository<RelayOrderEntity>,
       logger,
       () => {
         return 10
-      }
+      },
+      mock<FillEventLogger>()
     )
 
     const order = SDKRelayOrderFactory.buildRelayOrder()
@@ -115,11 +119,13 @@ describe('RelayOrderService', () => {
     const service = new RelayOrderService(
       mockOrderValidator,
       onChainValidatorMap,
+      mock<EventWatcherMap<RelayEventWatcher>>(),
       repository as unknown as BaseOrdersRepository<RelayOrderEntity>,
       logger,
       () => {
         return 10
-      }
+      },
+      mock<FillEventLogger>()
     )
 
     const order = SDKRelayOrderFactory.buildRelayOrder(1, { input: { token: AddressZero } })
@@ -145,11 +151,13 @@ describe('RelayOrderService', () => {
     const service = new RelayOrderService(
       mockOrderValidator,
       onChainValidatorMap,
+      mock<EventWatcherMap<RelayEventWatcher>>(),
       repository as unknown as BaseOrdersRepository<RelayOrderEntity>,
       logger,
       () => {
         return 10
-      }
+      },
+      mock<FillEventLogger>()
     )
 
     const order = SDKRelayOrderFactory.buildRelayOrder(1, { input: { token: AddressZero } })
@@ -175,11 +183,13 @@ describe('RelayOrderService', () => {
     const service = new RelayOrderService(
       mockOrderValidator,
       onChainValidatorMap,
+      mock<EventWatcherMap<RelayEventWatcher>>(),
       repository as unknown as BaseOrdersRepository<RelayOrderEntity>,
       logger,
       () => {
         return 10
-      }
+      },
+      mock<FillEventLogger>()
     )
 
     const order = SDKRelayOrderFactory.buildRelayOrder(1, { input: { token: AddressZero } })
@@ -200,11 +210,13 @@ describe('RelayOrderService', () => {
     const service = new RelayOrderService(
       mock<OffChainRelayOrderValidator>(),
       mock<OnChainValidatorMap<RelayOrderValidator>>(),
+      mock<EventWatcherMap<RelayEventWatcher>>(),
       repository,
       mock<Logger>(),
       () => {
         return 10
-      }
+      },
+      mock<FillEventLogger>()
     )
 
     const limit = 50
@@ -216,5 +228,201 @@ describe('RelayOrderService', () => {
     expect(response.orders).toEqual(expected)
     expect(response.cursor).toEqual('qxy')
     expect(repository.getOrders).toHaveBeenCalledTimes(1)
+  })
+
+  test('checkOrderStatus, unfilled', async () => {
+    const mockOrder = new RelayOrder(SDKRelayOrderFactory.buildRelayOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+    const repository = mock<BaseOrdersRepository<RelayOrderEntity>>()
+    repository.getByHash.mockResolvedValue(mockOrder)
+
+    const onChainValidator = mock<RelayOrderValidator>()
+    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
+
+    const onChainValidatorMap = mock<OnChainValidatorMap<RelayOrderValidator>>()
+    onChainValidatorMap.get.mockReturnValue(onChainValidator)
+
+    const service = new RelayOrderService(
+      mock<OffChainRelayOrderValidator>(),
+      onChainValidatorMap,
+      mock<EventWatcherMap<RelayEventWatcher>>(),
+      repository,
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<FillEventLogger>()
+    )
+
+    const response = await service.checkOrderStatus(
+      mockOrder.orderHash,
+      '',
+      100,
+      ORDER_STATUS.OPEN,
+      0,
+      0,
+      mock<ethers.providers.StaticJsonRpcProvider>()
+    )
+
+    expect(response).toEqual({
+      chainId: 1,
+      orderHash: mockOrder.orderHash,
+      orderStatus: 'open',
+      quoteId: '',
+      retryCount: 1,
+      retryWaitSeconds: 12,
+      startingBlockNumber: 100,
+    })
+  })
+
+  test('checkOrderStatus, Expired and filled', async () => {
+    const mockOrder = new RelayOrder(SDKRelayOrderFactory.buildRelayOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+    const repository = mock<BaseOrdersRepository<RelayOrderEntity>>()
+    repository.getByHash.mockResolvedValue(mockOrder)
+
+    const onChainValidator = mock<RelayOrderValidator>()
+    onChainValidator.validate.mockResolvedValue(OrderValidation.Expired)
+
+    const onChainValidatorMap = mock<OnChainValidatorMap<RelayOrderValidator>>()
+    onChainValidatorMap.get.mockReturnValue(onChainValidator)
+
+    const mockEventWatcher = mock<RelayEventWatcher>()
+    mockEventWatcher.getFillInfo.mockResolvedValue([
+      {
+        orderHash: mockOrder.orderHash,
+        filler: '0xfiller',
+        nonce: BigNumber.from('100'),
+        swapper: '0xswapper',
+        blockNumber: 123,
+        txHash: '0xtxhash',
+        inputs: [
+          {
+            token: '0xtokenIn',
+            amount: BigNumber.from(1),
+          },
+        ],
+        outputs: [
+          {
+            token: '0xtokenOut',
+            amount: BigNumber.from(1),
+          },
+        ],
+      },
+    ])
+
+    const eventWatcherMap = mock<EventWatcherMap<RelayEventWatcher>>()
+    eventWatcherMap.get.mockReturnValue(mockEventWatcher)
+
+    const service = new RelayOrderService(
+      mock<OffChainRelayOrderValidator>(),
+      onChainValidatorMap,
+      eventWatcherMap,
+      repository,
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<FillEventLogger>()
+    )
+
+    const mockProvider = mock<ethers.providers.StaticJsonRpcProvider>()
+    mockProvider.getBlock.mockResolvedValue({ timestamp: 1 } as any)
+    mockProvider.getTransaction.mockResolvedValue({} as any)
+
+    const response = await service.checkOrderStatus(mockOrder.orderHash, '', 100, ORDER_STATUS.OPEN, 0, 0, mockProvider)
+
+    expect(response).toEqual({
+      chainId: 1,
+      orderHash: mockOrder.orderHash,
+      orderStatus: 'filled',
+      quoteId: '',
+      retryCount: 1,
+      retryWaitSeconds: 12,
+      settledAmounts: [
+        {
+          amountIn: '1000000',
+          amountOut: '1',
+          tokenIn: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+          tokenOut: '0xtokenOut',
+        },
+      ],
+      startingBlockNumber: 100,
+      txHash: '0xtxhash',
+    })
+  })
+
+  test('checkOrderStatus, NonceUsed and filled', async () => {
+    const mockOrder = new RelayOrder(SDKRelayOrderFactory.buildRelayOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+    const repository = mock<BaseOrdersRepository<RelayOrderEntity>>()
+    repository.getByHash.mockResolvedValue(mockOrder)
+
+    const onChainValidator = mock<RelayOrderValidator>()
+    onChainValidator.validate.mockResolvedValue(OrderValidation.NonceUsed)
+
+    const onChainValidatorMap = mock<OnChainValidatorMap<RelayOrderValidator>>()
+    onChainValidatorMap.get.mockReturnValue(onChainValidator)
+
+    const mockEventWatcher = mock<RelayEventWatcher>()
+    mockEventWatcher.getFillInfo.mockResolvedValue([
+      {
+        orderHash: mockOrder.orderHash,
+        filler: '0xfiller',
+        nonce: BigNumber.from('100'),
+        swapper: '0xswapper',
+        blockNumber: 123,
+        txHash: '0xtxhash',
+        inputs: [
+          {
+            token: '0xtokenIn',
+            amount: BigNumber.from(1),
+          },
+        ],
+        outputs: [
+          {
+            token: '0xtokenOut',
+            amount: BigNumber.from(1),
+          },
+        ],
+      },
+    ])
+
+    const eventWatcherMap = mock<EventWatcherMap<RelayEventWatcher>>()
+    eventWatcherMap.get.mockReturnValue(mockEventWatcher)
+
+    const service = new RelayOrderService(
+      mock<OffChainRelayOrderValidator>(),
+      onChainValidatorMap,
+      eventWatcherMap,
+      repository,
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<FillEventLogger>()
+    )
+
+    const mockProvider = mock<ethers.providers.StaticJsonRpcProvider>()
+    mockProvider.getBlock.mockResolvedValue({ timestamp: 1 } as any)
+    mockProvider.getTransaction.mockResolvedValue({} as any)
+
+    const response = await service.checkOrderStatus(mockOrder.orderHash, '', 100, ORDER_STATUS.OPEN, 0, 0, mockProvider)
+
+    expect(response).toEqual({
+      chainId: 1,
+      orderHash: mockOrder.orderHash,
+      orderStatus: 'filled',
+      quoteId: '',
+      retryCount: 1,
+      retryWaitSeconds: 12,
+      settledAmounts: [
+        {
+          amountIn: '1000000',
+          amountOut: '1',
+          tokenIn: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+          tokenOut: '0xtokenOut',
+        },
+      ],
+      startingBlockNumber: 100,
+      txHash: '0xtxhash',
+    })
   })
 })

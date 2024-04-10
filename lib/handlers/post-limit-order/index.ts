@@ -16,6 +16,9 @@ import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
+import { FillEventLogger } from '../check-order-status/fill-event-logger'
+import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
+import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from '../post-order/handler'
 import { PostOrderBodyParser } from '../post-order/PostOrderBodyParser'
@@ -59,9 +62,11 @@ for (const chainId of SUPPORTED_CHAINS) {
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
+  EventWatcherMap.createRelayEventWatcherMap(),
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
-  () => 0 // set max open orders to 0 for relay orders posted to limit route, essentially disable this
+  () => 0,
+  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
 )
 
 const postLimitOrderHandler = new PostOrderHandler(
