@@ -5,8 +5,8 @@ import Joi from 'joi'
 import { CheckOrderStatusHandlerMetricNames, powertoolsMetric } from '../../Metrics'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
+import { RelayOrderService } from '../../services/RelayOrderService'
 import { SfnInjector, SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected, RequestInjected } from './injector'
@@ -17,9 +17,12 @@ import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from './util'
 export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected, RequestInjected> {
   private readonly checkOrderStatusService: CheckOrderStatusService
   private readonly checkLimitOrderStatusService: CheckOrderStatusService
-  private readonly checkRelayOrderStatusService: CheckOrderStatusService
 
-  constructor(handlerName: string, injectorPromise: Promise<SfnInjector<ContainerInjected, RequestInjected>>) {
+  constructor(
+    handlerName: string,
+    injectorPromise: Promise<SfnInjector<ContainerInjected, RequestInjected>>,
+    private readonly relayOrderService: RelayOrderService
+  ) {
     super(handlerName, injectorPromise)
     this.checkOrderStatusService = new CheckOrderStatusService(
       DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
@@ -35,12 +38,6 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       () => {
         return 30
       }
-    )
-
-    this.checkRelayOrderStatusService = new CheckOrderStatusService(
-      RelayOrderRepository.create(new DynamoDB.DocumentClient()),
-      OrderType.Relay,
-      AnalyticsService.create()
     )
   }
 
@@ -75,7 +72,15 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       }
     } else if (input.requestInjected.orderType === OrderType.Relay) {
       return {
-        ...(await this.checkRelayOrderStatusService.handleRequest(input.requestInjected)),
+        ...(await this.relayOrderService.checkOrderStatus(
+          input.requestInjected.orderHash,
+          input.requestInjected.quoteId,
+          input.requestInjected.startingBlockNumber,
+          input.requestInjected.orderStatus,
+          input.requestInjected.getFillLogAttempts,
+          input.requestInjected.retryCount,
+          input.requestInjected.provider
+        )),
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
       }

@@ -1,10 +1,12 @@
 /* eslint-disable */
 import { DutchInput, DutchOutput, OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
+import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { CheckOrderStatusHandler } from '../../../lib/handlers/check-order-status/handler'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
+import { RelayOrderService } from '../../../lib/services/RelayOrderService'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 import { ORDER_INFO } from '../../unit/fixtures'
@@ -64,7 +66,11 @@ describe('Testing check order status handler', () => {
 
   describe('Test invalid input fields', () => {
     const injectorPromiseMock: any = buildInjectorPromiseMock(0, ORDER_STATUS.OPEN)
-    const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', injectorPromiseMock)
+    const checkOrderStatusHandler = new CheckOrderStatusHandler(
+      'check-order-status',
+      injectorPromiseMock,
+      mock<RelayOrderService>()
+    )
 
     it('Should throw when orderHash is not provided', async () => {
       await expect(checkOrderStatusHandler.handler({} as any)).rejects.toThrowError('"orderHash" is required')
@@ -121,7 +127,11 @@ describe('Testing check order status handler', () => {
     })
 
     it('should return expired order status', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      const checkorderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        mock<RelayOrderService>()
+      )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getFillInfoMock.mockReturnValue([])
       expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
@@ -130,7 +140,11 @@ describe('Testing check order status handler', () => {
     })
 
     it('should check fill events when order expired', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      const checkorderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        mock<RelayOrderService>()
+      )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getTransactionMock.mockReturnValueOnce({
         wait: () =>
@@ -159,7 +173,11 @@ describe('Testing check order status handler', () => {
     })
 
     it('should check fill events when nonceUsed', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      const checkorderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        mock<RelayOrderService>()
+      )
       validateMock.mockReturnValue(OrderValidation.NonceUsed)
       getTransactionMock.mockReturnValueOnce({
         wait: () =>
@@ -189,7 +207,11 @@ describe('Testing check order status handler', () => {
     })
 
     it('should return insufficient-funds order status', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      const checkorderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        mock<RelayOrderService>()
+      )
       validateMock.mockReturnValue(OrderValidation.InsufficientFunds)
       expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
@@ -197,7 +219,11 @@ describe('Testing check order status handler', () => {
     })
 
     it('should return error order status', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      const checkorderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        mock<RelayOrderService>()
+      )
       validateMock
         .mockReturnValueOnce(OrderValidation.UnknownError)
         .mockReturnValueOnce(OrderValidation.InvalidSignature)
@@ -211,7 +237,11 @@ describe('Testing check order status handler', () => {
     })
 
     it('return latest on-chain status and increment retry count', async () => {
-      const checkOrderStatusHandler = new CheckOrderStatusHandler('check-order-status', initialInjectorPromiseMock)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        mock<RelayOrderService>()
+      )
       validateMock.mockReturnValue(OrderValidation.OK)
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
       expect(getByHashMock).toBeCalledWith(MOCK_ORDER_HASH)

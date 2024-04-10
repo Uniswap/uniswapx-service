@@ -1,9 +1,17 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { OrderType, OrderValidation, OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
+import {
+  OrderType,
+  OrderValidation,
+  OrderValidator,
+  RelayEventWatcher,
+  RelayOrderValidator,
+} from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
+import { FillEventLogger } from '../../../../lib/handlers/check-order-status/fill-event-logger'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../../lib/handlers/constants'
+import { EventWatcherMap } from '../../../../lib/handlers/EventWatcherMap'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
 import { getMaxLimitOpenOrders } from '../../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
@@ -105,12 +113,14 @@ describe('Testing post limit order handler.', () => {
           validate: validatorMock,
         } as any,
         new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
+        mock<EventWatcherMap<RelayEventWatcher>>(),
         {
           putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mockLog,
-        getMaxLimitOpenOrders
+        getMaxLimitOpenOrders,
+        mock<FillEventLogger>()
       ),
       mockLog
     ),
