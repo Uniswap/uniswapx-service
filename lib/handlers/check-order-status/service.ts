@@ -155,7 +155,7 @@ export class CheckOrderStatusService {
 
     //not filled
     if (!extraUpdateInfo) {
-      extraUpdateInfo = await this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
+      extraUpdateInfo = this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
         validation,
         getFillLogAttempts,
       })
@@ -267,46 +267,38 @@ export class CheckOrderStatusUtils {
     }
   }
 
-  public async getUnfilledStatusFromValidation({
+  public getUnfilledStatusFromValidation({
     validation,
     getFillLogAttempts,
   }: {
     validation: OrderValidation
     getFillLogAttempts: number
-  }): Promise<ExtraUpdateInfo> {
-    let extraUpdateInfo: ExtraUpdateInfo
-
+  }): ExtraUpdateInfo {
     switch (validation) {
       case OrderValidation.Expired: {
-        extraUpdateInfo = {
+        return {
           orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
           getFillLogAttempts: getFillLogAttempts + 1,
         }
-        break
       }
       case OrderValidation.InsufficientFunds:
-        extraUpdateInfo = {
+        return {
           orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
         }
-        break
       case OrderValidation.InvalidSignature:
       case OrderValidation.InvalidOrderFields:
       case OrderValidation.UnknownError:
-        extraUpdateInfo = { orderStatus: ORDER_STATUS.ERROR }
-        break
+        return { orderStatus: ORDER_STATUS.ERROR }
       case OrderValidation.NonceUsed: {
-        extraUpdateInfo = {
+        return {
           orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
           getFillLogAttempts: getFillLogAttempts + 1,
         }
-        break
       }
       default:
-        extraUpdateInfo = {
+        return {
           orderStatus: ORDER_STATUS.OPEN,
         }
-        break
     }
-    return extraUpdateInfo
   }
 }
