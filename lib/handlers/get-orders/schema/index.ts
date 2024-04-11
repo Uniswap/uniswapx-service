@@ -4,6 +4,10 @@ import FieldValidator from '../../../util/field-validator'
 
 const sortKeyJoi = FieldValidator.isValidSortKey()
 
+const singleItemsSchema = Joi.array().items(FieldValidator.isValidOrderType()).length(1)
+const dutchArraySchema = Joi.array().items(Joi.string().valid('Dutch', 'Dutch_V2')).length(2)
+const combinedSchema = Joi.alternatives(singleItemsSchema, dutchArraySchema)
+
 export const GetOrdersQueryParamsJoi = Joi.object({
   limit: FieldValidator.isValidLimit(),
   orderHash: FieldValidator.isValidOrderHash(),
@@ -27,7 +31,7 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   orderStatus: FieldValidator.isValidOrderStatus(),
   desc: Joi.boolean(),
   includeV2: Joi.boolean(),
-  orderType: FieldValidator.isValidOrderType(),
+  orderType: combinedSchema,
 })
   .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler')
   .when('.chainId', {
@@ -60,7 +64,7 @@ export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
   swapper?: string
   orderHashes: string
   includeV2?: boolean
-  orderType?: string
+  orderType?: string[]
 }
 export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
   offerer?: string

@@ -63,7 +63,7 @@ describe('OrderDispatcher', () => {
       })
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
 
-      const response = await dispatcher.getOrder(OrderType.Dutch, {
+      const response = await dispatcher.getOrder([OrderType.Dutch], {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,
@@ -77,21 +77,45 @@ describe('OrderDispatcher', () => {
       const uniswapXServiceMock = mock<UniswapXOrderService>()
       const mockOrder = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), '', 1).toEntity(ORDER_STATUS.OPEN)
 
-      uniswapXServiceMock.getDutchV2AndDutchOrders.mockResolvedValue({
+      uniswapXServiceMock.getDutchV2Orders.mockResolvedValue({
         orders: [mockOrder],
         cursor: '',
       })
 
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
 
-      const response = await dispatcher.getOrder(OrderType.Dutch_V2, {
+      const response = await dispatcher.getOrder([OrderType.Dutch_V2], {
+        params: new QueryParamsBuilder().withChainId(1).build(),
+        limit: 50,
+        cursor: undefined,
+      })
+
+      expect(uniswapXServiceMock.getDutchV2Orders).toHaveBeenCalled()
+      expect(response.orders[0]).toEqual(mockOrder)
+    })
+
+    test('with orderType [Dutch,Dutch_V2], calls uniswapXService', async () => {
+      const uniswapXServiceMock = mock<UniswapXOrderService>()
+      const mockOrder = new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      const mockV2Order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), '', 1).toEntity(
+        ORDER_STATUS.OPEN
+      )
+
+      uniswapXServiceMock.getDutchV2AndDutchOrders.mockResolvedValue({
+        orders: [mockOrder, mockV2Order],
+        cursor: '',
+      })
+
+      const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
+
+      const response = await dispatcher.getOrder([OrderType.Dutch, OrderType.Dutch_V2], {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,
       })
 
       expect(uniswapXServiceMock.getDutchV2AndDutchOrders).toHaveBeenCalled()
-      expect(response.orders[0]).toEqual(mockOrder)
+      expect(response.orders).toEqual([mockOrder, mockV2Order])
     })
 
     test('with orderType Limit, calls uniswapXService', async () => {
@@ -105,7 +129,7 @@ describe('OrderDispatcher', () => {
 
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
 
-      const response = await dispatcher.getOrder(OrderType.Limit, {
+      const response = await dispatcher.getOrder([OrderType.Limit], {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,
@@ -126,7 +150,7 @@ describe('OrderDispatcher', () => {
 
       const dispatcher = new OrderDispatcher(mock<UniswapXOrderService>(), relayServiceMock, logger)
 
-      const response = await dispatcher.getOrder(OrderType.Relay, {
+      const response = await dispatcher.getOrder([OrderType.Relay], {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,

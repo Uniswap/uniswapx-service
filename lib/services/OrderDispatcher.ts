@@ -32,21 +32,22 @@ export class OrderDispatcher {
   }
 
   async getOrder(
-    orderType: OrderType,
+    orderType: OrderType[],
     { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
   ): Promise<
     GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse> | GetOrdersResponse<GetRelayOrderResponse>
   > {
-    switch (orderType) {
-      case OrderType.Relay:
-        return await this.relayOrderService.getOrders(limit, params, cursor)
-      case OrderType.Dutch_V2:
+    switch (true) {
+      case orderType.includes(OrderType.Dutch) && orderType.includes(OrderType.Dutch_V2):
         return await this.uniswapXService.getDutchV2AndDutchOrders(limit, params, cursor)
-      case OrderType.Dutch:
+      case orderType.includes(OrderType.Relay):
+        return await this.relayOrderService.getOrders(limit, params, cursor)
+      case orderType.includes(OrderType.Dutch_V2):
+        return await this.uniswapXService.getDutchV2Orders(limit, params, cursor)
+      case orderType.includes(OrderType.Dutch):
         return await this.uniswapXService.getDutchOrders(limit, params, cursor)
-      case OrderType.Limit:
+      case orderType.includes(OrderType.Limit):
         return await this.uniswapXService.getLimitOrders(limit, params, cursor)
-      case undefined:
       default:
         throw new Error('OrderDispatcher Not Implemented')
     }

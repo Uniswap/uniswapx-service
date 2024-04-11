@@ -163,6 +163,16 @@ export class UniswapXOrderService {
     return { orders: resultList, cursor: queryResults.cursor }
   }
 
+  public async getDutchV2Orders(
+    limit: number,
+    params: GetOrdersQueryParams,
+    cursor: string | undefined
+  ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
+    const queryResults = await this.repository.getOrders(limit, params, cursor)
+    queryResults.orders = queryResults.orders.filter((order) => order.type === OrderType.Dutch_V2)
+    return queryResults
+  }
+
   public async getDutchOrders(
     limit: number,
     params: GetOrdersQueryParams,
