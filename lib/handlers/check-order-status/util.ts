@@ -79,15 +79,14 @@ export function getSettledAmounts(
 }
 
 export function getRelaySettledAmounts(fill: FillInfo, parsedOrder: RelayOrder): SettledAmount[] {
-  const settledAmounts: SettledAmount[] = []
   const amountIn = parsedOrder.info.input.amount.toString()
-  fill.outputs.forEach((output) => {
-    settledAmounts.push({
+  const settledAmounts: SettledAmount[] = fill.outputs.map((output) => {
+    return {
       tokenIn: parsedOrder.info.input.token,
       amountIn,
       tokenOut: output.token,
       amountOut: output.amount.toString(),
-    })
+    }
   })
   return settledAmounts
 }
