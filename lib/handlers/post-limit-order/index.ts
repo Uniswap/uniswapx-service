@@ -65,7 +65,7 @@ const relayOrderService = new RelayOrderService(
   EventWatcherMap.createRelayEventWatcherMap(),
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
-  () => 0,
+  () => 0, // set max open orders to 0 for relay orders posted to limit route, essentially disable this
   new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
 )
 

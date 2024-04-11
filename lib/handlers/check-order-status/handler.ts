@@ -44,29 +44,32 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     }
 
     if (input.requestInjected.orderType === OrderType.Limit) {
+      const response = await this.checkLimitOrderStatusService.handleRequest(input.requestInjected)
       return {
-        ...(await this.checkLimitOrderStatusService.handleRequest(input.requestInjected)),
+        ...response,
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
       }
     } else if (input.requestInjected.orderType === OrderType.Relay) {
+      const response = await this.relayOrderService.checkOrderStatus(
+        input.requestInjected.orderHash,
+        input.requestInjected.quoteId,
+        input.requestInjected.startingBlockNumber,
+        input.requestInjected.orderStatus,
+        input.requestInjected.getFillLogAttempts,
+        input.requestInjected.retryCount,
+        input.requestInjected.provider
+      )
       return {
-        ...(await this.relayOrderService.checkOrderStatus(
-          input.requestInjected.orderHash,
-          input.requestInjected.quoteId,
-          input.requestInjected.startingBlockNumber,
-          input.requestInjected.orderStatus,
-          input.requestInjected.getFillLogAttempts,
-          input.requestInjected.retryCount,
-          input.requestInjected.provider
-        )),
+        ...response,
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
       }
     } else {
       // Dutch, Dutch_V2
+      const response = await this.checkOrderStatusService.handleRequest(input.requestInjected)
       return {
-        ...(await this.checkOrderStatusService.handleRequest(input.requestInjected)),
+        ...response,
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
       }
