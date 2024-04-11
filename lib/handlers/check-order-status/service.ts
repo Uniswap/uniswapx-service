@@ -18,12 +18,7 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import {
-  calculateDutchRetryWaitSeconds,
-  FILL_EVENT_LOOKBACK_BLOCKS_ON,
-  getSettledAmounts,
-  IS_TERMINAL_STATE,
-} from './util'
+import { calculateDutchRetryWaitSeconds, getSettledAmounts, IS_TERMINAL_STATE } from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -53,7 +48,7 @@ export class CheckOrderStatusService {
     private dbInterface: BaseOrdersRepository<UniswapXOrderEntity>,
     serviceOrderType: OrderType,
     analyticsService: AnalyticsServiceInterface,
-    private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
+    private fillEventBlockLookback: (chainId: ChainId) => number,
     calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
   ) {
     this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
