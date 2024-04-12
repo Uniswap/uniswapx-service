@@ -8,7 +8,6 @@ import {
 
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
-import { log as plog } from '../../Logging'
 import { checkDefined } from '../../preconditions/preconditions'
 import { ErrorCode } from './ErrorCode'
 export const INTERNAL_ERROR = (id?: string) => {
@@ -281,10 +280,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
     }
 
     const queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
-    plog.warn('parent query params', { queryParamsRaw })
-
     const queryParamsSchema = this.requestQueryParamsSchema()
-    plog.warn('parent query params schema', { queryParamsSchema })
 
     let queryParams: ReqQueryParams | undefined
     if (queryParamsRaw && queryParamsSchema) {
@@ -292,7 +288,6 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
         allowUnknown: true, // Makes API schema changes and rollbacks easier.
         stripUnknown: true,
       })
-      plog.warn('parent query params validation', { queryParamsValidation })
 
       if (queryParamsValidation.error) {
         log.info({ queryParamsValidation }, 'Request failed validation')
