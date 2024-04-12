@@ -45,7 +45,7 @@ export const OrderResponseEntryJoi = Joi.object({
   swapper: FieldValidator.isValidEthAddress(),
   txHash: FieldValidator.isValidTxHash(),
   //only Dutch, Limit
-  type: Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT, OrderType.Limit, OrderType.Dutch_V2),
+  type: Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT, OrderType.Limit),
   input: OrderInputJoi,
   outputs: Joi.array().items(OrderOutputJoi),
   settledAmounts: Joi.array().items(SettledAmount),
