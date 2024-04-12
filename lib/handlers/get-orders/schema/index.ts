@@ -1,12 +1,9 @@
 import Joi from 'joi'
 import { SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
+import { GetOderTypeQueryParamEnum } from './GetOrderTypeQueryParamEnum'
 
 const sortKeyJoi = FieldValidator.isValidSortKey()
-
-const singleItemsSchema = Joi.array().items(FieldValidator.isValidOrderType()).length(1)
-const dutchArraySchema = Joi.array().items(Joi.string().valid('Dutch', 'Dutch_V2')).length(2)
-const combinedSchema = Joi.alternatives(singleItemsSchema, dutchArraySchema)
 
 export const GetOrdersQueryParamsJoi = Joi.object({
   limit: FieldValidator.isValidLimit(),
@@ -31,7 +28,7 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   orderStatus: FieldValidator.isValidOrderStatus(),
   desc: Joi.boolean(),
   includeV2: Joi.boolean(),
-  orderType: combinedSchema,
+  orderType: FieldValidator.isValidGetQueryParamOrderType(),
 })
   .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler')
   .when('.chainId', {
@@ -64,7 +61,7 @@ export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
   swapper?: string
   orderHashes: string
   includeV2?: boolean
-  orderType?: string[]
+  orderType?: GetOderTypeQueryParamEnum
 }
 export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
   offerer?: string

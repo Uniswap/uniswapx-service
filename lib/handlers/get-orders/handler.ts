@@ -4,6 +4,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { UniswapXOrderEntity } from '../../entities'
+import { log as plog } from '../../Logging'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { log } from '../../util/log'
 import { metrics } from '../../util/metrics'
@@ -47,6 +48,8 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     } = params
 
     this.logMetrics(queryFilters)
+
+    plog.warn('**orderType', { orderType })
 
     try {
       if (orderType) {

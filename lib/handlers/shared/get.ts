@@ -6,6 +6,7 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
+import { GetOderTypeQueryParamEnum } from '../get-orders/schema/GetOrderTypeQueryParamEnum'
 
 export interface ContainerInjected {
   dbInterface: BaseOrdersRepository<UniswapXOrderEntity>
@@ -57,13 +58,7 @@ export function getSharedRequestInjected({
 
 export const parseGetQueryParams = (
   requestQueryParams: RawGetOrdersQueryParams
-): {
-  limit: number
-  queryFilters: GetOrdersQueryParams
-  cursor?: string
-  includeV2?: boolean
-  orderType?: string[]
-} => {
+): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; includeV2?: boolean; orderType?: string } => {
   // default to no limit
   const limit = requestQueryParams?.limit ?? 0
   const orderStatus = requestQueryParams?.orderStatus
@@ -79,7 +74,11 @@ export const parseGetQueryParams = (
   const desc = requestQueryParams?.desc
   const orderHashes = requestQueryParams?.orderHashes?.split(',').map((orderHash: string) => orderHash.toLowerCase())
   const includeV2 = requestQueryParams?.includeV2 || false
-  const orderType = requestQueryParams?.orderType
+  const orderType =
+    requestQueryParams?.orderType && requestQueryParams?.orderType in GetOderTypeQueryParamEnum
+      ? requestQueryParams?.orderType
+      : undefined
+
   return {
     limit: limit,
     includeV2,

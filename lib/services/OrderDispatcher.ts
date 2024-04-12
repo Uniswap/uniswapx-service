@@ -5,7 +5,9 @@ import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
+import { GetOderTypeQueryParamEnum } from '../handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
+import { log } from '../Logging'
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
@@ -32,21 +34,24 @@ export class OrderDispatcher {
   }
 
   async getOrder(
-    orderType: OrderType[],
+    orderType: GetOderTypeQueryParamEnum,
     { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
   ): Promise<
     GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse> | GetOrdersResponse<GetRelayOrderResponse>
   > {
-    switch (true) {
-      case orderType.includes(OrderType.Dutch) && orderType.includes(OrderType.Dutch_V2):
+    switch (orderType) {
+      case GetOderTypeQueryParamEnum.Dutch_V1_V2:
+        log.warn('**fetching dutch and dutch_v2')
         return await this.uniswapXService.getDutchV2AndDutchOrders(limit, params, cursor)
-      case orderType.includes(OrderType.Relay):
+      case GetOderTypeQueryParamEnum.Relay:
         return await this.relayOrderService.getOrders(limit, params, cursor)
-      case orderType.includes(OrderType.Dutch_V2):
+      case GetOderTypeQueryParamEnum.Dutch_V2:
+        log.warn('**fetching dutch_v2')
         return await this.uniswapXService.getDutchV2Orders(limit, params, cursor)
-      case orderType.includes(OrderType.Dutch):
+      case GetOderTypeQueryParamEnum.Dutch:
+        log.warn('**fetching dutch')
         return await this.uniswapXService.getDutchOrders(limit, params, cursor)
-      case orderType.includes(OrderType.Limit):
+      case GetOderTypeQueryParamEnum.Limit:
         return await this.uniswapXService.getLimitOrders(limit, params, cursor)
       default:
         throw new Error('OrderDispatcher Not Implemented')

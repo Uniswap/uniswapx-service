@@ -16,6 +16,7 @@ import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
+import { log } from '../Logging'
 import { DutchV1Order } from '../models/DutchV1Order'
 import { DutchV2Order } from '../models/DutchV2Order'
 import { LimitOrder } from '../models/LimitOrder'
@@ -24,7 +25,6 @@ import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
-
 export class UniswapXOrderService {
   constructor(
     private readonly orderValidator: OffChainUniswapXOrderValidator,
@@ -160,6 +160,7 @@ export class UniswapXOrderService {
         resultList.push(order)
       }
     }
+    log.warn('**results**', { resultList })
     return { orders: resultList, cursor: queryResults.cursor }
   }
 
