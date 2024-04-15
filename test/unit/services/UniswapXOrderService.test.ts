@@ -4,7 +4,7 @@ import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
-import { DutchV1Order } from '../../../lib/models'
+import { DutchV1Order, DutchV2Order } from '../../../lib/models'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
@@ -12,6 +12,7 @@ import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT } from '../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
+import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -141,12 +142,10 @@ describe('UniswapXOrderService', () => {
   })
 
   test('getDutchV2Orders calls db with Dutch_V2', async () => {
-    const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
-    )
+    const dutchV2Orders = [1, 2, 3].map(() => new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), '', 1))
+    const mockOrder = dutchV2Orders.map((o) => o.toEntity(ORDER_STATUS.OPEN))
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    const mockResponse = { orders: mockOrder, cursor: undefined }
-    repository.getOrdersFilteredByType.mockResolvedValue({ ...mockResponse })
+    repository.getOrdersFilteredByType.mockResolvedValue({ orders: mockOrder })
 
     const service = new UniswapXOrderService(
       mock<OffChainUniswapXOrderValidator>(),
@@ -163,9 +162,13 @@ describe('UniswapXOrderService', () => {
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
     const response = await service.getDutchV2Orders(limit, params, undefined)
+    const expectedResponse = {
+      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
+      cursor: undefined,
+    }
 
     expect(response.orders).toHaveLength(3)
-    expect(response).toEqual(mockResponse)
+    expect(response).toEqual(expectedResponse)
     expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(1)
     expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
       expect.anything(),
@@ -205,7 +208,7 @@ describe('UniswapXOrderService', () => {
     expect(limitRepository.getOrdersFilteredByType).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      [OrderType.Limit],
+      [OrderType.Dutch],
       undefined // cursor
     )
   })

@@ -172,9 +172,18 @@ export class UniswapXOrderService {
     limit: number,
     params: GetOrdersQueryParams,
     cursor: string | undefined
-  ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
+  ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
     const queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V2], cursor)
-    return queryResults
+
+    const resultList: GetDutchV2OrderResponse[] = []
+
+    for (let i = 0; i < queryResults.orders.length; i++) {
+      const order = queryResults.orders[i]
+      const dutchV2Order = DutchV2Order.fromEntity(order)
+      resultList.push(dutchV2Order.toGetResponse())
+    }
+
+    return { orders: resultList, cursor: queryResults.cursor }
   }
 
   public async getDutchOrders(
@@ -196,7 +205,8 @@ export class UniswapXOrderService {
     params: GetOrdersQueryParams,
     cursor: string | undefined
   ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
-    const queryResults = await this.limitRepository.getOrdersFilteredByType(limit, params, [OrderType.Limit], cursor)
+    // orderType for Limit is Dutch
+    const queryResults = await this.limitRepository.getOrdersFilteredByType(limit, params, [OrderType.Dutch], cursor)
     return queryResults
   }
 }

@@ -7,7 +7,6 @@ import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetOderTypeQueryParamEnum } from '../handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
-import { log } from '../Logging'
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
@@ -41,15 +40,12 @@ export class OrderDispatcher {
   > {
     switch (orderType) {
       case GetOderTypeQueryParamEnum.Dutch_V1_V2:
-        log.warn('**fetching dutch and dutch_v2')
         return await this.uniswapXService.getDutchV2AndDutchOrders(limit, params, cursor)
       case GetOderTypeQueryParamEnum.Relay:
         return await this.relayOrderService.getOrders(limit, params, cursor)
       case GetOderTypeQueryParamEnum.Dutch_V2:
-        log.warn('**fetching dutch_v2')
         return await this.uniswapXService.getDutchV2Orders(limit, params, cursor)
       case GetOderTypeQueryParamEnum.Dutch:
-        log.warn('**fetching dutch')
         return await this.uniswapXService.getDutchOrders(limit, params, cursor)
       case GetOderTypeQueryParamEnum.Limit:
         return await this.uniswapXService.getLimitOrders(limit, params, cursor)

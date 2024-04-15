@@ -143,10 +143,10 @@ export abstract class GenericOrdersRepository<
     types: string[],
     cursor?: string
   ): Promise<QueryResult<T>> {
+    // https://www.dynamodbtoolbox.com/docs/filters-and-conditions
     const filters: ConditionsOrFilters[] = types.map((t) => {
-      return { attr: 'type', eq: t }
+      return { or: true, attr: 'type', eq: t }
     })
-
     return this.getOrdersWithFilters(limit, queryFilters, cursor, filters)
   }
 
