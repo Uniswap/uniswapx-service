@@ -79,15 +79,14 @@ export function getSettledAmounts(
 }
 
 export function getRelaySettledAmounts(fill: FillInfo, parsedOrder: RelayOrder): SettledAmount[] {
-  const settledAmounts: SettledAmount[] = []
   const amountIn = parsedOrder.info.input.amount.toString()
-  fill.outputs.forEach((output) => {
-    settledAmounts.push({
+  const settledAmounts: SettledAmount[] = fill.outputs.map((output) => {
+    return {
       tokenIn: parsedOrder.info.input.token,
       amountIn,
       tokenOut: output.token,
       amountOut: output.amount.toString(),
-    })
+    }
   })
   return settledAmounts
 }
@@ -127,14 +126,17 @@ export function getWatcher(
   orderType: OrderType
 ): UniswapXEventWatcher {
   const reactorType = orderType === OrderType.Limit ? OrderType.Dutch : orderType
-  if (!REACTOR_ADDRESS_MAPPING[chainId][reactorType]) {
+  const address = REACTOR_ADDRESS_MAPPING[chainId][reactorType]
+  if (!address) {
     throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType:${reactorType}`)
   }
   const mapKey = `${chainId}-${reactorType}`
-  if (!watcherMap.get(mapKey)) {
-    watcherMap.set(mapKey, new UniswapXEventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][reactorType] as string))
+  let watcher = watcherMap.get(mapKey)
+  if (!watcher) {
+    watcher = new UniswapXEventWatcher(provider, address)
+    watcherMap.set(mapKey, watcher)
   }
-  return watcherMap.get(mapKey) as UniswapXEventWatcher
+  return watcher
 }
 
 const providersMap = new Map<number, ethers.providers.StaticJsonRpcProvider>()

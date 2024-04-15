@@ -38,6 +38,7 @@ describe('Testing check order status handler', () => {
   }
 
   const localDocumentClient = new DocumentClient(dynamoConfig)
+  const mockLookbackFn = () => 10
 
   beforeAll(() => {
     log.setLogLevel('SILENT')
@@ -89,12 +90,14 @@ describe('Testing check order status handler', () => {
       new CheckOrderStatusService(
         DutchOrdersRepository.create(localDocumentClient),
         OrderType.Dutch,
-        mock<AnalyticsService>()
+        mock<AnalyticsService>(),
+        mockLookbackFn
       ),
       new CheckOrderStatusService(
         LimitOrdersRepository.create(localDocumentClient),
         OrderType.Limit,
-        mock<AnalyticsService>()
+        mock<AnalyticsService>(),
+        mockLookbackFn
       ),
       mock<RelayOrderService>()
     )
@@ -164,12 +167,14 @@ describe('Testing check order status handler', () => {
         new CheckOrderStatusService(
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         mock<RelayOrderService>()
       )
@@ -187,12 +192,14 @@ describe('Testing check order status handler', () => {
         new CheckOrderStatusService(
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         mock<RelayOrderService>()
       )
@@ -230,12 +237,14 @@ describe('Testing check order status handler', () => {
         new CheckOrderStatusService(
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         mock<RelayOrderService>()
       )
@@ -272,12 +281,14 @@ describe('Testing check order status handler', () => {
         new CheckOrderStatusService(
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         mock<RelayOrderService>()
       )
@@ -294,12 +305,14 @@ describe('Testing check order status handler', () => {
         new CheckOrderStatusService(
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         mock<RelayOrderService>()
       )
@@ -322,12 +335,14 @@ describe('Testing check order status handler', () => {
         new CheckOrderStatusService(
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
-          mock<AnalyticsService>()
+          mock<AnalyticsService>(),
+          mockLookbackFn
         ),
         mock<RelayOrderService>()
       )
