@@ -234,7 +234,7 @@ export class RelayOrderService {
 
     //not filled
     if (!extraUpdateInfo) {
-      extraUpdateInfo = await this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
+      extraUpdateInfo = this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
         validation,
         getFillLogAttempts,
       })
