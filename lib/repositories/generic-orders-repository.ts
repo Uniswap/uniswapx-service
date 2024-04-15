@@ -1,7 +1,6 @@
 import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
-import { ConditionsOrFilters } from 'dynamodb-toolbox/dist/classes/Entity'
 import { TABLE_KEY } from '../config/dynamodb'
 import { ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
@@ -144,7 +143,8 @@ export abstract class GenericOrdersRepository<
     cursor?: string
   ): Promise<QueryResult<T>> {
     // https://www.dynamodbtoolbox.com/docs/filters-and-conditions
-    const filters: ConditionsOrFilters[] = types.map((t) => {
+    // match any type passed in types (e.g. Dutch OR Dutch_V2)
+    const filters = types.map((t) => {
       return { or: true, attr: 'type', eq: t }
     })
     return this.getOrdersWithFilters(limit, queryFilters, cursor, filters)
@@ -154,7 +154,7 @@ export abstract class GenericOrdersRepository<
     limit: number,
     queryFilters: GetOrdersQueryParams,
     cursor?: string,
-    filters?: ConditionsOrFilters[]
+    filters: { or: boolean; attr: string; eq: string }[] = []
   ): Promise<QueryResult<T>> {
     const requestedParams = this.getRequestedParams(queryFilters)
     // Query Orders table based on the requested params
@@ -205,7 +205,7 @@ export abstract class GenericOrdersRepository<
     sortKey?: SORT_FIELDS | undefined,
     sort?: string | undefined, // ex gt(123)
     desc = true,
-    filters?: ConditionsOrFilters
+    filters: { or: boolean; attr: string; eq: string }[] = []
   ): Promise<QueryResult<T>> {
     let comparison: ComparisonFilter | undefined = undefined
     if (sortKey) {

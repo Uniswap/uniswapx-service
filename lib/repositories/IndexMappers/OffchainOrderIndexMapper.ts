@@ -5,13 +5,14 @@ import { IndexFieldsForUpdate, IndexMapper } from './IndexMapper'
 
 export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrderEntity> implements IndexMapper<T> {
   public getRequestedParams(queryFilters: GetOrdersQueryParams) {
+    // Fields to disregard when deriving indices
     const SORT_FIELDS = [GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC]
     const OTHER_IGNORED_FIELDS = [GET_QUERY_PARAMS.ORDER_TYPE]
-    const isSortKey = (requestedParam: string) =>
+    const isIgnoredField = (requestedParam: string) =>
       SORT_FIELDS.includes(requestedParam as GET_QUERY_PARAMS) ||
       OTHER_IGNORED_FIELDS.includes(requestedParam as GET_QUERY_PARAMS)
 
-    return Object.keys(queryFilters).filter((param) => !isSortKey(param))
+    return Object.keys(queryFilters).filter((param) => !isIgnoredField(param))
   }
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
