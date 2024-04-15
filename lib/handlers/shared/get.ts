@@ -1,4 +1,3 @@
-import { OrderType } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { Context } from 'aws-lambda'
 import bunyan, { default as Logger } from 'bunyan'
@@ -7,6 +6,7 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
+import { GetOrderTypeQueryParamEnum } from '../get-orders/schema/GetOrderTypeQueryParamEnum'
 
 export interface ContainerInjected {
   dbInterface: BaseOrdersRepository<UniswapXOrderEntity>
@@ -75,7 +75,7 @@ export const parseGetQueryParams = (
   const orderHashes = requestQueryParams?.orderHashes?.split(',').map((orderHash: string) => orderHash.toLowerCase())
   const includeV2 = requestQueryParams?.includeV2 || false
   const orderType =
-    requestQueryParams?.orderType && requestQueryParams?.orderType in OrderType
+    requestQueryParams?.orderType && requestQueryParams?.orderType in GetOrderTypeQueryParamEnum
       ? requestQueryParams?.orderType
       : undefined
 

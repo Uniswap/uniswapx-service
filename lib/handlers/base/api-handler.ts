@@ -10,7 +10,6 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
 import { ErrorCode } from './ErrorCode'
-
 export const INTERNAL_ERROR = (id?: string) => {
   return {
     statusCode: 500,

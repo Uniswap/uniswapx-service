@@ -1,4 +1,3 @@
-import { OrderType } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
@@ -9,13 +8,14 @@ import { DutchOrdersRepository } from '../../repositories/dutch-orders-repositor
 import { ApiInjector, ApiRInj } from '../base/index'
 import { getSharedRequestInjected } from '../shared/get'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
+import { GetOrderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
 
 export interface RequestInjected extends ApiRInj {
   limit: number
   queryFilters: GetOrdersQueryParams
   cursor?: string
   includeV2?: boolean
-  orderType?: OrderType
+  orderType?: GetOrderTypeQueryParamEnum
 }
 
 export interface ContainerInjected {

@@ -5,6 +5,7 @@ import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
+import { GetOrderTypeQueryParamEnum } from '../handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
@@ -32,21 +33,22 @@ export class OrderDispatcher {
   }
 
   async getOrder(
-    orderType: OrderType,
+    orderType: GetOrderTypeQueryParamEnum,
     { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
   ): Promise<
     GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse> | GetOrdersResponse<GetRelayOrderResponse>
   > {
     switch (orderType) {
-      case OrderType.Relay:
-        return await this.relayOrderService.getOrders(limit, params, cursor)
-      case OrderType.Dutch_V2:
+      case GetOrderTypeQueryParamEnum.Dutch_V1_V2:
         return await this.uniswapXService.getDutchV2AndDutchOrders(limit, params, cursor)
-      case OrderType.Dutch:
+      case GetOrderTypeQueryParamEnum.Relay:
+        return await this.relayOrderService.getOrders(limit, params, cursor)
+      case GetOrderTypeQueryParamEnum.Dutch_V2:
+        return await this.uniswapXService.getDutchV2Orders(limit, params, cursor)
+      case GetOrderTypeQueryParamEnum.Dutch:
         return await this.uniswapXService.getDutchOrders(limit, params, cursor)
-      case OrderType.Limit:
+      case GetOrderTypeQueryParamEnum.Limit:
         return await this.uniswapXService.getLimitOrders(limit, params, cursor)
-      case undefined:
       default:
         throw new Error('OrderDispatcher Not Implemented')
     }

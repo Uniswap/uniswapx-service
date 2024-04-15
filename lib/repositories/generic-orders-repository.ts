@@ -133,6 +133,29 @@ export abstract class GenericOrdersRepository<
   }
 
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult<T>> {
+    return this.getOrdersWithFilters(limit, queryFilters, cursor)
+  }
+
+  public async getOrdersFilteredByType(
+    limit: number,
+    queryFilters: GetOrdersQueryParams,
+    types: string[],
+    cursor?: string
+  ): Promise<QueryResult<T>> {
+    // https://www.dynamodbtoolbox.com/docs/filters-and-conditions
+    // match any type passed in types (e.g. Dutch OR Dutch_V2)
+    const filters = types.map((t) => {
+      return { or: true, attr: 'type', eq: t }
+    })
+    return this.getOrdersWithFilters(limit, queryFilters, cursor, filters)
+  }
+
+  private async getOrdersWithFilters(
+    limit: number,
+    queryFilters: GetOrdersQueryParams,
+    cursor?: string,
+    filters: { or: boolean; attr: string; eq: string }[] = []
+  ): Promise<QueryResult<T>> {
     const requestedParams = this.getRequestedParams(queryFilters)
     // Query Orders table based on the requested params
     const compoundIndex = this.indexMapper.getIndexFromParams(queryFilters)
@@ -145,7 +168,8 @@ export abstract class GenericOrdersRepository<
         cursor,
         queryFilters['sortKey'],
         queryFilters['sort'],
-        queryFilters['desc']
+        queryFilters['desc'],
+        filters
       )
     }
 
@@ -180,7 +204,8 @@ export abstract class GenericOrdersRepository<
     cursor?: string,
     sortKey?: SORT_FIELDS | undefined,
     sort?: string | undefined, // ex gt(123)
-    desc = true
+    desc = true,
+    filters: { or: boolean; attr: string; eq: string }[] = []
   ): Promise<QueryResult<T>> {
     let comparison: ComparisonFilter | undefined = undefined
     if (sortKey) {
@@ -189,6 +214,7 @@ export abstract class GenericOrdersRepository<
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
 
     const queryResult = await this.entity.query(partitionKey, {
+      filters: filters,
       index: formattedIndex,
       execute: true,
       limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,

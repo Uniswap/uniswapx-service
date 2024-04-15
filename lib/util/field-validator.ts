@@ -56,6 +56,14 @@ export default class FieldValidator {
     OrderType.Relay
   )
 
+  private static readonly GET_ORDER_TYPE_JOI = Joi.string().valid(
+    OrderType.Dutch,
+    OrderType.Dutch_V2,
+    OrderType.Limit,
+    OrderType.Relay,
+    'Dutch_V1_V2'
+  )
+
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
     if (!ethers.utils.isAddress(value)) {
       return helpers.message({ custom: 'VALIDATION ERROR: Invalid address' })
@@ -121,6 +129,10 @@ export default class FieldValidator {
 
   public static isValidOrderType(): StringSchema {
     return this.ORDER_TYPE_JOI
+  }
+
+  public static isValidGetQueryParamOrderType(): StringSchema {
+    return this.GET_ORDER_TYPE_JOI
   }
 
   public static isValidAmount(): StringSchema {
