@@ -5,10 +5,14 @@ import { IndexFieldsForUpdate, IndexMapper } from './IndexMapper'
 
 export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrderEntity> implements IndexMapper<T> {
   public getRequestedParams(queryFilters: GetOrdersQueryParams) {
+    // Fields to disregard when deriving indices
     const SORT_FIELDS = [GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC]
-    const isSortKey = (requestedParam: string) => SORT_FIELDS.includes(requestedParam as GET_QUERY_PARAMS)
+    const OTHER_IGNORED_FIELDS = [GET_QUERY_PARAMS.ORDER_TYPE]
+    const isIgnoredField = (requestedParam: string) =>
+      SORT_FIELDS.includes(requestedParam as GET_QUERY_PARAMS) ||
+      OTHER_IGNORED_FIELDS.includes(requestedParam as GET_QUERY_PARAMS)
 
-    return Object.keys(queryFilters).filter((param) => !isSortKey(param))
+    return Object.keys(queryFilters).filter((param) => !isIgnoredField(param))
   }
 
   private areParamsRequested(queryParams: GET_QUERY_PARAMS[], requestedParams: string[]): boolean {
@@ -21,7 +25,6 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
     queryFilters: GetOrdersQueryParams
   ): { index: string; partitionKey: string | number } | undefined {
     const requestedParams = this.getRequestedParams(queryFilters)
-
     switch (true) {
       case this.areParamsRequested(
         [GET_QUERY_PARAMS.FILLER, GET_QUERY_PARAMS.OFFERER, GET_QUERY_PARAMS.ORDER_STATUS],

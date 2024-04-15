@@ -75,10 +75,10 @@ describe('OrderDispatcher', () => {
 
     test('with orderType Dutch_V2, calls uniswapXService', async () => {
       const uniswapXServiceMock = mock<UniswapXOrderService>()
-      const mockOrder = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      const dutchV2Order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), '', 1)
 
       uniswapXServiceMock.getDutchV2Orders.mockResolvedValue({
-        orders: [mockOrder],
+        orders: [dutchV2Order.toGetResponse()],
         cursor: '',
       })
 
@@ -91,7 +91,7 @@ describe('OrderDispatcher', () => {
       })
 
       expect(uniswapXServiceMock.getDutchV2Orders).toHaveBeenCalled()
-      expect(response.orders[0]).toEqual(mockOrder)
+      expect(response.orders[0]).toEqual(dutchV2Order.toGetResponse())
     })
 
     test('with orderType [Dutch,Dutch_V2], calls uniswapXService', async () => {
