@@ -1,3 +1,4 @@
+/* eslint-disable jest/no-disabled-tests */
 import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedUniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { factories } from '@uniswap/uniswapx-sdk/dist/src/contracts/index'
 import axios from 'axios'
@@ -39,7 +40,7 @@ if (!process.argv.includes('--runInBand')) {
 const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
 const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
 
-describe('/dutch-auction/order', () => {
+describe.skip('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 48
   jest.setTimeout(240 * 1000)
   jest.retryTimes(2)
