@@ -8,14 +8,14 @@ import { DutchOrdersRepository } from '../../repositories/dutch-orders-repositor
 import { ApiInjector, ApiRInj } from '../base/index'
 import { getSharedRequestInjected } from '../shared/get'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
-import { GetOderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
+import { GetOrderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
 
 export interface RequestInjected extends ApiRInj {
   limit: number
   queryFilters: GetOrdersQueryParams
   cursor?: string
   includeV2?: boolean
-  orderType?: GetOderTypeQueryParamEnum
+  orderType?: GetOrderTypeQueryParamEnum
 }
 
 export interface ContainerInjected {

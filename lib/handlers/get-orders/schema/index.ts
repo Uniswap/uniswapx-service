@@ -1,7 +1,7 @@
 import Joi from 'joi'
 import { SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
-import { GetOderTypeQueryParamEnum } from './GetOrderTypeQueryParamEnum'
+import { GetOrderTypeQueryParamEnum } from './GetOrderTypeQueryParamEnum'
 
 const sortKeyJoi = FieldValidator.isValidSortKey()
 
@@ -56,7 +56,7 @@ export type SharedGetOrdersQueryParams = {
   cursor?: string
   chainId?: number
   desc?: boolean
-  orderType?: GetOderTypeQueryParamEnum
+  orderType?: GetOrderTypeQueryParamEnum
 }
 export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
   swapper?: string

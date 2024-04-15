@@ -1,4 +1,4 @@
-export enum GetOderTypeQueryParamEnum {
+export enum GetOrderTypeQueryParamEnum {
   Dutch = 'Dutch',
   Dutch_V2 = 'Dutch_V2',
   Relay = 'Relay',

@@ -2,7 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { NoHandlerConfiguredError } from '../../../lib/errors/NoHandlerConfiguredError'
-import { GetOderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
+import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { DutchV2Order, RelayOrder } from '../../../lib/models'
 import { DutchV1Order } from '../../../lib/models/DutchV1Order'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
@@ -63,7 +63,7 @@ describe('OrderDispatcher', () => {
       })
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
 
-      const response = await dispatcher.getOrder(GetOderTypeQueryParamEnum.Dutch, {
+      const response = await dispatcher.getOrder(GetOrderTypeQueryParamEnum.Dutch, {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,
@@ -84,7 +84,7 @@ describe('OrderDispatcher', () => {
 
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
 
-      const response = await dispatcher.getOrder(GetOderTypeQueryParamEnum.Dutch_V2, {
+      const response = await dispatcher.getOrder(GetOrderTypeQueryParamEnum.Dutch_V2, {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,
@@ -108,7 +108,7 @@ describe('OrderDispatcher', () => {
 
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
 
-      const response = await dispatcher.getOrder(GetOderTypeQueryParamEnum.Dutch_V1_V2, {
+      const response = await dispatcher.getOrder(GetOrderTypeQueryParamEnum.Dutch_V1_V2, {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,
@@ -129,7 +129,7 @@ describe('OrderDispatcher', () => {
 
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
 
-      const response = await dispatcher.getOrder(GetOderTypeQueryParamEnum.Limit, {
+      const response = await dispatcher.getOrder(GetOrderTypeQueryParamEnum.Limit, {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,
@@ -150,7 +150,7 @@ describe('OrderDispatcher', () => {
 
       const dispatcher = new OrderDispatcher(mock<UniswapXOrderService>(), relayServiceMock, logger)
 
-      const response = await dispatcher.getOrder(GetOderTypeQueryParamEnum.Relay, {
+      const response = await dispatcher.getOrder(GetOrderTypeQueryParamEnum.Relay, {
         params: new QueryParamsBuilder().withChainId(1).build(),
         limit: 50,
         cursor: undefined,

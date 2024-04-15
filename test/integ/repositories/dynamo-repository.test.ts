@@ -1,6 +1,6 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../../../lib/entities/Order'
-import { GetOderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
+import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { generateRandomNonce } from '../../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
@@ -347,7 +347,7 @@ describe('OrdersRepository getOrders test', () => {
 
     const orders = await ordersRepository.getOrders(10, {
       chainId: 5,
-      orderType: GetOderTypeQueryParamEnum.Dutch,
+      orderType: GetOrderTypeQueryParamEnum.Dutch,
     })
     expect(orders.orders).toHaveLength(1)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_6))
