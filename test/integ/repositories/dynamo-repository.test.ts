@@ -1,9 +1,13 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
+import { TABLE_KEY } from '../../../lib/config/dynamodb'
 import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../../../lib/entities/Order'
 import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
+import { DutchV1Order } from '../../../lib/models'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
+import { ChainId } from '../../../lib/util/chain'
 import { generateRandomNonce } from '../../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
+import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { deleteAllRepoEntries } from './deleteAllRepoEntries'
 
 jest.mock('../../../lib/util/time')
@@ -569,6 +573,29 @@ describe('OrdersRepository update status test', () => {
       txHash: 'txHash',
       settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
     })
+  })
+
+  it.only('should successfully update index with orderType', async () => {
+    const newOrder = new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), 'signature', ChainId.MAINNET)
+    await ordersRepository.putOrderAndUpdateNonceTransaction(newOrder.toEntity(ORDER_STATUS.OPEN))
+    const firstResponse = await ordersRepository.getByHash(newOrder.inner.hash())
+
+    await ordersRepository.updateOrder(firstResponse!.orderHash, {
+      ...firstResponse,
+      chainId_orderStatus: `${firstResponse?.chainId}_${firstResponse?.orderStatus}_${firstResponse?.type}`,
+    } as any)
+
+    const secondResponse = await ordersRepository.queryOrderEntity(
+      `${firstResponse?.chainId}_${firstResponse?.orderStatus}_${firstResponse?.type}`, //partitionKey:
+      `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`, //index:
+      5, //limit:
+      undefined, //cursor:
+      undefined, // sortKey:
+      undefined, //sort:
+      true //desc:
+    )
+    expect(secondResponse.orders).toHaveLength(1)
+    expect(secondResponse.orders[0]).toEqual({ ...firstResponse, chainId_orderStatus: '1_open_Dutch' })
   })
 
   it('should throw error if order does not exist', async () => {
