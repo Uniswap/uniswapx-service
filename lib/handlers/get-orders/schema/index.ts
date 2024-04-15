@@ -56,12 +56,12 @@ export type SharedGetOrdersQueryParams = {
   cursor?: string
   chainId?: number
   desc?: boolean
+  orderType?: GetOderTypeQueryParamEnum
 }
 export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
   swapper?: string
   orderHashes: string
   includeV2?: boolean
-  orderType?: GetOderTypeQueryParamEnum
 }
 export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
   offerer?: string
@@ -79,4 +79,5 @@ export enum GET_QUERY_PARAMS {
   FILLER = 'filler',
   CHAIN_ID = 'chainId',
   DESC = 'desc',
+  ORDER_TYPE = 'orderType',
 }
