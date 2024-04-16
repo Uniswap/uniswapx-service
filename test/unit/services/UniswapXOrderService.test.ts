@@ -106,6 +106,48 @@ describe('UniswapXOrderService', () => {
     )
   })
 
+  test('getDutchOrders loops with empty response', async () => {
+    const mockOrder = [1, 2, 3].map(() =>
+      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+    )
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    const mockResponse = { orders: mockOrder, cursor: undefined }
+    repository.getOrdersFilteredByType.mockResolvedValueOnce({ orders: [], cursor: 'cursor' })
+    repository.getOrdersFilteredByType.mockResolvedValue({ ...mockResponse })
+
+    const service = new UniswapXOrderService(
+      mock<OffChainUniswapXOrderValidator>(),
+      mock<OnChainValidatorMap<OrderValidator>>(),
+      repository,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<AnalyticsService>()
+    )
+
+    const limit = 50
+    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
+    const response = await service.getDutchOrders(limit, params, undefined)
+
+    expect(response.orders).toHaveLength(3)
+    expect(response).toEqual(mockResponse)
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(2)
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      [OrderType.Dutch, DUTCH_LIMIT],
+      undefined // cursor
+    )
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      [OrderType.Dutch, DUTCH_LIMIT],
+      'cursor'
+    )
+  })
+
   test('getDutchV2AndDutchOrders calls db with DUTCH_LIMIT and Dutch', async () => {
     const mockOrder = [1, 2, 3].map(() =>
       new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
@@ -175,6 +217,50 @@ describe('UniswapXOrderService', () => {
       expect.anything(),
       [OrderType.Dutch_V2],
       undefined // cursor
+    )
+  })
+
+  test('getDutchV2Orders loops with empty response', async () => {
+    const dutchV2Orders = [1, 2, 3].map(() => new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), '', 1))
+    const mockOrder = dutchV2Orders.map((o) => o.toEntity(ORDER_STATUS.OPEN))
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    repository.getOrdersFilteredByType.mockResolvedValueOnce({ orders: [], cursor: 'cursor' })
+    repository.getOrdersFilteredByType.mockResolvedValueOnce({ orders: mockOrder })
+
+    const service = new UniswapXOrderService(
+      mock<OffChainUniswapXOrderValidator>(),
+      mock<OnChainValidatorMap<OrderValidator>>(),
+      repository,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<AnalyticsService>()
+    )
+
+    const limit = 50
+    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
+    const response = await service.getDutchV2Orders(limit, params, undefined)
+    const expectedResponse = {
+      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
+      cursor: undefined,
+    }
+
+    expect(response.orders).toHaveLength(3)
+    expect(response).toEqual(expectedResponse)
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(2)
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      [OrderType.Dutch_V2],
+      undefined // cursor
+    )
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      [OrderType.Dutch_V2],
+      'cursor'
     )
   })
 
