@@ -24,6 +24,7 @@ import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
+const MAX_QUERY_RETRY = 10
 
 export class UniswapXOrderService {
   constructor(
@@ -173,17 +174,29 @@ export class UniswapXOrderService {
     params: GetOrdersQueryParams,
     cursor: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
-    const queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V2], cursor)
+    let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V2], cursor)
+    const dutchV2QueryResults = [...queryResults.orders]
 
-    const dutchV2Orders: GetDutchV2OrderResponse[] = []
-
-    for (let i = 0; i < queryResults.orders.length; i++) {
-      const order = queryResults.orders[i]
-      const dutchV2Order = DutchV2Order.fromEntity(order)
-      dutchV2Orders.push(dutchV2Order.toGetResponse())
+    let retryCount = 0
+    while (dutchV2QueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
+      queryResults = await this.repository.getOrdersFilteredByType(
+        limit,
+        params,
+        [OrderType.Dutch_V2],
+        queryResults.cursor
+      )
+      dutchV2QueryResults.push(...queryResults.orders)
+      retryCount++
     }
 
-    return { orders: dutchV2Orders, cursor: queryResults.cursor }
+    const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
+    for (let i = 0; i < dutchV2QueryResults.length; i++) {
+      const order = dutchV2QueryResults[i]
+      const dutchV2Order = DutchV2Order.fromEntity(order)
+      dutchV2OrderResponses.push(dutchV2Order.toGetResponse())
+    }
+
+    return { orders: dutchV2OrderResponses, cursor: queryResults.cursor }
   }
 
   public async getDutchOrders(
@@ -191,13 +204,28 @@ export class UniswapXOrderService {
     params: GetOrdersQueryParams,
     cursor: string | undefined
   ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
-    const queryResults = await this.repository.getOrdersFilteredByType(
+    let queryResults = await this.repository.getOrdersFilteredByType(
       limit,
       params,
       [OrderType.Dutch, DUTCH_LIMIT],
       cursor
     )
-    return queryResults
+
+    const dutchQueryResults = [...queryResults.orders]
+
+    let retryCount = 0
+    while (dutchQueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
+      queryResults = await this.repository.getOrdersFilteredByType(
+        limit,
+        params,
+        [OrderType.Dutch, DUTCH_LIMIT],
+        queryResults.cursor
+      )
+      dutchQueryResults.push(...queryResults.orders)
+      retryCount++
+    }
+
+    return { orders: dutchQueryResults, cursor: queryResults.cursor }
   }
 
   public async getLimitOrders(
