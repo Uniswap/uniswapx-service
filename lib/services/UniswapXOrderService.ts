@@ -174,24 +174,26 @@ export class UniswapXOrderService {
     cursor: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
     let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V2], cursor)
+    const dutchV2QueryResults = [...queryResults.orders]
 
-    while (queryResults.orders.length < 1 && queryResults.cursor) {
+    while (dutchV2QueryResults.length < limit && queryResults.cursor) {
       queryResults = await this.repository.getOrdersFilteredByType(
         limit,
         params,
         [OrderType.Dutch_V2],
         queryResults.cursor
       )
+      dutchV2QueryResults.push(...queryResults.orders)
     }
 
-    const dutchV2Orders: GetDutchV2OrderResponse[] = []
-    for (let i = 0; i < queryResults.orders.length; i++) {
-      const order = queryResults.orders[i]
+    const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
+    for (let i = 0; i < dutchV2QueryResults.length; i++) {
+      const order = dutchV2QueryResults[i]
       const dutchV2Order = DutchV2Order.fromEntity(order)
-      dutchV2Orders.push(dutchV2Order.toGetResponse())
+      dutchV2OrderResponses.push(dutchV2Order.toGetResponse())
     }
 
-    return { orders: dutchV2Orders, cursor: queryResults.cursor }
+    return { orders: dutchV2OrderResponses, cursor: queryResults.cursor }
   }
 
   public async getDutchOrders(
@@ -206,16 +208,19 @@ export class UniswapXOrderService {
       cursor
     )
 
-    while (queryResults.orders.length < 1 && queryResults.cursor) {
+    const dutchQueryResults = [...queryResults.orders]
+
+    while (dutchQueryResults.length < limit && queryResults.cursor) {
       queryResults = await this.repository.getOrdersFilteredByType(
         limit,
         params,
         [OrderType.Dutch, DUTCH_LIMIT],
         queryResults.cursor
       )
+      dutchQueryResults.push(...queryResults.orders)
     }
 
-    return queryResults
+    return { orders: dutchQueryResults, cursor: queryResults.cursor }
   }
 
   public async getLimitOrders(
