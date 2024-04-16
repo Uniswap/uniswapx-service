@@ -148,6 +148,30 @@ describe('UniswapXOrderService', () => {
     )
   })
 
+  test('getDutchOrders applies limit to loop retry', async () => {
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    repository.getOrdersFilteredByType.mockResolvedValue({ orders: [], cursor: 'cursor' })
+
+    const service = new UniswapXOrderService(
+      mock<OffChainUniswapXOrderValidator>(),
+      mock<OnChainValidatorMap<OrderValidator>>(),
+      repository,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<AnalyticsService>()
+    )
+
+    const limit = 50
+    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
+    const response = await service.getDutchOrders(limit, params, undefined)
+
+    expect(response).toEqual({ orders: [], cursor: 'cursor' })
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
+  })
+
   test('getDutchOrders returns more results than limit in looping edge case', async () => {
     const mockOrder = [1, 2, 3].map(() =>
       new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
@@ -304,6 +328,30 @@ describe('UniswapXOrderService', () => {
       [OrderType.Dutch_V2],
       'cursor'
     )
+  })
+
+  test('getDutchV2Orders applies limit to loop retry', async () => {
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    repository.getOrdersFilteredByType.mockResolvedValue({ orders: [], cursor: 'cursor' })
+
+    const service = new UniswapXOrderService(
+      mock<OffChainUniswapXOrderValidator>(),
+      mock<OnChainValidatorMap<OrderValidator>>(),
+      repository,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<AnalyticsService>()
+    )
+
+    const limit = 50
+    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
+    const response = await service.getDutchV2Orders(limit, params, undefined)
+
+    expect(response).toEqual({ orders: [], cursor: 'cursor' })
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
   })
 
   test('getDutchV2Orders returns more results than limit in looping edge case', async () => {

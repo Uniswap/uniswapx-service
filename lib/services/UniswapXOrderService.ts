@@ -24,6 +24,7 @@ import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
+const MAX_QUERY_RETRY = 10
 
 export class UniswapXOrderService {
   constructor(
@@ -176,7 +177,8 @@ export class UniswapXOrderService {
     let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V2], cursor)
     const dutchV2QueryResults = [...queryResults.orders]
 
-    while (dutchV2QueryResults.length < limit && queryResults.cursor) {
+    let retryCount = 0
+    while (dutchV2QueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
       queryResults = await this.repository.getOrdersFilteredByType(
         limit,
         params,
@@ -184,6 +186,7 @@ export class UniswapXOrderService {
         queryResults.cursor
       )
       dutchV2QueryResults.push(...queryResults.orders)
+      retryCount++
     }
 
     const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
@@ -210,7 +213,8 @@ export class UniswapXOrderService {
 
     const dutchQueryResults = [...queryResults.orders]
 
-    while (dutchQueryResults.length < limit && queryResults.cursor) {
+    let retryCount = 0
+    while (dutchQueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
       queryResults = await this.repository.getOrdersFilteredByType(
         limit,
         params,
@@ -218,6 +222,7 @@ export class UniswapXOrderService {
         queryResults.cursor
       )
       dutchQueryResults.push(...queryResults.orders)
+      retryCount++
     }
 
     return { orders: dutchQueryResults, cursor: queryResults.cursor }
