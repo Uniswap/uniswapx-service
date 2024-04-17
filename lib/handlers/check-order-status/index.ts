@@ -39,8 +39,8 @@ const relayOrderService = new RelayOrderService(
   new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
 )
 
-const mockLookbackFn = () => 10
 const documentClient = new DocumentClient()
+
 const checkOrderStatusInjectorPromise = new CheckOrderStatusInjector('checkOrderStatusInjector').build()
 const checkOrderStatusHandler = new CheckOrderStatusHandler(
   'checkOrderStatusHandler',
@@ -49,7 +49,7 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler(
     DutchOrdersRepository.create(documentClient),
     OrderType.Dutch,
     AnalyticsService.create(),
-    mockLookbackFn
+    FILL_EVENT_LOOKBACK_BLOCKS_ON
   ),
 
   new CheckOrderStatusService(
