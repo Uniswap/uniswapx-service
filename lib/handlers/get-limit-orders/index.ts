@@ -2,7 +2,7 @@ import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
-import { RelayOrderService } from '../../services/RelayOrderService'
+import { RelayOrderService } from '../../services/RelayOrderService/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 

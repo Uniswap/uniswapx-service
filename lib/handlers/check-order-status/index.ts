@@ -8,7 +8,7 @@ import { DutchOrdersRepository } from '../../repositories/dutch-orders-repositor
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
-import { RelayOrderService } from '../../services/RelayOrderService'
+import { RelayOrderService } from '../../services/RelayOrderService/RelayOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'

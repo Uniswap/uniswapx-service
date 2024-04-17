@@ -34,7 +34,7 @@ export type CheckOrderStatusRequest = {
   orderType: OrderType
 }
 
-type ExtraUpdateInfo = {
+export type ExtraUpdateInfo = {
   orderStatus: ORDER_STATUS
   txHash?: string
   settledAmounts?: SettledAmount[]
