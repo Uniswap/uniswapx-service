@@ -1,5 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import {
+  FillInfo,
   OrderType,
   OrderValidation,
   RelayEventWatcher,
@@ -7,7 +8,7 @@ import {
   RelayOrderValidator as OnChainRelayOrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { ORDER_STATUS, RelayOrderEntity } from '../entities'
+import { ORDER_STATUS, RelayOrderEntity, SettledAmount } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
@@ -196,40 +197,19 @@ export class RelayOrderService {
     }
 
     let extraUpdateInfo = undefined
-    const orderWatcher = this.relayOrderWatcherMap.get(order.chainId)
 
     // check for fill
     if (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) {
-      const fillEvents = await wrapWithTimerMetric(
-        orderWatcher.getFillInfo(fromBlock, curBlockNumber),
-        CheckOrderStatusHandlerMetricNames.GetFillEventsTime
-      )
-      const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
-      if (fillEvent) {
-        const [tx, block] = await Promise.all([
-          provider.getTransaction(fillEvent.txHash),
-          provider.getBlock(fillEvent.blockNumber),
-        ])
-
-        const settledAmounts = getRelaySettledAmounts(fillEvent, parsedOrder)
-
-        await this.fillEventLogger.processFillEvent({
-          fillEvent,
-          quoteId,
-          chainId: order.chainId,
+      extraUpdateInfo = await this.checkFillEvents({
+        orderHash,
+        order,
+        provider,
+        blocks: {
+          curBlockNumber,
+          fromBlock,
           startingBlockNumber,
-          order,
-          settledAmounts,
-          tx,
-          timestamp: block.timestamp,
-        })
-
-        extraUpdateInfo = {
-          orderStatus: ORDER_STATUS.FILLED,
-          txHash: fillEvent.txHash,
-          settledAmounts,
-        }
-      }
+        },
+      })
     }
 
     //not filled
@@ -247,4 +227,61 @@ export class RelayOrderService {
 
     return this.checkOrderStatusUtils.updateStatusAndReturn(updateObject)
   }
+
+  private async checkFillEvents({
+    orderHash,
+    order,
+    provider,
+    blocks,
+  }: {
+    orderHash: string
+    order: RelayOrderEntity
+    provider: ethers.providers.StaticJsonRpcProvider
+    blocks: StatusBlocks
+  }): Promise<{
+    orderStatus: ORDER_STATUS
+    txHash: string
+    settledAmounts: SettledAmount[]
+  } | null> {
+    const parsedOrder = RelayOrder.fromEntity(order)
+    const orderWatcher = this.relayOrderWatcherMap.get(order.chainId)
+
+    const fillEvents: FillInfo[] = await wrapWithTimerMetric(
+      orderWatcher.getFillInfo(blocks.fromBlock, blocks.curBlockNumber),
+      CheckOrderStatusHandlerMetricNames.GetFillEventsTime
+    )
+    const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
+    if (fillEvent) {
+      const [tx, block] = await Promise.all([
+        provider.getTransaction(fillEvent.txHash),
+        provider.getBlock(fillEvent.blockNumber),
+      ])
+
+      const settledAmounts = getRelaySettledAmounts(fillEvent, parsedOrder.inner)
+
+      await this.fillEventLogger.processFillEvent({
+        fillEvent,
+        quoteId: undefined,
+        chainId: order.chainId,
+        startingBlockNumber: blocks.startingBlockNumber,
+        order,
+        settledAmounts,
+        tx,
+        timestamp: block.timestamp,
+      })
+
+      return {
+        orderStatus: ORDER_STATUS.FILLED,
+        txHash: fillEvent.txHash,
+        settledAmounts,
+      }
+    }
+    return null
+  }
+}
+
+export type StatusBlocks = {
+  fromBlock: number
+  curBlockNumber: number
+  startingBlockNumber: number
 }
