@@ -1,4 +1,4 @@
-import { EventWatcher, OrderType, OrderValidator, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import { EventWatcher, OrderType, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
@@ -9,6 +9,7 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
 import { SfnInjector, SfnStateInputOutput } from '../base/index'
+import { getWatcher } from './util'
 export interface RequestInjected {
   log: Logger
   chainId: number
@@ -53,12 +54,9 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     const rpcURL = process.env[`RPC_${chainId}`]
     const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
     const quoter = new OrderValidator(provider, chainId)
+    const orderType = event.orderType as OrderType
 
-    // TODO: use different reactor address for different order type
-    if (!REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch]) {
-      throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType${OrderType.Dutch}`)
-    }
-    const watcher = new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][OrderType.Dutch] as string)
+    const watcher = getWatcher(provider, chainId, orderType)
 
     return {
       log,
@@ -72,7 +70,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       provider: provider,
       orderWatcher: watcher,
       orderQuoter: quoter,
-      orderType: event.orderType as OrderType,
+      orderType: orderType,
       stateMachineArn: event.stateMachineArn as string,
     }
   }
