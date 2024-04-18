@@ -13,7 +13,7 @@ import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { AnalyticsServiceInterface } from '../../services/analytics-service'
+import { AnalyticsService, AnalyticsServiceInterface } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
@@ -51,7 +51,7 @@ export class CheckOrderStatusService {
     private fillEventBlockLookback: (chainId: ChainId) => number,
     calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
   ) {
-    this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
+    this.fillEventLogger = new FillEventLogger(fillEventBlockLookback, AnalyticsService.create())
     this.checkOrderStatusUtils = new CheckOrderStatusUtils(
       serviceOrderType,
       analyticsService,

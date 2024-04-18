@@ -43,7 +43,7 @@ const relayOrderService = new RelayOrderService(
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
   getMaxOpenOrders,
-  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
+  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
 )
 
 const getLimitOrdersInjectorPromise = new GetLimitOrdersInjector('getLimitOrdersInjector').build()
