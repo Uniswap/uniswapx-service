@@ -13,7 +13,7 @@ import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { AnalyticsService, AnalyticsServiceInterface } from '../../services/analytics-service'
+import { AnalyticsServiceInterface } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
@@ -42,24 +42,12 @@ export type ExtraUpdateInfo = {
 }
 
 export class CheckOrderStatusService {
-  // private readonly fillEventLogger
-  private readonly checkOrderStatusUtils
   constructor(
     private dbInterface: BaseOrdersRepository<UniswapXOrderEntity>,
-    private serviceOrderType: OrderType,
-    private analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number,
-    calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number,
-    private fillEventLogger: FillEventLogger
-  ) {
-    this.fillEventLogger = new FillEventLogger(fillEventBlockLookback, AnalyticsService.create())
-    this.checkOrderStatusUtils = new CheckOrderStatusUtils(
-      this.serviceOrderType,
-      this.analyticsService,
-      dbInterface,
-      calculateRetryWaitSeconds
-    )
-  }
+    private fillEventLogger: FillEventLogger,
+    private checkOrderStatusUtils: CheckOrderStatusUtils
+  ) {}
 
   public async handleRequest({
     chainId,

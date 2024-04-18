@@ -5,7 +5,7 @@ import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
 import { CheckOrderStatusHandler } from '../../../lib/handlers/check-order-status/handler'
-import { CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
+import { CheckOrderStatusService, CheckOrderStatusUtils } from '../../../lib/handlers/check-order-status/service'
 import {
   calculateDutchRetryWaitSeconds,
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
@@ -44,7 +44,6 @@ describe('Testing check order status handler', () => {
 
   const localDocumentClient = new DocumentClient(dynamoConfig)
   const mockLookbackFn = () => 10
-  const mockRetryWait = calculateDutchRetryWaitSeconds
 
   beforeAll(() => {
     log.setLogLevel('SILENT')
@@ -95,19 +94,15 @@ describe('Testing check order status handler', () => {
       injectorPromiseMock,
       new CheckOrderStatusService(
         DutchOrdersRepository.create(localDocumentClient),
-        OrderType.Dutch,
-        mock<AnalyticsService>(),
         mockLookbackFn,
-        mockRetryWait,
-        mock<FillEventLogger>()
+        mock<FillEventLogger>(),
+        mock<CheckOrderStatusUtils>()
       ),
       new CheckOrderStatusService(
         LimitOrdersRepository.create(localDocumentClient),
-        OrderType.Limit,
-        mock<AnalyticsService>(),
         mockLookbackFn,
-        mockRetryWait,
-        mock<FillEventLogger>()
+        mock<FillEventLogger>(),
+        mock<CheckOrderStatusUtils>()
       ),
       mock<RelayOrderService>()
     )
@@ -171,53 +166,59 @@ describe('Testing check order status handler', () => {
     })
 
     it('should return expired order status', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler(
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
         new CheckOrderStatusService(
-          DutchOrdersRepository.create(localDocumentClient),
-          OrderType.Dutch,
-          mock<AnalyticsService>(),
+          dutchOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
         ),
         new CheckOrderStatusService(
-          LimitOrdersRepository.create(localDocumentClient),
-          OrderType.Limit,
-          mock<AnalyticsService>(),
+          limitOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
         ),
         mock<RelayOrderService>()
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getFillInfoMock.mockReturnValue([])
-      expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
+      expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.EXPIRED,
       })
     })
 
     it('should check fill events when order expired', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler(
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
         new CheckOrderStatusService(
-          DutchOrdersRepository.create(localDocumentClient),
-          OrderType.Dutch,
-          mock<AnalyticsService>(),
+          dutchOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
         ),
         new CheckOrderStatusService(
-          LimitOrdersRepository.create(localDocumentClient),
-          OrderType.Limit,
-          mock<AnalyticsService>(),
+          limitOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
         ),
         mock<RelayOrderService>()
       )
@@ -242,31 +243,34 @@ describe('Testing check order status handler', () => {
         },
       ])
 
-      expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
+      expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
       })
       expect(getFillInfoMock).toBeCalled()
     })
 
     it('should check fill events when nonceUsed', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler(
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
         new CheckOrderStatusService(
-          DutchOrdersRepository.create(localDocumentClient),
-          OrderType.Dutch,
-          mock<AnalyticsService>(),
+          dutchOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
         ),
         new CheckOrderStatusService(
-          LimitOrdersRepository.create(localDocumentClient),
-          OrderType.Limit,
-          mock<AnalyticsService>(),
+          limitOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
         ),
         mock<RelayOrderService>()
       )
@@ -291,58 +295,64 @@ describe('Testing check order status handler', () => {
         },
       ])
 
-      expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
+      expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
       })
     })
 
     it('should return insufficient-funds order status', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler(
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
         new CheckOrderStatusService(
-          DutchOrdersRepository.create(localDocumentClient),
-          OrderType.Dutch,
-          mock<AnalyticsService>(),
+          dutchOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
         ),
         new CheckOrderStatusService(
-          LimitOrdersRepository.create(localDocumentClient),
-          OrderType.Limit,
-          mock<AnalyticsService>(),
+          limitOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
         ),
         mock<RelayOrderService>()
       )
       validateMock.mockReturnValue(OrderValidation.InsufficientFunds)
-      expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
+      expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
         orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
       })
     })
 
     it('should return error order status', async () => {
-      const checkorderStatusHandler = new CheckOrderStatusHandler(
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
         new CheckOrderStatusService(
-          DutchOrdersRepository.create(localDocumentClient),
-          OrderType.Dutch,
-          mock<AnalyticsService>(),
+          dutchOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
         ),
         new CheckOrderStatusService(
-          LimitOrdersRepository.create(localDocumentClient),
-          OrderType.Limit,
-          mock<AnalyticsService>(),
+          limitOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
         ),
         mock<RelayOrderService>()
       )
@@ -352,31 +362,34 @@ describe('Testing check order status handler', () => {
         .mockReturnValueOnce(OrderValidation.InvalidOrderFields)
 
       for (let i = 0; i < 3; i++) {
-        expect(await checkorderStatusHandler.handler(handlerEventMock)).toMatchObject({
+        expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
           orderStatus: ORDER_STATUS.ERROR,
         })
       }
     })
 
     it('return latest on-chain status and increment retry count', async () => {
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
       const checkOrderStatusHandler = new CheckOrderStatusHandler(
         'check-order-status',
         initialInjectorPromiseMock,
         new CheckOrderStatusService(
-          DutchOrdersRepository.create(localDocumentClient),
-          OrderType.Dutch,
-          mock<AnalyticsService>(),
+          dutchOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
         ),
         new CheckOrderStatusService(
-          LimitOrdersRepository.create(localDocumentClient),
-          OrderType.Limit,
-          mock<AnalyticsService>(),
+          limitOrdersRepository,
           mockLookbackFn,
-          mockRetryWait,
-          mock<FillEventLogger>()
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
         ),
         mock<RelayOrderService>()
       )

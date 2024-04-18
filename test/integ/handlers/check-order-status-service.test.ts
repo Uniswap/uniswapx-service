@@ -3,7 +3,11 @@ import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
-import { CheckOrderStatusRequest, CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
+import {
+  CheckOrderStatusRequest,
+  CheckOrderStatusService,
+  CheckOrderStatusUtils,
+} from '../../../lib/handlers/check-order-status/service'
 import {
   calculateDutchRetryWaitSeconds,
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
@@ -59,11 +63,9 @@ describe('checkOrderStatusService', () => {
 
       checkOrderStatusService = new CheckOrderStatusService(
         ordersRepositoryMock,
-        OrderType.Dutch,
-        analyticsMock,
         FILL_EVENT_LOOKBACK_BLOCKS_ON,
-        calculateDutchRetryWaitSeconds,
-        mock<FillEventLogger>()
+        mock<FillEventLogger>(),
+        new CheckOrderStatusUtils(OrderType.Dutch, analyticsMock, ordersRepositoryMock, calculateDutchRetryWaitSeconds)
       )
 
       watcherMock = {
