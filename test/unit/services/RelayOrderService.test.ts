@@ -11,7 +11,7 @@ import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { RelayOrder } from '../../../lib/models'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
-import { RelayOrderService } from '../../../lib/services/RelayOrderService'
+import { RelayOrderService } from '../../../lib/services/RelayOrderService/RelayOrderService'
 import { OffChainRelayOrderValidator } from '../../../lib/util/OffChainRelayOrderValidator'
 import { SDKRelayOrderFactory } from '../../factories/SDKRelayOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
@@ -424,5 +424,73 @@ describe('RelayOrderService', () => {
       startingBlockNumber: 100,
       txHash: '0xtxhash',
     })
+  })
+
+  test('checkFillEvents, returns null with no fill event found', async () => {
+    const mockOrder = new RelayOrder(SDKRelayOrderFactory.buildRelayOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+    const repository = mock<BaseOrdersRepository<RelayOrderEntity>>()
+    repository.getByHash.mockResolvedValue(mockOrder)
+
+    const onChainValidator = mock<RelayOrderValidator>()
+    onChainValidator.validate.mockResolvedValue(OrderValidation.NonceUsed)
+
+    const onChainValidatorMap = mock<OnChainValidatorMap<RelayOrderValidator>>()
+    onChainValidatorMap.get.mockReturnValue(onChainValidator)
+
+    const mockEventWatcher = mock<RelayEventWatcher>()
+    mockEventWatcher.getFillInfo.mockResolvedValue([
+      {
+        orderHash: 'non-matching-orderhash',
+        filler: '0xfiller',
+        nonce: BigNumber.from('100'),
+        swapper: '0xswapper',
+        blockNumber: 123,
+        txHash: '0xtxhash',
+        inputs: [
+          {
+            token: '0xtokenIn',
+            amount: BigNumber.from(1),
+          },
+        ],
+        outputs: [
+          {
+            token: '0xtokenOut',
+            amount: BigNumber.from(1),
+          },
+        ],
+      },
+    ])
+
+    const eventWatcherMap = mock<EventWatcherMap<RelayEventWatcher>>()
+    eventWatcherMap.get.mockReturnValue(mockEventWatcher)
+
+    const service = new RelayOrderService(
+      mock<OffChainRelayOrderValidator>(),
+      onChainValidatorMap,
+      eventWatcherMap,
+      repository,
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<FillEventLogger>()
+    )
+
+    const mockProvider = mock<ethers.providers.StaticJsonRpcProvider>()
+    mockProvider.getBlock.mockResolvedValue({ timestamp: 1 } as any)
+    mockProvider.getTransaction.mockResolvedValue({} as any)
+
+    const response = await service.checkFillEvents({
+      orderHash: mockOrder.orderHash,
+      order: mockOrder,
+      provider: mockProvider,
+      blocks: {
+        fromBlock: 1,
+        curBlockNumber: 10,
+        startingBlockNumber: 1,
+      },
+    })
+
+    expect(response).toBeNull()
   })
 })

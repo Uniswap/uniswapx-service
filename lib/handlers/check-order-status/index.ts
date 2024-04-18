@@ -8,7 +8,7 @@ import { DutchOrdersRepository } from '../../repositories/dutch-orders-repositor
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
-import { RelayOrderService } from '../../services/RelayOrderService'
+import { RelayOrderService } from '../../services/RelayOrderService/RelayOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
@@ -39,21 +39,21 @@ const relayOrderService = new RelayOrderService(
   new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
 )
 
-const mockLookbackFn = () => 10
+const documentClient = new DocumentClient()
 
 const checkOrderStatusInjectorPromise = new CheckOrderStatusInjector('checkOrderStatusInjector').build()
 const checkOrderStatusHandler = new CheckOrderStatusHandler(
   'checkOrderStatusHandler',
   checkOrderStatusInjectorPromise,
   new CheckOrderStatusService(
-    DutchOrdersRepository.create(new DocumentClient()),
+    DutchOrdersRepository.create(documentClient),
     OrderType.Dutch,
     AnalyticsService.create(),
-    mockLookbackFn
+    FILL_EVENT_LOOKBACK_BLOCKS_ON
   ),
 
   new CheckOrderStatusService(
-    LimitOrdersRepository.create(new DocumentClient()),
+    LimitOrdersRepository.create(documentClient),
     OrderType.Limit,
     AnalyticsService.create(),
     FILL_EVENT_LOOKBACK_BLOCKS_ON,
