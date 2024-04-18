@@ -85,7 +85,7 @@ export class CheckOrderStatusService {
 
     const validation = await wrapWithTimerMetric(
       orderQuoter.validate({
-        order: parsedOrder as DutchOrder | CosignedV2DutchOrder,
+        order: parsedOrder,
         signature: order.signature,
       }),
       CheckOrderStatusHandlerMetricNames.GetValidationTime
@@ -266,7 +266,7 @@ export class CheckOrderStatusUtils {
     switch (validation) {
       case OrderValidation.Expired: {
         return {
-          orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
+          orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
           getFillLogAttempts: getFillLogAttempts + 1,
         }
       }
@@ -280,7 +280,7 @@ export class CheckOrderStatusUtils {
         return { orderStatus: ORDER_STATUS.ERROR }
       case OrderValidation.NonceUsed: {
         return {
-          orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
+          orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
           getFillLogAttempts: getFillLogAttempts + 1,
         }
       }
