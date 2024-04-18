@@ -11,7 +11,7 @@ import { LimitOrdersRepository } from '../../repositories/limit-orders-repositor
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { RelayOrderService } from '../../services/RelayOrderService/RelayOrderService'
+import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'

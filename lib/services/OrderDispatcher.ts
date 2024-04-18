@@ -10,7 +10,7 @@ import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrd
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
-import { RelayOrderService } from './RelayOrderService/RelayOrderService'
+import { RelayOrderService } from './RelayOrderService'
 import { UniswapXOrderService } from './UniswapXOrderService'
 
 export class OrderDispatcher {
