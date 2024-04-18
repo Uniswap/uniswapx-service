@@ -67,7 +67,7 @@ export class CheckOrderStatusService {
         this.dbInterface.getByHash(orderHash),
         CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
       ),
-      'cannot find order by hash when updating order status'
+      `cannot find order by hash when updating order status, hash: ${orderHash}`
     )
 
     let parsedOrder: DutchOrder | CosignedV2DutchOrder

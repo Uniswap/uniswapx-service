@@ -164,7 +164,7 @@ export class RelayOrderService {
         this.repository.getByHash(orderHash),
         CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
       ),
-      'cannot find order by hash when updating order status'
+      `cannot find order by hash when updating order status, hash: ${orderHash}`
     )
 
     const parsedOrder = SDKRelayOrder.parse(order.encodedOrder, order.chainId)
