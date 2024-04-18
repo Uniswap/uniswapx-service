@@ -31,7 +31,6 @@ import { checkDefined } from '../../preconditions/preconditions'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { AnalyticsService } from '../analytics-service'
-import { CheckFillEventsRequest } from './RelayOrderServiceTypes'
 
 export class RelayOrderService {
   private readonly checkOrderStatusUtils: CheckOrderStatusUtils
@@ -235,7 +234,16 @@ export class RelayOrderService {
     order,
     provider,
     blocks,
-  }: CheckFillEventsRequest): Promise<ExtraUpdateInfo | null> {
+  }: {
+    orderHash: string
+    order: RelayOrderEntity
+    provider: ethers.providers.StaticJsonRpcProvider
+    blocks: {
+      fromBlock: number
+      curBlockNumber: number
+      startingBlockNumber: number
+    }
+  }): Promise<ExtraUpdateInfo | null> {
     const parsedOrder = RelayOrder.fromEntity(order)
     const orderWatcher = this.relayOrderWatcherMap.get(order.chainId)
 
@@ -244,30 +252,32 @@ export class RelayOrderService {
       CheckOrderStatusHandlerMetricNames.GetFillEventsTime
     )
     const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
-    if (fillEvent) {
-      const [tx, block] = await Promise.all([
-        provider.getTransaction(fillEvent.txHash),
-        provider.getBlock(fillEvent.blockNumber),
-      ])
 
-      const settledAmounts = getRelaySettledAmounts(fillEvent, parsedOrder.inner)
-
-      await this.fillEventLogger.processFillEvent({
-        fillEvent,
-        chainId: order.chainId,
-        startingBlockNumber: blocks.startingBlockNumber,
-        order,
-        settledAmounts,
-        tx,
-        timestamp: block.timestamp,
-      })
-
-      return {
-        orderStatus: ORDER_STATUS.FILLED,
-        txHash: fillEvent.txHash,
-        settledAmounts,
-      }
+    if (!fillEvent) {
+      return null
     }
-    return null
+
+    const [tx, block] = await Promise.all([
+      provider.getTransaction(fillEvent.txHash),
+      provider.getBlock(fillEvent.blockNumber),
+    ])
+
+    const settledAmounts = getRelaySettledAmounts(fillEvent, parsedOrder.inner)
+
+    await this.fillEventLogger.processFillEvent({
+      fillEvent,
+      chainId: order.chainId,
+      startingBlockNumber: blocks.startingBlockNumber,
+      order,
+      settledAmounts,
+      tx,
+      timestamp: block.timestamp,
+    })
+
+    return {
+      orderStatus: ORDER_STATUS.FILLED,
+      txHash: fillEvent.txHash,
+      settledAmounts,
+    }
   }
 }
