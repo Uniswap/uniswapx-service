@@ -174,7 +174,7 @@ describe('S3WebhookProvider test', () => {
         expect(endpoints).toEqual([{ url: 'webhook.com/0' }])
       })
 
-      it('Only adds * webhooks when OrderType is Dutch_V2', async () => {
+      it('Only adds webhooks when OrderType is Dutch_V2', async () => {
         const endpoints = findEndpointsMatchingFilter(
           {
             filler: '0x1',
@@ -184,7 +184,12 @@ describe('S3WebhookProvider test', () => {
           },
           mockEndpoints
         )
-        expect(endpoints).toEqual([{ url: 'webhook.com/0' }])
+        expect(endpoints).toEqual([
+          { url: 'webhook.com/0' },
+          { url: 'webhook.com/1' },
+          { url: 'webhook.com/2' },
+          { url: 'webhook.com/4' },
+        ])
       })
     })
   })
