@@ -1,6 +1,8 @@
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
+import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
+import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
 import { CheckOrderStatusRequest, CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
 import {
   calculateDutchRetryWaitSeconds,
@@ -60,7 +62,8 @@ describe('checkOrderStatusService', () => {
         OrderType.Dutch,
         analyticsMock,
         FILL_EVENT_LOOKBACK_BLOCKS_ON,
-        calculateDutchRetryWaitSeconds
+        calculateDutchRetryWaitSeconds,
+        mock<FillEventLogger>()
       )
 
       watcherMock = {

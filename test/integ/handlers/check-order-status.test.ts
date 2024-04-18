@@ -3,9 +3,14 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
+import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
 import { CheckOrderStatusHandler } from '../../../lib/handlers/check-order-status/handler'
 import { CheckOrderStatusService } from '../../../lib/handlers/check-order-status/service'
-import { FILL_EVENT_LOOKBACK_BLOCKS_ON, getSettledAmounts } from '../../../lib/handlers/check-order-status/util'
+import {
+  calculateDutchRetryWaitSeconds,
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
+  getSettledAmounts,
+} from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
@@ -39,6 +44,7 @@ describe('Testing check order status handler', () => {
 
   const localDocumentClient = new DocumentClient(dynamoConfig)
   const mockLookbackFn = () => 10
+  const mockRetryWait = calculateDutchRetryWaitSeconds
 
   beforeAll(() => {
     log.setLogLevel('SILENT')
@@ -91,13 +97,17 @@ describe('Testing check order status handler', () => {
         DutchOrdersRepository.create(localDocumentClient),
         OrderType.Dutch,
         mock<AnalyticsService>(),
-        mockLookbackFn
+        mockLookbackFn,
+        mockRetryWait,
+        mock<FillEventLogger>()
       ),
       new CheckOrderStatusService(
         LimitOrdersRepository.create(localDocumentClient),
         OrderType.Limit,
         mock<AnalyticsService>(),
-        mockLookbackFn
+        mockLookbackFn,
+        mockRetryWait,
+        mock<FillEventLogger>()
       ),
       mock<RelayOrderService>()
     )
@@ -168,13 +178,17 @@ describe('Testing check order status handler', () => {
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         mock<RelayOrderService>()
       )
@@ -193,13 +207,17 @@ describe('Testing check order status handler', () => {
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         mock<RelayOrderService>()
       )
@@ -238,13 +256,17 @@ describe('Testing check order status handler', () => {
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         mock<RelayOrderService>()
       )
@@ -282,13 +304,17 @@ describe('Testing check order status handler', () => {
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         mock<RelayOrderService>()
       )
@@ -306,13 +332,17 @@ describe('Testing check order status handler', () => {
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         mock<RelayOrderService>()
       )
@@ -336,13 +366,17 @@ describe('Testing check order status handler', () => {
           DutchOrdersRepository.create(localDocumentClient),
           OrderType.Dutch,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         new CheckOrderStatusService(
           LimitOrdersRepository.create(localDocumentClient),
           OrderType.Limit,
           mock<AnalyticsService>(),
-          mockLookbackFn
+          mockLookbackFn,
+          mockRetryWait,
+          mock<FillEventLogger>()
         ),
         mock<RelayOrderService>()
       )

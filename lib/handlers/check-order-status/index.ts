@@ -12,7 +12,7 @@ import { RelayOrderService } from '../../services/RelayOrderService/RelayOrderSe
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
-import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
+import { calculateDutchRetryWaitSeconds, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
@@ -49,7 +49,9 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler(
     DutchOrdersRepository.create(documentClient),
     OrderType.Dutch,
     AnalyticsService.create(),
-    FILL_EVENT_LOOKBACK_BLOCKS_ON
+    FILL_EVENT_LOOKBACK_BLOCKS_ON,
+    calculateDutchRetryWaitSeconds,
+    new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
   ),
 
   new CheckOrderStatusService(
@@ -59,7 +61,8 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler(
     FILL_EVENT_LOOKBACK_BLOCKS_ON,
     () => {
       return 30
-    }
+    },
+    new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
   ),
   relayOrderService
 )

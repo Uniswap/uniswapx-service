@@ -18,7 +18,7 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import { calculateDutchRetryWaitSeconds, getSettledAmounts, IS_TERMINAL_STATE } from './util'
+import { getSettledAmounts, IS_TERMINAL_STATE } from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -42,19 +42,20 @@ export type ExtraUpdateInfo = {
 }
 
 export class CheckOrderStatusService {
-  private readonly fillEventLogger
+  // private readonly fillEventLogger
   private readonly checkOrderStatusUtils
   constructor(
     private dbInterface: BaseOrdersRepository<UniswapXOrderEntity>,
-    serviceOrderType: OrderType,
-    analyticsService: AnalyticsServiceInterface,
+    private serviceOrderType: OrderType,
+    private analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number,
-    calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
+    calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number,
+    private fillEventLogger: FillEventLogger
   ) {
     this.fillEventLogger = new FillEventLogger(fillEventBlockLookback, AnalyticsService.create())
     this.checkOrderStatusUtils = new CheckOrderStatusUtils(
-      serviceOrderType,
-      analyticsService,
+      this.serviceOrderType,
+      this.analyticsService,
       dbInterface,
       calculateRetryWaitSeconds
     )
