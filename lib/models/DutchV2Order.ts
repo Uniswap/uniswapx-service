@@ -8,7 +8,8 @@ export class DutchV2Order extends Order {
     readonly inner: SDKV2DutchOrder,
     readonly signature: string,
     readonly chainId: number,
-    readonly orderStatus?: ORDER_STATUS
+    readonly orderStatus?: ORDER_STATUS,
+    readonly txHash?: string
   ) {
     super()
   }
@@ -52,6 +53,7 @@ export class DutchV2Order extends Order {
         inputOverride: decodedOrder.info.cosignerData.inputOverride.toString(),
         outputOverrides: decodedOrder.info.cosignerData.outputOverrides.map((o) => o.toString()),
       },
+      txHash: this.txHash,
       cosignature: decodedOrder.info.cosignature,
     }
 
@@ -63,7 +65,8 @@ export class DutchV2Order extends Order {
       SDKV2DutchOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
       entity.chainId,
-      entity.orderStatus
+      entity.orderStatus,
+      entity.txHash
     )
   }
 
@@ -75,6 +78,7 @@ export class DutchV2Order extends Order {
       encodedOrder: this.inner.serialize(),
       chainId: this.chainId,
 
+      txHash: this.txHash,
       orderHash: this.inner.hash(),
       swapper: this.inner.info.swapper,
       reactor: this.inner.info.reactor,
