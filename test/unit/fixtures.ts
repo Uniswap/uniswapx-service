@@ -5,7 +5,7 @@ import { BigNumber } from 'ethers'
 export const ORDER_INFO: DutchOrderInfo = {
   deadline: 10,
   swapper: '0x0000000000000000000000000000000000000001',
-  reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch]!.toLowerCase(),
+  reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch]?.toLowerCase() || '0x0000000000000000000000000000000000000099',
   decayStartTime: 20,
   decayEndTime: 25,
   input: {

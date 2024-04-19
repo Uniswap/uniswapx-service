@@ -149,7 +149,7 @@ describe.skip('/dutch-auction/order', () => {
       const responses = await Promise.all(promises)
       expect(responses.every((resp) => resp.status === 200)).toBe(true)
       const orders = responses.map((resp) => resp.data.orders[0])
-      expect(orders.length).toEqual(orderHashes.length)
+      expect(orders).toHaveLength(orderHashes.length)
       const orderStatuses = orders.map((order) => order!.orderStatus)
       if (orderStatuses.every((status) => status === 'open')) {
         return true
@@ -170,7 +170,7 @@ describe.skip('/dutch-auction/order', () => {
       `${URL}dutch-auction/orders?orderHash=${orderHash}`
     )
     expect(resp.status).toEqual(200)
-    expect(resp.data.orders.length).toEqual(1)
+    expect(resp.data.orders).toHaveLength(1)
     const order = resp.data.orders[0]
     expect(order).toBeDefined()
     expect(order!.orderHash).toEqual(orderHash)

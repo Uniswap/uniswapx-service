@@ -67,7 +67,7 @@ describe('SDKDutchOrderV2Factory', () => {
         },
       ],
     })
-    expect(actual.info.outputs.length).toEqual(1)
+    expect(actual.info.outputs).toHaveLength(1)
     expect(actual.info.outputs[0].token).toEqual('0xabc')
   })
 

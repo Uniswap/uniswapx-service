@@ -77,10 +77,10 @@ describe('deleteStaleOrders Test', () => {
   it('should delete stale orders', async () => {
     await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER)
     let staleOrders = await ordersRepository.getByOrderStatus(ORDER_STATUS.OPEN)
-    expect(staleOrders.orders.length).toBe(1)
+    expect(staleOrders.orders).toHaveLength(1)
     await deleteStaleOrders(ordersRepository, log)
     staleOrders = await ordersRepository.getByOrderStatus(ORDER_STATUS.OPEN)
-    expect(staleOrders.orders.length).toBe(0)
+    expect(staleOrders.orders).toHaveLength(0)
   })
 
   it('should page through all stale orders if necessary', async () => {
