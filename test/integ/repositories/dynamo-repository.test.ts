@@ -240,7 +240,7 @@ describe('OrdersRepository getOrders test', () => {
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
   })
 
-  it('should return no orders for chainId and orderStatus', async () => {
+  it('should return no orders for chainId, orderStatus, filler, when none match', async () => {
     const orders = await ordersRepository.getOrders(10, { chainId: 137, orderStatus: ORDER_STATUS.OPEN, filler: '0x3' })
     expect(orders.orders).toEqual([])
   })
