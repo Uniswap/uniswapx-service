@@ -18,7 +18,7 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import { calculateDutchRetryWaitSeconds, getSettledAmounts, IS_TERMINAL_STATE } from './util'
+import { getSettledAmounts, IS_TERMINAL_STATE } from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -42,23 +42,12 @@ export type ExtraUpdateInfo = {
 }
 
 export class CheckOrderStatusService {
-  private readonly fillEventLogger
-  private readonly checkOrderStatusUtils
   constructor(
     private dbInterface: BaseOrdersRepository<UniswapXOrderEntity>,
-    serviceOrderType: OrderType,
-    analyticsService: AnalyticsServiceInterface,
     private fillEventBlockLookback: (chainId: ChainId) => number,
-    calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
-  ) {
-    this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
-    this.checkOrderStatusUtils = new CheckOrderStatusUtils(
-      serviceOrderType,
-      analyticsService,
-      dbInterface,
-      calculateRetryWaitSeconds
-    )
-  }
+    private fillEventLogger: FillEventLogger,
+    private checkOrderStatusUtils: CheckOrderStatusUtils
+  ) {}
 
   public async handleRequest({
     chainId,
@@ -78,7 +67,7 @@ export class CheckOrderStatusService {
         this.dbInterface.getByHash(orderHash),
         CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
       ),
-      'cannot find order by hash when updating order status'
+      `cannot find order by hash when updating order status, hash: ${orderHash}`
     )
 
     let parsedOrder: DutchOrder | CosignedV2DutchOrder
@@ -96,7 +85,7 @@ export class CheckOrderStatusService {
 
     const validation = await wrapWithTimerMetric(
       orderQuoter.validate({
-        order: parsedOrder as DutchOrder | CosignedV2DutchOrder,
+        order: parsedOrder,
         signature: order.signature,
       }),
       CheckOrderStatusHandlerMetricNames.GetValidationTime
@@ -277,7 +266,7 @@ export class CheckOrderStatusUtils {
     switch (validation) {
       case OrderValidation.Expired: {
         return {
-          orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
+          orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
           getFillLogAttempts: getFillLogAttempts + 1,
         }
       }
@@ -291,7 +280,7 @@ export class CheckOrderStatusUtils {
         return { orderStatus: ORDER_STATUS.ERROR }
       case OrderValidation.NonceUsed: {
         return {
-          orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
+          orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
           getFillLogAttempts: getFillLogAttempts + 1,
         }
       }

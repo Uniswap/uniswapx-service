@@ -10,7 +10,7 @@ import { LimitOrdersRepository } from '../../repositories/limit-orders-repositor
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { RelayOrderService } from '../../services/RelayOrderService/RelayOrderService'
+import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
@@ -66,7 +66,7 @@ const relayOrderService = new RelayOrderService(
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
   () => 0, // set max open orders to 0 for relay orders posted to limit route, essentially disable this
-  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
+  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
 )
 
 const postLimitOrderHandler = new PostOrderHandler(

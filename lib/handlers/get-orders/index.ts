@@ -7,7 +7,7 @@ import { DutchOrdersRepository } from '../../repositories/dutch-orders-repositor
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { RelayOrderService } from '../../services/RelayOrderService/RelayOrderService'
+import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
@@ -46,7 +46,7 @@ const relayOrderService = new RelayOrderService(
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
   getMaxOpenOrders,
-  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
+  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
 )
 const getOrdersInjectorPromise = new GetOrdersInjector('getOrdersInjector').build()
 const getOrdersHandler = new GetOrdersHandler(

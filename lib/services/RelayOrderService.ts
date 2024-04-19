@@ -8,29 +8,29 @@ import {
   RelayOrderValidator as OnChainRelayOrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { ORDER_STATUS, RelayOrderEntity } from '../../entities'
-import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
-import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
-import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
-import { FillEventLogger } from '../../handlers/check-order-status/fill-event-logger'
-import { CheckOrderStatusUtils, ExtraUpdateInfo } from '../../handlers/check-order-status/service'
+import { ORDER_STATUS, RelayOrderEntity } from '../entities'
+import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
+import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
+import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
+import { FillEventLogger } from '../handlers/check-order-status/fill-event-logger'
+import { CheckOrderStatusUtils, ExtraUpdateInfo } from '../handlers/check-order-status/service'
 import {
   calculateDutchRetryWaitSeconds,
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
   getRelaySettledAmounts,
-} from '../../handlers/check-order-status/util'
-import { EventWatcherMap } from '../../handlers/EventWatcherMap'
-import { GetOrdersQueryParams } from '../../handlers/get-orders/schema'
-import { GetOrdersResponse } from '../../handlers/get-orders/schema/GetOrdersResponse'
-import { GetRelayOrderResponse } from '../../handlers/get-orders/schema/GetRelayOrderResponse'
-import { OnChainValidatorMap } from '../../handlers/OnChainValidatorMap'
-import { kickoffOrderTrackingSfn } from '../../handlers/shared/sfn'
-import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
-import { RelayOrder } from '../../models/RelayOrder'
-import { checkDefined } from '../../preconditions/preconditions'
-import { BaseOrdersRepository } from '../../repositories/base'
-import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
-import { AnalyticsService } from '../analytics-service'
+} from '../handlers/check-order-status/util'
+import { EventWatcherMap } from '../handlers/EventWatcherMap'
+import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
+import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
+import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
+import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
+import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
+import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../Metrics'
+import { RelayOrder } from '../models/RelayOrder'
+import { checkDefined } from '../preconditions/preconditions'
+import { BaseOrdersRepository } from '../repositories/base'
+import { OffChainRelayOrderValidator } from '../util/OffChainRelayOrderValidator'
+import { AnalyticsService } from './analytics-service'
 
 export class RelayOrderService {
   private readonly checkOrderStatusUtils: CheckOrderStatusUtils
@@ -164,7 +164,7 @@ export class RelayOrderService {
         this.repository.getByHash(orderHash),
         CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
       ),
-      'cannot find order by hash when updating order status'
+      `cannot find order by hash when updating order status, hash: ${orderHash}`
     )
 
     const parsedOrder = SDKRelayOrder.parse(order.encodedOrder, order.chainId)

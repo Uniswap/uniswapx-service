@@ -573,7 +573,7 @@ describe('OrdersRepository update status test', () => {
 
   it('should throw error if order does not exist', async () => {
     await expect(ordersRepository.updateOrderStatus('nonexistent', ORDER_STATUS.FILLED)).rejects.toEqual(
-      new Error('cannot find order by hash when updating order status')
+      new Error('cannot find order by hash when updating order status, hash: nonexistent')
     )
   })
 })

@@ -110,7 +110,7 @@ export abstract class GenericOrdersRepository<
     try {
       const order = checkDefined(
         await this.getByHash(orderHash),
-        'cannot find order by hash when updating order status'
+        `cannot find order by hash when updating order status, hash: ${orderHash}`
       )
 
       await this.entity.update({

@@ -17,10 +17,11 @@ export type ProcessFillEventRequest = {
   timestamp: number
 }
 export class FillEventLogger {
-  private analyticsService: AnalyticsService
-  constructor(private fillEventBlockLookback: (chainId: ChainId) => number) {
-    this.analyticsService = AnalyticsService.create()
-  }
+  constructor(
+    private fillEventBlockLookback: (chainId: ChainId) => number,
+    private analyticsService: AnalyticsService
+  ) {}
+
   public async processFillEvent({
     fillEvent,
     quoteId,

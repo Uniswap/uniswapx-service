@@ -6,7 +6,7 @@ import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/sch
 import { DutchV2Order, RelayOrder } from '../../../lib/models'
 import { DutchV1Order } from '../../../lib/models/DutchV1Order'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
-import { RelayOrderService } from '../../../lib/services/RelayOrderService/RelayOrderService'
+import { RelayOrderService } from '../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'

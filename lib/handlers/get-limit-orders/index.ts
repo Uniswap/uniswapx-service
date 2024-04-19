@@ -2,7 +2,7 @@ import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
-import { RelayOrderService } from '../../services/RelayOrderService/RelayOrderService'
+import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
@@ -43,7 +43,7 @@ const relayOrderService = new RelayOrderService(
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
   getMaxOpenOrders,
-  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON)
+  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
 )
 
 const getLimitOrdersInjectorPromise = new GetLimitOrdersInjector('getLimitOrdersInjector').build()
