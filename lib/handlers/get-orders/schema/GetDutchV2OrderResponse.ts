@@ -14,7 +14,7 @@ export type GetDutchV2OrderResponse = {
   swapper: string
   reactor: string
 
-  txHash: string
+  txHash: string | undefined
   deadline: number
   input: {
     token: string
