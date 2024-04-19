@@ -109,7 +109,10 @@ export class CheckOrderStatusService {
     }
 
     let extraUpdateInfo = undefined
-    // check for fill
+
+    // if validation is NonceUsed or Expired it might be filled or unfilled
+    // so check for a fillEvent
+    // if no fill event, process in the unfilled path
     if (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) {
       const fillEvent = await this.getFillEventForOrder(orderHash, fromBlock, curBlockNumber, orderWatcher)
       if (fillEvent) {

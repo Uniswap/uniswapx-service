@@ -199,7 +199,9 @@ export class RelayOrderService {
 
     let extraUpdateInfo = undefined
 
-    // check for fill
+    // if validation is NonceUsed or Expired it might be filled or unfilled
+    // so check for a fillEvent
+    // if no fill event, process in the unfilled path
     if (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) {
       extraUpdateInfo = await this.checkFillEvents({
         orderHash,
@@ -213,7 +215,7 @@ export class RelayOrderService {
       })
     }
 
-    //not filled
+    // not filled
     if (!extraUpdateInfo) {
       extraUpdateInfo = this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
         validation,
