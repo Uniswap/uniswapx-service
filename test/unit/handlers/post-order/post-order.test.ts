@@ -1,13 +1,14 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import { OrderType, OrderValidation, OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
+import { APIGatewayEvent } from 'aws-lambda'
 import { mockClient } from 'aws-sdk-client-mock'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_ORDERS } from '../../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
-import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
+import { PostOrderHandler, tryParseChainIdFromBody } from '../../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../../lib/handlers/post-order/injector'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
@@ -517,6 +518,28 @@ describe('Testing post order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
+    })
+  })
+
+  describe('tryParseChainIdFromBody', () => {
+    test('should return 0 when no chainId', () => {
+      const response = tryParseChainIdFromBody({ body: '{}' } as APIGatewayEvent)
+      expect(response).toEqual('0')
+    })
+
+    test('should return 0 when no body', () => {
+      const response = tryParseChainIdFromBody({} as APIGatewayEvent)
+      expect(response).toEqual('0')
+    })
+
+    test('should return 0 when JSON.parse errors', () => {
+      const response = tryParseChainIdFromBody({ body: '{;}' } as APIGatewayEvent)
+      expect(response).toEqual('0')
+    })
+
+    test('should return chainId', () => {
+      const response = tryParseChainIdFromBody({ body: '{"chainId":1}' } as APIGatewayEvent)
+      expect(response).toEqual(1)
     })
   })
 })

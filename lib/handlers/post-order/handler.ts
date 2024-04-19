@@ -22,6 +22,20 @@ import {
 import { PostOrderBodyParser } from './PostOrderBodyParser'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
+export function tryParseChainIdFromBody(event: APIGatewayProxyEvent) {
+  // Try and extract the chain id from the raw json.
+  if (!event || !event.body) {
+    return '0'
+  }
+
+  try {
+    const rawBody = JSON.parse(event.body)
+    const chainId = rawBody.chainId ?? '0'
+    return chainId
+  } catch (err) {
+    return '0'
+  }
+}
 export class PostOrderHandler extends APIGLambdaHandler<
   unknown,
   ApiRInj,
@@ -119,14 +133,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
   protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
     const { statusCode } = response
 
-    // Try and extract the chain id from the raw json.
-    let chainId = '0'
-    try {
-      const rawBody = JSON.parse(event.body || '')
-      chainId = rawBody.chainId ?? chainId
-    } catch (err) {
-      // no-op. If we can't get chainId still log the metric as chain 0
-    }
+    const chainId = tryParseChainIdFromBody(event)
 
     const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
 
