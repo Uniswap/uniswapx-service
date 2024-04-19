@@ -104,6 +104,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.checkStatusFunction = sfnStack.checkStatusFunction
 
     const getOrdersEnv = {
+      ...props.envVars,
       stage: props.stage as STAGE,
       VERSION: '3',
       NODE_OPTIONS: '--enable-source-maps',
@@ -136,6 +137,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
+        ...props.envVars,
         stage: props.stage as STAGE,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
@@ -240,6 +242,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: {
+        ...props.envVars,
         stage: props.stage as STAGE,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
