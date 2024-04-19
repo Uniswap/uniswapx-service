@@ -17,6 +17,9 @@ import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
+import { FillEventLogger } from '../check-order-status/fill-event-logger'
+import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
+import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
@@ -59,9 +62,11 @@ for (const chainId of SUPPORTED_CHAINS) {
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
+  EventWatcherMap.createRelayEventWatcherMap(),
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
-  getMaxOpenOrders
+  getMaxOpenOrders,
+  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
 )
 
 const postOrderHandler = new PostOrderHandler(

@@ -1,28 +1,55 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { OrderType, OrderValidation, RelayOrderValidator as OnChainRelayOrderValidator } from '@uniswap/uniswapx-sdk'
+import {
+  FillInfo,
+  OrderType,
+  OrderValidation,
+  RelayEventWatcher,
+  RelayOrder as SDKRelayOrder,
+  RelayOrderValidator as OnChainRelayOrderValidator,
+} from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, RelayOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
+import { FillEventLogger } from '../handlers/check-order-status/fill-event-logger'
+import { CheckOrderStatusUtils, ExtraUpdateInfo } from '../handlers/check-order-status/service'
+import {
+  calculateDutchRetryWaitSeconds,
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
+  getRelaySettledAmounts,
+} from '../handlers/check-order-status/util'
+import { EventWatcherMap } from '../handlers/EventWatcherMap'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
+import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../Metrics'
 import { RelayOrder } from '../models/RelayOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainRelayOrderValidator } from '../util/OffChainRelayOrderValidator'
+import { AnalyticsService } from './analytics-service'
 
 export class RelayOrderService {
+  private readonly checkOrderStatusUtils: CheckOrderStatusUtils
   constructor(
     private readonly orderValidator: OffChainRelayOrderValidator,
     private readonly onChainValidatorMap: OnChainValidatorMap<OnChainRelayOrderValidator>,
+    private readonly relayOrderWatcherMap: EventWatcherMap<RelayEventWatcher>,
     private readonly repository: BaseOrdersRepository<RelayOrderEntity>,
     private logger: Logger,
-    private readonly getMaxOpenOrders: (offerer: string) => number
-  ) {}
+    private readonly getMaxOpenOrders: (offerer: string) => number,
+    private readonly fillEventLogger: FillEventLogger
+  ) {
+    this.checkOrderStatusUtils = new CheckOrderStatusUtils(
+      OrderType.Relay,
+      AnalyticsService.create(),
+      repository,
+      calculateDutchRetryWaitSeconds
+    )
+  }
 
   async createOrder(order: RelayOrder): Promise<string> {
     await this.validateOrder(order, order.signature, order.chainId)
@@ -121,5 +148,138 @@ export class RelayOrderService {
       resultList.push(relayOrder.toGetResponse())
     }
     return { orders: resultList, cursor: queryResults.cursor }
+  }
+
+  public async checkOrderStatus(
+    orderHash: string,
+    quoteId: string,
+    startingBlockNumber: number,
+    orderStatus: ORDER_STATUS,
+    getFillLogAttempts: number,
+    retryCount: number,
+    provider: ethers.providers.StaticJsonRpcProvider
+  ) {
+    const order: RelayOrderEntity = await checkDefined(
+      await wrapWithTimerMetric<RelayOrderEntity | undefined>(
+        this.repository.getByHash(orderHash),
+        CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
+      ),
+      `cannot find order by hash when updating order status, hash: ${orderHash}`
+    )
+
+    const parsedOrder = SDKRelayOrder.parse(order.encodedOrder, order.chainId)
+
+    const onChainValidator = this.onChainValidatorMap.get(order.chainId)
+    const validation = await wrapWithTimerMetric(
+      onChainValidator.validate({
+        order: parsedOrder,
+        signature: order.signature,
+      }),
+      CheckOrderStatusHandlerMetricNames.GetValidationTime
+    )
+
+    const curBlockNumber = await wrapWithTimerMetric(
+      provider.getBlockNumber(),
+      CheckOrderStatusHandlerMetricNames.GetBlockNumberTime
+    )
+
+    const fromBlock = !startingBlockNumber
+      ? curBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(order.chainId)
+      : startingBlockNumber
+
+    const commonUpdateInfo = {
+      orderHash,
+      quoteId,
+      retryCount,
+      startingBlockNumber: fromBlock,
+      chainId: order.chainId,
+      lastStatus: orderStatus,
+      validation,
+    }
+
+    let extraUpdateInfo = undefined
+
+    // if validation is NonceUsed or Expired it might be filled or unfilled
+    // so check for a fillEvent
+    // if no fill event, process in the unfilled path
+    if (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) {
+      extraUpdateInfo = await this.checkFillEvents({
+        orderHash,
+        order,
+        provider,
+        blocks: {
+          curBlockNumber,
+          fromBlock,
+          startingBlockNumber,
+        },
+      })
+    }
+
+    // not filled
+    if (!extraUpdateInfo) {
+      extraUpdateInfo = this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
+        validation,
+        getFillLogAttempts,
+      })
+    }
+
+    const updateObject = {
+      ...commonUpdateInfo,
+      ...extraUpdateInfo,
+    }
+
+    return this.checkOrderStatusUtils.updateStatusAndReturn(updateObject)
+  }
+
+  public async checkFillEvents({
+    orderHash,
+    order,
+    provider,
+    blocks,
+  }: {
+    orderHash: string
+    order: RelayOrderEntity
+    provider: ethers.providers.StaticJsonRpcProvider
+    blocks: {
+      fromBlock: number
+      curBlockNumber: number
+      startingBlockNumber: number
+    }
+  }): Promise<ExtraUpdateInfo | null> {
+    const parsedOrder = RelayOrder.fromEntity(order)
+    const orderWatcher = this.relayOrderWatcherMap.get(order.chainId)
+
+    const fillEvents: FillInfo[] = await wrapWithTimerMetric(
+      orderWatcher.getFillInfo(blocks.fromBlock, blocks.curBlockNumber),
+      CheckOrderStatusHandlerMetricNames.GetFillEventsTime
+    )
+    const fillEvent = fillEvents.find((e) => e.orderHash === orderHash)
+
+    if (!fillEvent) {
+      return null
+    }
+
+    const [tx, block] = await Promise.all([
+      provider.getTransaction(fillEvent.txHash),
+      provider.getBlock(fillEvent.blockNumber),
+    ])
+
+    const settledAmounts = getRelaySettledAmounts(fillEvent, parsedOrder.inner)
+
+    await this.fillEventLogger.processFillEvent({
+      fillEvent,
+      chainId: order.chainId,
+      startingBlockNumber: blocks.startingBlockNumber,
+      order,
+      settledAmounts,
+      tx,
+      timestamp: block.timestamp,
+    })
+
+    return {
+      orderStatus: ORDER_STATUS.FILLED,
+      txHash: fillEvent.txHash,
+      settledAmounts,
+    }
   }
 }

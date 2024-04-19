@@ -1,53 +1,22 @@
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { DynamoDB } from 'aws-sdk'
 import Joi from 'joi'
-import { UniswapXOrderEntity } from '../../entities'
 import { CheckOrderStatusHandlerMetricNames, powertoolsMetric } from '../../Metrics'
-import { BaseOrdersRepository } from '../../repositories/base'
-import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { AnalyticsService } from '../../services/analytics-service'
+import { RelayOrderService } from '../../services/RelayOrderService'
 import { SfnInjector, SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected, RequestInjected } from './injector'
 import { CheckOrderStatusInputJoi } from './schema'
 import { CheckOrderStatusService } from './service'
-import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from './util'
 
 export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected, RequestInjected> {
-  private _checkOrderStatusService!: CheckOrderStatusService
-  private _checkLimitOrderStatusService!: CheckOrderStatusService
-
-  // TODO: Inject this
-  private getCheckOrderStatusService(dbInterface: BaseOrdersRepository<UniswapXOrderEntity>) {
-    if (!this._checkOrderStatusService) {
-      this._checkOrderStatusService = new CheckOrderStatusService(
-        dbInterface,
-        OrderType.Dutch,
-        AnalyticsService.create()
-      )
-    }
-    return this._checkOrderStatusService
-  }
-
-  // TODO: Inject this
-  private getCheckLimitOrderStatusService() {
-    if (!this._checkLimitOrderStatusService) {
-      const dbInterface = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
-      this._checkLimitOrderStatusService = new CheckOrderStatusService(
-        dbInterface,
-        OrderType.Limit,
-        AnalyticsService.create(),
-        FILL_EVENT_LOOKBACK_BLOCKS_ON,
-        () => {
-          return 30
-        }
-      )
-    }
-    return this._checkLimitOrderStatusService
-  }
-
-  constructor(handlerName: string, injectorPromise: Promise<SfnInjector<ContainerInjected, RequestInjected>>) {
+  constructor(
+    handlerName: string,
+    injectorPromise: Promise<SfnInjector<ContainerInjected, RequestInjected>>,
+    private readonly checkOrderStatusService: CheckOrderStatusService,
+    private readonly checkLimitOrderStatusService: CheckOrderStatusService,
+    private readonly relayOrderService: RelayOrderService
+  ) {
     super(handlerName, injectorPromise)
   }
 
@@ -73,19 +42,34 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         .singleMetric()
         .addMetric(CheckOrderStatusHandlerMetricNames.StepFunctionKickedOffCount, MetricUnits.Count, 1)
     }
+
     if (input.requestInjected.orderType === OrderType.Limit) {
+      const response = await this.checkLimitOrderStatusService.handleRequest(input.requestInjected)
       return {
-        ...(await this.getCheckLimitOrderStatusService().handleRequest(input.requestInjected)),
+        ...response,
+        orderType: input.requestInjected.orderType,
+        stateMachineArn: input.requestInjected.stateMachineArn,
+      }
+    } else if (input.requestInjected.orderType === OrderType.Relay) {
+      const response = await this.relayOrderService.checkOrderStatus(
+        input.requestInjected.orderHash,
+        input.requestInjected.quoteId,
+        input.requestInjected.startingBlockNumber,
+        input.requestInjected.orderStatus,
+        input.requestInjected.getFillLogAttempts,
+        input.requestInjected.retryCount,
+        input.requestInjected.provider
+      )
+      return {
+        ...response,
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
       }
     } else {
-      // TODO: @robert refactor this
       // Dutch, Dutch_V2
+      const response = await this.checkOrderStatusService.handleRequest(input.requestInjected)
       return {
-        ...(await this.getCheckOrderStatusService(input.containerInjected.dbInterface).handleRequest(
-          input.requestInjected
-        )),
+        ...response,
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
       }

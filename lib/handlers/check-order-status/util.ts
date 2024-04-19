@@ -1,50 +1,18 @@
 import {
   CosignedV2DutchOrder,
   DutchOrder,
-  EventWatcher,
   FillInfo,
   OrderType,
   OrderValidator,
   REACTOR_ADDRESS_MAPPING,
+  RelayOrder,
+  UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 
 import { ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
-import { log } from '../../Logging'
 import { ChainId } from '../../util/chain'
 import { NATIVE_ADDRESS } from '../../util/constants'
-
-export function logFillInfo(
-  fill: FillInfo,
-  quoteId: string | undefined,
-  timestamp: number,
-  gasCostInETH: string,
-  gasPriceWei: string,
-  gasUsed: string,
-  userAmount: SettledAmount
-): void {
-  log.info('Fill Info', {
-    orderInfo: {
-      orderStatus: ORDER_STATUS.FILLED,
-      orderHash: fill.orderHash,
-      quoteId: quoteId,
-      filler: fill.filler,
-      nonce: fill.nonce.toString(),
-      offerer: fill.swapper,
-      tokenIn: userAmount.tokenIn,
-      amountIn: userAmount.amountIn,
-      tokenOut: userAmount.tokenOut,
-      amountOut: userAmount.amountOut,
-      blockNumber: fill.blockNumber,
-      txHash: fill.txHash,
-      fillTimestamp: timestamp,
-      gasPriceWei: gasPriceWei,
-      gasUsed: gasUsed,
-      gasCostInETH: gasCostInETH,
-      logTime: Math.floor(Date.now() / 1000).toString(),
-    },
-  })
-}
 
 /**
  * get the ammounts transfered on chain
@@ -110,6 +78,19 @@ export function getSettledAmounts(
   return settledAmounts
 }
 
+export function getRelaySettledAmounts(fill: FillInfo, parsedOrder: RelayOrder): SettledAmount[] {
+  const amountIn = parsedOrder.info.input.amount.toString()
+  const settledAmounts: SettledAmount[] = fill.outputs.map((output) => {
+    return {
+      tokenIn: parsedOrder.info.input.token,
+      amountIn,
+      tokenOut: output.token,
+      amountOut: output.amount.toString(),
+    }
+  })
+  return settledAmounts
+}
+
 export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
   switch (chainId) {
     case ChainId.MAINNET:
@@ -138,33 +119,24 @@ export const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
   }
 }
 
-//10 minute lookback
-export const LIMIT_ORDERS_FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
-  switch (chainId) {
-    case ChainId.MAINNET:
-      return 50
-    case ChainId.POLYGON:
-      return 300
-    default:
-      return 50
-  }
-}
-
-const watcherMap = new Map<string, EventWatcher>()
+const watcherMap = new Map<string, UniswapXEventWatcher>()
 export function getWatcher(
   provider: ethers.providers.StaticJsonRpcProvider,
   chainId: number,
   orderType: OrderType
-): EventWatcher {
+): UniswapXEventWatcher {
   const reactorType = orderType === OrderType.Limit ? OrderType.Dutch : orderType
-  if (!REACTOR_ADDRESS_MAPPING[chainId][reactorType]) {
+  const address = REACTOR_ADDRESS_MAPPING[chainId][reactorType]
+  if (!address) {
     throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType:${reactorType}`)
   }
   const mapKey = `${chainId}-${reactorType}`
-  if (!watcherMap.get(mapKey)) {
-    watcherMap.set(mapKey, new EventWatcher(provider, REACTOR_ADDRESS_MAPPING[chainId][reactorType] as string))
+  let watcher = watcherMap.get(mapKey)
+  if (!watcher) {
+    watcher = new UniswapXEventWatcher(provider, address)
+    watcherMap.set(mapKey, watcher)
   }
-  return watcherMap.get(mapKey) as EventWatcher
+  return watcher
 }
 
 const providersMap = new Map<number, ethers.providers.StaticJsonRpcProvider>()

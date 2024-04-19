@@ -11,6 +11,9 @@ import { LimitOrdersRepository } from '../../repositories/limit-orders-repositor
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
+import { FillEventLogger } from '../check-order-status/fill-event-logger'
+import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
+import { EventWatcherMap } from '../EventWatcherMap'
 import { GetOrdersHandler } from '../get-orders/handler'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
@@ -36,9 +39,11 @@ const relayOrderValidatorMap = new OnChainValidatorMap<RelayOrderValidator>()
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
+  EventWatcherMap.createRelayEventWatcherMap(),
   RelayOrderRepository.create(new DynamoDB.DocumentClient()),
   log,
-  getMaxOpenOrders
+  getMaxOpenOrders,
+  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
 )
 
 const getLimitOrdersInjectorPromise = new GetLimitOrdersInjector('getLimitOrdersInjector').build()

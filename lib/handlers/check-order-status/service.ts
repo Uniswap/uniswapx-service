@@ -1,14 +1,14 @@
 import {
   CosignedV2DutchOrder,
   DutchOrder,
-  EventWatcher,
   FillInfo,
   OrderType,
   OrderValidation,
   OrderValidator,
+  UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
+import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -18,12 +18,7 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import {
-  calculateDutchRetryWaitSeconds,
-  FILL_EVENT_LOOKBACK_BLOCKS_ON,
-  getSettledAmounts,
-  IS_TERMINAL_STATE,
-} from './util'
+import { getSettledAmounts, IS_TERMINAL_STATE } from './util'
 
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -33,13 +28,13 @@ export type CheckOrderStatusRequest = {
   getFillLogAttempts: number
   retryCount: number
   provider: ethers.providers.StaticJsonRpcProvider
-  orderWatcher: EventWatcher
+  orderWatcher: UniswapXEventWatcher
   orderQuoter: OrderValidator
   quoteId: string //only used for logging
   orderType: OrderType
 }
 
-type ExtraUpdateInfo = {
+export type ExtraUpdateInfo = {
   orderStatus: ORDER_STATUS
   txHash?: string
   settledAmounts?: SettledAmount[]
@@ -47,16 +42,12 @@ type ExtraUpdateInfo = {
 }
 
 export class CheckOrderStatusService {
-  private readonly fillEventLogger
   constructor(
     private dbInterface: BaseOrdersRepository<UniswapXOrderEntity>,
-    private serviceOrderType: OrderType,
-    private analyticsService: AnalyticsServiceInterface,
-    private fillEventBlockLookback: (chainId: ChainId) => number = FILL_EVENT_LOOKBACK_BLOCKS_ON,
-    private calculateRetryWaitSeconds = calculateDutchRetryWaitSeconds
-  ) {
-    this.fillEventLogger = new FillEventLogger(fillEventBlockLookback)
-  }
+    private fillEventBlockLookback: (chainId: ChainId) => number,
+    private fillEventLogger: FillEventLogger,
+    private checkOrderStatusUtils: CheckOrderStatusUtils
+  ) {}
 
   public async handleRequest({
     chainId,
@@ -66,20 +57,20 @@ export class CheckOrderStatusService {
     startingBlockNumber,
     retryCount,
     provider,
-    orderWatcher,
     orderQuoter,
+    orderWatcher,
     orderStatus,
     orderType,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
-    const order = checkDefined(
-      await wrapWithTimerMetric(
+    const order: UniswapXOrderEntity = checkDefined(
+      await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
         this.dbInterface.getByHash(orderHash),
         CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
       ),
-      'cannot find order by hash when updating order status'
+      `cannot find order by hash when updating order status, hash: ${orderHash}`
     )
 
-    let parsedOrder
+    let parsedOrder: DutchOrder | CosignedV2DutchOrder
     switch (orderType) {
       case OrderType.Dutch:
       case OrderType.Limit:
@@ -117,151 +108,64 @@ export class CheckOrderStatusService {
       validation,
     }
 
-    const extraUpdateInfo = await this.getStatusFromValidation({
-      validation,
-      parsedOrder,
-      quoteId,
-      chainId,
-      startingBlockNumber,
-      order,
-      orderHash,
-      provider,
-      getFillLogAttempts,
-      fromBlock,
-      curBlockNumber,
-      orderWatcher,
-    })
+    let extraUpdateInfo = undefined
+
+    // if validation is NonceUsed or Expired it might be filled or unfilled
+    // so check for a fillEvent
+    // if no fill event, process in the unfilled path
+    if (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) {
+      const fillEvent = await this.getFillEventForOrder(orderHash, fromBlock, curBlockNumber, orderWatcher)
+      if (fillEvent) {
+        const [tx, block] = await Promise.all([
+          provider.getTransaction(fillEvent.txHash),
+          provider.getBlock(fillEvent.blockNumber),
+        ])
+        const settledAmounts = getSettledAmounts(
+          fillEvent,
+          block.timestamp,
+          parsedOrder as DutchOrder | CosignedV2DutchOrder
+        )
+
+        await this.fillEventLogger.processFillEvent({
+          fillEvent,
+          quoteId,
+          chainId,
+          startingBlockNumber,
+          order,
+          settledAmounts,
+          tx,
+          timestamp: block.timestamp,
+        })
+
+        extraUpdateInfo = {
+          orderStatus: ORDER_STATUS.FILLED,
+          txHash: fillEvent.txHash,
+          settledAmounts,
+        }
+      }
+    }
+
+    //not filled
+    if (!extraUpdateInfo) {
+      extraUpdateInfo = this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
+        validation,
+        getFillLogAttempts,
+      })
+    }
 
     const updateObject = {
       ...commonUpdateInfo,
       ...extraUpdateInfo,
     }
 
-    return this.updateStatusAndReturn(updateObject)
-  }
-
-  private async getStatusFromValidation({
-    validation,
-    parsedOrder,
-    quoteId,
-    chainId,
-    startingBlockNumber,
-    order,
-    orderHash,
-    provider,
-    getFillLogAttempts,
-    fromBlock,
-    curBlockNumber,
-    orderWatcher,
-  }: {
-    validation: OrderValidation
-    parsedOrder: DutchOrder | CosignedV2DutchOrder
-    quoteId: string
-    chainId: number
-    startingBlockNumber: number
-    order: UniswapXOrderEntity
-    orderHash: string
-    provider: ethers.providers.JsonRpcProvider
-    getFillLogAttempts: number
-    fromBlock: number
-    curBlockNumber: number
-    orderWatcher: EventWatcher
-  }): Promise<ExtraUpdateInfo> {
-    let extraUpdateInfo: ExtraUpdateInfo
-
-    switch (validation) {
-      case OrderValidation.Expired: {
-        const fillEvent = await this.getFillEventForOrder(orderHash, fromBlock, curBlockNumber, orderWatcher)
-        if (fillEvent) {
-          const [tx, block] = await Promise.all([
-            provider.getTransaction(fillEvent.txHash),
-            provider.getBlock(fillEvent.blockNumber),
-          ])
-          const settledAmounts = getSettledAmounts(fillEvent, block.timestamp, parsedOrder)
-
-          await this.fillEventLogger.processFillEvent({
-            fillEvent,
-            quoteId,
-            chainId,
-            startingBlockNumber,
-            order,
-            settledAmounts,
-            tx,
-            timestamp: block.timestamp,
-          })
-
-          extraUpdateInfo = {
-            orderStatus: ORDER_STATUS.FILLED,
-            txHash: fillEvent.txHash,
-            settledAmounts,
-          }
-          break
-        } else {
-          extraUpdateInfo = {
-            orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
-            getFillLogAttempts: getFillLogAttempts + 1,
-          }
-          break
-        }
-      }
-      case OrderValidation.InsufficientFunds:
-        extraUpdateInfo = {
-          orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
-        }
-        break
-      case OrderValidation.InvalidSignature:
-      case OrderValidation.InvalidOrderFields:
-      case OrderValidation.UnknownError:
-        extraUpdateInfo = { orderStatus: ORDER_STATUS.ERROR }
-        break
-      case OrderValidation.NonceUsed: {
-        const fillEvent = await this.getFillEventForOrder(orderHash, fromBlock, curBlockNumber, orderWatcher)
-        if (fillEvent) {
-          const [tx, block] = await Promise.all([
-            provider.getTransaction(fillEvent.txHash),
-            provider.getBlock(fillEvent.blockNumber),
-          ])
-          const settledAmounts = getSettledAmounts(fillEvent, block.timestamp, parsedOrder)
-
-          await this.fillEventLogger.processFillEvent({
-            fillEvent,
-            quoteId,
-            chainId,
-            startingBlockNumber,
-            order,
-            settledAmounts,
-            tx,
-            timestamp: block.timestamp,
-          })
-
-          extraUpdateInfo = {
-            orderStatus: ORDER_STATUS.FILLED,
-            txHash: fillEvent.txHash,
-            settledAmounts,
-          }
-          break
-        } else {
-          extraUpdateInfo = {
-            orderStatus: getFillLogAttempts == 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
-            getFillLogAttempts: getFillLogAttempts + 1,
-          }
-          break
-        }
-      }
-      default:
-        extraUpdateInfo = {
-          orderStatus: ORDER_STATUS.OPEN,
-        }
-        break
-    }
-    return extraUpdateInfo
+    return this.checkOrderStatusUtils.updateStatusAndReturn(updateObject)
   }
 
   private async getFillEventForOrder(
     orderHash: string,
     fromBlock: number,
     curBlockNumber: number,
-    orderWatcher: EventWatcher
+    orderWatcher: UniswapXEventWatcher
   ): Promise<FillInfo | undefined> {
     const fillEvents = await wrapWithTimerMetric(
       orderWatcher.getFillInfo(fromBlock, curBlockNumber),
@@ -272,8 +176,17 @@ export class CheckOrderStatusService {
 
     return fillEvent
   }
+}
 
-  private async updateStatusAndReturn(params: {
+export class CheckOrderStatusUtils {
+  constructor(
+    private readonly serviceOrderType: OrderType,
+    private readonly analyticsService: AnalyticsServiceInterface,
+    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity> | BaseOrdersRepository<RelayOrderEntity>,
+    private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number
+  ) {}
+
+  public async updateStatusAndReturn(params: {
     orderHash: string
     retryCount: number
     startingBlockNumber: number
@@ -309,7 +222,7 @@ export class CheckOrderStatusService {
         this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
       }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
-      await this.dbInterface.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
+      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
@@ -343,6 +256,41 @@ export class CheckOrderStatusService {
       ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
       ...(getFillLogAttempts && { getFillLogAttempts }),
+    }
+  }
+
+  public getUnfilledStatusFromValidation({
+    validation,
+    getFillLogAttempts,
+  }: {
+    validation: OrderValidation
+    getFillLogAttempts: number
+  }): ExtraUpdateInfo {
+    switch (validation) {
+      case OrderValidation.Expired: {
+        return {
+          orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.EXPIRED,
+          getFillLogAttempts: getFillLogAttempts + 1,
+        }
+      }
+      case OrderValidation.InsufficientFunds:
+        return {
+          orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+        }
+      case OrderValidation.InvalidSignature:
+      case OrderValidation.InvalidOrderFields:
+      case OrderValidation.UnknownError:
+        return { orderStatus: ORDER_STATUS.ERROR }
+      case OrderValidation.NonceUsed: {
+        return {
+          orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,
+          getFillLogAttempts: getFillLogAttempts + 1,
+        }
+      }
+      default:
+        return {
+          orderStatus: ORDER_STATUS.OPEN,
+        }
     }
   }
 }
