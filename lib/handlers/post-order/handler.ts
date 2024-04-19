@@ -122,7 +122,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     // Try and extract the chain id from the raw json.
     let chainId = '0'
     try {
-      const rawBody = JSON.parse(event.body!)
+      const rawBody = JSON.parse(event.body || '')
       chainId = rawBody.chainId ?? chainId
     } catch (err) {
       // no-op. If we can't get chainId still log the metric as chain 0

@@ -1,12 +1,12 @@
 import { calculateDutchRetryWaitSeconds } from '../../../../lib/handlers/check-order-status/util'
 
 describe('calculateDutchRetryWaitSeconds', () => {
-  it('should do exponential backoff when retry count > 300', async () => {
+  it('should do exponential backoff when retry count > 300, retryCount:301', async () => {
     const response = calculateDutchRetryWaitSeconds(1, 301)
     expect(response).toEqual(13)
   })
 
-  it('should do exponential backoff when retry count > 300', async () => {
+  it('should do exponential backoff when retry count > 300, retryCount:350', async () => {
     const response = calculateDutchRetryWaitSeconds(1, 350)
     expect(response).toEqual(138)
   })

@@ -12,20 +12,12 @@
     "plugin:@typescript-eslint/recommended"
   ],
   "rules": {
-    "@typescript-eslint/no-this-alias": [
-      "error",
-      {
-        "allowDestructuring": true, // Allow `const { props, state } = this`; false by default
-        "allowedNames": [
-          "self" // Allow `const self= this`; `[]` by default
-        ]
-      }
-    ],
+    "@typescript-eslint/no-this-alias": "error",
     "@typescript-eslint/ban-types": "warn",
     "jest/no-disabled-tests": "warn",
     "jest/no-focused-tests": "error",
-    "jest/no-identical-title": "warn",
-    "jest/prefer-to-have-length": "warn",
+    "jest/no-identical-title": "error",
+    "jest/prefer-to-have-length": "error",
     "jest/valid-expect": "error"
   }
 }
