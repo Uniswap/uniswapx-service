@@ -14,6 +14,7 @@ export type GetDutchV2OrderResponse = {
   swapper: string
   reactor: string
 
+  txHash: string | undefined
   deadline: number
   input: {
     token: string
@@ -57,8 +58,8 @@ export const GetDutchV2OrderResponseEntryJoi = Joi.object({
   txHash: FieldValidator.isValidTxHash(),
   input: Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
-    startAmount: FieldValidator.isValidAmount(),
-    endAmount: FieldValidator.isValidAmount(),
+    startAmount: FieldValidator.isValidAmount().required(),
+    endAmount: FieldValidator.isValidAmount().required(),
   }),
   outputs: Joi.array().items(
     Joi.object({
