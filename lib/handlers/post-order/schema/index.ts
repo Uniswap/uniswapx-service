@@ -47,6 +47,7 @@ export type DutchV2OrderPostRequestBody = {
   chainId: number
   encodedOrder: string
   signature: string
+  quoteId?: string
 }
 
 export type RelayOrderPostRequestBody = {

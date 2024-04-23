@@ -9,7 +9,8 @@ export class DutchV2Order extends Order {
     readonly signature: string,
     readonly chainId: number,
     readonly orderStatus?: ORDER_STATUS,
-    readonly txHash?: string
+    readonly txHash?: string,
+    readonly quoteId?: string
   ) {
     super()
   }
@@ -55,6 +56,7 @@ export class DutchV2Order extends Order {
       },
       txHash: this.txHash,
       cosignature: decodedOrder.info.cosignature,
+      quoteId: this.quoteId,
     }
 
     return order
@@ -66,7 +68,8 @@ export class DutchV2Order extends Order {
       entity.signature,
       entity.chainId,
       entity.orderStatus,
-      entity.txHash
+      entity.txHash,
+      entity.quoteId
     )
   }
 
