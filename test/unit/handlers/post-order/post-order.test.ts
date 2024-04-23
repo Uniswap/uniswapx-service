@@ -214,7 +214,12 @@ describe('Testing post order handler.', () => {
 
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
-      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(
+        expect.objectContaining({
+          ...expectedOrderEntity,
+          quoteId: expect.any(String),
+        })
+      )
       expect(onchainValidationSucceededMock).toBeCalled()
       expect(validatorMock).toBeCalledWith(order.inner)
       expect(mockSfnClient.calls()).toHaveLength(1)
