@@ -29,7 +29,7 @@ export class PostOrderBodyParser {
       case OrderType.Limit:
         return this.tryParseLimitOrder(encodedOrder, signature, chainId, body.quoteId)
       case OrderType.Dutch_V2:
-        return this.tryParseDutchV2Order(encodedOrder, signature, chainId)
+        return this.tryParseDutchV2Order(encodedOrder, signature, chainId, body.quoteId)
       case OrderType.Relay:
         return this.tryParseRelayOrder(encodedOrder, signature, chainId)
 
