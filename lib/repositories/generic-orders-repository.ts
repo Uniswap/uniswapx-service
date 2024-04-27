@@ -197,7 +197,7 @@ export abstract class GenericOrdersRepository<
     }
   }
 
-  private async queryOrderEntity(
+  public async queryOrderEntity(
     partitionKey: string | number,
     index: string,
     limit: number | undefined,
@@ -270,5 +270,23 @@ export abstract class GenericOrdersRepository<
     }
 
     return lastEvaluatedKey
+  }
+
+  public async updateOrder(orderHash: string, entity: T): Promise<void> {
+    try {
+      const order = checkDefined(
+        await this.getByHash(orderHash),
+        'cannot find order by hash when updating order status'
+      )
+
+      await this.entity.update({
+        ...order, //any missed fields
+        ...entity,
+        [TABLE_KEY.ORDER_HASH]: orderHash,
+      })
+    } catch (e) {
+      log.error('updateOrderStatus error', { error: e })
+      throw e
+    }
   }
 }

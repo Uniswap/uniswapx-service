@@ -41,5 +41,16 @@ export interface BaseOrdersRepository<T extends OrderEntityType> {
     txHash?: string,
     settledAmounts?: SettledAmount[]
   ) => Promise<void>
+  updateOrder: (orderHash: string, entity: T) => Promise<void>
   deleteOrders: (orderHashes: string[]) => Promise<void>
+  queryOrderEntity(
+    partitionKey: string | number,
+    index: string,
+    limit: number | undefined,
+    cursor?: string,
+    sortKey?: SORT_FIELDS | undefined,
+    sort?: string | undefined, // ex gt(123)
+    desc?: boolean,
+    filters?: { or: boolean; attr: string; eq: string }[]
+  ): Promise<QueryResult<T>>
 }
