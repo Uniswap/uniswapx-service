@@ -29,7 +29,7 @@ export class PostOrderBodyParser {
       case OrderType.Limit:
         return this.tryParseLimitOrder(encodedOrder, signature, chainId, body.quoteId)
       case OrderType.Dutch_V2:
-        return this.tryParseDutchV2Order(encodedOrder, signature, chainId, body.quoteId)
+        return this.tryParseDutchV2Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Relay:
         return this.tryParseRelayOrder(encodedOrder, signature, chainId)
 
@@ -86,11 +86,12 @@ export class PostOrderBodyParser {
     encodedOrder: string,
     signature: string,
     chainId: number,
-    quoteId?: string
+    quoteId?: string,
+    requestId?: string
   ): DutchV2Order {
     try {
       const order = CosignedV2DutchOrder.parse(encodedOrder, chainId)
-      return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId, undefined, undefined, quoteId)
+      return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV2 order', {
         err,

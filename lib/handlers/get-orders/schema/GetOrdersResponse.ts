@@ -51,6 +51,7 @@ export const OrderResponseEntryJoi = Joi.object({
   settledAmounts: Joi.array().items(SettledAmount),
   chainId: FieldValidator.isValidChainId(),
   quoteId: FieldValidator.isValidQuoteId(),
+  requestId: FieldValidator.isValidRequestId(),
 }).keys({
   ...OrderRepsonseEntryJoiMigrations,
 })
