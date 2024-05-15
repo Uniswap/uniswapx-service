@@ -22,7 +22,7 @@ import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
-import { ChainId } from '../../../../lib/util/chain'
+import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
@@ -314,7 +314,7 @@ describe('Testing post limit order handler.', () => {
       ],
       [
         { chainId: 0 },
-        `{"detail":"\\"chainId\\" must be one of [1, 137, 11155111, 5]","errorCode":"VALIDATION_ERROR"}`,
+        `{"detail":"\\"chainId\\" must be one of [${SUPPORTED_CHAINS.join(', ')}]","errorCode":"VALIDATION_ERROR"}`,
       ],
       [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
     ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {

@@ -1,4 +1,5 @@
 import { GetNonceHandler } from '../../../lib/handlers/get-nonce/handler'
+import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { HeaderExpectation } from '../../HeaderExpectation'
 
 describe('Testing get nonce handler.', () => {
@@ -60,7 +61,7 @@ describe('Testing get nonce handler.', () => {
       [{ address: '' }, '"address\\" is not allowed to be empty"'],
       [{ address: '0xF53bDa7e0337BD456cDcDab0Ab24Db43E738065' }, 'VALIDATION ERROR: Invalid address'],
       [{}, '"address\\" is required'],
-      [{ address: MOCK_ADDRESS, chainId: 'foo' }, '\\"chainId\\" must be one of [1, 137, 11155111, 5]'],
+      [{ address: MOCK_ADDRESS, chainId: 'foo' }, `\\"chainId\\" must be one of [${SUPPORTED_CHAINS.join(', ')}]`],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const invalidEvent = {
         ...event,

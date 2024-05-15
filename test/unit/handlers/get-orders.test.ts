@@ -5,6 +5,7 @@ import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
 import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { HeaderExpectation } from '../../HeaderExpectation'
+import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 
 describe('Testing get orders handler.', () => {
   const MOCK_ORDER = {
@@ -196,7 +197,7 @@ describe('Testing get orders handler.', () => {
       [{ sort: 'gt(4)' }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
       [
         { chainId: 420 },
-        '{"detail":"\\"chainId\\" must be one of [1, 137, 11155111, 5]","errorCode":"VALIDATION_ERROR"}',
+        `{"detail":"\\"chainId\\" must be one of [${SUPPORTED_CHAINS.join(', ')}]","errorCode":"VALIDATION_ERROR"}`,
       ],
       [{ desc: true }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
       [
