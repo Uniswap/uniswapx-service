@@ -110,6 +110,7 @@ export class DutchV2Order extends Order {
         outputOverrides: this.inner.info.cosignerData.outputOverrides.map((o) => o.toString()),
       },
       cosignature: this.inner.info.cosignature,
+      quoteId: this.quoteId,
       requestId: this.requestId,
     }
   }
