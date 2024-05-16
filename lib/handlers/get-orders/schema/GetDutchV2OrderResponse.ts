@@ -35,6 +35,8 @@ export type GetDutchV2OrderResponse = {
     outputOverrides: string[]
   }
   cosignature: string
+  quoteId: string | undefined
+  requestId: string | undefined
 }
 
 export const CosignerDataJoi = Joi.object({
@@ -78,6 +80,7 @@ export const GetDutchV2OrderResponseEntryJoi = Joi.object({
     })
   ),
   quoteId: FieldValidator.isValidQuoteId(),
+  requestId: FieldValidator.isValidRequestId(),
   cosignerData: CosignerDataJoi,
   cosignature: Joi.string(),
 })

@@ -51,6 +51,7 @@ export type UniswapXOrderEntity = {
   filler?: string
   // QuoteId field is defined when the order has a quote associated with it.
   quoteId?: string
+  requestId?: string
   // TxHash field is defined when the order has been filled and there is a txHash associated with the fill.
   txHash?: string
   // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.

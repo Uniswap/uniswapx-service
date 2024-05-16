@@ -8,6 +8,7 @@ export const PostOrderRequestBodyJoi = Joi.object({
   signature: FieldValidator.isValidSignature().required(),
   chainId: FieldValidator.isValidChainId().required(),
   quoteId: FieldValidator.isValidQuoteId(),
+  requestId: FieldValidator.isValidQuoteId(),
   orderType: FieldValidator.isValidOrderType(),
 })
 
@@ -24,6 +25,7 @@ export type LegacyDutchOrderPostRequestBody = {
   encodedOrder: string
   signature: string
   quoteId?: string
+  requestId?: string
 }
 
 export type DutchV1OrderPostRequestBody = {
@@ -32,6 +34,7 @@ export type DutchV1OrderPostRequestBody = {
   encodedOrder: string
   signature: string
   quoteId?: string
+  requestId?: string
 }
 
 export type LimitOrderPostRequestBody = {
@@ -48,6 +51,7 @@ export type DutchV2OrderPostRequestBody = {
   encodedOrder: string
   signature: string
   quoteId?: string
+  requestId?: string
 }
 
 export type RelayOrderPostRequestBody = {

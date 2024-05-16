@@ -30,7 +30,7 @@ import { ChainId } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
-import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
+import { EVENT_CONTEXT, QUOTE_ID, REQUEST_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
@@ -200,7 +200,15 @@ describe('Testing post order handler.', () => {
     it('Testing valid request and response for Dutch_V2', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
-      const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), SIGNATURE, 1)
+      const order = new DutchV2Order(
+        SDKDutchOrderV2Factory.buildDutchV2Order(),
+        SIGNATURE,
+        1,
+        undefined,
+        undefined,
+        undefined,
+        REQUEST_ID
+      )
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
       const postOrderResponse = await postOrderHandler.handler(
@@ -218,6 +226,7 @@ describe('Testing post order handler.', () => {
         expect.objectContaining({
           ...expectedOrderEntity,
           quoteId: expect.any(String),
+          requestId: expect.any(String),
         })
       )
       expect(onchainValidationSucceededMock).toBeCalled()
