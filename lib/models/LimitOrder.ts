@@ -7,7 +7,8 @@ export class LimitOrder extends Order {
     readonly inner: SDKDutchOrder,
     readonly signature: string,
     readonly chainId: number,
-    readonly quoteId?: string
+    readonly quoteId?: string,
+    readonly requestId?: string
   ) {
     super()
   }

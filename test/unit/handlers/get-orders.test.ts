@@ -6,6 +6,7 @@ import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { HeaderExpectation } from '../../HeaderExpectation'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
+import { REQUEST_ID } from '../fixtures'
 
 describe('Testing get orders handler.', () => {
   const MOCK_ORDER = {
@@ -315,8 +316,8 @@ describe('Testing get orders handler.', () => {
     )
   })
 
-  describe('quoteId', () => {
-    it(`Returns 200 with quoteId`, async () => {
+  describe('quoteId and requestId', () => {
+    it(`Returns 200 with quoteId and requestId`, async () => {
       const event = {
         queryStringParameters: queryFiltersMock,
         body: null,
@@ -325,7 +326,9 @@ describe('Testing get orders handler.', () => {
       const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
         new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
-      getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: '4385e89a-0553-46fa-9b7e-464c1fa7822f' }] })
+      getOrdersMock.mockReturnValue({
+        orders: [{ ...MOCK_ORDER, quoteId: '4385e89a-0553-46fa-9b7e-464c1fa7822f', requestId: REQUEST_ID }],
+      })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
       expect(getOrdersMock).toBeCalledWith(
         requestInjectedMock.limit,
@@ -335,6 +338,7 @@ describe('Testing get orders handler.', () => {
       expect(getOrdersResponse.statusCode).toEqual(200)
 
       expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).toEqual('4385e89a-0553-46fa-9b7e-464c1fa7822f')
+      expect(JSON.parse(getOrdersResponse.body).orders[0].requestId).toEqual(REQUEST_ID)
     })
 
     it(`Returns 200 when quoteId is undefined`, async () => {

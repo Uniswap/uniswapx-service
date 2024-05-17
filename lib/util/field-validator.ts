@@ -123,6 +123,10 @@ export default class FieldValidator {
     return this.UUIDV4_JOI
   }
 
+  public static isValidRequestId(): StringSchema {
+    return this.UUIDV4_JOI
+  }
+
   public static isValidTxHash(): StringSchema {
     return this.TX_HASH_JOI
   }
