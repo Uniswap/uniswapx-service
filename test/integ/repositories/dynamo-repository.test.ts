@@ -4,6 +4,7 @@ import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/sch
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { generateRandomNonce } from '../../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
+import { QUOTE_ID, REQUEST_ID } from '../../unit/fixtures'
 import { deleteAllRepoEntries } from './deleteAllRepoEntries'
 
 jest.mock('../../../lib/util/time')
@@ -36,6 +37,8 @@ const MOCK_ORDER_1 = {
   nonce: '1',
   chainId: 1,
   orderStatus: ORDER_STATUS.OPEN,
+  quoteId: QUOTE_ID,
+  requestId: REQUEST_ID,
 }
 
 const MOCK_ORDER_2 = {
@@ -46,6 +49,8 @@ const MOCK_ORDER_2 = {
   nonce: '1',
   chainId: 137,
   orderStatus: ORDER_STATUS.OPEN,
+  quoteId: QUOTE_ID,
+  requestId: REQUEST_ID,
 }
 
 const MOCK_ORDER_3 = {
@@ -56,6 +61,8 @@ const MOCK_ORDER_3 = {
   nonce: '2',
   chainId: 137,
   orderStatus: ORDER_STATUS.FILLED,
+  quoteId: QUOTE_ID,
+  requestId: REQUEST_ID,
 }
 
 const MOCK_ORDER_4 = {
@@ -66,6 +73,8 @@ const MOCK_ORDER_4 = {
   nonce: '4',
   chainId: 1,
   orderStatus: ORDER_STATUS.OPEN,
+  quoteId: QUOTE_ID,
+  requestId: REQUEST_ID,
 }
 
 const MOCK_ORDER_5 = {
@@ -76,6 +85,8 @@ const MOCK_ORDER_5 = {
   nonce: '1',
   chainId: 1,
   orderStatus: ORDER_STATUS.OPEN,
+  quoteId: QUOTE_ID,
+  requestId: REQUEST_ID,
 }
 
 const MOCK_ORDER_6 = {
@@ -87,6 +98,8 @@ const MOCK_ORDER_6 = {
   chainId: 5,
   orderStatus: ORDER_STATUS.OPEN,
   type: 'Dutch',
+  quoteId: QUOTE_ID,
+  requestId: REQUEST_ID,
 }
 
 const ADDITIONAL_FIELDS_ORDER_1 = {
