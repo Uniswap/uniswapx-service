@@ -48,6 +48,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         input: { type: DYNAMODB_TYPES.MAP },
         outputs: { type: DYNAMODB_TYPES.LIST },
         quoteId: { type: DYNAMODB_TYPES.STRING },
+        requestId: { type: DYNAMODB_TYPES.STRING },
         txHash: { type: DYNAMODB_TYPES.STRING },
         settledAmounts: { type: DYNAMODB_TYPES.LIST },
 
