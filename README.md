@@ -50,6 +50,9 @@ FAILED_EVENT_DESTINATION_ARN=<>
 RPC_1=<>
 RPC_5=<>
 RPC_137=<>
+RPC_11155111=<>
+RPC_42161=<>
+RPC_10=<>
 
 # Only need these if testing against custom contract deployments
 DL_REACTOR_TENDERLY=<>

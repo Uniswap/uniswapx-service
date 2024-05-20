@@ -19,6 +19,7 @@ import { RelayOrderService } from '../../../lib/services/RelayOrderService'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 import { ORDER_INFO } from '../../unit/fixtures'
+import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 
 describe('Testing check order status handler', () => {
   const mockedBlockNumber = 123
@@ -144,7 +145,7 @@ describe('Testing check order status handler', () => {
           orderStatus: ORDER_STATUS.OPEN as string,
           chainId: 2022,
         } as any)
-      ).rejects.toThrowError(`"chainId" must be one of [1, 137, 11155111, 5]`)
+      ).rejects.toThrowError(`"chainId" must be one of [${SUPPORTED_CHAINS.join(', ')}]`)
     })
   })
 

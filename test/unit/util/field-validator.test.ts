@@ -1,5 +1,5 @@
 import { ORDER_STATUS } from '../../../lib/entities'
-import { ChainId } from '../../../lib/util/chain'
+import { ChainId, SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import FieldValidator from '../../../lib/util/field-validator'
 
 describe('Testing each field on the FieldValidator class.', () => {
@@ -114,13 +114,13 @@ describe('Testing each field on the FieldValidator class.', () => {
       const chainId = 'MAINNET'
       const validatedField = FieldValidator.isValidChainId().validate(chainId)
       expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toEqual(`"value" must be one of [1, 137, 11155111, 5]`)
+      expect(validatedField.error?.details[0].message).toEqual(`"value" must be one of [${SUPPORTED_CHAINS.join(', ')}]`)
     })
     it('should invalidate unsupported chain.', async () => {
-      const chainId = ChainId.ARBITRUM_ONE
+      const chainId = 74829284
       const validatedField = FieldValidator.isValidChainId().validate(chainId)
       expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toEqual(`"value" must be one of [1, 137, 11155111, 5]`)
+      expect(validatedField.error?.details[0].message).toEqual(`"value" must be one of [${SUPPORTED_CHAINS.join(', ')}]`)
     })
   })
   describe('Testing nonce field.', () => {
