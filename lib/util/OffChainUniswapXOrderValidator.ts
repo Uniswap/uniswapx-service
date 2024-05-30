@@ -146,7 +146,7 @@ export class OffChainUniswapXOrderValidator {
     if (deadline > this.getCurrentTime() + this.deadlineValidityPeriodSeconds) {
       return {
         valid: false,
-        errorString: `Deadline field invalid: Order expiry deadline ${deadline} cannot be larger than ${
+        errorString: `Deadline field invalid: Order expiry deadline cannot be larger than ${
           this.deadlineValidityPeriodSeconds / 60
         } minutes`,
       }
