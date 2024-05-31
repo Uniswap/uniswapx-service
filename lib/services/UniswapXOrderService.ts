@@ -213,8 +213,6 @@ export class UniswapXOrderService {
 
     const dutchQueryResults = [...queryResults.orders]
 
-    this.logger.info(`queryRes: ${JSON.stringify(queryResults)}`)
-
     let retryCount = 0
     while (dutchQueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
       queryResults = await this.repository.getOrdersFilteredByType(
