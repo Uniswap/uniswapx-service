@@ -1,5 +1,5 @@
 /* eslint-disable jest/no-disabled-tests */
-import { CosignedV2DutchOrder, CosignerData, DutchOrder, DutchOrderBuilder, OrderType, REACTOR_ADDRESS_MAPPING, SignedUniswapXOrder, UnsignedV2DutchOrder, V2DutchOrderBuilder } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedUniswapXOrder, UnsignedV2DutchOrder, V2DutchOrderBuilder } from '@uniswap/uniswapx-sdk'
 import { factories } from '@uniswap/uniswapx-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
@@ -433,6 +433,36 @@ describe('/dutch-auction/order', () => {
     return receipt.transactionHash
   }
 
+  describe('order endpoint sanity checks', () => {
+    
+    /**
+     * Currently the only test that runs
+     */
+    it('2xx with an order from URA', async () => {
+      const unsignedOrderResult = await getDutchv2OrderFromURA(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, uniAddress, wethAddress)
+      await submitV2Order({...unsignedOrderResult})
+    })
+
+    it.skip('2xx', async () => {
+      await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, wethAddress, uniAddress)
+    })
+
+    it.skip('4xx', async () => {
+      const { order, payload } = await buildOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        wethAddress,
+        uniAddress
+      )
+      await expect(submitOrder({ ...payload, chainId: 'xyz' } as any)).rejects.toMatchObject({
+        response: {
+          status: 400,
+        },
+      })
+    })
+  })
+
   describe.skip('orders endpoint sanity checks', () => {
     it.each([
       [{ orderStatus: 'open' }, 200],
@@ -479,32 +509,6 @@ describe('/dutch-auction/order', () => {
         }
       }
     )
-  })
-
-  describe('order endpoint sanity checks', () => {
-    it.skip('2xx', async () => {
-      await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, wethAddress, uniAddress)
-    })
-
-    it('2xx with an order from URA', async () => {
-      const unsignedOrderResult = await getDutchv2OrderFromURA(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, uniAddress, wethAddress)
-      await submitV2Order({...unsignedOrderResult})
-    })
-
-    it.skip('4xx', async () => {
-      const { order, payload } = await buildOrder(
-        aliceAddress,
-        amount,
-        DEFAULT_DEADLINE_SECONDS,
-        wethAddress,
-        uniAddress
-      )
-      await expect(submitOrder({ ...payload, chainId: 'xyz' } as any)).rejects.toMatchObject({
-        response: {
-          status: 400,
-        },
-      })
-    })
   })
 
   describe.skip('checking expiry', () => {

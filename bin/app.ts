@@ -237,7 +237,19 @@ export class APIPipeline extends Stack {
             value: `${stage}/gouda-service/url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          RPC_5: {
+          URA_SERVICE_URL: {
+            value: `${stage}/gouda-service/ura_url`,
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          GPA_SERVICE_URL: {
+            value: `${stage}/gouda-service/gpa_url`,
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          COSIGNER_ADDRESS: {
+            value: `${stage}/gouda-service/cosigner`,
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          RPC_1: {
             value: 'all/gouda-service/integ-test/rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
@@ -255,7 +267,10 @@ export class APIPipeline extends Stack {
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
         'echo "UNISWAP_API=${UNISWAP_API}" > .env',
-        'echo "RPC_5=${RPC_5}" > .env',
+        'echo "URA_SERVICE_URL=${URA_SERVICE_URL}" > .env',
+        'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" > .env',
+        'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" > .env',
+        'echo "RPC_1=${RPC_1}" > .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" > .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" > .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
