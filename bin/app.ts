@@ -238,15 +238,15 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           URA_SERVICE_URL: {
-            value: `${stage}/gouda-service/ura_url`,
+            value: `${stage}/gouda-service/integ-test/ura_url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           GPA_SERVICE_URL: {
-            value: `${stage}/gouda-service/gpa_url`,
+            value: `${stage}/gouda-service/integ-test/gpa_url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           COSIGNER_ADDRESS: {
-            value: `${stage}/gouda-service/cosigner`,
+            value: `${stage}/gouda-service/integ-test/cosigner`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           RPC_1: {
