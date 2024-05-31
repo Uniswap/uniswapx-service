@@ -4,7 +4,7 @@ import { factories } from '@uniswap/uniswapx-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { UNI, WETH, ZERO_ADDRESS } from './constants'
+import { MAX_UINT96, PERMIT2, UNI, WETH, ZERO_ADDRESS } from './constants'
 import { v4 as uuidv4 } from 'uuid'
 
 const { ExclusiveDutchOrderReactor__factory } = factories
@@ -109,6 +109,10 @@ describe('/dutch-auction/order', () => {
     if (!((await uni.balanceOf(alice.address)) as BigNumber).gte(replacementAmount)) {
       throw new Error(`alice wallet ${alice.address} does not have enough UNI ${await uni.balanceOf(alice.address)}`)
     }
+
+    // approve Permit2
+    checkApprovals(uni, alice)
+
     // if (!((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
     //   throw new Error('alice wallet does not have enough WETH')
     // }
@@ -429,6 +433,18 @@ describe('/dutch-auction/order', () => {
     const receipt = await tx.wait()
 
     return receipt.transactionHash
+  }
+
+  // Set max allowance for Permit2 on each token if not set already
+  async function checkApprovals(tokenContract: Contract, wallet: Wallet) {
+    console.log(`Checking approvals for wallet ${wallet.address}`)
+    // check approvals on Permit2
+    const allowance = await tokenContract.allowance(wallet.address, PERMIT2)
+    if (allowance.lt(MAX_UINT96)) {
+      console.log(`Approving max allowance for PERMIT2 for ${tokenContract.address}`)
+      const receipt = await tokenContract.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
+      await receipt.wait()
+    }
   }
 
   describe('order endpoint sanity checks', () => {
