@@ -1,10 +1,11 @@
 /* eslint-disable jest/no-disabled-tests */
-import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedUniswapXOrder } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedUniswapXOrder, UnsignedV2DutchOrder, V2DutchOrderBuilder } from '@uniswap/uniswapx-sdk'
 import { factories } from '@uniswap/uniswapx-sdk/dist/src/contracts/index'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { UNI_GOERLI, WETH_GOERLI, ZERO_ADDRESS } from './constants'
+import { UNI, WETH, ZERO_ADDRESS } from './constants'
+import { v4 as uuidv4 } from 'uuid'
 
 const { ExclusiveDutchOrderReactor__factory } = factories
 
@@ -13,6 +14,7 @@ import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/util'
 import { GetOrdersResponse } from '../../lib/handlers/get-orders/schema/GetOrdersResponse'
 import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from './abis/erc20.json'
+import { stringValue } from 'aws-sdk/clients/iot'
 const { abi } = ERC20_ABI
 
 dotenv.config()
@@ -37,10 +39,10 @@ if (!process.argv.includes('--runInBand')) {
 ///   filler address: 0x8943EA25bBfe135450315ab8678f2F79559F4630 (also needs to have at least 0.1 ETH)
 // constants
 // Another potential problem can arise if the priority fee on GOERLI moves higher causing timeouts in beforeAll
-const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
-const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
+// const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
+// const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
 
-describe.skip('/dutch-auction/order', () => {
+describe('/dutch-auction/order', () => {
   const DEFAULT_DEADLINE_SECONDS = 48
   jest.setTimeout(240 * 1000)
   jest.retryTimes(2)
@@ -50,19 +52,32 @@ describe.skip('/dutch-auction/order', () => {
   let aliceAddress: string
   let nonce: BigNumber
   let URL: string
+  let QUOTE_URL: string
+  let PARAM_URL: string
+  let COSIGNER_ADDRESS: string
+  const testChainId: number = ChainId.MAINNET
   // Token contracts
-  let weth: Contract
+  const wethAddress = WETH
+  const uniAddress = UNI
   let uni: Contract
 
   // trade amount for every test
-  const amount = ethers.utils.parseEther('0.01')
+  const amount = BigNumber.from("5000000000000000000000")
+  // Use this amount for the actual order to not trigger a fill
+  const replacementAmount = BigNumber.from("500")
 
   beforeAll(async () => {
     if (!process.env.UNISWAPX_SERVICE_URL) {
       throw new Error('UNISWAPX_SERVICE_URL not set')
     }
-    if (!process.env.RPC_5) {
-      throw new Error('RPC_5 not set')
+    if (!process.env.URA_SERVICE_URL) {
+      throw new Error('URA_SERVICE_URL not set')
+    }
+    if (!process.env.GPA_SERVICE_URL) {
+      throw new Error('GPA_SERVICE_URL not set')
+    }
+    if (!process.env.RPC_1) {
+      throw new Error('RPC_1 not set')
     }
     if (!process.env.TEST_WALLET_PK) {
       throw new Error('TEST_WALLET_PK not set')
@@ -70,34 +85,39 @@ describe.skip('/dutch-auction/order', () => {
     if (!process.env.TEST_FILLER_PK) {
       throw new Error('TEST_FILLER_PK not set')
     }
+    if (!process.env.COSIGNER_ADDRESS) {
+      throw new Error('COSIGNER_ADDRESS not set')
+    }
     URL = process.env.UNISWAPX_SERVICE_URL
+    QUOTE_URL = process.env.URA_SERVICE_URL
+    PARAM_URL = process.env.GPA_SERVICE_URL
+    COSIGNER_ADDRESS = process.env.COSIGNER_ADDRESS
 
-    provider = new ethers.providers.StaticJsonRpcProvider(process.env.RPC_5)
+    provider = new ethers.providers.StaticJsonRpcProvider(process.env.RPC_1)
     alice = new ethers.Wallet(process.env.TEST_WALLET_PK).connect(provider)
     filler = new ethers.Wallet(process.env.TEST_FILLER_PK).connect(provider)
     aliceAddress = (await alice.getAddress()).toLowerCase()
 
-    weth = new Contract(WETH_GOERLI, abi, provider)
-    uni = new Contract(UNI_GOERLI, abi, provider)
+    uni = new Contract(uniAddress, abi, provider)
 
     // make sure filler wallet has enough ETH for gas
-    const fillerMinBalance = ethers.utils.parseEther('0.1')
-    if (!(await provider.getBalance(filler.address)).gte(fillerMinBalance)) {
-      throw new Error('filler wallet does not has enough ETH for gas')
+    // const fillerMinBalance = ethers.utils.parseEther('0.1')
+    // if (!(await provider.getBalance(filler.address)).gte(fillerMinBalance)) {
+    //   throw new Error('filler wallet does not has enough ETH for gas')
+    // }
+    // make sure both wallets have enough erc20 balance
+    if (!((await uni.balanceOf(alice.address)) as BigNumber).gte(replacementAmount)) {
+      throw new Error(`alice wallet ${alice.address} does not have enough UNI ${await uni.balanceOf(alice.address)}`)
     }
-    // // make sure both wallets have enough erc20 balance
-    if (!((await uni.balanceOf(alice.address)) as BigNumber).gte(MIN_UNI_BALANCE)) {
-      throw new Error('alice wallet does not have enough UNI')
-    }
-    if (!((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
-      throw new Error('alice wallet does not have enough WETH')
-    }
-    if (!((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)) {
-      throw new Error('filler wallet does not have enough UNI')
-    }
-    if (!((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
-      throw new Error('filler wallet does not have enough ETH')
-    }
+    // if (!((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
+    //   throw new Error('alice wallet does not have enough WETH')
+    // }
+    // if (!((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)) {
+    //   throw new Error('filler wallet does not have enough UNI')
+    // }
+    // if (!((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
+    //   throw new Error('filler wallet does not have enough ETH')
+    // }
 
     // const checkApprovals = async (wallets: Wallet[]) => {
     //   for (const wallet of wallets) {
@@ -113,7 +133,7 @@ describe.skip('/dutch-auction/order', () => {
     //       await receipt.wait()
     //     }
 
-    //     const reactorAddress = REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']
+    //     const reactorAddress = REACTOR_ADDRESS_MAPPING[testChainId]['Dutch']
     //     // check approvals on reactor
     //     const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
     //     const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
@@ -163,7 +183,7 @@ describe.skip('/dutch-auction/order', () => {
     /// We have to wait for the sfn to fire, so we wait a bit, and as long as the order's expiry is longer than that time period,
     ///      we can be sure that the order correctly expired based on the block.timestamp
     // The next retry is usually in 12 seconds but can take longer to complete
-    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(ChainId.GÖRLI) * 2) * 1000
+    const timeToWait = (deadlineSeconds + AVERAGE_BLOCK_TIME(testChainId) * 2) * 1000
     await new Promise((resolve) => setTimeout(resolve, timeToWait))
 
     const resp = await axios.get<GetOrdersResponse<UniswapXOrderEntity>>(
@@ -186,7 +206,7 @@ describe.skip('/dutch-auction/order', () => {
   ): Promise<{ order: DutchOrder; payload: { encodedOrder: string; signature: string; chainId: ChainId } }> => {
     const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
     const decayStartTime = Math.round(new Date().getTime() / 1000)
-    const order = new DutchOrderBuilder(ChainId.GÖRLI)
+    const order = new DutchOrderBuilder(testChainId)
       .deadline(deadline)
       .decayEndTime(deadline)
       .decayStartTime(decayStartTime)
@@ -215,21 +235,93 @@ describe.skip('/dutch-auction/order', () => {
 
     return {
       order,
-      payload: { encodedOrder: encodedOrder, signature: signature, chainId: ChainId.GÖRLI },
+      payload: { encodedOrder: encodedOrder, signature: signature, chainId: testChainId },
     }
   }
 
+  const getDutchv2OrderFromURA = async (
+    swapper: string,
+    amount: BigNumber,
+    deadlineSeconds: number,
+    inputToken: string,
+    outputToken: string
+  ): Promise<{ order: UnsignedV2DutchOrder, quoteId: string; encodedOrder: string; signature: string; chainId: ChainId }> => {
+
+    const routingType = 'DUTCH_V2';
+    const exactInQuoteReq = {
+      tokenInChainId: testChainId,
+      tokenIn: inputToken,
+      tokenOutChainId: testChainId,
+      tokenOut: outputToken,
+      amount: amount.sub(1).toString(),
+      type: 'EXACT_INPUT',
+      configs: [
+        {
+          routingType,
+          swapper,
+          recipient: swapper,
+          useSyntheticQuotes: true,
+          deadlineSeconds,
+          forceOpenOrder: true
+        }
+      ],
+      useUniswapX: true
+    }
+      try {
+        const quoteResponse = await axios.post<any>(`${QUOTE_URL}/quote`, exactInQuoteReq, {
+          headers: {
+            accept: 'application/json, text/plain, */*',
+            'content-type': 'application/json'
+          },
+        })
+        const { data, status } = quoteResponse
+        expect(status).toEqual(200)
+        const { routing, quote } = data
+        expect(routing).toBe(routingType)
+
+        // const tokenIn = quote.orderInfo.input
+        const tokenOut = quote.orderInfo.outputs[0]
+        const prebuildOrder = new V2DutchOrderBuilder(testChainId)
+        .input({
+          token: inputToken,
+          startAmount: replacementAmount,
+          endAmount: replacementAmount,
+        })
+        .output({
+          token: tokenOut.token,
+          startAmount: BigNumber.from(tokenOut.startAmount),
+          endAmount: BigNumber.from(tokenOut.endAmount),
+          recipient: swapper,
+        })
+        .nonce(nonce)
+        .cosigner(COSIGNER_ADDRESS)
+        .deadline(quote.orderInfo.deadline)
+        .swapper(swapper)
+
+        const order: UnsignedV2DutchOrder = prebuildOrder.buildPartial()
+        // return order
+        const { domain, types, values } = order.permitData()
+        const signature = await alice._signTypedData(domain, types, values)
+        const encodedOrder = order.serialize()
+    
+        return { order, quoteId: quote.quoteId, encodedOrder: encodedOrder, signature: signature, chainId: testChainId }
+      } catch (err: any) {
+        console.log(err.message)
+        throw err
+      }
+
+  }
+
   const submitOrder = async (
-    order: DutchOrder,
     payload: {
       encodedOrder: string
       signature: string
-      chainId: ChainId
+      chainId: ChainId,
+      orderType?: string,
+      quoteId?: string,
+      requestId?: stringValue
     }
-  ): Promise<{
-    order: DutchOrder
-    signature: string
-  }> => {
+  ): Promise<void> => {
     try {
       const postResponse = await axios({
         method: 'post',
@@ -237,11 +329,44 @@ describe.skip('/dutch-auction/order', () => {
         data: payload,
       })
       expect(postResponse.status).toEqual(201)
-      return { order, signature: payload.signature }
     } catch (err: any) {
       console.log(err.message)
       throw err
     }
+  }
+
+  const submitV2Order = async (
+    payload: {
+      quoteId: string,
+      encodedOrder: string
+      signature: string
+      chainId: ChainId
+    }
+  ): Promise<void> => {
+    const quoteReq = {
+      quoteId: payload.quoteId,
+      requestId: uuidv4(),
+      encodedInnerOrder: payload.encodedOrder,
+      innerSig: payload.signature,
+      tokenInChainId: testChainId,
+      tokenOutChainId: testChainId,
+      allowNoQuote: false,
+      forceOpenOrder: true
+    }
+
+    let response
+    try {
+      response = await axios({
+        method: 'post',
+        url: `${PARAM_URL!}/hard-quote`,
+        data: quoteReq,
+      })
+    } catch (err: any) {
+      const status = err.response?.status
+      throw new Error(`Order submission failed with ${status} and data ${JSON.stringify(err.response?.data)}`)
+    }
+    expect(response.status).toEqual(200)
+    expect(response.data.orderHash).toBeDefined()
   }
 
   const buildAndSubmitOrder = async (
@@ -256,7 +381,8 @@ describe.skip('/dutch-auction/order', () => {
   }> => {
     const { order, payload } = await buildOrder(swapper, amount, deadlineSeconds, inputToken, outputToken)
 
-    return submitOrder(order, payload)
+    await submitOrder(payload)
+    return { order, signature: payload.signature }
   }
 
   const fillOrder = async (order: DutchOrder, signature: string) => {
@@ -267,7 +393,7 @@ describe.skip('/dutch-auction/order', () => {
           signature,
         },
       ],
-      reactor: REACTOR_ADDRESS_MAPPING[ChainId.GÖRLI]['Dutch']!,
+      reactor: REACTOR_ADDRESS_MAPPING[testChainId]['Dutch']!,
       // direct fill is 0x01
       fillContract: '0x0000000000000000000000000000000000000001',
       fillData: '0x',
@@ -305,7 +431,37 @@ describe.skip('/dutch-auction/order', () => {
     return receipt.transactionHash
   }
 
-  describe('orders endpoint sanity checks', () => {
+  describe('order endpoint sanity checks', () => {
+    
+    /**
+     * Currently the only test that runs
+     */
+    it('2xx with an order from URA', async () => {
+      const unsignedOrderResult = await getDutchv2OrderFromURA(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, uniAddress, wethAddress)
+      await submitV2Order({...unsignedOrderResult})
+    })
+
+    it.skip('2xx', async () => {
+      await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, wethAddress, uniAddress)
+    })
+
+    it.skip('4xx', async () => {
+      const { payload } = await buildOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        wethAddress,
+        uniAddress
+      )
+      await expect(submitOrder({ ...payload, chainId: 'xyz' } as any)).rejects.toMatchObject({
+        response: {
+          status: 400,
+        },
+      })
+    })
+  })
+
+  describe.skip('orders endpoint sanity checks', () => {
     it.each([
       [{ orderStatus: 'open' }, 200],
       [{ chainId: 1 }, 200],
@@ -353,35 +509,14 @@ describe.skip('/dutch-auction/order', () => {
     )
   })
 
-  describe('order endpoint sanity checks', () => {
-    it('2xx', async () => {
-      await buildAndSubmitOrder(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, WETH_GOERLI, UNI_GOERLI)
-    })
-
-    it('4xx', async () => {
-      const { order, payload } = await buildOrder(
-        aliceAddress,
-        amount,
-        DEFAULT_DEADLINE_SECONDS,
-        WETH_GOERLI,
-        UNI_GOERLI
-      )
-      await expect(submitOrder(order, { ...payload, chainId: 'xyz' } as any)).rejects.toMatchObject({
-        response: {
-          status: 400,
-        },
-      })
-    })
-  })
-
-  describe('checking expiry', () => {
+  describe.skip('checking expiry', () => {
     it('erc20 to erc20', async () => {
       const { order } = await buildAndSubmitOrder(
         aliceAddress,
         amount,
         DEFAULT_DEADLINE_SECONDS,
-        WETH_GOERLI,
-        UNI_GOERLI
+        wethAddress,
+        uniAddress
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
 
@@ -393,7 +528,7 @@ describe.skip('/dutch-auction/order', () => {
         aliceAddress,
         amount,
         DEFAULT_DEADLINE_SECONDS,
-        UNI_GOERLI,
+        uniAddress,
         ZERO_ADDRESS
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
@@ -405,7 +540,7 @@ describe.skip('/dutch-auction/order', () => {
         aliceAddress,
         amount,
         DEFAULT_DEADLINE_SECONDS,
-        UNI_GOERLI,
+        uniAddress,
         ZERO_ADDRESS
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
@@ -413,9 +548,9 @@ describe.skip('/dutch-auction/order', () => {
     })
   })
 
-  // TODO: Migrate to Sepolia/other test chain
+  // TODO: Migrate to other test chain
   // GOERLI chain is deprecated.
-  // 1. change RPC_5
+  // 1. change RPC_1
   // 2. Deploy contracts
   // 3. fund wallets(alice,filler)
   describe.skip('+ attempt to fill', () => {
@@ -424,7 +559,7 @@ describe.skip('/dutch-auction/order', () => {
         aliceAddress,
         amount,
         DEFAULT_DEADLINE_SECONDS,
-        UNI_GOERLI,
+        uniAddress,
         ZERO_ADDRESS
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
@@ -438,8 +573,8 @@ describe.skip('/dutch-auction/order', () => {
         aliceAddress,
         amount,
         DEFAULT_DEADLINE_SECONDS,
-        WETH_GOERLI,
-        UNI_GOERLI
+        wethAddress,
+        uniAddress
       )
       expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
       const txHash = await fillOrder(order, signature)
@@ -453,14 +588,14 @@ describe.skip('/dutch-auction/order', () => {
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          WETH_GOERLI,
-          UNI_GOERLI
+          wethAddress,
+          uniAddress
         )
         const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          UNI_GOERLI,
+          uniAddress,
           ZERO_ADDRESS
         )
         expect(order1.info.nonce.toString()).toEqual(order2.info.nonce.toString())
@@ -484,15 +619,15 @@ describe.skip('/dutch-auction/order', () => {
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          WETH_GOERLI,
-          UNI_GOERLI
+          wethAddress,
+          uniAddress
         )
         nonce = nonce.add(1)
         const { order: order2, signature: sig2 } = await buildAndSubmitOrder(
           aliceAddress,
           amount,
           DEFAULT_DEADLINE_SECONDS,
-          UNI_GOERLI,
+          uniAddress,
           ZERO_ADDRESS
         )
         expect(order2.info.nonce).toEqual(order1.info.nonce.add(1))
