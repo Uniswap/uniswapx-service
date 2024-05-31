@@ -59,7 +59,6 @@ describe('/dutch-auction/order', () => {
   // Token contracts
   const wethAddress = WETH
   const uniAddress = UNI
-  let weth: Contract
   let uni: Contract
 
   // trade amount for every test
@@ -99,7 +98,6 @@ describe('/dutch-auction/order', () => {
     filler = new ethers.Wallet(process.env.TEST_FILLER_PK).connect(provider)
     aliceAddress = (await alice.getAddress()).toLowerCase()
 
-    weth = new Contract(wethAddress, abi, provider)
     uni = new Contract(uniAddress, abi, provider)
 
     // make sure filler wallet has enough ETH for gas
@@ -448,7 +446,7 @@ describe('/dutch-auction/order', () => {
     })
 
     it.skip('4xx', async () => {
-      const { order, payload } = await buildOrder(
+      const { payload } = await buildOrder(
         aliceAddress,
         amount,
         DEFAULT_DEADLINE_SECONDS,
