@@ -176,7 +176,6 @@ export class UniswapXOrderService {
   ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
     let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V2], cursor)
     const dutchV2QueryResults = [...queryResults.orders]
-    console.log(`queryRes: ${JSON.stringify(queryResults)}`)
 
     let retryCount = 0
     while (dutchV2QueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
@@ -197,7 +196,6 @@ export class UniswapXOrderService {
       dutchV2OrderResponses.push(dutchV2Order.toGetResponse())
     }
 
-    console.log(`responses: ${JSON.stringify(dutchV2OrderResponses)}`)
     return { orders: dutchV2OrderResponses, cursor: queryResults.cursor }
   }
 
