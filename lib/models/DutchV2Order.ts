@@ -83,7 +83,7 @@ export class DutchV2Order extends Order {
       signature: this.signature,
       encodedOrder: this.inner.serialize(),
       chainId: this.chainId,
-
+      nonce: this.inner.info.nonce.toString(),
       txHash: this.txHash,
       orderHash: this.inner.hash(),
       swapper: this.inner.info.swapper,

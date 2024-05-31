@@ -35,6 +35,7 @@ export type GetDutchV2OrderResponse = {
     outputOverrides: string[]
   }
   cosignature: string
+  nonce: string
   quoteId: string | undefined
   requestId: string | undefined
 }
@@ -81,6 +82,7 @@ export const GetDutchV2OrderResponseEntryJoi = Joi.object({
   ),
   quoteId: FieldValidator.isValidQuoteId(),
   requestId: FieldValidator.isValidRequestId(),
+  nonce: FieldValidator.isValidNonce(),
   cosignerData: CosignerDataJoi,
   cosignature: Joi.string(),
 })
