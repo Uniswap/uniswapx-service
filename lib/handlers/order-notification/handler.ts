@@ -43,6 +43,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
               orderStatus: newOrder.orderStatus,
               encodedOrder: newOrder.encodedOrder,
               chainId: newOrder.chainId,
+              ...(newOrder.orderType && { type: newOrder.orderType }),
               ...(newOrder.quoteId && { quoteId: newOrder.quoteId }),
               ...(newOrder.filler && { filler: newOrder.filler }),
             },
