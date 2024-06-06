@@ -37,6 +37,7 @@ export class FillEventLogger {
 
     this.analyticsService.logFillInfo(
       fillEvent,
+      order,
       quoteId,
       timestamp,
       gasCostInETH,
