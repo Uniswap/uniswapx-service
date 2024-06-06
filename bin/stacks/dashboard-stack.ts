@@ -276,7 +276,7 @@ export class DashboardStack extends cdk.NestedStack {
               | filter ispresent(orderInfo.orderStatus) and (orderInfo.orderStatus = 'filled' or orderinfo.orderStatus = 'expired')
               | filter orderInfo.exclusiveFiller != '0x0000000000000000000000000000000000000000'
               | filter ispresent(orderInfo.exclusiveFiller)
-              | stats count() as exclusiveOrders, count(if(faded, 1, null)) as fadeCount by bin(1h)`,
+              | stats count() as exclusiveOrders, sum(faded) as fadeCount by bin(1h)`,
               region,
               stacked: false,
               title: 'Exclusive Orders',
