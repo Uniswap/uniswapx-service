@@ -2,7 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
-import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../entities'
+import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
 
@@ -72,8 +72,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
 
   public logFillInfo(
     fill: FillInfo,
-    order: UniswapXOrderEntity,
-    orderType: OrderType,
+    order: UniswapXOrderEntity | RelayOrderEntity,
     quoteId: string | undefined,
     timestamp: number,
     gasCostInETH: string,
@@ -85,9 +84,11 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       orderInfo: {
         orderStatus: ORDER_STATUS.FILLED,
         orderHash: fill.orderHash,
-        orderType: orderType,
+        orderType: order.type,
         quoteId: quoteId,
-        exclusiveFiller: this.getFillerAddress(order.cosignerData?.exclusiveFiller ?? AddressZero),
+        exclusiveFiller: (order as UniswapXOrderEntity).cosignerData ?
+          this.getFillerAddress((order as UniswapXOrderEntity).cosignerData?.exclusiveFiller ?? AddressZero):
+          AddressZero,
         filler: fill.filler,
         nonce: fill.nonce.toString(),
         offerer: fill.swapper,
