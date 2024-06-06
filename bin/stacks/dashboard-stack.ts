@@ -267,6 +267,42 @@ export class DashboardStack extends cdk.NestedStack {
           },
           {
             height: 6,
+            width: 24,
+            y: 44,
+            x: 0,
+            type: 'log',
+            properties: {
+              query: `SOURCE '/aws/lambda/${orderStatusLambdaName}' | fields @timestamp, orderInfo.exclusiveFiller, (orderInfo.exclusiveFiller != orderInfo.filler or orderInfo.orderStatus = 'expired') as faded
+              | filter ispresent(orderInfo.orderStatus) and (orderInfo.orderStatus = 'filled' or orderinfo.orderStatus = 'expired')
+              | filter orderInfo.exclusiveFiller != '0x0000000000000000000000000000000000000000'
+              | filter ispresent(orderInfo.exclusiveFiller)
+              | stats count() as exclusiveOrders, count(if(faded, 1, null)) as fadeCount by bin(1h)`,
+              region,
+              stacked: false,
+              title: 'Exclusive Orders',
+              view: 'timeSeries',
+            },
+          },
+          {
+            height: 6,
+            width: 24,
+            y: 50,
+            x: 0,
+            type: 'log',
+            properties: {
+              query: `SOURCE '/aws/lambda/${orderStatusLambdaName}' | fields @timestamp, orderInfo.exclusiveFiller, (orderInfo.exclusiveFiller != orderInfo.filler or orderInfo.orderStatus = 'expired') as faded
+              | filter ispresent(orderInfo.orderStatus) and (orderInfo.orderStatus = 'filled' or orderinfo.orderStatus = 'expired')
+              | filter orderInfo.exclusiveFiller != '0x0000000000000000000000000000000000000000'
+              | filter ispresent(orderInfo.exclusiveFiller)
+              | stats count() as exclusiveOrders, count(if(faded, 1, null)) as fadeCount by bin(1h)`,
+              region,
+              stacked: false,
+              title: 'Fill Rate by Filler',
+              view: 'bar',
+            },
+          },
+          {
+            height: 6,
             width: 8,
             y: 26,
             x: 0,
