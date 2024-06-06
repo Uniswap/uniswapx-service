@@ -72,6 +72,8 @@ export class AnalyticsService implements AnalyticsServiceInterface {
 
   public logFillInfo(
     fill: FillInfo,
+    order: UniswapXOrderEntity,
+    orderType: OrderType,
     quoteId: string | undefined,
     timestamp: number,
     gasCostInETH: string,
@@ -83,7 +85,9 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       orderInfo: {
         orderStatus: ORDER_STATUS.FILLED,
         orderHash: fill.orderHash,
+        orderType: orderType,
         quoteId: quoteId,
+        exclusiveFiller: this.getFillerAddress(order.cosignerData?.exclusiveFiller ?? AddressZero),
         filler: fill.filler,
         nonce: fill.nonce.toString(),
         offerer: fill.swapper,
