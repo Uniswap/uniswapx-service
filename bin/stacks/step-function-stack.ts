@@ -160,10 +160,51 @@ export class StepFunctionStack extends cdk.NestedStack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       })
 
+      const expiredRateMetric = new MathExpression({
+        expression: '100*m1/m2',
+        period: Duration.minutes(15),
+        usingMetrics: {
+          m1: new Metric({
+            namespace: 'AWS/States',
+            metricName: `OrderSfn-expired-chain-${chainId}`,
+            dimensionsMap: METRIC_DIMENSION_MAP,
+            statistic: 'sum',
+          }),
+          m2: new Metric({
+            namespace: 'AWS/States',
+            metricName: `OrderSfn-filled-chain-${chainId}`,
+            dimensionsMap: METRIC_DIMENSION_MAP,
+            statistic: 'sum',
+          }),
+        },
+      })
+
+      const sev3ExpiredRate = new Alarm(this, `CheckOrderStatusSev3StepFunctionOrderExpiryRate-${chainId}`, {
+        alarmName: `${SERVICE_NAME}-SEV3-${stage}-CheckOrderStatusStepFunctionOrderExpiryRate-${chainId}`,
+        metric: expiredRateMetric,
+        threshold: 5,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: TreatMissingData.IGNORE,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      })
+
+      const sev2ExpiredRate = new Alarm(this, `CheckOrderStatusSev2StepFunctionOrderExpiryRate-${chainId}`, {
+        alarmName: `${SERVICE_NAME}-SEV2-${stage}-CheckOrderStatusStepFunctionOrderExpiryRate-${chainId}`,
+        metric: expiredRateMetric,
+        threshold: 20,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        treatMissingData: TreatMissingData.IGNORE,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      })
+
       if (chatbotSNSArn) {
         const chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, 'ChatbotTopic', chatbotSNSArn)
         sev2ErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
         sev3ErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+        sev2ExpiredRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+        sev3ExpiredRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
       }
     }
   }
