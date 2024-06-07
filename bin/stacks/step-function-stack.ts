@@ -161,7 +161,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       })
 
       const expiredRateMetric = new MathExpression({
-        expression: '100*m1/m2',
+        expression: '100*m1/(m1+m2)',
         period: Duration.minutes(15),
         usingMetrics: {
           m1: new Metric({
@@ -182,7 +182,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       const sev3ExpiredRate = new Alarm(this, `CheckOrderStatusSev3StepFunctionOrderExpiryRate-${chainId}`, {
         alarmName: `${SERVICE_NAME}-SEV3-${stage}-CheckOrderStatusStepFunctionOrderExpiryRate-${chainId}`,
         metric: expiredRateMetric,
-        threshold: 5,
+        threshold: 10,
         evaluationPeriods: 1,
         datapointsToAlarm: 1,
         treatMissingData: TreatMissingData.IGNORE,
