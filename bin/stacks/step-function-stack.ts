@@ -165,13 +165,13 @@ export class StepFunctionStack extends cdk.NestedStack {
         period: Duration.minutes(15),
         usingMetrics: {
           m1: new Metric({
-            namespace: 'AWS/States',
+            namespace: 'Uniswap',
             metricName: `OrderSfn-expired-chain-${chainId}`,
             dimensionsMap: METRIC_DIMENSION_MAP,
             statistic: 'sum',
           }),
           m2: new Metric({
-            namespace: 'AWS/States',
+            namespace: 'Uniswap',
             metricName: `OrderSfn-filled-chain-${chainId}`,
             dimensionsMap: METRIC_DIMENSION_MAP,
             statistic: 'sum',
