@@ -281,12 +281,12 @@ describe('Testing each field on the FieldValidator class.', () => {
 
   describe('Testing cosigner field.', () => {
     it('should validate field.', async () => {
-      const cosigner = process.env.COSIGNER_PROD
+      const cosigner = process.env.LABS_COSIGNER
       expect(FieldValidator.isValidCosigner().validate(cosigner)).toEqual({ value: cosigner })
     })
 
     it('should invalidate field.', async () => {
-      const cosigner = process.env.COSINGER_PROD + 'foo'
+      const cosigner = process.env.LABS_COSIGNER + 'foo'
       const validatedField = FieldValidator.isValidCosigner().validate(cosigner)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toMatch(/^"value" must be/)
