@@ -49,7 +49,7 @@ jobs:
       - name: Create Env File
         run: |
           touch .env
-          echo "LABS_COSIGNER=${{ secrets.COSIGNER }}" > .env
+          echo "LABS_COSIGNER=$LABS_COSIGNER" > .env
           cat .env
 
       - name: Check test coverage
