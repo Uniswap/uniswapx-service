@@ -167,13 +167,13 @@ export class StepFunctionStack extends cdk.NestedStack {
           m1: new Metric({
             namespace: 'Uniswap',
             metricName: `OrderSfn-expired-chain-${chainId}`,
-            dimensionsMap: METRIC_DIMENSION_MAP,
+            dimensionsMap: { Service: 'UniswapXService' },
             statistic: 'sum',
           }),
           m2: new Metric({
             namespace: 'Uniswap',
             metricName: `OrderSfn-filled-chain-${chainId}`,
-            dimensionsMap: METRIC_DIMENSION_MAP,
+            dimensionsMap: { Service: 'UniswapXService' },
             statistic: 'sum',
           }),
         },
