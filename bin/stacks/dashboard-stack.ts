@@ -403,6 +403,7 @@ export class DashboardStack extends cdk.NestedStack {
                 ['Uniswap', `OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, 'Service', `UniswapXService`],
                 ['.', '.', '.', `.`, { stat: 'p99' }],
                 ['.', '.', '.', `.`, { stat: 'p50' }],
+                ['.', '.', '.', `.`, { stat: 'Average' }],
               ]),
               view: 'timeSeries',
               region,
