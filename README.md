@@ -60,7 +60,7 @@ QUOTER_TENDERLY=<>
 PERMIT_TENDERLY=<>
 
 # Only needed to run tests
-LABS_COSIGNER=<valid evm address>
+LABS_COSIGNER=<valid evm address>  # needed for certain unit tests
 ```
 
 1. `yarn build && cdk deploy GoudaServiceStack`

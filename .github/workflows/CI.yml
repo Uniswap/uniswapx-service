@@ -47,7 +47,10 @@ jobs:
           java-version: '17'
 
       - name: Create Env File
-        run: echo "LABS_COSIGNER=${{ secrets.COSIGNER }}" > .env
+        run: |
+          touch .env
+          echo "LABS_COSIGNER=${{ secrets.COSIGNER }}" > .env
+          cat .env
 
       - name: Check test coverage
         run: yarn coverage
