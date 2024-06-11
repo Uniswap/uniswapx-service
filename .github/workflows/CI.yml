@@ -46,5 +46,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Create Env File
+        run: echo "LABS_COSIGNER=${{ secrets.COSIGNER }}" > .env
+
       - name: Check test coverage
         run: yarn coverage
