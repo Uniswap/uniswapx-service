@@ -1,13 +1,19 @@
 // import { OrderType } from '@uniswap/uniswapx-sdk'
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import dotenv from 'dotenv'
 import { BigNumber, ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS, SORT_FIELDS } from '../entities'
+import { checkDefined } from '../preconditions/preconditions'
 import { SUPPORTED_CHAINS } from './chain'
 import { DUTCH_LIMIT } from './order'
 
+dotenv.config()
+
 export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
+
+const COSIGNER = checkDefined(process.env.LABS_COSIGNER)
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(3000, true))
@@ -70,6 +76,8 @@ export default class FieldValidator {
     }
     return value
   })
+
+  private static readonly COSIGNER_JOI = Joi.string().valid(COSIGNER)
 
   public static isValidOrderStatus(): StringSchema {
     return this.ORDER_STATUS_JOI
@@ -145,6 +153,10 @@ export default class FieldValidator {
 
   public static isValidOrderHashes(): StringSchema {
     return this.ORDER_HASHES_JOI
+  }
+
+  public static isValidCosigner(): StringSchema {
+    return this.COSIGNER_JOI
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {

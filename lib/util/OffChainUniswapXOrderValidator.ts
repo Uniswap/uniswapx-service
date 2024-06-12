@@ -34,6 +34,13 @@ export class OffChainUniswapXOrderValidator {
       }
     }
 
+    if (orderType == OrderType.Dutch_V2) {
+      const cosignerValidation = this.validateCosigner((order as CosignedV2DutchOrder).info.cosigner)
+      if (!cosignerValidation.valid) {
+        return cosignerValidation
+      }
+    }
+
     const chainIdValidation = this.validateChainId(order.chainId)
     if (!chainIdValidation.valid) {
       return chainIdValidation
@@ -187,6 +194,19 @@ export class OffChainUniswapXOrderValidator {
       return {
         valid: false,
         errorString: `Invalid swapper: ${error}`,
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  private validateCosigner(cosigner: string): OrderValidationResponse {
+    const error = FieldValidator.isValidCosigner().validate(cosigner).error
+    if (error) {
+      return {
+        valid: false,
+        errorString: `Invalid cosigner: ${error}`,
       }
     }
     return {

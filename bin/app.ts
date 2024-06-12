@@ -132,6 +132,14 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:uniswapx-internal-api-key-new-RaBmoM',
     })
 
+    const labsCosignerBeta = sm.Secret.fromSecretAttributes(this, 'labs-cosigner-beta', {
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:param-api/beta/cosignerAddress-gkPfRf',
+    })
+
+    const labsCosignerProd = sm.Secret.fromSecretAttributes(this, 'labs-cosigner-prod', {
+      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:param-api/prod/cosignerAddress-tgNwAd',
+    })
+
     const jsonRpcUrls: { [chain: string]: string } = {}
     Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
       const key = `RPC_${chainId}`
@@ -160,6 +168,7 @@ export class APIPipeline extends Stack {
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
+        LABS_COSIGNER: labsCosignerBeta.secretValue.toString(),
       },
       tableCapacityConfig: {
         order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
@@ -189,6 +198,7 @@ export class APIPipeline extends Stack {
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
+        LABS_COSIGNER: labsCosignerProd.secretValue.toString(),
       },
       tableCapacityConfig: PROD_TABLE_CAPACITY,
     })
@@ -310,6 +320,7 @@ envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
 envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
 envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
+envVars['LABS_COSIGNER'] = process.env['LABS_COSIGNER'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,

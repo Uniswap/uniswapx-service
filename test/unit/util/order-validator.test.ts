@@ -1,9 +1,13 @@
 import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import dotenv from 'dotenv'
 import { BigNumber } from 'ethers'
+import { ChainId } from '../../../lib/util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
+
+dotenv.config()
 
 const CURRENT_TIME = 10
 const validationProvider = new OffChainUniswapXOrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
@@ -60,7 +64,7 @@ function newOrder({
 describe('Testing off chain validation', () => {
   describe('Testing orderType', () => {
     it('Should set orderType with CosignedV2DutchOrder', () => {
-      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, { cosigner: process.env.LABS_COSIGNER })
       const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
         order
       )
@@ -85,7 +89,7 @@ describe('Testing off chain validation', () => {
     })
 
     it('Should throw invalid deadline with v2 order', () => {
-      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, { cosigner: process.env.LABS_COSIGNER })
       const validationResp = new OffChainUniswapXOrderValidator(() => 10, ONE_DAY_IN_SECONDS).validate(order)
       expect(validationResp).toEqual({
         valid: false,

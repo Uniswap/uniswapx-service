@@ -45,5 +45,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Create Env File
+        run: |
+          touch .env
+          echo "LABS_COSIGNER=0x0000000000000000000000000000000000000000" > .env
+          cat .env
+
       - name: Check test coverage
         run: yarn coverage
