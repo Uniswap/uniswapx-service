@@ -7,7 +7,6 @@ on:
   pull_request:
 env:
   GOUDA_SERVICE_URL: ${{ secrets.GOUDA_SERVICE_URL }}
-  LABS_COSIGNER: ${{ secrets.COSIGNER }}
 
 jobs:
   lint-and-test:
@@ -49,7 +48,7 @@ jobs:
       - name: Create Env File
         run: |
           touch .env
-          echo "LABS_COSIGNER=$LABS_COSIGNER" > .env
+          echo "LABS_COSIGNER=0x0000000000000000000000000000000000000000" > .env
           cat .env
 
       - name: Check test coverage
