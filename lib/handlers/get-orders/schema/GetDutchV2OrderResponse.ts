@@ -38,6 +38,7 @@ export type GetDutchV2OrderResponse = {
   nonce: string
   quoteId: string | undefined
   requestId: string | undefined
+  createdAt: number | undefined
 }
 
 export const CosignerDataJoi = Joi.object({
@@ -85,4 +86,5 @@ export const GetDutchV2OrderResponseEntryJoi = Joi.object({
   nonce: FieldValidator.isValidNonce(),
   cosignerData: CosignerDataJoi,
   cosignature: Joi.string(),
+  createdAt: Joi.number(),
 })

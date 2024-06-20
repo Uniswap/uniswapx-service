@@ -23,12 +23,17 @@ describe('DutchV2 Model', () => {
       SDKDutchOrderV2Factory.buildDutchV2Order(),
       MOCK_SIGNATURE,
       ChainId.MAINNET,
-      ORDER_STATUS.OPEN
+      ORDER_STATUS.OPEN,
+      undefined,
+      undefined,
+      undefined,
+      100
     )
     const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
     const fromEntity = DutchV2Order.fromEntity(entity)
 
     expect(order).toEqual(fromEntity)
+    expect(order.createdAt).toEqual(100)
   })
 
   test('toGetResponse', () => {
@@ -36,7 +41,11 @@ describe('DutchV2 Model', () => {
       SDKDutchOrderV2Factory.buildDutchV2Order(),
       MOCK_SIGNATURE,
       ChainId.MAINNET,
-      ORDER_STATUS.OPEN
+      ORDER_STATUS.OPEN,
+      undefined,
+      undefined,
+      undefined,
+      100
     )
     const response: GetDutchV2OrderResponse = order.toGetResponse()
 
@@ -66,5 +75,6 @@ describe('DutchV2 Model', () => {
     response.cosignerData.outputOverrides.forEach((o, i) => {
       expect(o).toEqual(order.inner.info.cosignerData.outputOverrides[i].toString())
     })
+    expect(order.createdAt).toEqual(100)
   })
 })
