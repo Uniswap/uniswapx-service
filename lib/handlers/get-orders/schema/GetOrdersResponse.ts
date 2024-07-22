@@ -4,10 +4,11 @@ import { UniswapXOrderEntity } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 import { DUTCH_LIMIT } from '../../../util/order'
 import { GetDutchV2OrderResponse, GetDutchV2OrderResponseEntryJoi } from './GetDutchV2OrderResponse'
+import { GetPriorityOrderResponse } from './GetPriorityOrderResponse'
 import { GetRelayOrderResponse } from './GetRelayOrderResponse'
 
 export type GetOrdersResponse<
-  T extends UniswapXOrderEntity | GetRelayOrderResponse | GetDutchV2OrderResponse | undefined
+  T extends UniswapXOrderEntity | GetRelayOrderResponse | GetDutchV2OrderResponse | GetPriorityOrderResponse | undefined
 > = {
   orders: T[]
   cursor?: string

@@ -1,11 +1,16 @@
 import {
+  CosignedPriorityOrder,
   CosignedV2DutchOrder,
+  DutchInput,
   DutchOrder,
   DutchOutput,
   OrderType,
+  PriorityInput,
+  PriorityOutput,
   REACTOR_ADDRESS_MAPPING,
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
+import Joi from 'joi'
 import { ONE_DAY_IN_SECONDS } from './constants'
 import FieldValidator from './field-validator'
 import { OrderValidationResponse } from './OrderValidationResponse'
@@ -21,12 +26,14 @@ export class OffChainUniswapXOrderValidator {
     private readonly skipValidationMap?: SkipValidationMap
   ) {}
 
-  validate(order: DutchOrder | CosignedV2DutchOrder): OrderValidationResponse {
+  validate(order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder): OrderValidationResponse {
     let orderType
     if (order instanceof DutchOrder) {
       orderType = OrderType.Dutch
     } else if (order instanceof CosignedV2DutchOrder) {
       orderType = OrderType.Dutch_V2
+    } else if (order instanceof CosignedPriorityOrder) {
+      orderType = OrderType.Priority
     } else {
       return {
         valid: false,
@@ -34,6 +41,7 @@ export class OffChainUniswapXOrderValidator {
       }
     }
 
+    // TODO: add cosigner validation for OrderType.Priority once we know the cosigner address
     if (orderType == OrderType.Dutch_V2) {
       const cosignerValidation = this.validateCosigner((order as CosignedV2DutchOrder).info.cosigner)
       if (!cosignerValidation.valid) {
@@ -90,19 +98,38 @@ export class OffChainUniswapXOrderValidator {
       return inputTokenValidation
     }
 
-    const inputStartAmountValidation = this.validateInputAmount(order.info.input.startAmount)
-    if (!inputStartAmountValidation.valid) {
-      return inputStartAmountValidation
-    }
+    if (orderType == OrderType.Priority) {
+      const input = order.info.input as PriorityInput
+      const inputAmountValidation = this.validateInputAmount(input.amount)
+      if (!inputAmountValidation.valid) {
+        return inputAmountValidation
+      }
+      const inputMpsValidation = this.validateMpsPerPriorityFeeWei(input.mpsPerPriorityFeeWei)
+      if (!inputMpsValidation.valid) {
+        return inputMpsValidation
+      }
 
-    const inputEndAmountValidation = this.validateInputAmount(order.info.input.endAmount)
-    if (!inputEndAmountValidation.valid) {
-      return inputStartAmountValidation
-    }
+      const outputs = order.info.outputs as PriorityOutput[]
+      const outputsValidation = this.validatePriorityOutputs(outputs)
+      if (!outputsValidation.valid) {
+        return outputsValidation
+      }
+    } else {
+      const input = order.info.input as DutchInput
+      const inputStartAmountValidation = this.validateInputAmount(input.startAmount)
+      if (!inputStartAmountValidation.valid) {
+        return inputStartAmountValidation
+      }
 
-    const outputsValidation = this.validateOutputs(order.info.outputs)
-    if (!outputsValidation.valid) {
-      return outputsValidation
+      const inputEndAmountValidation = this.validateInputAmount(input.endAmount)
+      if (!inputEndAmountValidation.valid) {
+        return inputStartAmountValidation
+      }
+
+      const outputsValidation = this.validateDutchOutputs(order.info.outputs as DutchOutput[])
+      if (!outputsValidation.valid) {
+        return outputsValidation
+      }
     }
 
     const orderHashValidation = this.validateHash(order.hash())
@@ -254,14 +281,14 @@ export class OffChainUniswapXOrderValidator {
     }
   }
 
-  private validateOutputs(dutchOutputs: DutchOutput[]): OrderValidationResponse {
-    if (dutchOutputs.length == 0) {
+  private validateDutchOutputs(priorityOutputs: DutchOutput[]): OrderValidationResponse {
+    if (priorityOutputs.length == 0) {
       return {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
       }
     }
-    for (const output of dutchOutputs) {
+    for (const output of priorityOutputs) {
       const { token, recipient, startAmount, endAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
         return {
@@ -295,6 +322,62 @@ export class OffChainUniswapXOrderValidator {
         return {
           valid: false,
           errorString: `Invalid endAmount > startAmount`,
+        }
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  private validateMpsPerPriorityFeeWei(mpsPerPriorityFeeWei: BigNumber): OrderValidationResponse {
+    const error = Joi.number().min(0).validate(mpsPerPriorityFeeWei.toString()).error
+    if (error) {
+      return {
+        valid: false,
+        errorString: `Invalid mpsPerPriorityFeeWei: ${error}; must >= 0`,
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  private validatePriorityOutputs(priorityOutputs: PriorityOutput[]): OrderValidationResponse {
+    if (priorityOutputs.length == 0) {
+      return {
+        valid: false,
+        errorString: `Invalid number of outputs: 0`,
+      }
+    }
+    for (const output of priorityOutputs) {
+      const { token, recipient, amount, mpsPerPriorityFeeWei } = output
+      if (FieldValidator.isValidEthAddress().validate(token).error) {
+        return {
+          valid: false,
+          errorString: `Invalid output token ${token}`,
+        }
+      }
+
+      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
+        return {
+          valid: false,
+          errorString: `Invalid recipient ${recipient}`,
+        }
+      }
+
+      if (!this.isValidUint256(amount)) {
+        return {
+          valid: false,
+          errorString: `Invalid startAmount ${amount.toString()}`,
+        }
+      }
+
+      const error = Joi.number().min(0).validate(mpsPerPriorityFeeWei.toString()).error
+      if (error) {
+        return {
+          valid: false,
+          errorString: `Invalid mpsPerPriorityFeeWei: ${error}; must >= 0`,
         }
       }
     }

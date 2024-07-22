@@ -16,6 +16,7 @@ module.exports = {
         { AttributeName: 'filler_offerer', AttributeType: 'S' },
         { AttributeName: 'filler_offerer_orderStatus', AttributeType: 'S' },
         { AttributeName: 'chainId_orderStatus_filler', AttributeType: 'S' },
+        { AttributeName: 'chainId_type_orderStatus', AttributeType: 'S' },
         { AttributeName: 'createdAt', AttributeType: 'N' },
       ],
       GlobalSecondaryIndexes: [

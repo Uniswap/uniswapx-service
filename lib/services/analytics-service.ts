@@ -2,7 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
-import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../entities'
+import { isPriorityOrderEntity, ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
 
@@ -25,27 +25,48 @@ export class AnalyticsService implements AnalyticsServiceInterface {
   }
 
   public logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType) {
-    const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
-    this.logger.info('Analytics Message', {
-      eventType: 'OrderPosted',
-      body: {
-        quoteId: order.quoteId,
-        createdAt: this.createdAtTimestampInSeconds(),
-        orderHash: order.orderHash,
-        startTime: order.decayStartTime,
-        endTime: order.decayEndTime,
-        deadline: order.deadline,
-        chainId: order.chainId,
-        inputStartAmount: order.input?.startAmount,
-        inputEndAmount: order.input?.endAmount,
-        tokenIn: order.input?.token,
-        outputStartAmount: userOutput.startAmount,
-        outputEndAmount: userOutput.endAmount,
-        tokenOut: userOutput.token,
-        filler: this.getFillerAddress(order.filler ?? AddressZero),
-        orderType: orderType,
-      },
-    })
+    const sharedFields = {
+      quoteId: order.quoteId,
+      createdAt: this.createdAtTimestampInSeconds(),
+      orderHash: order.orderHash,
+      deadline: order.deadline,
+      chainId: order.chainId,
+      filler: this.getFillerAddress(order.filler ?? AddressZero),
+      tokenIn: order.input?.token,
+      tokenOut: order.outputs[0].token,
+      orderType: orderType,
+    }
+
+    if (isPriorityOrderEntity(order)) {
+      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.amount > cur.amount ? prev : cur))
+      this.logger.info('Analytics Message', {
+        eventType: 'OrderPosted',
+        body: Object.assign(sharedFields, {
+          auctionStartBlock: order.auctionStartBlock,
+          auctionTargetBlock: order.cosignerData.auctionTargetBlock,
+          baselinePriorityFeeWei: order.baselinePriorityFeeWei,
+          inputStartAmount: order.input?.amount,
+          inputEndAmount: order.input?.amount,
+          inputMpsPerPriorityFeeWei: order.input?.mpsPerPriorityFeeWei,
+          outputStartAmount: userOutput.amount,
+          outputEndAmount: userOutput.amount,
+          outputMpsPerPriorityFeeWei: userOutput.mpsPerPriorityFeeWei,
+        }),
+      })
+    } else {
+      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
+      this.logger.info('Analytics Message', {
+        eventType: 'OrderPosted',
+        body: Object.assign(sharedFields, {
+          startTime: order.decayStartTime,
+          endTime: order.decayEndTime,
+          inputStartAmount: order.input?.startAmount,
+          inputEndAmount: order.input?.endAmount,
+          outputStartAmount: userOutput.startAmount,
+          outputEndAmount: userOutput.endAmount,
+        }),
+      })
+    }
   }
 
   public logCancelled(orderHash: string, orderType: OrderType, quoteId?: string) {
@@ -86,9 +107,10 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         orderHash: fill.orderHash,
         orderType: order.type,
         quoteId: quoteId,
-        exclusiveFiller: (order as UniswapXOrderEntity).cosignerData ?
-          this.getFillerAddress((order as UniswapXOrderEntity).cosignerData?.exclusiveFiller ?? AddressZero):
-          AddressZero,
+        exclusiveFiller:
+          'cosignerData' in order && 'exclusiveFiller' in order.cosignerData
+            ? this.getFillerAddress(order.cosignerData.exclusiveFiller)
+            : AddressZero,
         filler: fill.filler,
         nonce: fill.nonce.toString(),
         offerer: fill.swapper,
