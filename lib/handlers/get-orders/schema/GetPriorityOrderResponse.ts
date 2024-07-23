@@ -19,6 +19,8 @@ export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'i
   cosignerData: {
     auctionTargetBlock: number
   }
+  auctionStartBlock: number
+  baselinePriorityFeeWei: string
   cosignature: string
   nonce: string
   quoteId: string | undefined
@@ -44,13 +46,13 @@ export const GetPriorityOrderResponseEntryJoi = Joi.object({
   input: Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
     amount: FieldValidator.isValidAmount().required(),
-    mpsPerPriorityFeeWei: Joi.number().min(0).required(),
+    mpsPerPriorityFeeWei: FieldValidator.isValidAmount().required(),
   }),
   outputs: Joi.array().items(
     Joi.object({
       token: FieldValidator.isValidEthAddress().required(),
       amount: FieldValidator.isValidAmount().required(),
-      mpsPerPriorityFeeWei: Joi.number().min(0).required(),
+      mpsPerPriorityFeeWei: FieldValidator.isValidAmount().required(),
       recipient: FieldValidator.isValidEthAddress().required(),
     })
   ),
@@ -62,6 +64,8 @@ export const GetPriorityOrderResponseEntryJoi = Joi.object({
       amountIn: FieldValidator.isValidAmount(),
     })
   ),
+  auctionStartBlock: Joi.number().min(0),
+  baselinePriorityFeeWei: Joi.string().regex(/^[0-9]+$/),
   quoteId: FieldValidator.isValidQuoteId(),
   requestId: FieldValidator.isValidRequestId(),
   nonce: FieldValidator.isValidNonce(),
