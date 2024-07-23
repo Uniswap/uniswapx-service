@@ -37,8 +37,6 @@ export const GetPriorityOrderResponseEntryJoi = Joi.object({
   signature: FieldValidator.isValidSignature().required(),
   orderStatus: FieldValidator.isValidOrderStatus().required(),
   orderHash: FieldValidator.isValidOrderHash().required(),
-  swapper: FieldValidator.isValidEthAddress().required(),
-  //only Dutch_V2
   type: Joi.string().valid(OrderType.Priority).required(),
   chainId: FieldValidator.isValidChainId().required(),
 
