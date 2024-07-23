@@ -18,7 +18,7 @@ export class PriorityOrder extends Order {
   }
 
   get orderType(): OrderType {
-    return OrderType.Dutch_V2
+    return OrderType.Priority
   }
 
   public toEntity(orderStatus: ORDER_STATUS): PriorityOrderEntity {

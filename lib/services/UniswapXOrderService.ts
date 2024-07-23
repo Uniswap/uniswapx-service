@@ -247,7 +247,7 @@ export class UniswapXOrderService {
       queryResults = await this.repository.getOrdersFilteredByType(
         limit,
         params,
-        [OrderType.Dutch_V2],
+        [OrderType.Priority],
         queryResults.cursor
       )
       priorityQueryResults.push(...queryResults.orders)
