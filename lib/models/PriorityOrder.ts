@@ -87,6 +87,8 @@ export class PriorityOrder extends Order {
       swapper: this.inner.info.swapper,
       reactor: this.inner.info.reactor,
       deadline: this.inner.info.deadline,
+      auctionStartBlock: this.inner.info.auctionStartBlock.toNumber(),
+      baselinePriorityFeeWei: this.inner.info.baselinePriorityFeeWei.toString(),
       input: {
         token: this.inner.info.input.token,
         amount: this.inner.info.input.amount.toString(),

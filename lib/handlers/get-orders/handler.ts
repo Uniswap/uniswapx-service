@@ -18,6 +18,7 @@ import {
 import { ContainerInjected, RequestInjected } from './injector'
 import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
+import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
 import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
 export class GetOrdersHandler extends APIGLambdaHandler<
@@ -25,7 +26,9 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   RequestInjected,
   void,
   RawGetOrdersQueryParams,
-  GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | undefined>
+  GetOrdersResponse<
+    UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | undefined
+  >
 > {
   constructor(
     handlerName: string,
@@ -38,7 +41,11 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
   ): Promise<
-    | Response<GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | undefined>>
+    | Response<
+        GetOrdersResponse<
+          UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | undefined
+        >
+      >
     | ErrorResponse
   > {
     const {
