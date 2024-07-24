@@ -53,17 +53,6 @@ export abstract class GenericOrdersRepository<
     return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort, desc)
   }
 
-  //public async getByOrderType(
-  //  orderType: string,
-  //  limit: number,
-  //  cursor?: string,
-  //  sortKey?: SORT_FIELDS,
-  //  sort?: string,
-  //  desc?: boolean
-  //): Promise<QueryResult<T>> {
-  //  return await this.queryOrderEntity(orderType, TABLE_KEY.TYPE, limit, cursor, sortKey, sort, desc)
-  //}
-
   public async getByHash(hash: string): Promise<T | undefined> {
     const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
     return res.Item as T

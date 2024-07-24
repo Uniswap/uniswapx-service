@@ -39,6 +39,7 @@ export const GetPriorityOrderResponseEntryJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash().required(),
   type: Joi.string().valid(OrderType.Priority).required(),
   chainId: FieldValidator.isValidChainId().required(),
+  swapper: FieldValidator.isValidEthAddress().required(),
 
   txHash: FieldValidator.isValidTxHash(),
   input: Joi.object({
@@ -63,7 +64,7 @@ export const GetPriorityOrderResponseEntryJoi = Joi.object({
     })
   ),
   auctionStartBlock: Joi.number().min(0),
-  baselinePriorityFeeWei: Joi.string().regex(/^[0-9]+$/),
+  baselinePriorityFeeWei: FieldValidator.isValidAmount(),
   quoteId: FieldValidator.isValidQuoteId(),
   requestId: FieldValidator.isValidRequestId(),
   nonce: FieldValidator.isValidNonce(),

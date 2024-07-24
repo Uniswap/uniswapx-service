@@ -109,13 +109,13 @@ export enum SORT_FIELDS {
 }
 
 export function isPriorityOrderEntity(order: UniswapXOrderEntity): order is PriorityOrderEntity {
-  return 'cosignerData' in order && 'auctionTargetBlock' in order.cosignerData
+  return order.type === OrderType.Priority
 }
 
 export function isDutchV2OrderEntity(order: UniswapXOrderEntity): order is DutchV2OrderEntity {
-  return 'cosignerData' in order && 'exclusiveFiller' in order.cosignerData
+  return order.type === OrderType.Dutch_V2
 }
 
 export function isDutchV1OrderEntity(order: UniswapXOrderEntity): order is DutchV1OrderEntity {
-  return !('cosignerData' in order)
+  return order.type === OrderType.Dutch || order.type === OrderType.Limit
 }
