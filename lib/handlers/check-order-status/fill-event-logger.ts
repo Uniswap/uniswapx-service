@@ -1,7 +1,13 @@
 import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { BigNumber, ethers } from 'ethers'
-import { RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
+import {
+  DutchV1OrderEntity,
+  DutchV2OrderEntity,
+  RelayOrderEntity,
+  SettledAmount,
+  UniswapXOrderEntity,
+} from '../../entities'
 import { AnalyticsService } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
@@ -47,10 +53,7 @@ export class FillEventLogger {
     )
 
     if (order.type === OrderType.Dutch || order.type === OrderType.Dutch_V2) {
-      const percentDecayed =
-        order.decayEndTime === order.decayStartTime
-          ? 0
-          : (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
+      const percentDecayed = this.calculatePercentDecayed(order, timestamp)
       metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
     }
 
@@ -60,5 +63,11 @@ export class FillEventLogger {
       metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
     }
     return settledAmounts
+  }
+
+  private calculatePercentDecayed(order: DutchV1OrderEntity | DutchV2OrderEntity, timestamp: number): number {
+    if (order.decayStartTime && order.decayEndTime) {
+      return (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
+    } else return 0
   }
 }
