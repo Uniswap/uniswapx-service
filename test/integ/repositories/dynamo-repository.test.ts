@@ -174,7 +174,7 @@ describe('OrdersRepository put item test', () => {
   it('should succesfully put a priority order in table', async () => {
     expect(() => {
       mockTime(1)
-      ordersRepository.putOrderAndUpdateNonceTransaction(PRIORITY_ORDER_1 as UniswapXOrderEntity)
+      ordersRepository.putOrderAndUpdateNonceTransaction(PRIORITY_ORDER_1 as unknown as UniswapXOrderEntity)
     }).not.toThrow()
   })
 })
