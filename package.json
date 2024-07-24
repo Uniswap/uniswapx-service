@@ -62,7 +62,7 @@
     "@swc/core": "^1.3.101",
     "@swc/jest": "^0.2.29",
     "@types/sinon": "^10.0.13",
-    "@uniswap/uniswapx-sdk": "2.1.0-beta.4",
+    "@uniswap/uniswapx-sdk": "2.1.0-beta.6",
     "aws-cdk-lib": "2.85.0",
     "aws-embedded-metrics": "^4.1.0",
     "aws-sdk": "^2.1238.0",

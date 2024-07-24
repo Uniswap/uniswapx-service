@@ -15,10 +15,23 @@ export type OrderInput = {
   endAmount?: string
 }
 
+export type PriorityOrderInput = {
+  token: string
+  amount: string
+  mpsPerPriorityFeeWei: string
+}
+
 export type OrderOutput = {
   token: string
   startAmount: string
   endAmount: string
+  recipient: string
+}
+
+export type PriorityOrderOutput = {
+  token: string
+  amount: string
+  mpsPerPriorityFeeWei: string
   recipient: string
 }
 
@@ -29,10 +42,7 @@ export type SettledAmount = {
   amountIn: string
 }
 
-// Db representation of Dutch V1, Dutch V2, or Limit Order
-// indexes are returned at runtime but not represented on this type. Ideally we will include a mapping at repo layer boundary
-export type UniswapXOrderEntity = {
-  type: OrderType.Dutch | OrderType.Dutch_V2 | OrderType.Limit
+export type SharedXOrderEntity = {
   encodedOrder: string
   signature: string
   nonce: string
@@ -41,11 +51,7 @@ export type UniswapXOrderEntity = {
   chainId: number
   offerer: string
   reactor: string
-  decayStartTime: number
-  decayEndTime: number
   deadline: number
-  input: OrderInput
-  outputs: OrderOutput[]
   createdAt?: number
   // Filler field is defined when the order has been filled and the status tracking function has recorded the filler address.
   filler?: string
@@ -56,16 +62,60 @@ export type UniswapXOrderEntity = {
   txHash?: string
   // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
   settledAmounts?: SettledAmount[]
-  cosignerData?: {
+}
+
+export type DutchV1OrderEntity = SharedXOrderEntity & {
+  type: OrderType.Dutch | OrderType.Limit
+  decayStartTime?: number
+  decayEndTime?: number
+  input: OrderInput
+  outputs: OrderOutput[]
+}
+
+export type DutchV2OrderEntity = SharedXOrderEntity & {
+  type: OrderType.Dutch_V2
+  decayStartTime: number
+  decayEndTime: number
+  input: OrderInput
+  outputs: OrderOutput[]
+  cosignerData: {
     decayStartTime: number
     decayEndTime: number
     exclusiveFiller: string
     inputOverride: string
     outputOverrides: string[]
   }
-  cosignature?: string
+  cosignature: string
 }
+
+export type PriorityOrderEntity = SharedXOrderEntity & {
+  type: OrderType.Priority
+  auctionStartBlock: number
+  baselinePriorityFeeWei: string
+  input: PriorityOrderInput
+  outputs: PriorityOrderOutput[]
+  cosignerData: {
+    auctionTargetBlock: number
+  }
+  cosignature: string
+}
+
+// Db representation of Dutch V1, Dutch V2, or Limit Order
+// indexes are returned at runtime but not represented on this type. Ideally we will include a mapping at repo layer boundary
+export type UniswapXOrderEntity = DutchV1OrderEntity | DutchV2OrderEntity | PriorityOrderEntity
 
 export enum SORT_FIELDS {
   CREATED_AT = 'createdAt',
+}
+
+export function isPriorityOrderEntity(order: UniswapXOrderEntity): order is PriorityOrderEntity {
+  return order.type === OrderType.Priority
+}
+
+export function isDutchV2OrderEntity(order: UniswapXOrderEntity): order is DutchV2OrderEntity {
+  return order.type === OrderType.Dutch_V2
+}
+
+export function isDutchV1OrderEntity(order: UniswapXOrderEntity): order is DutchV1OrderEntity {
+  return order.type === OrderType.Dutch || order.type === OrderType.Limit
 }

@@ -1,5 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import {
+  CosignedPriorityOrder,
   CosignedV2DutchOrder,
   DutchOrder,
   OrderType,
@@ -14,11 +15,13 @@ import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
+import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { DutchV1Order } from '../models/DutchV1Order'
 import { DutchV2Order } from '../models/DutchV2Order'
 import { LimitOrder } from '../models/LimitOrder'
+import { PriorityOrder } from '../models/PriorityOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
@@ -37,12 +40,15 @@ export class UniswapXOrderService {
     private analyticsService: AnalyticsServiceInterface
   ) {}
 
-  async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order): Promise<string> {
+  async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder): Promise<string> {
     let orderEntity
     if (order instanceof DutchV1Order || order instanceof LimitOrder) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
     } else if (order instanceof DutchV2Order) {
+      await this.validateOrder(order.inner, order.signature, order.chainId)
+      orderEntity = order.toEntity(ORDER_STATUS.OPEN)
+    } else if (order instanceof PriorityOrder) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else {
@@ -67,7 +73,7 @@ export class UniswapXOrderService {
   }
 
   private async validateOrder(
-    order: DutchOrder | CosignedV2DutchOrder,
+    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder,
     signature: string,
     chainId: number
   ): Promise<void> {
@@ -226,6 +232,36 @@ export class UniswapXOrderService {
     }
 
     return { orders: dutchQueryResults, cursor: queryResults.cursor }
+  }
+
+  public async getPriorityOrders(
+    limit: number,
+    params: GetOrdersQueryParams,
+    cursor: string | undefined
+  ): Promise<GetOrdersResponse<GetPriorityOrderResponse>> {
+    let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Priority], cursor)
+    const priorityQueryResults = [...queryResults.orders]
+
+    let retryCount = 0
+    while (priorityQueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
+      queryResults = await this.repository.getOrdersFilteredByType(
+        limit,
+        params,
+        [OrderType.Priority],
+        queryResults.cursor
+      )
+      priorityQueryResults.push(...queryResults.orders)
+      retryCount++
+    }
+
+    const priorityOrderResponses: GetPriorityOrderResponse[] = []
+    for (let i = 0; i < priorityQueryResults.length; i++) {
+      const order = priorityQueryResults[i]
+      const priorityOrder = PriorityOrder.fromEntity(order)
+      priorityOrderResponses.push(priorityOrder.toGetResponse())
+    }
+
+    return { orders: priorityOrderResponses, cursor: queryResults.cursor }
   }
 
   public async getLimitOrders(
