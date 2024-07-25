@@ -12,6 +12,7 @@ import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
+import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
 
 export class APIStack extends cdk.Stack {
@@ -43,6 +44,9 @@ export class APIStack extends cdk.Stack {
       indexCapacityConfig,
     } = props
 
+    // KMS initialization
+    const kmsStack = new KmsStack(this, `${SERVICE_NAME}PostOrderCosignerKey`)
+
     const {
       getOrdersLambdaAlias,
       getOrdersLambda,
@@ -61,6 +65,7 @@ export class APIStack extends cdk.Stack {
       provisionedConcurrency,
       stage: stage as STAGE,
       envVars: props.envVars,
+      kmsKey: kmsStack.key,
       tableCapacityConfig,
       indexCapacityConfig,
       chatbotSNSArn,
