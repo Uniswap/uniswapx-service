@@ -88,11 +88,6 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
           partitionKey: queryFilters['chainId'] as number,
           index: TABLE_KEY.CHAIN_ID,
         }
-
-      case this.areParamsRequested(
-        [GET_QUERY_PARAMS.CHAIN_ID, GET_QUERY_PARAMS.TYPE, GET_QUERY_PARAMS.ORDER_STATUS],
-        requestedParams
-      ):
     }
     return undefined
   }
