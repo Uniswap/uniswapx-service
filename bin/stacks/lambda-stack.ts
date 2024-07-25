@@ -4,6 +4,7 @@ import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import { Alarm, ComparisonOperator, MathExpression, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
 import { CfnEIP, NatProvider, Vpc } from 'aws-cdk-lib/aws-ec2'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
+import * as aws_kms from 'aws-cdk-lib/aws-kms'
 import * as aws_lambda from 'aws-cdk-lib/aws-lambda'
 import { DynamoEventSource, SqsDlq } from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
@@ -21,6 +22,7 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
   stage: STAGE
   envVars: { [key: string]: string }
+  kmsKey: aws_kms.Key
   tableCapacityConfig: TableCapacityConfig
   indexCapacityConfig?: IndexCapacityConfig
   chatbotSNSArn?: string
@@ -48,7 +50,7 @@ export class LambdaStack extends cdk.NestedStack {
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
-    const { provisionedConcurrency, tableCapacityConfig, indexCapacityConfig, chatbotSNSArn } = props
+    const { provisionedConcurrency, kmsKey, tableCapacityConfig, indexCapacityConfig, chatbotSNSArn } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
 
@@ -66,6 +68,15 @@ export class LambdaStack extends cdk.NestedStack {
       new aws_iam.PolicyStatement({
         actions: ['ec2:CreateNetworkInterface', 'ec2:DescribeNetworkInterfaces', 'ec2:DeleteNetworkInterface'],
         resources: ['*'],
+      })
+    )
+
+    // allow lambdas to access the cosigner key
+    lambdaRole.addToPolicy(
+      new cdk.aws_iam.PolicyStatement({
+        resources: [kmsKey.keyArn],
+        actions: ['kms:GetPublicKey', 'kms:Sign'],
+        effect: cdk.aws_iam.Effect.ALLOW,
       })
     )
 
@@ -177,6 +188,7 @@ export class LambdaStack extends cdk.NestedStack {
     const postOrderEnv: any = {
       ...props.envVars,
       stage: props.stage as STAGE,
+      KMS_KEY_KD: kmsKey.keyId,
       VERSION: '3',
       NODE_OPTIONS: '--enable-source-maps',
       REGION: this.region,
