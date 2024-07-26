@@ -117,6 +117,7 @@ export class LambdaStack extends cdk.NestedStack {
     const getOrdersEnv = {
       ...props.envVars,
       stage: props.stage as STAGE,
+      KMS_KEY_ID: kmsKey.keyId,
       VERSION: '3',
       NODE_OPTIONS: '--enable-source-maps',
     }
@@ -150,6 +151,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...props.envVars,
         stage: props.stage as STAGE,
+        KMS_KEY_ID: kmsKey.keyId,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -256,6 +258,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         ...props.envVars,
         stage: props.stage as STAGE,
+        KMS_KEY_ID: kmsKey.keyId,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -275,6 +278,7 @@ export class LambdaStack extends cdk.NestedStack {
       environment: {
         stage: props.stage as STAGE,
         ...props.envVars,
+        KMS_KEY_ID: kmsKey.keyId,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -292,6 +296,7 @@ export class LambdaStack extends cdk.NestedStack {
       },
       environment: {
         stage: props.stage as STAGE,
+        KMS_KEY_ID: kmsKey.keyId,
         ...props.envVars,
         VERSION: '2',
         NODE_OPTIONS: '--enable-source-maps',
