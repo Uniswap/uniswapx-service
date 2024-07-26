@@ -188,7 +188,7 @@ export class LambdaStack extends cdk.NestedStack {
     const postOrderEnv: any = {
       ...props.envVars,
       stage: props.stage as STAGE,
-      KMS_KEY_KD: kmsKey.keyId,
+      KMS_KEY_ID: kmsKey.keyId,
       VERSION: '3',
       NODE_OPTIONS: '--enable-source-maps',
       REGION: this.region,
