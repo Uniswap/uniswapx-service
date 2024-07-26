@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib'
-import { CfnOutput, SecretValue, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
+import { CfnOutput, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
 import * as chatbot from 'aws-cdk-lib/aws-chatbot'
 import { BuildEnvironmentVariableType, BuildSpec, ComputeType } from 'aws-cdk-lib/aws-codebuild'
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
@@ -65,8 +65,9 @@ export class APIPipeline extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props)
 
-    const code = CodePipelineSource.gitHub('Uniswap/uniswapx-service', 'main', {
-      authentication: SecretValue.secretsManager('github-token-2'),
+    const code = CodePipelineSource.connection('Uniswap/uniswapx-service', 'main', {
+      connectionArn:
+        'arn:aws:codestar-connections:us-east-2:644039819003:connection/4806faf1-c31e-4ea2-a5bf-c6fc1fa79487',
     })
 
     const synthStep = new CodeBuildStep('Synth', {
