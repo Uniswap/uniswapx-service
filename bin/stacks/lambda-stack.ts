@@ -11,7 +11,7 @@ import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
-import { SUPPORTED_CHAINS } from '../../lib/util/chain'
+import { ChainId, SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { CronStack } from './cron-stack'
@@ -196,7 +196,8 @@ export class LambdaStack extends cdk.NestedStack {
       REGION: this.region,
     }
 
-    for (const chainId of SUPPORTED_CHAINS) {
+    // SUPPORTED_CHAINS - BASE
+    for (const chainId of [ChainId.MAINNET, ChainId.POLYGON, ChainId.SEPOLIA, ChainId.GÖRLI, ChainId.ARBITRUM_ONE]) {
       postOrderEnv[`STATE_MACHINE_ARN_${chainId}`] = sfnStack.chainIdToStatusTrackingStateMachineArn[chainId]
     }
 
