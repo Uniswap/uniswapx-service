@@ -4298,10 +4298,10 @@
     tiny-invariant "^1.1.0"
     toformat "^2.0.0"
 
-"@uniswap/signer@^0.0.4":
-  version "0.0.4"
-  resolved "https://registry.npmjs.org/@uniswap/signer/-/signer-0.0.4.tgz#1324bf62865b3ed2ba28e3819e3b2b03048ab09b"
-  integrity sha512-dMuR7p39i5bdKJY5xc0McZ9pS3wX/inZaJvq/ForatKCyHDPeFS1kdlKzx4zsNRqhhO5jRfTpKKyp6vE5EA4OA==
+"@uniswap/signer@0.0.3-beta.4":
+  version "0.0.3-beta.4"
+  resolved "https://registry.npmjs.org/@uniswap/signer/-/signer-0.0.3-beta.4.tgz#cfdf9cd1592a11960250948409881cc55c0a375d"
+  integrity sha512-SI1ulT4jtgsrh4CK1wxcjKzv0QjHZIWZdoxreHaIkGEe6zCLvg5lvgq3RnjOhYp+6UbZMfDUYvyAV1qkNbTeNA==
   dependencies:
     "@aws-sdk/client-kms" "^3.513.0"
     asn1.js "^5.4.1"
