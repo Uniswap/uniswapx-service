@@ -52,8 +52,8 @@ export class APIStack extends cdk.Stack {
       getOrdersLambda,
       getNonceLambdaAlias,
       getNonceLambda,
-      postOrderLambdaAlias,
-      postOrderLambda,
+      //postOrderLambdaAlias,
+      //postOrderLambda,
       postLimitOrderLambdaAlias,
       // postLimitOrderLambda, TODO: dashboard
       getLimitOrdersLambdaAlias,
@@ -364,7 +364,7 @@ export class APIStack extends cdk.Stack {
 
     const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
     const getLimitOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getLimitOrdersLambdaAlias, {})
-    const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
+    //const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
     const postLimitOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postLimitOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
@@ -400,8 +400,8 @@ export class APIStack extends cdk.Stack {
     })
     apiDocsUI.addMethod('GET', getDocsUILambdaIntegration)
 
-    const order = dutchAuction.addResource('order')
-    order.addMethod('POST', postOrderLambdaIntegration)
+    //const order = dutchAuction.addResource('order')
+    //order.addMethod('POST', postOrderLambdaIntegration)
 
     const limitOrderOrder = limitOrders.addResource('order')
     limitOrderOrder.addMethod('POST', postLimitOrderLambdaIntegration)
@@ -415,7 +415,7 @@ export class APIStack extends cdk.Stack {
 
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
-      postOrderLambdaName: postOrderLambda.functionName,
+      postOrderLambdaName: getNonceLambda.functionName,
       getNonceLambdaName: getNonceLambda.functionName,
       getOrdersLambdaName: getOrdersLambda.functionName,
       chainIdToStatusTrackingStateMachineArn,

@@ -28,7 +28,7 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   chatbotSNSArn?: string
 }
 export class LambdaStack extends cdk.NestedStack {
-  public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
+  //public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
   public readonly postLimitOrderLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getOrdersLambda: aws_lambda_nodejs.NodejsFunction
   public readonly getLimitOrdersLambda: aws_lambda_nodejs.NodejsFunction
@@ -36,7 +36,7 @@ export class LambdaStack extends cdk.NestedStack {
   private readonly orderNotificationLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsLambda: aws_lambda_nodejs.NodejsFunction
   private readonly getDocsUILambda: aws_lambda_nodejs.NodejsFunction
-  public readonly postOrderLambdaAlias: aws_lambda.Alias
+  //public readonly postOrderLambdaAlias: aws_lambda.Alias
   public readonly postLimitOrderLambdaAlias: aws_lambda.Alias
   public readonly getOrdersLambdaAlias: aws_lambda.Alias
   public readonly getLimitOrdersLambdaAlias: aws_lambda.Alias
@@ -200,20 +200,20 @@ export class LambdaStack extends cdk.NestedStack {
       postOrderEnv[`STATE_MACHINE_ARN_${chainId}`] = sfnStack.chainIdToStatusTrackingStateMachineArn[chainId]
     })
 
-    this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
-      role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/post-order/index.ts'),
-      handler: 'postOrderHandler',
-      timeout: Duration.seconds(29),
-      memorySize: 512,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
-      environment: postOrderEnv,
-      tracing: aws_lambda.Tracing.ACTIVE,
-    })
+    //this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
+    //  role: lambdaRole,
+    //  runtime: aws_lambda.Runtime.NODEJS_18_X,
+    //  entry: path.join(__dirname, '../../lib/handlers/post-order/index.ts'),
+    //  handler: 'postOrderHandler',
+    //  timeout: Duration.seconds(29),
+    //  memorySize: 512,
+    //  bundling: {
+    //    minify: true,
+    //    sourceMap: true,
+    //  },
+    //  environment: postOrderEnv,
+    //  tracing: aws_lambda.Tracing.ACTIVE,
+    //})
 
     this.postLimitOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostLimitOrder${lambdaName}`, {
       role: lambdaRole,
@@ -304,11 +304,11 @@ export class LambdaStack extends cdk.NestedStack {
     })
 
     if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
-      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
-        destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
-        filterPattern: '{ $.eventType = "OrderPosted" }',
-        logGroupName: this.postOrderLambda.logGroup.logGroupName,
-      })
+      //new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
+      //  destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
+      //  filterPattern: '{ $.eventType = "OrderPosted" }',
+      //  logGroupName: this.postOrderLambda.logGroup.logGroupName,
+      //})
 
       new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedLimitOrderSub', {
         destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
@@ -325,11 +325,11 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
-    this.postOrderLambdaAlias = new aws_lambda.Alias(this, `PostOrderLiveAlias`, {
-      aliasName: 'live',
-      version: this.postOrderLambda.currentVersion,
-      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
-    })
+    //4this.postOrderLambdaAlias = new aws_lambda.Alias(this, `PostOrderLiveAlias`, {
+    //4  aliasName: 'live',
+    //4  version: this.postOrderLambda.currentVersion,
+    //4  provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    //4})
 
     this.postLimitOrderLambdaAlias = new aws_lambda.Alias(this, `PostLimitOrderLiveAlias`, {
       aliasName: 'live',
@@ -368,19 +368,19 @@ export class LambdaStack extends cdk.NestedStack {
     })
 
     if (enableProvisionedConcurrency) {
-      const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
-        serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 2,
-        minCapacity: provisionedConcurrency,
-        resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
-        scalableDimension: 'lambda:function:ProvisionedConcurrency',
-      })
+      //const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
+      //  serviceNamespace: asg.ServiceNamespace.LAMBDA,
+      //  maxCapacity: provisionedConcurrency * 2,
+      //  minCapacity: provisionedConcurrency,
+      //  resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
+      //  scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      //})
 
-      postOrderTarget.node.addDependency(this.postOrderLambdaAlias)
-      postOrderTarget.scaleToTrackMetric(`${lambdaName}-PostOrder-ProvConcTracking`, {
-        targetValue: 0.8,
-        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      })
+      //postOrderTarget.node.addDependency(this.postOrderLambdaAlias)
+      //postOrderTarget.scaleToTrackMetric(`${lambdaName}-PostOrder-ProvConcTracking`, {
+      //  targetValue: 0.8,
+      //  predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      //})
 
       const PostLimitOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostLimitOrder-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
