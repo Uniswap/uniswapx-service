@@ -325,11 +325,11 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
-    //4this.postOrderLambdaAlias = new aws_lambda.Alias(this, `PostOrderLiveAlias`, {
-    //4  aliasName: 'live',
-    //4  version: this.postOrderLambda.currentVersion,
-    //4  provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
-    //4})
+    //this.postOrderLambdaAlias = new aws_lambda.Alias(this, `PostOrderLiveAlias`, {
+    //  aliasName: 'live',
+    //  version: this.postOrderLambda.currentVersion,
+    //  provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+    //})
 
     //this.postLimitOrderLambdaAlias = new aws_lambda.Alias(this, `PostLimitOrderLiveAlias`, {
     //  aliasName: 'live',
