@@ -196,10 +196,9 @@ export class LambdaStack extends cdk.NestedStack {
       REGION: this.region,
     }
 
-    // SUPPORTED_CHAINS - BASE
-    for (const chainId of [ChainId.MAINNET, ChainId.POLYGON, ChainId.SEPOLIA, ChainId.GÖRLI, ChainId.ARBITRUM_ONE]) {
+    SUPPORTED_CHAINS.forEach((chainId: ChainId) => {
       postOrderEnv[`STATE_MACHINE_ARN_${chainId}`] = sfnStack.chainIdToStatusTrackingStateMachineArn[chainId]
-    }
+    })
 
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
