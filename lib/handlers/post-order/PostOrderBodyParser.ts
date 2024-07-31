@@ -1,5 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import {
+  CosignedPriorityOrder as SDKPriorityOrder,
   CosignedV2DutchOrder,
   CosignedV2DutchOrder as SDKV2DutchOrder,
   DutchOrder as SDKDutchOrder,
@@ -13,6 +14,7 @@ import { DutchV1Order } from '../../models/DutchV1Order'
 import { DutchV2Order } from '../../models/DutchV2Order'
 import { LimitOrder } from '../../models/LimitOrder'
 import { Order } from '../../models/Order'
+import { PriorityOrder } from '../../models/PriorityOrder'
 import { RelayOrder } from '../../models/RelayOrder'
 import { PostOrderRequestBody } from './schema'
 
@@ -23,6 +25,7 @@ export class PostOrderBodyParser {
   constructor(private readonly logger: Logger) {}
   fromPostRequest(body: PostOrderRequestBody): Order {
     const { encodedOrder, signature, chainId, orderType } = body
+    this.logger.info('Parsing order', { encodedOrder, signature, chainId, orderType })
     switch (orderType) {
       case OrderType.Dutch:
         return this.tryParseDutchV1Order(encodedOrder, signature, chainId, body.quoteId)
@@ -32,6 +35,8 @@ export class PostOrderBodyParser {
         return this.tryParseDutchV2Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Relay:
         return this.tryParseRelayOrder(encodedOrder, signature, chainId)
+      case OrderType.Priority:
+        return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
 
       case undefined:
         // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
@@ -94,6 +99,27 @@ export class PostOrderBodyParser {
       return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV2 order', {
+        err,
+        encodedOrder,
+        chainId,
+        signature,
+      })
+      throw err
+    }
+  }
+
+  private tryParsePriorityOrder(
+    encodedOrder: string,
+    signature: string,
+    chainId: number,
+    quoteId?: string,
+    requestId?: string
+  ): PriorityOrder {
+    try {
+      const order = SDKPriorityOrder.parse(encodedOrder, chainId)
+      return new PriorityOrder(order, signature, chainId, undefined, undefined, quoteId, requestId)
+    } catch (err) {
+      this.logger.error('Unable to parse Priority order', {
         err,
         encodedOrder,
         chainId,
