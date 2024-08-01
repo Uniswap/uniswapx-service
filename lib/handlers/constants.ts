@@ -11,3 +11,5 @@ export const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
 export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const DEFAULT_MAX_OPEN_LIMIT_ORDERS = 100
 export const HIGH_MAX_OPEN_ORDERS = 200
+
+export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER = 1

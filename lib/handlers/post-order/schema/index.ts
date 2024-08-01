@@ -74,6 +74,7 @@ export type PostOrderRequestBody =
   | LegacyDutchOrderPostRequestBody
   | DutchV1OrderPostRequestBody
   | DutchV2OrderPostRequestBody
+  | PriorityOrderPostRequestBody
   | LimitOrderPostRequestBody
   | RelayOrderPostRequestBody
   | PriorityOrderPostRequestBody

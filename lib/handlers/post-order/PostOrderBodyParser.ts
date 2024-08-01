@@ -37,7 +37,6 @@ export class PostOrderBodyParser {
         return this.tryParseRelayOrder(encodedOrder, signature, chainId)
       case OrderType.Priority:
         return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
-
       case undefined:
         // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
         // Try to parse both and see which hits.

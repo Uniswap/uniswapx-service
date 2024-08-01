@@ -1,6 +1,10 @@
+import { KmsSigner } from '@uniswap/signer'
 import { CosignedPriorityOrder as SDKPriorityOrder, OrderType } from '@uniswap/uniswapx-sdk'
+import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS, PriorityOrderEntity, UniswapXOrderEntity } from '../entities'
+import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
+import { checkDefined } from '../preconditions/preconditions'
 import { Order } from './Order'
 
 export class PriorityOrder extends Order {
@@ -72,6 +76,20 @@ export class PriorityOrder extends Order {
       entity.requestId,
       entity.createdAt
     )
+  }
+
+  public async reparameterizeAndCosign(cosigner: KmsSigner): Promise<this> {
+    const provider = new ethers.providers.StaticJsonRpcProvider(
+      checkDefined(process.env[`RPC_${this.chainId}`], `RPC_${this.chainId} not defined`),
+      this.chainId
+    )
+    const currentBlock = await provider.getBlockNumber()
+    this.inner.info.cosignerData = {
+      auctionTargetBlock: BigNumber.from(currentBlock).add(PRIORITY_ORDER_TARGET_BLOCK_BUFFER),
+    }
+
+    this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash(this.inner.info.cosignerData))
+    return this
   }
 
   public toGetResponse(): GetPriorityOrderResponse {
