@@ -49,6 +49,7 @@ export class UniswapXOrderService {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else if (order instanceof PriorityOrder) {
+      // TODO: do cosigner overriding here
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else {

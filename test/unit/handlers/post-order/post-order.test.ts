@@ -22,6 +22,7 @@ import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
 import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
+import { PriorityOrder } from '../../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
@@ -30,6 +31,7 @@ import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
+import { SDKPriorityOrderFactory } from '../../../factories/SDKPriorityOrderFactory'
 import { EVENT_CONTEXT, QUOTE_ID, REQUEST_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
@@ -216,6 +218,57 @@ describe('Testing post order handler.', () => {
           encodedOrder: order.inner.serialize(),
           signature: SIGNATURE,
           orderType: OrderType.Dutch_V2,
+        }),
+        EVENT_CONTEXT
+      )
+
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
+
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(
+        expect.objectContaining({
+          ...expectedOrderEntity,
+          quoteId: expect.any(String),
+          requestId: expect.any(String),
+        })
+      )
+      expect(onchainValidationSucceededMock).toBeCalled()
+      expect(validatorMock).toBeCalledWith(order.inner)
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_1,
+      })
+
+      expect(postOrderResponse).toEqual({
+        body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
+        statusCode: HttpStatusCode.Created,
+        headers: {
+          'Access-Control-Allow-Credentials': true,
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+      })
+    })
+
+    it('Testing valid request and response for Priority', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+
+      const order = new PriorityOrder(
+        SDKPriorityOrderFactory.buildPriorityOrder(),
+        SIGNATURE,
+        1,
+        undefined,
+        undefined,
+        undefined,
+        REQUEST_ID
+      )
+      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.inner.serialize(),
+          signature: SIGNATURE,
+          orderType: OrderType.Priority,
         }),
         EVENT_CONTEXT
       )
