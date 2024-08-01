@@ -19,7 +19,6 @@ import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
-import { Cosigner } from '../handlers/post-order'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { DutchV1Order } from '../models/DutchV1Order'
 import { DutchV2Order } from '../models/DutchV2Order'
@@ -40,8 +39,7 @@ export class UniswapXOrderService {
     private readonly limitRepository: BaseOrdersRepository<UniswapXOrderEntity>,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
-    private analyticsService: AnalyticsServiceInterface,
-    private cosigner: Cosigner
+    private analyticsService: AnalyticsServiceInterface
   ) {}
 
   async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder): Promise<string> {

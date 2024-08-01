@@ -25,10 +25,6 @@ import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
 
-export interface Cosigner {
-  signDigest(digest: Buffer | string): Promise<string>
-}
-
 const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
 
 for (const chainId of SUPPORTED_CHAINS) {
