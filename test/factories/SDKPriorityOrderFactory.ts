@@ -5,7 +5,7 @@ import {
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber, constants } from 'ethers'
 import { ChainId } from '../../lib/util/chain'
-import { Tokens } from '../unit/fixtures'
+import { MOCK_LATEST_BLOCK, Tokens } from '../unit/fixtures'
 import { PartialDeep } from './PartialDeep'
 
 /**
@@ -21,7 +21,6 @@ export class SDKPriorityOrderFactory {
 
     // Arbitrary default future time ten seconds in future
     const futureTime = nowInSeconds + 10
-    const nowBlock = BigNumber.from(10)
 
     let builder = new PriorityOrderBuilder(chainId)
 
@@ -29,7 +28,6 @@ export class SDKPriorityOrderFactory {
       .cosigner(overrides.cosigner ?? constants.AddressZero)
       .cosignature(overrides.cosignature ?? '0x')
       .deadline(overrides.deadline ?? futureTime)
-      .auctionStartBlock(nowBlock)
       .swapper(overrides.swapper ?? '0x0000000000000000000000000000000000000000')
       .nonce(overrides.nonce ? BigNumber.from(overrides.nonce) : BigNumber.from(100))
       .input({
@@ -39,8 +37,16 @@ export class SDKPriorityOrderFactory {
           ? BigNumber.from(overrides.input?.mpsPerPriorityFeeWei)
           : BigNumber.from(0),
       })
-      .auctionStartBlock(nowBlock.add(10))
-      .auctionTargetBlock(nowBlock.add(5))
+      .auctionStartBlock(
+        overrides.auctionStartBlock
+          ? BigNumber.from(overrides.auctionStartBlock)
+          : BigNumber.from(MOCK_LATEST_BLOCK + 10)
+      )
+      .auctionTargetBlock(
+        overrides.cosignerData?.auctionTargetBlock
+          ? BigNumber.from(overrides.cosignerData?.auctionTargetBlock)
+          : BigNumber.from(MOCK_LATEST_BLOCK + 1)
+      )
       .baselinePriorityFeeWei(BigNumber.from(0))
 
     const outputs = overrides.outputs ?? [

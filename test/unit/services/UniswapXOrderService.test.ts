@@ -1,4 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger'
+import { KmsSigner } from '@uniswap/signer'
 import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
@@ -16,14 +17,21 @@ import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
+import { COSIGNATURE, MOCK_PROVIDER_MAP } from '../fixtures'
+
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
 })
 
 jest.mock('../../../lib/preconditions/preconditions', () => {
-  return { checkDefined: jest.fn() }
+  return { checkDefined: jest.fn().mockImplementation((value) => value) }
 })
+
 describe('UniswapXOrderService', () => {
+  beforeAll(() => {
+    jest.spyOn(KmsSigner.prototype, 'signDigest').mockResolvedValue(COSIGNATURE)
+  })
+
   test('createOrder with LimitOrder, propagates correct type', async () => {
     const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
     mockOrderValidator.validate.mockReturnValue({ valid: true })
@@ -47,7 +55,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      AnalyticsService
+      AnalyticsService,
+      MOCK_PROVIDER_MAP
     )
 
     const order = SDKDutchOrderFactory.buildLimitOrder()
@@ -96,7 +105,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      AnalyticsService
+      AnalyticsService,
+      MOCK_PROVIDER_MAP
     )
 
     const order = SDKPriorityOrderFactory.buildPriorityOrder()
@@ -139,7 +149,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -175,7 +186,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -212,7 +224,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -241,7 +254,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 1
@@ -282,7 +296,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -315,7 +330,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -353,7 +369,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -394,7 +411,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -421,7 +439,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 1
@@ -464,7 +483,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -502,7 +522,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -543,7 +564,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
@@ -571,7 +593,8 @@ describe('UniswapXOrderService', () => {
       () => {
         return 10
       },
-      mock<AnalyticsService>()
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP
     )
 
     const limit = 50
