@@ -21,6 +21,7 @@ import { FillEventLogger } from '../check-order-status/fill-event-logger'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
+import { ProviderMap } from '../shared/'
 import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
@@ -32,6 +33,12 @@ for (const chainId of SUPPORTED_CHAINS) {
     chainId,
     new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)), chainId)
   )
+}
+
+const providerMap: ProviderMap = new Map()
+
+for (const chainId of SUPPORTED_CHAINS) {
+  providerMap.set(chainId, new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)))
 }
 
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
@@ -47,7 +54,8 @@ const uniswapXOrderService = new UniswapXOrderService(
   limitRepo,
   log,
   getMaxOpenOrders,
-  AnalyticsService.create()
+  AnalyticsService.create(),
+  providerMap
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)

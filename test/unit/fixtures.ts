@@ -1,6 +1,10 @@
 import { DutchOrderInfo, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { Context } from 'aws-lambda'
 import { BigNumber } from 'ethers'
+import { ChainId } from '../../lib/util/chain'
+
+export const COSIGNATURE =
+  '0xf2e1e1aa8584396c5536afbd10f065b13beedbeea678dd0be884bd110a7b4c4425eb5fe7c28ebd2b97b69fb7ebc582f1ea2340961460b0a4ba2b3e71d94006b41c'
 
 export const ORDER_INFO: DutchOrderInfo = {
   deadline: 10,
@@ -41,3 +45,28 @@ export const Tokens = {
     WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
   },
 }
+
+export const MOCK_LATEST_BLOCK = 100
+const providerGetLatestBlockMock = jest.fn().mockResolvedValue(MOCK_LATEST_BLOCK)
+
+export const MOCK_PROVIDER_MAP = new Map([
+  [
+    ChainId.MAINNET,
+    {
+      getBlockNumber: providerGetLatestBlockMock,
+    },
+  ],
+  [
+    ChainId.BASE,
+    {
+      getBlockNumber: providerGetLatestBlockMock,
+    },
+  ],
+  [
+    ChainId.POLYGON,
+    {
+      getBlockNumber: providerGetLatestBlockMock,
+    },
+  ],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+]) as any

@@ -8,6 +8,7 @@ import {
   RelayOrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
+import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
@@ -32,8 +33,26 @@ import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { SDKPriorityOrderFactory } from '../../../factories/SDKPriorityOrderFactory'
-import { EVENT_CONTEXT, QUOTE_ID, REQUEST_ID, SIGNATURE } from '../../fixtures'
+import {
+  COSIGNATURE,
+  EVENT_CONTEXT,
+  MOCK_LATEST_BLOCK,
+  MOCK_PROVIDER_MAP,
+  QUOTE_ID,
+  REQUEST_ID,
+  SIGNATURE,
+} from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
+
+jest.mock('@uniswap/signer', () => {
+  return {
+    KmsSigner: jest.fn().mockImplementation(() => {
+      return {
+        signDigest: jest.fn().mockResolvedValue(COSIGNATURE),
+      }
+    }),
+  }
+})
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_11155111 = 'MOCK_ARN_11155111'
@@ -92,9 +111,9 @@ describe('Testing post order handler.', () => {
         validate: validationFailedValidatorMock,
       },
     ],
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ] as any
+
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
       return {}
@@ -122,7 +141,8 @@ describe('Testing post order handler.', () => {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-        }
+        },
+        MOCK_PROVIDER_MAP
       ),
       new RelayOrderService(
         {
@@ -262,7 +282,6 @@ describe('Testing post order handler.', () => {
         undefined,
         REQUEST_ID
       )
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({
@@ -273,6 +292,13 @@ describe('Testing post order handler.', () => {
         EVENT_CONTEXT
       )
 
+      // cosignature and cosignerData gets overwritten within the handler
+      order.inner.info.cosignature = COSIGNATURE
+      order.inner.info.cosignerData = {
+        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + 1),
+      }
+      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(
@@ -280,6 +306,11 @@ describe('Testing post order handler.', () => {
           ...expectedOrderEntity,
           quoteId: expect.any(String),
           requestId: expect.any(String),
+          cosignature: COSIGNATURE,
+          cosignerData: {
+            // MOCK_LATEST_BLOCK + 1
+            auctionTargetBlock: 101,
+          },
         })
       )
       expect(onchainValidationSucceededMock).toBeCalled()

@@ -19,6 +19,7 @@ import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
+import { ProviderMap } from '../handlers/shared'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { DutchV1Order } from '../models/DutchV1Order'
 import { DutchV2Order } from '../models/DutchV2Order'
@@ -39,7 +40,8 @@ export class UniswapXOrderService {
     private readonly limitRepository: BaseOrdersRepository<UniswapXOrderEntity>,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
-    private analyticsService: AnalyticsServiceInterface
+    private analyticsService: AnalyticsServiceInterface,
+    private readonly providerMap: ProviderMap
   ) {}
 
   async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder): Promise<string> {
@@ -51,12 +53,12 @@ export class UniswapXOrderService {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else if (order instanceof PriorityOrder) {
-      // TODO: do cosigner overriding here
       await this.validateOrder(order.inner, order.signature, order.chainId)
       const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
       const awsRegion = checkDefined(process.env.REGION, 'REGION is not defined')
       const cosigner = new KmsSigner(new KMSClient({ region: awsRegion }), kmsKeyId)
-      orderEntity = (await order.reparameterizeAndCosign(cosigner)).toEntity(ORDER_STATUS.OPEN)
+      const provider = checkDefined(this.providerMap.get(order.chainId))
+      orderEntity = (await order.reparameterizeAndCosign(provider, cosigner)).toEntity(ORDER_STATUS.OPEN)
     } else {
       throw new Error('unsupported OrderType')
     }
