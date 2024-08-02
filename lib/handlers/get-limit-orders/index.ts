@@ -22,6 +22,7 @@ import { GetLimitOrdersInjector } from './injector'
 const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
+const providerMap = new Map()
 
 const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,
@@ -30,7 +31,8 @@ const uniswapXOrderService = new UniswapXOrderService(
   repo, //same as normal repo for limit orders
   log,
   getMaxOpenOrders,
-  AnalyticsService.create()
+  AnalyticsService.create(),
+  providerMap
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)

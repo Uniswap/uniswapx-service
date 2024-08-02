@@ -106,7 +106,8 @@ describe('Testing post limit order handler.', () => {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-        }
+        },
+        new Map()
       ),
       new RelayOrderService(
         {
