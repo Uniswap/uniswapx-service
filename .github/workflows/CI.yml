@@ -49,7 +49,7 @@ jobs:
         run: |
           touch .env
           echo "LABS_COSIGNER=0x0000000000000000000000000000000000000000" > .env
-          echo "KMS_KEY_ID=testtest" > .env
+          echo "KMS_KEY_ID=testtest" >> .env
           cat .env
 
       - name: Check test coverage
