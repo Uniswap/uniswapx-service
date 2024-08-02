@@ -30,7 +30,8 @@ const uniswapXOrderService = new UniswapXOrderService(
   repo, //same as normal repo for limit orders
   log,
   getMaxOpenOrders,
-  AnalyticsService.create()
+  AnalyticsService.create(),
+  new Map()
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
