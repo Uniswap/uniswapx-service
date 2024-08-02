@@ -299,7 +299,6 @@ describe('Testing post order handler.', () => {
       }
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
-      console.log(postOrderResponse)
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(
