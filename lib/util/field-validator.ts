@@ -14,6 +14,7 @@ export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
 
 const COSIGNER = checkDefined(process.env.LABS_COSIGNER)
+const PRIORITY_COSIGNER = checkDefined(process.env.LABS_PRIORITY_COSIGNER)
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(3000, true))
@@ -80,6 +81,8 @@ export default class FieldValidator {
   })
 
   private static readonly COSIGNER_JOI = Joi.string().valid(COSIGNER)
+
+  private static readonly PRIORITY_COSIGNER_JOI = Joi.string().valid(PRIORITY_COSIGNER)
 
   public static isValidOrderStatus(): StringSchema {
     return this.ORDER_STATUS_JOI
@@ -159,6 +162,10 @@ export default class FieldValidator {
 
   public static isValidCosigner(): StringSchema {
     return this.COSIGNER_JOI
+  }
+
+  public static isValidPriorityCosigner(): StringSchema {
+    return this.PRIORITY_COSIGNER_JOI
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {

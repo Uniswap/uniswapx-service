@@ -141,6 +141,16 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:param-api/prod/cosignerAddress-tgNwAd',
     })
 
+    const labsPriorityCosignerBeta = sm.Secret.fromSecretAttributes(this, 'labs-priority-cosigner-beta', {
+      secretCompleteArn:
+        'arn:aws:secretsmanager:us-east-2:644039819003:secret:beta/gouda-service/priority-cosigner-VneU4u',
+    })
+
+    const labsPriorityCosignerProd = sm.Secret.fromSecretAttributes(this, 'labs-priority-cosigner-prod', {
+      secretCompleteArn:
+        'arn:aws:secretsmanager:us-east-2:644039819003:secret:prod/gouda-service/priority-cosigner-AflA9p',
+    })
+
     const jsonRpcUrls: { [chain: string]: string } = {}
     Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
       const key = `RPC_${chainId}`
@@ -170,6 +180,7 @@ export class APIPipeline extends Stack {
         THROTTLE_PER_FIVE_MINS: '3000',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerBeta.secretValue.toString(),
+        LABS_PRIORITY_COSIGNER: labsPriorityCosignerBeta.secretValue.toString(),
       },
       tableCapacityConfig: {
         order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
@@ -200,6 +211,7 @@ export class APIPipeline extends Stack {
         THROTTLE_PER_FIVE_MINS: '3000',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerProd.secretValue.toString(),
+        LABS_PRIORITY_COSIGNER: labsPriorityCosignerProd.secretValue.toString(),
       },
       tableCapacityConfig: PROD_TABLE_CAPACITY,
     })
