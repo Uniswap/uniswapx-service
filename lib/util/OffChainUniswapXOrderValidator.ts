@@ -49,6 +49,13 @@ export class OffChainUniswapXOrderValidator {
       }
     }
 
+    if (orderType == OrderType.Priority) {
+      const priorityCosignerValidation = this.validatePriorityCosigner((order as CosignedPriorityOrder).info.cosigner)
+      if (!priorityCosignerValidation.valid) {
+        return priorityCosignerValidation
+      }
+    }
+
     const chainIdValidation = this.validateChainId(order.chainId)
     if (!chainIdValidation.valid) {
       return chainIdValidation
@@ -234,6 +241,19 @@ export class OffChainUniswapXOrderValidator {
       return {
         valid: false,
         errorString: `Invalid cosigner: ${error}`,
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  private validatePriorityCosigner(cosigner: string): OrderValidationResponse {
+    const error = FieldValidator.isValidPriorityCosigner().validate(cosigner).error
+    if (error) {
+      return {
+        valid: false,
+        errorString: `Invalid priority order cosigner: ${error}`,
       }
     }
     return {
