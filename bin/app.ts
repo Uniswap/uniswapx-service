@@ -143,12 +143,12 @@ export class APIPipeline extends Stack {
 
     const labsPriorityCosignerBeta = sm.Secret.fromSecretAttributes(this, 'labs-priority-cosigner-beta', {
       secretCompleteArn:
-        'arn:aws:secretsmanager:us-east-2:644039819003:secret:beta/gouda-service/priority-cosigner-VneU4u',
+        'arn:aws:secretsmanager:us-east-2:644039819003:secret:beta-priority-labs-cosigner-address-cwej2J',
     })
 
     const labsPriorityCosignerProd = sm.Secret.fromSecretAttributes(this, 'labs-priority-cosigner-prod', {
       secretCompleteArn:
-        'arn:aws:secretsmanager:us-east-2:644039819003:secret:prod/gouda-service/priority-cosigner-AflA9p',
+        'arn:aws:secretsmanager:us-east-2:644039819003:secret:prod-priority-labs-cosigner-address-iarU6E',
     })
 
     const jsonRpcUrls: { [chain: string]: string } = {}
