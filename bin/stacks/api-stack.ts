@@ -48,15 +48,15 @@ export class APIStack extends cdk.Stack {
     const kmsStack = new KmsStack(this, `${SERVICE_NAME}PostOrderCosignerKey`)
 
     const {
-      getOrdersLambdaAlias,
-      getOrdersLambda,
+      //getOrdersLambdaAlias,
+      //getOrdersLambda,
       getNonceLambdaAlias,
       getNonceLambda,
-      postOrderLambdaAlias,
-      postOrderLambda,
-      postLimitOrderLambdaAlias,
+      //postOrderLambdaAlias,
+      //postOrderLambda,
+      //postLimitOrderLambdaAlias,
       // postLimitOrderLambda, TODO: dashboard
-      getLimitOrdersLambdaAlias,
+      //getLimitOrdersLambdaAlias,
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
@@ -362,10 +362,10 @@ export class APIStack extends cdk.Stack {
       webAclArn: ipThrottlingACL.getAtt('Arn').toString(),
     })
 
-    const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
-    const getLimitOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getLimitOrdersLambdaAlias, {})
-    const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
-    const postLimitOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postLimitOrderLambdaAlias, {})
+    //const getOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getOrdersLambdaAlias, {})
+    //const getLimitOrdersLambdaIntegration = new aws_apigateway.LambdaIntegration(getLimitOrdersLambdaAlias, {})
+    //const postOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postOrderLambdaAlias, {})
+    //const postLimitOrderLambdaIntegration = new aws_apigateway.LambdaIntegration(postLimitOrderLambdaAlias, {})
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
     const getDocsUILambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsUILambdaAlias, {})
@@ -377,12 +377,12 @@ export class APIStack extends cdk.Stack {
       },
     })
 
-    const limitOrders = api.root.addResource('limit', {
-      defaultCorsPreflightOptions: {
-        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
-        allowMethods: ['GET', 'HEAD', 'POST'],
-      },
-    })
+    //const limitOrders = api.root.addResource('limit', {
+    //  defaultCorsPreflightOptions: {
+    //    allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
+    //    allowMethods: ['GET', 'HEAD', 'POST'],
+    //  },
+    //})
 
     const apiDocs = api.root.addResource('docs.json', {
       defaultCorsPreflightOptions: {
@@ -400,24 +400,24 @@ export class APIStack extends cdk.Stack {
     })
     apiDocsUI.addMethod('GET', getDocsUILambdaIntegration)
 
-    const order = dutchAuction.addResource('order')
-    order.addMethod('POST', postOrderLambdaIntegration)
+    //const order = dutchAuction.addResource('order')
+    //order.addMethod('POST', postOrderLambdaIntegration)
 
-    const limitOrderOrder = limitOrders.addResource('order')
-    limitOrderOrder.addMethod('POST', postLimitOrderLambdaIntegration)
-    const limitOrderOrders = limitOrders.addResource('orders')
-    limitOrderOrders.addMethod('GET', getLimitOrdersLambdaIntegration, {})
+    //const limitOrderOrder = limitOrders.addResource('order')
+    //limitOrderOrder.addMethod('POST', postLimitOrderLambdaIntegration)
+    //const limitOrderOrders = limitOrders.addResource('orders')
+    //limitOrderOrders.addMethod('GET', getLimitOrdersLambdaIntegration, {})
 
-    const orders = dutchAuction.addResource('orders')
+    //const orders = dutchAuction.addResource('orders')
     const nonce = dutchAuction.addResource('nonce')
-    orders.addMethod('GET', getOrdersLambdaIntegration, {})
+    //orders.addMethod('GET', getOrdersLambdaIntegration, {})
     nonce.addMethod('GET', getNonceLambdaIntegration, {})
 
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
-      postOrderLambdaName: postOrderLambda.functionName,
+      postOrderLambdaName: getNonceLambda.functionName,
       getNonceLambdaName: getNonceLambda.functionName,
-      getOrdersLambdaName: getOrdersLambda.functionName,
+      getOrdersLambdaName: getNonceLambda.functionName,
       chainIdToStatusTrackingStateMachineArn,
       orderStatusLambdaName: checkStatusFunction.functionName,
     })
