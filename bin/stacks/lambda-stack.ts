@@ -368,63 +368,63 @@ export class LambdaStack extends cdk.NestedStack {
     })
 
     if (enableProvisionedConcurrency) {
-      //const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
-      //  serviceNamespace: asg.ServiceNamespace.LAMBDA,
-      //  maxCapacity: provisionedConcurrency * 2,
-      //  minCapacity: provisionedConcurrency,
-      //  resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
-      //  scalableDimension: 'lambda:function:ProvisionedConcurrency',
-      //})
+      const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.postOrderLambdaAlias.lambda.functionName}:${this.postOrderLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
 
-      //postOrderTarget.node.addDependency(this.postOrderLambdaAlias)
-      //postOrderTarget.scaleToTrackMetric(`${lambdaName}-PostOrder-ProvConcTracking`, {
-      //  targetValue: 0.8,
-      //  predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      //})
+      postOrderTarget.node.addDependency(this.postOrderLambdaAlias)
+      postOrderTarget.scaleToTrackMetric(`${lambdaName}-PostOrder-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
 
-      //const PostLimitOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostLimitOrder-ProvConcASG`, {
-      //  serviceNamespace: asg.ServiceNamespace.LAMBDA,
-      //  maxCapacity: provisionedConcurrency * 2,
-      //  minCapacity: provisionedConcurrency,
-      //  resourceId: `function:${this.postLimitOrderLambdaAlias.lambda.functionName}:${this.postLimitOrderLambdaAlias.aliasName}`,
-      //  scalableDimension: 'lambda:function:ProvisionedConcurrency',
-      //})
+      const PostLimitOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostLimitOrder-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.postLimitOrderLambdaAlias.lambda.functionName}:${this.postLimitOrderLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
 
-      //PostLimitOrderTarget.node.addDependency(this.postLimitOrderLambdaAlias)
-      //PostLimitOrderTarget.scaleToTrackMetric(`${lambdaName}-PostLimitOrder-ProvConcTracking`, {
-      //  targetValue: 0.8,
-      //  predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      //})
+      PostLimitOrderTarget.node.addDependency(this.postLimitOrderLambdaAlias)
+      PostLimitOrderTarget.scaleToTrackMetric(`${lambdaName}-PostLimitOrder-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
 
-      //const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG`, {
-      //  serviceNamespace: asg.ServiceNamespace.LAMBDA,
-      //  maxCapacity: provisionedConcurrency * 2,
-      //  minCapacity: provisionedConcurrency,
-      //  resourceId: `function:${this.getOrdersLambdaAlias.lambda.functionName}:${this.getOrdersLambdaAlias.aliasName}`,
-      //  scalableDimension: 'lambda:function:ProvisionedConcurrency',
-      //})
+      const getOrdersTarget = new asg.ScalableTarget(this, `GetOrders-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 2,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.getOrdersLambdaAlias.lambda.functionName}:${this.getOrdersLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
 
-      //getOrdersTarget.node.addDependency(this.getOrdersLambdaAlias)
+      getOrdersTarget.node.addDependency(this.getOrdersLambdaAlias)
 
-      //getOrdersTarget.scaleToTrackMetric(`GetOrders-ProvConcTracking`, {
-      //  targetValue: 0.8,
-      //  predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      //})
+      getOrdersTarget.scaleToTrackMetric(`GetOrders-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
 
-      //const getLimitOrdersTarget = new asg.ScalableTarget(this, `GetLimitOrders-ProvConcASG`, {
-      //  serviceNamespace: asg.ServiceNamespace.LAMBDA,
-      //  maxCapacity: provisionedConcurrency * 100,
-      //  minCapacity: provisionedConcurrency,
-      //  resourceId: `function:${this.getLimitOrdersLambdaAlias.lambda.functionName}:${this.getLimitOrdersLambdaAlias.aliasName}`,
-      //  scalableDimension: 'lambda:function:ProvisionedConcurrency',
-      //})
+      const getLimitOrdersTarget = new asg.ScalableTarget(this, `GetLimitOrders-ProvConcASG`, {
+        serviceNamespace: asg.ServiceNamespace.LAMBDA,
+        maxCapacity: provisionedConcurrency * 100,
+        minCapacity: provisionedConcurrency,
+        resourceId: `function:${this.getLimitOrdersLambdaAlias.lambda.functionName}:${this.getLimitOrdersLambdaAlias.aliasName}`,
+        scalableDimension: 'lambda:function:ProvisionedConcurrency',
+      })
 
-      //getLimitOrdersTarget.node.addDependency(this.getLimitOrdersLambda)
+      getLimitOrdersTarget.node.addDependency(this.getLimitOrdersLambda)
 
-      //getLimitOrdersTarget.scaleToTrackMetric(`GetLimitOrders-ProvConcTracking`, {
-      //  targetValue: 0.8,
-      //  predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
-      //})
+      getLimitOrdersTarget.scaleToTrackMetric(`GetLimitOrders-ProvConcTracking`, {
+        targetValue: 0.8,
+        predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
+      })
 
       const getNonceTarget = new asg.ScalableTarget(this, `GetNonce-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
