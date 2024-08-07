@@ -19,11 +19,12 @@ import {
   ErrorResponse,
   Response,
 } from '../base'
+import { ContainerInjected as PostContainerInjected } from '../shared/post'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
 export class PostOrderHandler extends APIGLambdaHandler<
-  unknown,
+  PostContainerInjected,
   ApiRInj,
   PostOrderRequestBody,
   void,
@@ -31,7 +32,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
 > {
   constructor(
     handlerName: string,
-    injectorPromise: Promise<ApiInjector<unknown, ApiRInj, PostOrderRequestBody, void>>,
+    injectorPromise: Promise<ApiInjector<PostContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
     private readonly orderDispatcher: OrderDispatcher,
     private readonly bodyParser: PostOrderBodyParser
   ) {
@@ -39,14 +40,15 @@ export class PostOrderHandler extends APIGLambdaHandler<
   }
 
   public async handleRequest(
-    params: APIHandleRequestParams<unknown, ApiRInj, PostOrderRequestBody, void>
+    params: APIHandleRequestParams<PostContainerInjected, ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody,
       requestInjected: { log },
+      containerInjected: { cosignerAddress },
     } = params
 
-    log.info({ requestBody: requestBody }, 'Handling POST order request')
+    log.info({ requestBody: requestBody, cosignerAddress: cosignerAddress }, 'Handling POST order request')
 
     let order: Order
 
