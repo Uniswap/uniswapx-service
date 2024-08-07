@@ -61,6 +61,7 @@ export class UniswapXOrderService {
       const provider = checkDefined(this.providerMap.get(order.chainId))
 
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner)
+      this.logger.info('cosigned priority order', { order: cosignedOrder })
 
       await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
       orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN)
