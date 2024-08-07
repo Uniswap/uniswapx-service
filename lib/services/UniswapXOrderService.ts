@@ -53,15 +53,17 @@ export class UniswapXOrderService {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else if (order instanceof PriorityOrder) {
-      await this.validateOrder(order.inner, order.signature, order.chainId)
-
       // following https://github.com/Uniswap/uniswapx-parameterization-api/pull/358
       // recreate KmsSigner every request
       const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
       const awsRegion = checkDefined(process.env.REGION, 'REGION is not defined')
       const cosigner = new KmsSigner(new KMSClient({ region: awsRegion }), kmsKeyId)
       const provider = checkDefined(this.providerMap.get(order.chainId))
-      orderEntity = (await order.reparameterizeAndCosign(provider, cosigner)).toEntity(ORDER_STATUS.OPEN)
+
+      const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner)
+
+      await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
+      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN)
     } else {
       throw new Error('unsupported OrderType')
     }
