@@ -659,6 +659,47 @@ describe('Testing check order status handler', () => {
         ])
       })
 
+      it('exact input with maxPriorityFee defined', () => {
+        const resolvedInput = {
+          token: 'weth',
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: 'usdc',
+          amount: BigNumber.from(90),
+        } as TokenTransfer
+
+        const mockOrder = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            amount: resolvedInput.amount.toString(),
+            mpsPerPriorityFeeWei: '0',
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              amount: resolvedOutput.amount.toString(),
+              mpsPerPriorityFeeWei: '1',
+            },
+          ],
+        })
+
+        const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+        const settledAmounts = getSettledAmounts(
+          mockFillInfo,
+          { timestamp: 100, maxPriorityFeePerGas: BigNumber.from(1) },
+          mockOrder
+        )
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
+
       it('exact output', () => {
         const resolvedInput = {
           token: 'weth',
