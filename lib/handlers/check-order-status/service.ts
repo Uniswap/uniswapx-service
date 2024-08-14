@@ -126,8 +126,13 @@ export class CheckOrderStatusService {
         ])
         const settledAmounts = getSettledAmounts(
           fillEvent,
-          block.timestamp,
-          parsedOrder as DutchOrder | CosignedV2DutchOrder
+          {
+            timestamp: block.timestamp,
+            gasPrice: tx.gasPrice,
+            maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+            maxFeePerGas: tx.maxFeePerGas,
+          },
+          parsedOrder as DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder
         )
 
         await this.fillEventLogger.processFillEvent({

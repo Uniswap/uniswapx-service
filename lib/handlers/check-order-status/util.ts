@@ -1,4 +1,5 @@
 import {
+  CosignedPriorityOrder,
   CosignedV2DutchOrder,
   DutchOrder,
   FillInfo,
@@ -9,16 +10,96 @@ import {
   UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 
-import { ethers } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { ChainId } from '../../util/chain'
 import { NATIVE_ADDRESS } from '../../util/constants'
+
+export interface FillMetadata {
+  timestamp: number
+  gasPrice?: BigNumber
+  maxPriorityFeePerGas?: BigNumber
+  maxFeePerGas?: BigNumber
+}
+
+export function getSettledAmounts(
+  fill: FillInfo,
+  metadata: FillMetadata,
+  parsedOrder: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder
+) {
+  if (parsedOrder instanceof DutchOrder || parsedOrder instanceof CosignedV2DutchOrder) {
+    return getDutchSettledAmounts(fill, metadata.timestamp, parsedOrder)
+  } else if (parsedOrder instanceof CosignedPriorityOrder) {
+    return getPrioritySettledAmounts(fill, metadata, parsedOrder)
+  } else {
+    throw new Error('Unsupported order type to get settled amounts')
+  }
+}
+
+export function getPrioritySettledAmounts(
+  fill: FillInfo,
+  metadata: FillMetadata,
+  parsedOrder: CosignedPriorityOrder
+): SettledAmount[] {
+  const nativeOutputs = parsedOrder.info.outputs.filter((output) => output.token.toLowerCase() === NATIVE_ADDRESS)
+  const settledAmounts: SettledAmount[] = []
+  let amountIn: string
+
+  // exact_output
+  if (parsedOrder.info.input.mpsPerPriorityFeeWei.eq(0)) {
+    amountIn = parsedOrder.info.input.amount.toString()
+
+    // TODO: gracefully handle undefined maxPriorityFeePerGas - does this ever happen?
+    const resolvedOrder = parsedOrder.resolve({ priorityFee: metadata.maxPriorityFeePerGas! })
+    const resolvedNativeOutputs = resolvedOrder.outputs.filter(
+      (output) => output.token.toLowerCase() === NATIVE_ADDRESS
+    )
+    // Add all the resolved native outputs to the settledAmounts as they are not included in the fill logs.
+    resolvedNativeOutputs.forEach((resolvedNativeOutput) => {
+      settledAmounts.push({
+        tokenIn: parsedOrder.info.input.token,
+        amountIn,
+        tokenOut: resolvedNativeOutput.token,
+        amountOut: resolvedNativeOutput.amount.toString(),
+      })
+    })
+  } else {
+    // If the order is EXACT_OUTPUT we will have all the ERC20 transfers in the fill logs,
+    // only log the amountIn that matches the order input token.
+
+    // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
+    const input = fill.inputs.find((input) => input.token.toLowerCase() === parsedOrder.info.input.token.toLowerCase())!
+    amountIn = input.amount.toString()
+
+    // Add all the native outputs to the settledAmounts as they are not included in the fill logs.
+    // The amount is just output.amount because the order is EXACT_OUTPUT.
+    nativeOutputs.forEach((nativeOutput) => {
+      settledAmounts.push({
+        tokenIn: parsedOrder.info.input.token,
+        amountIn,
+        tokenOut: nativeOutput.token,
+        amountOut: nativeOutput.amount.toString(),
+      })
+    })
+  }
+
+  fill.outputs.forEach((output) => {
+    settledAmounts.push({
+      tokenIn: parsedOrder.info.input.token,
+      amountIn,
+      tokenOut: output.token,
+      amountOut: output.amount.toString(),
+    })
+  })
+
+  return settledAmounts
+}
 
 /**
  * get the ammounts transfered on chain
  * used for logging
  */
-export function getSettledAmounts(
+export function getDutchSettledAmounts(
   fill: FillInfo,
   fillTimestamp: number,
   parsedOrder: DutchOrder | CosignedV2DutchOrder
