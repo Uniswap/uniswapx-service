@@ -1,4 +1,4 @@
-import { DutchInput, DutchOrder, DutchOutput, OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
@@ -16,10 +16,11 @@ import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-re
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { RelayOrderService } from '../../../lib/services/RelayOrderService'
-import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
+import { ChainId, SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
+import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
+import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
-import { ORDER_INFO } from '../../unit/fixtures'
 
 describe('Testing check order status handler', () => {
   const mockedBlockNumber = 123
@@ -422,152 +423,374 @@ describe('Testing check order status handler', () => {
       swapper: '0x123',
     })
 
-    const getMockDutchOrder = (input: DutchInput, outputs: DutchOutput[], resolvedOutput?: TokenTransfer): any => ({
-      info: { ...ORDER_INFO, input, outputs },
-      resolve: () => {
-        return {
-          input: { token: input.token, amount: input.startAmount },
-          outputs: [resolvedOutput ?? { token: outputs[0].token, amount: outputs[0].endAmount }],
+    describe('Dutch V2', () => {
+      it('exact input', () => {
+        const resolvedInput = {
+          token: 'weth',
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: 'usdc',
+          amount: BigNumber.from(90),
+        } as TokenTransfer
+
+        const mockOrder = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            startAmount: resolvedInput.amount.toString(),
+            endAmount: resolvedInput.amount.toString(),
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              startAmount: resolvedOutput.amount.toString(),
+              endAmount: resolvedOutput.amount.toString(),
+            },
+          ],
+          cosignerData: {
+            inputOverride: resolvedInput.amount.toString(),
+          },
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
         }
-      },
+
+        const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
+
+      it('exact output', () => {
+        const resolvedInput = {
+          token: 'weth',
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: 'usdc',
+          amount: BigNumber.from(90),
+        } as TokenTransfer
+
+        const mockOrder = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            startAmount: resolvedInput.amount.div(2).toString(),
+            endAmount: resolvedInput.amount.toString(),
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              startAmount: resolvedOutput.amount.toString(),
+              endAmount: resolvedOutput.amount.toString(),
+            },
+          ],
+          cosignerData: {
+            inputOverride: resolvedInput.amount.div(2).toString(),
+          },
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+
+        const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
+
+      it('exact input ETH out', () => {
+        const resolvedInput = {
+          token: 'usdc',
+          amount: BigNumber.from(100),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: NATIVE_ADDRESS,
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+
+        const mockOrder = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            startAmount: resolvedInput.amount.toString(),
+            endAmount: resolvedInput.amount.toString(),
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              startAmount: resolvedOutput.amount.toString(),
+              endAmount: resolvedOutput.amount.toString(),
+            },
+          ],
+          cosignerData: {
+            inputOverride: resolvedInput.amount.toString(),
+          },
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+        const mockFillInfo = getMockFillInfo([resolvedInput], [])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
+
+      it('exact output ETH out', () => {
+        const resolvedInput = {
+          token: 'usdc',
+          amount: BigNumber.from(100),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: NATIVE_ADDRESS,
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+
+        const mockOrder = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            startAmount: resolvedInput.amount.div(2).toString(),
+            endAmount: resolvedInput.amount.toString(),
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              startAmount: resolvedOutput.amount.toString(),
+              endAmount: resolvedOutput.amount.toString(),
+            },
+          ],
+          cosignerData: {
+            inputOverride: resolvedInput.amount.div(2).toString(),
+          },
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+        const mockFillInfo = getMockFillInfo([resolvedInput], [])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
     })
 
-    it('exact input', () => {
-      const resolvedInput = {
-        token: 'weth',
-        amount: BigNumber.from(1),
-      } as TokenTransfer
-      const resolvedOutput = {
-        token: 'usdc',
-        amount: BigNumber.from(90),
-      } as TokenTransfer
+    describe('Priority', () => {
+      it('exact input', () => {
+        const resolvedInput = {
+          token: 'weth',
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: 'usdc',
+          amount: BigNumber.from(90),
+        } as TokenTransfer
 
-      const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
-      const mockDutchOrder = getMockDutchOrder(
-        { token: resolvedInput.token, startAmount: resolvedInput.amount, endAmount: resolvedInput.amount },
-        [
-          {
-            token: resolvedOutput.token,
-            startAmount: BigNumber.from(100),
-            endAmount: resolvedOutput.amount,
-            recipient: '0x123',
+        const mockOrder = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            amount: resolvedInput.amount.toString(),
+            mpsPerPriorityFeeWei: '0',
           },
-        ]
-      )
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              amount: resolvedOutput.amount.toString(),
+              mpsPerPriorityFeeWei: '1',
+            },
+          ],
+        })
 
-      const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockDutchOrder as DutchOrder)
-      expect(settledAmounts).toEqual([
-        {
-          tokenIn: resolvedInput.token,
-          amountIn: resolvedInput.amount.toString(),
-          tokenOut: resolvedOutput.token,
-          amountOut: resolvedOutput.amount.toString(),
-        },
-      ])
-    })
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
 
-    it('exact output', () => {
-      const resolvedInput = {
-        token: 'weth',
-        amount: BigNumber.from(1),
-      } as TokenTransfer
-      const resolvedOutput = {
-        token: 'usdc',
-        amount: BigNumber.from(90),
-      } as TokenTransfer
-
-      const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
-      const mockDutchOrder = getMockDutchOrder(
-        { token: resolvedInput.token, startAmount: BigNumber.from(2), endAmount: resolvedInput.amount },
-        [
+        const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
           {
-            token: resolvedOutput.token,
-            startAmount: resolvedOutput.amount,
-            endAmount: resolvedOutput.amount,
-            recipient: '0x123',
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
           },
-        ]
-      )
+        ])
+      })
 
-      const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockDutchOrder as DutchOrder)
-      expect(settledAmounts).toEqual([
-        {
-          tokenIn: resolvedInput.token,
-          amountIn: resolvedInput.amount.toString(),
-          tokenOut: resolvedOutput.token,
-          amountOut: resolvedOutput.amount.toString(),
-        },
-      ])
-    })
+      it('exact output', () => {
+        const resolvedInput = {
+          token: 'weth',
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: 'usdc',
+          amount: BigNumber.from(90),
+        } as TokenTransfer
 
-    it('exact input ETH out', () => {
-      const resolvedInput = {
-        token: 'usdc',
-        amount: BigNumber.from(100),
-      } as TokenTransfer
-      const resolvedOutput = {
-        token: NATIVE_ADDRESS,
-        amount: BigNumber.from(1),
-      } as TokenTransfer
+        const mockOrder = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            amount: resolvedInput.amount.div(2).toString(),
+            mpsPerPriorityFeeWei: '1',
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              amount: resolvedOutput.amount.toString(),
+              mpsPerPriorityFeeWei: '0',
+            },
+          ],
+        })
 
-      const mockFillInfo = getMockFillInfo([resolvedInput], [])
-      const mockDutchOrder = getMockDutchOrder(
-        { token: resolvedInput.token, startAmount: resolvedInput.amount, endAmount: resolvedInput.amount },
-        [
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+
+        const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
           {
-            token: resolvedOutput.token,
-            startAmount: BigNumber.from(2),
-            endAmount: resolvedOutput.amount,
-            recipient: '0x123',
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
           },
-        ],
-        { token: resolvedOutput.token, amount: resolvedOutput.amount }
-      )
+        ])
+      })
 
-      const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockDutchOrder as DutchOrder)
-      expect(settledAmounts).toEqual([
-        {
-          tokenIn: resolvedInput.token,
-          amountIn: resolvedInput.amount.toString(),
-          tokenOut: resolvedOutput.token,
-          amountOut: resolvedOutput.amount.toString(),
-        },
-      ])
-    })
+      it('exact input ETH out', () => {
+        const resolvedInput = {
+          token: 'usdc',
+          amount: BigNumber.from(100),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: NATIVE_ADDRESS,
+          amount: BigNumber.from(1),
+        } as TokenTransfer
 
-    it('exact output ETH out', () => {
-      const resolvedInput = {
-        token: 'usdc',
-        amount: BigNumber.from(100),
-      } as TokenTransfer
-      const resolvedOutput = {
-        token: NATIVE_ADDRESS,
-        amount: BigNumber.from(1),
-      } as TokenTransfer
+        const mockOrder = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            amount: resolvedInput.amount.toString(),
+            mpsPerPriorityFeeWei: '0',
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              amount: resolvedOutput.amount.toString(),
+              mpsPerPriorityFeeWei: '1',
+            },
+          ],
+        })
 
-      const mockFillInfo = getMockFillInfo([resolvedInput], [])
-      const mockDutchOrder = getMockDutchOrder(
-        { token: resolvedInput.token, startAmount: BigNumber.from(200), endAmount: resolvedInput.amount },
-        [
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+        const mockFillInfo = getMockFillInfo([resolvedInput], [])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
           {
-            token: resolvedOutput.token,
-            startAmount: resolvedOutput.amount,
-            endAmount: resolvedOutput.amount,
-            recipient: '0x123',
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
           },
-        ],
-        { token: resolvedOutput.token, amount: resolvedOutput.amount }
-      )
+        ])
+      })
 
-      const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockDutchOrder as DutchOrder)
-      expect(settledAmounts).toEqual([
-        {
-          tokenIn: resolvedInput.token,
-          amountIn: resolvedInput.amount.toString(),
-          tokenOut: resolvedOutput.token,
-          amountOut: resolvedOutput.amount.toString(),
-        },
-      ])
+      it('exact output ETH out', () => {
+        const resolvedInput = {
+          token: 'usdc',
+          amount: BigNumber.from(100),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: NATIVE_ADDRESS,
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+
+        const mockOrder = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, {
+          input: {
+            token: resolvedInput.token,
+            amount: resolvedInput.amount.div(2).toString(),
+            mpsPerPriorityFeeWei: '1',
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              amount: resolvedOutput.amount.toString(),
+              mpsPerPriorityFeeWei: '0',
+            },
+          ],
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+        const mockFillInfo = getMockFillInfo([resolvedInput], [])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
     })
   })
 })
