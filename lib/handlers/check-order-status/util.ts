@@ -49,7 +49,7 @@ export function getPrioritySettledAmounts(
   if (parsedOrder.info.input.mpsPerPriorityFeeWei.eq(0)) {
     amountIn = parsedOrder.info.input.amount.toString()
 
-    // TODO: gracefully handle undefined maxPriorityFeePerGas - does this ever happen?
+    // TODO: if legacy tx (non-1559), maxPriorityFeePerGas is probably 0
     const resolvedOrder = parsedOrder.resolve({ priorityFee: metadata.maxPriorityFeePerGas ?? BigNumber.from(0) })
     const resolvedNativeOutputs = resolvedOrder.outputs.filter(
       (output) => output.token.toLowerCase() === NATIVE_ADDRESS
