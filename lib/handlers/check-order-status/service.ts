@@ -7,6 +7,7 @@ import {
   OrderValidation,
   OrderValidator,
   UniswapXEventWatcher,
+  UniswapXOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
@@ -71,7 +72,7 @@ export class CheckOrderStatusService {
       `cannot find order by hash when updating order status, hash: ${orderHash}`
     )
 
-    let parsedOrder: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder
+    let parsedOrder: UniswapXOrder
     switch (orderType) {
       case OrderType.Dutch:
       case OrderType.Limit:
