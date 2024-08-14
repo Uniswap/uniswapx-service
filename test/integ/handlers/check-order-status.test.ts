@@ -1,4 +1,4 @@
-import { DutchInput, DutchOutput, OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
+import { DutchInput, DutchOrder, DutchOutput, OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
@@ -16,10 +16,10 @@ import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-re
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { RelayOrderService } from '../../../lib/services/RelayOrderService'
+import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 import { ORDER_INFO } from '../../unit/fixtures'
-import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 
 describe('Testing check order status handler', () => {
   const mockedBlockNumber = 123
@@ -228,7 +228,7 @@ describe('Testing check order status handler', () => {
         wait: () =>
           Promise.resolve({
             effectiveGasPrice: BigNumber.from(1),
-            gasUsed: 100,
+            gasUsed: { timestamp: 100 },
           }),
       })
       getFillInfoMock.mockReturnValue([
@@ -280,7 +280,7 @@ describe('Testing check order status handler', () => {
         wait: () =>
           Promise.resolve({
             effectiveGasPrice: BigNumber.from(1),
-            gasUsed: 100,
+            gasUsed: { timestamp: 100 },
           }),
       })
       getFillInfoMock.mockReturnValue([
@@ -455,7 +455,7 @@ describe('Testing check order status handler', () => {
         ]
       )
 
-      const settledAmounts = getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockDutchOrder as DutchOrder)
       expect(settledAmounts).toEqual([
         {
           tokenIn: resolvedInput.token,
@@ -489,7 +489,7 @@ describe('Testing check order status handler', () => {
         ]
       )
 
-      const settledAmounts = getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockDutchOrder as DutchOrder)
       expect(settledAmounts).toEqual([
         {
           tokenIn: resolvedInput.token,
@@ -524,7 +524,7 @@ describe('Testing check order status handler', () => {
         { token: resolvedOutput.token, amount: resolvedOutput.amount }
       )
 
-      const settledAmounts = getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockDutchOrder as DutchOrder)
       expect(settledAmounts).toEqual([
         {
           tokenIn: resolvedInput.token,
@@ -559,7 +559,7 @@ describe('Testing check order status handler', () => {
         { token: resolvedOutput.token, amount: resolvedOutput.amount }
       )
 
-      const settledAmounts = getSettledAmounts(mockFillInfo, 100, mockDutchOrder)
+      const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockDutchOrder as DutchOrder)
       expect(settledAmounts).toEqual([
         {
           tokenIn: resolvedInput.token,
