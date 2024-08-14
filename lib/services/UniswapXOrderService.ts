@@ -98,6 +98,10 @@ export class UniswapXOrderService {
 
     const onChainValidator = this.onChainValidatorMap.get(chainId)
     const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
+
+    // Still considered valid
+    if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet) return
+
     if (onChainValidationResult !== OrderValidation.OK) {
       const failureReason = OrderValidation[onChainValidationResult]
       throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)

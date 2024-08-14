@@ -1,4 +1,5 @@
 import {
+  CosignedPriorityOrder,
   CosignedV2DutchOrder,
   DutchOrder,
   FillInfo,
@@ -70,7 +71,7 @@ export class CheckOrderStatusService {
       `cannot find order by hash when updating order status, hash: ${orderHash}`
     )
 
-    let parsedOrder: DutchOrder | CosignedV2DutchOrder
+    let parsedOrder: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder
     switch (orderType) {
       case OrderType.Dutch:
       case OrderType.Limit:
@@ -78,6 +79,9 @@ export class CheckOrderStatusService {
         break
       case OrderType.Dutch_V2:
         parsedOrder = CosignedV2DutchOrder.parse(order.encodedOrder, chainId)
+        break
+      case OrderType.Priority:
+        parsedOrder = CosignedPriorityOrder.parse(order.encodedOrder, chainId)
         break
       default:
         throw new Error(`Unsupported OrderType ${orderType}, No Parser Configured`)
