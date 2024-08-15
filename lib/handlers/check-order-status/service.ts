@@ -144,6 +144,7 @@ export class CheckOrderStatusService {
           order,
           settledAmounts,
           tx,
+          block,
           timestamp: block.timestamp,
         })
 

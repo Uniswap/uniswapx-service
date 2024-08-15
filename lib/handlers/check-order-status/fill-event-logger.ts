@@ -20,6 +20,7 @@ export type ProcessFillEventRequest = {
   settledAmounts: SettledAmount[]
   quoteId?: string
   tx: ethers.providers.TransactionResponse
+  block: ethers.providers.Block
   timestamp: number
 }
 export class FillEventLogger {
@@ -36,6 +37,7 @@ export class FillEventLogger {
     startingBlockNumber,
     settledAmounts,
     tx,
+    block,
     timestamp,
   }: ProcessFillEventRequest): Promise<SettledAmount[]> {
     const receipt = await tx.wait()
@@ -49,6 +51,7 @@ export class FillEventLogger {
       gasCostInETH,
       receipt.effectiveGasPrice.toString(),
       receipt.gasUsed.toString(),
+      receipt.effectiveGasPrice.sub(block.baseFeePerGas ?? 0).toString(),
       settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
     )
 

@@ -54,6 +54,9 @@ describe('processFillEvent', () => {
             gasUsed: 100,
           }),
       } as any,
+      block: {
+        baseFeePerGas: 1,
+      } as any,
       timestamp: 1,
     })
     expect(response).toEqual([settledAmounts])

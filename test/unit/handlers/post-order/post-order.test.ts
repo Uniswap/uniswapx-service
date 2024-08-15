@@ -295,7 +295,7 @@ describe('Testing post order handler.', () => {
       // cosignature and cosignerData gets overwritten within the handler
       order.inner.info.cosignature = COSIGNATURE
       order.inner.info.cosignerData = {
-        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + 1),
+        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + 2),
       }
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
@@ -308,8 +308,8 @@ describe('Testing post order handler.', () => {
           requestId: expect.any(String),
           cosignature: COSIGNATURE,
           cosignerData: {
-            // MOCK_LATEST_BLOCK + 1
-            auctionTargetBlock: 101,
+            // MOCK_LATEST_BLOCK + 2
+            auctionTargetBlock: 102,
           },
         })
       )
