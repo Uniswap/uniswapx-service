@@ -34,6 +34,9 @@ jobs:
       - name: Run linters
         run: yarn lint
 
+      - name: Run Build
+        run: yarn build
+
       - name: Run swagger validation
         uses: readmeio/rdme@v8
         with:
