@@ -273,7 +273,7 @@ export class RelayOrderService {
       order,
       settledAmounts,
       tx,
-      block,
+      //block,
       timestamp: block.timestamp,
     })
 
