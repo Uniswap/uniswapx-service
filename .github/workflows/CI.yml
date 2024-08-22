@@ -38,7 +38,7 @@ jobs:
         run: yarn build
 
       - name: Run swagger validation
-        uses: readmeio/rdme@v8
+        uses: readmeio/rdme@51a80867c45de15e2b41af0c4bd5bbc61b932804
         with:
           rdme: openapi:validate swagger.json
 
