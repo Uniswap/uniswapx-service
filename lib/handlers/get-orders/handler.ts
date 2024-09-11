@@ -21,6 +21,7 @@ import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersRespo
 import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
 import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
+import { getCommentRange } from 'typescript'
 export class GetOrdersHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
@@ -77,7 +78,21 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
       return {
         statusCode: 200,
-        body: getOrdersResult,
+        body: {
+          // w/o specifying orderType, the orderDispatcher uses the legacy get implementation
+          //   and for priority orders, the returned object will contain offerer instead of swapper
+          orders: getOrdersResult.orders.map((order: any) => {
+            if (order.offerer) {
+              const { offerer, ...rest } = order;
+              return {
+                ...rest,
+                swapper: offerer
+              };
+            }
+            return order;
+          }),
+          cursor: getOrdersResult.cursor
+        },
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error
