@@ -21,7 +21,7 @@ import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersRespo
 import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
 import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
-import { getCommentRange } from 'typescript'
+
 export class GetOrdersHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
