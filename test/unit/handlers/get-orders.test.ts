@@ -176,7 +176,7 @@ describe('Testing get orders handler.', () => {
     headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
   })
 
-  it('Testing valid PriorityOrder request and response.', async () => {
+  it('Testing valid request and response, Priority order', async () => {
     const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
       new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
     getOrdersMock.mockReturnValue({
