@@ -176,6 +176,8 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
   switch (chainId) {
     case ChainId.MAINNET:
       return 12
+    case ChainId.ARBITRUM_ONE:
+      return 1
     case ChainId.POLYGON:
       // Keep this at the default 12 for now since we would have to do more retries
       // if it was at 2 seconds
