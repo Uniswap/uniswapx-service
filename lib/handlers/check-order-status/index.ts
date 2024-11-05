@@ -63,9 +63,12 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler(
     LimitOrdersRepository.create(documentClient),
     FILL_EVENT_LOOKBACK_BLOCKS_ON,
     new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create()),
-    new CheckOrderStatusUtils(OrderType.Limit, AnalyticsService.create(), limitOrdersRepository, () => {
-      return 30
-    })
+    new CheckOrderStatusUtils(
+      OrderType.Limit,
+      AnalyticsService.create(),
+      limitOrdersRepository,
+      calculateDutchRetryWaitSeconds
+    )
   ),
   relayOrderService
 )
