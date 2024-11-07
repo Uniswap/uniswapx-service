@@ -1,4 +1,3 @@
 export interface ContainerInjected {
-    [n: string]: never
-  }
-  
+  [n: string]: never
+}

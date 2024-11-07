@@ -5,14 +5,14 @@ import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base'
 import { DEFAULT_MAX_OPEN_ORDERS, HIGH_MAX_OPEN_ORDERS, HIGH_MAX_OPEN_ORDERS_SWAPPERS } from '../constants'
-import { PostOrderRequestBody } from './schema'
 import { ContainerInjected as PostContainerInjected } from '../shared/post'
+import { PostOrderRequestBody } from './schema'
 
 export class PostOrderInjector extends ApiInjector<PostContainerInjected, ApiRInj, PostOrderRequestBody, void> {
   public async buildContainerInjected(): Promise<PostContainerInjected> {
     return {}
   }
-  
+
   public async getRequestInjected(
     _containerInjected: PostContainerInjected,
     _requestBody: PostOrderRequestBody,
