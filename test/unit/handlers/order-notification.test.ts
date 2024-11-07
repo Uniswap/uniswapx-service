@@ -108,7 +108,7 @@ describe('Testing new order Notification handler.', () => {
   it('Testing invalid order with no order hash.', async () => {
     await orderNotificationHandler({ ...MOCK_ORDER, orderHash: undefined })
     expect(logErrorMock).toBeCalledWith(
-      "Error parsing new record to order: Cannot read property 'S' of undefined",
+      "Error parsing new record to order: Cannot read properties of undefined (reading 'S')",
       'Unexpected failure in handler.'
     )
   })
