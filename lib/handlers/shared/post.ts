@@ -1,3 +1,4 @@
 export interface ContainerInjected {
-  cosignerAddress: string
-}
+    [n: string]: never
+  }
+  

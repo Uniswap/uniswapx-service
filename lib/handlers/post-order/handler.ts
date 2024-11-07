@@ -45,10 +45,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     const {
       requestBody,
       requestInjected: { log },
-      containerInjected: { cosignerAddress },
     } = params
-
-    log.info({ requestBody: requestBody, cosignerAddress: cosignerAddress }, 'Handling POST order request')
 
     let order: Order
 
