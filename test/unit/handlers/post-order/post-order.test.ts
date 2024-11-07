@@ -44,6 +44,7 @@ import {
 } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
+jest.mock('@aws-sdk/client-kms');
 jest.mock('@uniswap/signer', () => {
   return {
     KmsSigner: jest.fn().mockImplementation(() => {
@@ -53,6 +54,9 @@ jest.mock('@uniswap/signer', () => {
     }),
   }
 })
+
+process.env.KMS_KEY_ID = 'test-key-id';
+process.env.REGION = 'us-east-2';
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_11155111 = 'MOCK_ARN_11155111'
