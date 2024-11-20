@@ -342,7 +342,7 @@ describe('Testing post order handler.', () => {
       })
     })
 
-    it.only('Testing valid request and response for Dutch_V3', async () => {
+    it('Testing valid request and response for Dutch_V3', async () => {
       validatorMock.mockReturnValue({ valid: true })
 
       const order = new DutchV3Order(

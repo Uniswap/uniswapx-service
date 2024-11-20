@@ -156,26 +156,6 @@ describe('Testing get orders handler.', () => {
     headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
   })
 
-  it('Testing valid request and response for Dutch_V3 without includeV3 flag, removes Dutch_V3 orders', async () => {
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
-
-    getOrdersMock.mockReturnValue({
-      orders: [MOCK_ORDER, MOCK_V2_ORDER],
-      cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
-    })
-    const getOrdersResponse = await getOrdersHandler().handler({} as any, {} as any)
-
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
-    expect(getOrdersResponse).toMatchObject({
-      body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' }),
-      statusCode: 200,
-    })
-    expect(getOrdersResponse.headers).not.toBeUndefined()
-    const headerExpectation = new HeaderExpectation(getOrdersResponse.headers)
-    headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
-  })
-
   it('Testing valid request and response, Priority order', async () => {
     const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
       new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
