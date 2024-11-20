@@ -167,6 +167,7 @@ describe('Testing post order handler.', () => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
     process.env['STATE_MACHINE_ARN_11155111'] = MOCK_ARN_11155111
     process.env['REGION'] = 'region'
+    process.env['KMS_KEY_ID'] = 'testtest'
     log.setLogLevel('SILENT')
   })
 
@@ -298,7 +299,6 @@ describe('Testing post order handler.', () => {
         auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER),
       }
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
-
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(

@@ -13,8 +13,8 @@ dotenv.config()
 export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
 
-const COSIGNER = checkDefined(process.env.LABS_COSIGNER)
-const PRIORITY_COSIGNER = checkDefined(process.env.LABS_PRIORITY_COSIGNER)
+const COSIGNER = checkDefined(process.env.LABS_COSIGNER, 'LABS_COSIGNER is not defined')
+const PRIORITY_COSIGNER = checkDefined(process.env.LABS_PRIORITY_COSIGNER, 'LABS_PRIORITY_COSIGNER is not defined')
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(3000, true))
