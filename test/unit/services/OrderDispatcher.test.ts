@@ -14,6 +14,8 @@ import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKRelayOrderFactory } from '../../factories/SDKRelayOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 import { SIGNATURE } from '../fixtures'
+import { DutchV3Order } from '../../../lib/models/DutchV3Order'
+import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 
 describe('OrderDispatcher', () => {
   const logger = mock<Logger>()
@@ -92,6 +94,27 @@ describe('OrderDispatcher', () => {
 
       expect(uniswapXServiceMock.getDutchV2Orders).toHaveBeenCalled()
       expect(response.orders[0]).toEqual(dutchV2Order.toGetResponse())
+    })
+
+    test('with orderType Dutch_V3, calls uniswapXService', async () => {
+      const uniswapXServiceMock = mock<UniswapXOrderService>()
+      const dutchV3Order = new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(), '', ChainId.ARBITRUM_ONE)
+
+      uniswapXServiceMock.getDutchV3Orders.mockResolvedValue({
+        orders: [dutchV3Order.toGetResponse()],
+        cursor: '',
+      })
+
+      const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
+
+      const response = await dispatcher.getOrder(GetOrderTypeQueryParamEnum.Dutch_V3, {
+        params: new QueryParamsBuilder().withChainId(1).build(),
+        limit: 50,
+        cursor: undefined,
+      })
+
+      expect(uniswapXServiceMock.getDutchV3Orders).toHaveBeenCalled()
+      expect(response.orders[0]).toEqual(dutchV3Order.toGetResponse())
     })
 
     test('with orderType [Dutch,Dutch_V2], calls uniswapXService', async () => {
