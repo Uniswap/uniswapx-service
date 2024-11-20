@@ -1,17 +1,30 @@
 import { BigNumber } from 'ethers'
-import { SDKDutchOrderV2Factory } from './SDKDutchOrderV2Factory'
+import { SDKDutchOrderV3Factory } from './SDKDutchOrderV3Factory'
+import { ChainId } from '../../lib/util/chain'
 
-describe('SDKDutchOrderV2Factory', () => {
-  it('smoke test - builds a default DutchV2 Order', () => {
-    expect(SDKDutchOrderV2Factory.buildDutchV2Order()).toBeDefined()
+describe('SDKDutchOrderV3Factory', () => {
+  it('smoke test - builds a default DutchV3 Order', () => {
+    expect(SDKDutchOrderV3Factory.buildDutchV3Order()).toBeDefined()
   })
 
-  it('smoke test - builds a non-mainnet DutchV2 Order', () => {
-    expect(SDKDutchOrderV2Factory.buildDutchV2Order(137)).toBeDefined()
+  it('respects decayStartBlock overrides', () => {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosignerData: {
+        decayStartBlock: 20000000,
+      },
+    })
+    expect(actual.info.cosignerData.decayStartBlock).toEqual(20000000)
+  })
+
+  it('respects startingBaseFee overrides', () => {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      startingBaseFee: '20000000',
+    })
+    expect(actual.info.startingBaseFee).toEqual(BigNumber.from('20000000'))
   })
 
   it('respects input startAmount overrides', () => {
-    const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       input: {
         startAmount: '20000000',
       },
@@ -19,17 +32,41 @@ describe('SDKDutchOrderV2Factory', () => {
     expect(actual.info.input.startAmount).toEqual(BigNumber.from('20000000'))
   })
 
-  it('respects input endAmount overrides', () => {
-    const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
+  it('respects input curve overrides', () => {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       input: {
-        endAmount: '400000',
+        curve: {
+          relativeBlocks: [1, 2, 3],
+          relativeAmounts: [BigInt(4), BigInt(5), BigInt(6)],
+        },
       },
     })
-    expect(actual.info.input.endAmount).toEqual(BigNumber.from('400000'))
+    expect(actual.info.input.curve).toEqual({
+      relativeBlocks: [1, 2, 3],
+      relativeAmounts: [BigInt(4), BigInt(5), BigInt(6)],
+    })
+  })
+
+  it('respects input maxAmount overrides', () => {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      input: {
+        maxAmount: '5000',
+      },
+    })
+    expect(actual.info.input.maxAmount).toEqual(BigNumber.from('5000'))
+  })
+
+  it('respects input adjustmentPerGweiBaseFee overrides', () => {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      input: {
+        adjustmentPerGweiBaseFee: '5000',
+      },
+    })
+    expect(actual.info.input.adjustmentPerGweiBaseFee).toEqual(BigNumber.from('5000'))
   })
 
   it('respects input cosignerData inputOveride', () => {
-    const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       cosignerData: {
         inputOverride: '5000',
       },
@@ -38,12 +75,17 @@ describe('SDKDutchOrderV2Factory', () => {
   })
 
   it('respects single output overrides', () => {
-    const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       outputs: [
         {
           token: '0xabc',
           startAmount: '4000000000000000000',
-          endAmount: '3000000000000000000',
+          minAmount: '3000000000000000000',
+          adjustmentPerGweiBaseFee: '5000',
+          curve: {
+            relativeBlocks: [1, 2, 3],
+            relativeAmounts: [BigInt(4), BigInt(5), BigInt(6)],
+          },
           recipient: '0xdef',
         },
       ],
@@ -53,14 +95,19 @@ describe('SDKDutchOrderV2Factory', () => {
       {
         token: '0xabc',
         startAmount: BigNumber.from('4000000000000000000'),
-        endAmount: BigNumber.from('3000000000000000000'),
+        minAmount: BigNumber.from('3000000000000000000'),
+        adjustmentPerGweiBaseFee: BigNumber.from('5000'),
+        curve: {
+          relativeBlocks: [1, 2, 3],
+          relativeAmounts: [BigInt(4), BigInt(5), BigInt(6)],
+        },
         recipient: '0xdef',
       },
     ])
   })
 
   it('respects partial output overrides', () => {
-    const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       outputs: [
         {
           token: '0xabc',
@@ -72,18 +119,28 @@ describe('SDKDutchOrderV2Factory', () => {
   })
 
   it('respects multiple output overrides', () => {
-    const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       outputs: [
         {
           token: '0xabc',
           startAmount: '4000000000000000000',
-          endAmount: '3000000000000000000',
+          minAmount: BigNumber.from('3000000000000000000'),
+          adjustmentPerGweiBaseFee: BigNumber.from('5000'),
+          curve: {
+            relativeBlocks: [1, 2, 3],
+            relativeAmounts: [BigInt(4), BigInt(5), BigInt(6)],
+          },
           recipient: '0xdef',
         },
         {
           token: '0xghi',
           startAmount: '6000000000000000000',
-          endAmount: '5000000000000000000',
+          minAmount: BigNumber.from('5000000000000000000'),
+          adjustmentPerGweiBaseFee: BigNumber.from('5000'),
+          curve: {
+            relativeBlocks: [1, 2, 3],
+            relativeAmounts: [BigInt(4), BigInt(5), BigInt(6)],
+          },
           recipient: '0xjkl',
         },
       ],
@@ -93,20 +150,30 @@ describe('SDKDutchOrderV2Factory', () => {
       {
         token: '0xabc',
         startAmount: BigNumber.from('4000000000000000000'),
-        endAmount: BigNumber.from('3000000000000000000'),
+        minAmount: BigNumber.from('3000000000000000000'),
+        adjustmentPerGweiBaseFee: BigNumber.from('5000'),
+        curve: {
+          relativeBlocks: [1, 2, 3],
+          relativeAmounts: [BigInt(4), BigInt(5), BigInt(6)],
+        },
         recipient: '0xdef',
       },
       {
         token: '0xghi',
         startAmount: BigNumber.from('6000000000000000000'),
-        endAmount: BigNumber.from('5000000000000000000'),
+        minAmount: BigNumber.from('5000000000000000000'),
+        adjustmentPerGweiBaseFee: BigNumber.from('5000'),
+        curve: {
+          relativeBlocks: [1, 2, 3],
+          relativeAmounts: [BigInt(4), BigInt(5), BigInt(6)],
+        },
         recipient: '0xjkl',
       },
     ])
   })
 
   it('respects outputOverrides', () => {
-    const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       cosignerData: {
         outputOverrides: ['3000000000000000000'],
       },
@@ -116,7 +183,7 @@ describe('SDKDutchOrderV2Factory', () => {
   })
 
   it('respects nonce overrides', () => {
-    const actual = SDKDutchOrderV2Factory.buildDutchV2Order(1, {
+    const actual = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       nonce: '1000',
     })
     expect(actual).toBeDefined()

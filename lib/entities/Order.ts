@@ -46,7 +46,7 @@ export type V3OrderOutput = {
 }
 
 export type NonlinearDutchDecay = {
-  relativeBlocks: string[]
+  relativeBlocks: number[]
   relativeAmounts: string[]
 }
 

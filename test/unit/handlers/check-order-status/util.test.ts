@@ -14,6 +14,11 @@ describe('getWatcher', () => {
     expect(watcher).toBeDefined()
   })
 
+  test('works with OrderType.Dutch_V3', () => {
+    const watcher = getWatcher(mock<StaticJsonRpcProvider>(), 42161, OrderType.Dutch_V3)
+    expect(watcher).toBeDefined()
+  })
+
   test('works with OrderType.Limit', () => {
     const watcher = getWatcher(mock<StaticJsonRpcProvider>(), 1, OrderType.Limit)
     expect(watcher).toBeDefined()

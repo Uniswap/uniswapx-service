@@ -38,7 +38,7 @@ export class DutchV3Order extends Order {
         token: input.token,
         startAmount: input.startAmount.toString(),
         curve: {
-          relativeBlocks: input.curve.relativeBlocks.map((a) => a.toString()),
+          relativeBlocks: input.curve.relativeBlocks,
           relativeAmounts: input.curve.relativeAmounts.map((a) => a.toString()),
         },
         maxAmount: input.maxAmount.toString(),
@@ -48,7 +48,7 @@ export class DutchV3Order extends Order {
         token: output.token,
         startAmount: output.startAmount.toString(),
         curve: {
-          relativeBlocks: output.curve.relativeBlocks.map((a) => a.toString()),
+          relativeBlocks: output.curve.relativeBlocks,
           relativeAmounts: output.curve.relativeAmounts.map((a) => a.toString()),
         },
         minAmount: output.minAmount.toString(),

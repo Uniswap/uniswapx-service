@@ -33,7 +33,9 @@ export class SDKDutchOrderV3Factory {
       .cosignature(overrides.cosignature ?? '0x')
       .deadline(overrides.deadline ?? futureTime)
       .decayStartBlock(overrides.cosignerData?.decayStartBlock ?? MOCK_LATEST_BLOCK + 10)
-      .startingBaseFee(BigNumber.from(0))
+      .startingBaseFee(
+        overrides.startingBaseFee ? BigNumber.from(overrides.startingBaseFee) : BigNumber.from(0)
+      )
       .swapper(overrides.swapper ?? '0x0000000000000000000000000000000000000000')
       .nonce(overrides.nonce ? BigNumber.from(overrides.nonce) : BigNumber.from(100))
       .input({

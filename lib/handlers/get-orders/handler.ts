@@ -1,6 +1,4 @@
 import Joi from 'joi'
-
-import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { UniswapXOrderEntity } from '../../entities'

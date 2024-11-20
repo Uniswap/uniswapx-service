@@ -67,7 +67,7 @@ export const GetDutchV3OrderResponseEntryJoi = Joi.object({
   //only Dutch_V3
   type: Joi.string().valid(OrderType.Dutch_V3).required(),
   chainId: FieldValidator.isValidChainId().required(),
-
+  startingBaseFee: FieldValidator.isValidAmount(),
   txHash: FieldValidator.isValidTxHash(),
   input: Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
