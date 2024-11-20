@@ -61,7 +61,10 @@ export class UniswapXOrderService {
       const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
       const awsRegion = checkDefined(process.env.REGION, 'REGION is not defined')
       const cosigner = new KmsSigner(new KMSClient({ region: awsRegion }), kmsKeyId)
-      const provider = checkDefined(this.providerMap.get(order.chainId))
+      const provider = checkDefined(
+        this.providerMap.get(order.chainId),
+        `provider not found for chainId: ${order.chainId}`
+      )
 
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner)
       this.logger.info('cosigned priority order', { order: cosignedOrder })
@@ -158,7 +161,10 @@ export class UniswapXOrderService {
     quoteId: string | undefined,
     orderType: OrderType
   ) {
-    const stateMachineArn = checkDefined(process.env[`STATE_MACHINE_ARN_${chainId}`])
+    const stateMachineArn = checkDefined(
+      process.env[`STATE_MACHINE_ARN_${chainId}`],
+      `STATE_MACHINE_ARN_${chainId} is undefined`
+    )
     await kickoffOrderTrackingSfn(
       {
         orderHash: orderHash,

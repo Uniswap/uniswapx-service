@@ -59,6 +59,7 @@ export default class FieldValidator {
     OrderType.Dutch,
     DUTCH_LIMIT,
     OrderType.Dutch_V2,
+    OrderType.Dutch_V3,
     OrderType.Limit,
     OrderType.Relay,
     OrderType.Priority
@@ -67,6 +68,7 @@ export default class FieldValidator {
   private static readonly GET_ORDER_TYPE_JOI = Joi.string().valid(
     OrderType.Dutch,
     OrderType.Dutch_V2,
+    OrderType.Dutch_V3,
     OrderType.Limit,
     OrderType.Relay,
     'Dutch_V1_V2',

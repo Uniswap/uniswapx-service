@@ -43,6 +43,8 @@ import {
   SIGNATURE,
 } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
+import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
+import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
 
 jest.mock('@uniswap/signer', () => {
   return {
@@ -55,6 +57,7 @@ jest.mock('@uniswap/signer', () => {
 })
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
+const MOCK_ARN_42161 = 'MOCK_ARN_42161'
 const MOCK_ARN_11155111 = 'MOCK_ARN_11155111'
 const MOCK_HASH = '0xhash'
 const MOCK_START_EXECUTION_INPUT = JSON.stringify({
@@ -95,6 +98,12 @@ describe('Testing post order handler.', () => {
   const validatorMockMapping = [
     [
       1,
+      {
+        validate: onchainValidationSucceededMock,
+      },
+    ],
+    [
+      42161,
       {
         validate: onchainValidationSucceededMock,
       },
@@ -165,6 +174,7 @@ describe('Testing post order handler.', () => {
 
   beforeAll(() => {
     process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
+    process.env['STATE_MACHINE_ARN_42161'] = MOCK_ARN_42161
     process.env['STATE_MACHINE_ARN_11155111'] = MOCK_ARN_11155111
     process.env['REGION'] = 'region'
     process.env['KMS_KEY_ID'] = 'testtest'
@@ -318,6 +328,58 @@ describe('Testing post order handler.', () => {
       expect(mockSfnClient.calls()).toHaveLength(1)
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
         stateMachineArn: MOCK_ARN_1,
+      })
+
+      expect(postOrderResponse).toEqual({
+        body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
+        statusCode: HttpStatusCode.Created,
+        headers: {
+          'Access-Control-Allow-Credentials': true,
+          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
+      })
+    })
+
+    it.only('Testing valid request and response for Dutch_V3', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+
+      const order = new DutchV3Order(
+        SDKDutchOrderV3Factory.buildDutchV3Order(),
+        SIGNATURE,
+        ChainId.ARBITRUM_ONE,
+        undefined,
+        undefined,
+        undefined,
+        REQUEST_ID
+      )
+      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.inner.serialize(),
+          signature: SIGNATURE,
+          orderType: OrderType.Dutch_V3,
+          chainId: ChainId.ARBITRUM_ONE,
+        }),
+        EVENT_CONTEXT
+      )
+      console.log(JSON.stringify(postOrderResponse, null, 2))
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
+
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(
+        expect.objectContaining({
+          ...expectedOrderEntity,
+          quoteId: expect.any(String),
+          requestId: REQUEST_ID,
+        })
+      )
+      expect(onchainValidationSucceededMock).toBeCalled()
+      expect(validatorMock).toBeCalledWith(order.inner)
+      expect(mockSfnClient.calls()).toHaveLength(1)
+      expect(mockSfnClient.call(0).args[0].input).toMatchObject({
+        stateMachineArn: MOCK_ARN_42161,
       })
 
       expect(postOrderResponse).toEqual({

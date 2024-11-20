@@ -274,7 +274,7 @@ describe('Testing each field on the FieldValidator class.', () => {
       const validatedField = FieldValidator.isValidOrderType().validate(orderType)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual(
-        '"value" must be one of [Dutch, DutchLimit, Dutch_V2, Limit, Relay, Priority]'
+        '"value" must be one of [Dutch, DutchLimit, Dutch_V2, Dutch_V3, Limit, Relay, Priority]'
       )
     })
   })

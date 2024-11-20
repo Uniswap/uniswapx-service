@@ -66,7 +66,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         stateMachineArn: input.requestInjected.stateMachineArn,
       }
     } else {
-      // Dutch, Dutch_V2, Priority
+      // Dutch, Dutch_V2, Dutch_V3, Priority
       const response = await this.checkOrderStatusService.handleRequest(input.requestInjected)
       return {
         ...response,

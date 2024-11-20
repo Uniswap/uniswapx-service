@@ -22,7 +22,7 @@ export function findEndpointsMatchingFilter(filter: OrderFilter, definition: Web
   endpoints.push(...catchallEndpoints)
 
   // remove limit orders orders when matching webhooks
-  // webhook is currently used only to fill dutch and dutch_v2 orders
+  // webhook is currently used only to fill dutch, dutch_v2, and dutch_v3 orders
   if (filter.orderType !== OrderType.Limit) {
     const supportedFilterKeys: (FILTER_FIELD.FILLER | FILTER_FIELD.OFFERER | FILTER_FIELD.ORDER_STATUS)[] = [
       FILTER_FIELD.FILLER,

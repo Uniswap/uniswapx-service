@@ -19,7 +19,7 @@ const BIG_NUMBER = 1000000000000
 
 export async function kickoffOrderTrackingSfn(sfnInput: OrderTrackingSfnInput, stateMachineArn: string) {
   log.info('starting state machine')
-  const region = checkDefined(process.env['REGION'])
+  const region = checkDefined(process.env['REGION'], 'REGION is undefined')
   const sfnClient = new SFNClient({ region: region })
   const rand = Math.floor(Math.random() * BIG_NUMBER)
   const startExecutionCommand = new StartExecutionCommand({

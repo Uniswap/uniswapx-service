@@ -51,7 +51,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     | ErrorResponse
   > {
     const {
-      requestInjected: { limit, queryFilters, cursor, includeV2, orderType },
+      requestInjected: { limit, queryFilters, cursor, includeV3, orderType },
       containerInjected: { dbInterface },
     } = params
 
@@ -73,8 +73,8 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
       //without orderType specified, keep legacy implementation
       const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
-      if (!includeV2) {
-        getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
+      if (!includeV3) {
+        getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V3)
       }
 
       return {

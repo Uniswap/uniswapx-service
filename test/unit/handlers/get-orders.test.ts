@@ -156,7 +156,7 @@ describe('Testing get orders handler.', () => {
     headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
   })
 
-  it('Testing valid request and response for Dutch_V2 without includeV2 flag, removes Dutch_V2 orders', async () => {
+  it('Testing valid request and response for Dutch_V3 without includeV3 flag, removes Dutch_V3 orders', async () => {
     const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
       new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
