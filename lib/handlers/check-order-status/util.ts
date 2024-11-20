@@ -1,6 +1,7 @@
 import {
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
+  CosignedV3DutchOrder,
   DutchOrder,
   FillInfo,
   OrderType,
@@ -25,7 +26,7 @@ export interface FillMetadata {
 export function getSettledAmounts(
   fill: FillInfo,
   metadata: FillMetadata,
-  parsedOrder: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder
+  parsedOrder: DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
 ) {
   if (parsedOrder instanceof DutchOrder || parsedOrder instanceof CosignedV2DutchOrder) {
     return getDutchSettledAmounts(fill, metadata.timestamp, parsedOrder)

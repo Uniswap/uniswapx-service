@@ -1,13 +1,17 @@
 import {
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
+  CosignedV3DutchOrder,
   DutchInput,
   DutchOrder,
   DutchOutput,
+  NonlinearDutchDecay,
   OrderType,
   PriorityInput,
   PriorityOutput,
   REACTOR_ADDRESS_MAPPING,
+  V3DutchInput,
+  V3DutchOutput,
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import Joi from 'joi'
@@ -26,12 +30,14 @@ export class OffChainUniswapXOrderValidator {
     private readonly skipValidationMap?: SkipValidationMap
   ) {}
 
-  validate(order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder): OrderValidationResponse {
+  validate(order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder): OrderValidationResponse {
     let orderType
     if (order instanceof DutchOrder) {
       orderType = OrderType.Dutch
     } else if (order instanceof CosignedV2DutchOrder) {
       orderType = OrderType.Dutch_V2
+    } else if (order instanceof CosignedV3DutchOrder) {
+      orderType = OrderType.Dutch_V3
     } else if (order instanceof CosignedPriorityOrder) {
       orderType = OrderType.Priority
     } else {
@@ -41,9 +47,15 @@ export class OffChainUniswapXOrderValidator {
       }
     }
 
-    // TODO: add cosigner validation for OrderType.Priority once we know the cosigner address
     if (orderType == OrderType.Dutch_V2) {
       const cosignerValidation = this.validateCosigner((order as CosignedV2DutchOrder).info.cosigner)
+      if (!cosignerValidation.valid) {
+        return cosignerValidation
+      }
+    }
+
+    if (orderType == OrderType.Dutch_V3) {
+      const cosignerValidation = this.validateCosigner((order as CosignedV3DutchOrder).info.cosigner)
       if (!cosignerValidation.valid) {
         return cosignerValidation
       }
@@ -118,6 +130,27 @@ export class OffChainUniswapXOrderValidator {
 
       const outputs = order.info.outputs as PriorityOutput[]
       const outputsValidation = this.validatePriorityOutputs(outputs)
+      if (!outputsValidation.valid) {
+        return outputsValidation
+      }
+    } else if (orderType == OrderType.Dutch_V3) {
+      const input = order.info.input as V3DutchInput
+      const inputStartAmountValidation = this.validateInputAmount(input.startAmount)
+      if (!inputStartAmountValidation.valid) {
+        return inputStartAmountValidation
+      }
+
+      const curveValidation = this.validateV3Curve(input.curve)
+      if (!curveValidation.valid) {
+        return curveValidation
+      }
+
+      const inputMaxAmountValidation = this.validateInputAmount(input.maxAmount)
+      if (!inputMaxAmountValidation.valid) {
+        return inputMaxAmountValidation
+      }
+
+      const outputsValidation = this.validateV3DutchOutputs(order.info.outputs as V3DutchOutput[])
       if (!outputsValidation.valid) {
         return outputsValidation
       }
@@ -301,14 +334,14 @@ export class OffChainUniswapXOrderValidator {
     }
   }
 
-  private validateDutchOutputs(priorityOutputs: DutchOutput[]): OrderValidationResponse {
-    if (priorityOutputs.length == 0) {
+  private validateDutchOutputs(outputs: DutchOutput[]): OrderValidationResponse {
+    if (outputs.length == 0) {
       return {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
       }
     }
-    for (const output of priorityOutputs) {
+    for (const output of outputs) {
       const { token, recipient, startAmount, endAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
         return {
@@ -343,6 +376,61 @@ export class OffChainUniswapXOrderValidator {
           valid: false,
           errorString: `Invalid endAmount > startAmount`,
         }
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+
+  private validateV3DutchOutputs(outputs: V3DutchOutput[]): OrderValidationResponse {
+    if (outputs.length == 0) {
+      return {
+        valid: false,
+        errorString: `Invalid number of outputs: 0`,
+      }
+    }
+    for (const output of outputs) {
+      const { token, recipient, startAmount, curve, minAmount } = output
+      if (FieldValidator.isValidEthAddress().validate(token).error) {
+        return {
+          valid: false,
+          errorString: `Invalid output token ${token}`,
+        }
+      }
+
+      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
+        return {
+          valid: false,
+          errorString: `Invalid recipient ${recipient}`,
+        }
+      }
+
+      if (!this.isValidUint256(startAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid startAmount ${startAmount.toString()}`,
+        }
+      }
+
+      if (!this.isValidUint256(minAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid minAmount ${minAmount.toString()}`,
+        }
+      }
+
+      if (minAmount.gt(startAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid minAmount > startAmount`,
+        }
+      }
+
+      const curveValidation = this.validateV3Curve(curve)
+      if (!curveValidation.valid) {
+        return curveValidation
       }
     }
     return {
@@ -421,5 +509,11 @@ export class OffChainUniswapXOrderValidator {
 
   private isValidUint256(value: BigNumber) {
     return value.gte(0) && value.lt(BigNumber.from(1).shl(256))
+  }
+
+  private validateV3Curve(curve: NonlinearDutchDecay): OrderValidationResponse {
+    return curve.relativeAmounts.length == curve.relativeBlocks.length
+      ? { valid: true }
+      : { valid: false, errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length' }
   }
 }

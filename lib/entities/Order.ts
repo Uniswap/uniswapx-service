@@ -15,6 +15,14 @@ export type OrderInput = {
   endAmount?: string
 }
 
+export type V3OrderInput = {
+  token: string
+  startAmount?: string
+  curve?: NonlinearDutchDecay
+  maxAmount: string
+  adjustmentPerGweiBaseFee: string
+}
+
 export type PriorityOrderInput = {
   token: string
   amount: string
@@ -26,6 +34,20 @@ export type OrderOutput = {
   startAmount: string
   endAmount: string
   recipient: string
+}
+
+export type V3OrderOutput = {
+  token: string
+  startAmount: string
+  curve: NonlinearDutchDecay
+  recipient: string
+  minAmount: string
+  adjustmentPerGweiBaseFee: string
+}
+
+export type NonlinearDutchDecay = {
+  relativeBlocks: string[]
+  relativeAmounts: string[]
 }
 
 export type PriorityOrderOutput = {
@@ -88,6 +110,20 @@ export type DutchV2OrderEntity = SharedXOrderEntity & {
   cosignature: string
 }
 
+export type DutchV3OrderEntity = SharedXOrderEntity & {
+  type: OrderType.Dutch_V3
+  input: V3OrderInput
+  outputs: V3OrderOutput[]
+  startingBaseFee: string
+  cosignerData: {
+    decayStartBlock: number
+    exclusiveFiller: string
+    inputOverride: string
+    outputOverrides: string[]
+  }
+  cosignature: string
+}
+
 export type PriorityOrderEntity = SharedXOrderEntity & {
   type: OrderType.Priority
   auctionStartBlock: number
@@ -100,9 +136,9 @@ export type PriorityOrderEntity = SharedXOrderEntity & {
   cosignature: string
 }
 
-// Db representation of Dutch V1, Dutch V2, or Limit Order
+// Db representation of Dutch V1, Dutch V2, Dutch V3, or Limit Order
 // indexes are returned at runtime but not represented on this type. Ideally we will include a mapping at repo layer boundary
-export type UniswapXOrderEntity = DutchV1OrderEntity | DutchV2OrderEntity | PriorityOrderEntity
+export type UniswapXOrderEntity = DutchV1OrderEntity | DutchV2OrderEntity | PriorityOrderEntity | DutchV3OrderEntity
 
 export enum SORT_FIELDS {
   CREATED_AT = 'createdAt',
@@ -110,6 +146,10 @@ export enum SORT_FIELDS {
 
 export function isPriorityOrderEntity(order: UniswapXOrderEntity): order is PriorityOrderEntity {
   return order.type === OrderType.Priority
+}
+
+export function isDutchV3OrderEntity(order: UniswapXOrderEntity): order is DutchV3OrderEntity {
+  return order.type === OrderType.Dutch_V3
 }
 
 export function isDutchV2OrderEntity(order: UniswapXOrderEntity): order is DutchV2OrderEntity {

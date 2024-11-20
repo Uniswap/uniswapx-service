@@ -45,6 +45,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         offerer: { type: DYNAMODB_TYPES.STRING, required: true },
         filler: { type: DYNAMODB_TYPES.STRING },
         decayStartTime: { type: DYNAMODB_TYPES.NUMBER },
+        decayStartBlock: { type: DYNAMODB_TYPES.NUMBER },
         decayEndTime: { type: DYNAMODB_TYPES.NUMBER },
         deadline: { type: DYNAMODB_TYPES.NUMBER },
         reactor: { type: DYNAMODB_TYPES.STRING },
