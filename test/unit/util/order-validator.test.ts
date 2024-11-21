@@ -419,4 +419,44 @@ describe('Testing off chain validation', () => {
       errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length',
     })
   })
+
+  it('Should throw invalid max input amount', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      cosignerData: {
+        inputOverride: BigNumber.from(100),
+      },
+      input: {
+        startAmount: BigNumber.from(100),
+        maxAmount: BigNumber.from(10),
+      },
+    })
+    order.info.deadline = CURRENT_TIME + ONE_DAY;
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid maxAmount < startAmount',
+    })
+  })
+
+  it('Should throw invalid min output amount', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      cosignerData: {
+        outputOverrides: [BigInt(100)],
+      },
+      outputs: [
+        {
+          startAmount: BigNumber.from(100),
+          minAmount: BigNumber.from(1000),
+        },
+      ],
+    })
+    order.info.deadline = CURRENT_TIME + ONE_DAY;
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid minAmount > startAmount',
+    })
+  })
 })

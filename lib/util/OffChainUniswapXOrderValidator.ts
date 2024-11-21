@@ -142,6 +142,12 @@ export class OffChainUniswapXOrderValidator {
       if (!inputMaxAmountValidation.valid) {
         return inputMaxAmountValidation
       }
+      if (input.startAmount.gt(input.maxAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid maxAmount < startAmount`,
+        }
+      }
 
       const outputsValidation = this.validateV3DutchOutputs(order.info.outputs as V3DutchOutput[])
       if (!outputsValidation.valid) {
