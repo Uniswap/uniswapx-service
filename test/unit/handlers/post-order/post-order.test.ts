@@ -46,6 +46,7 @@ import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
 import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
 
+jest.mock('@aws-sdk/client-kms');
 jest.mock('@uniswap/signer', () => {
   return {
     KmsSigner: jest.fn().mockImplementation(() => {
@@ -55,6 +56,9 @@ jest.mock('@uniswap/signer', () => {
     }),
   }
 })
+
+process.env.KMS_KEY_ID = 'test-key-id';
+process.env.REGION = 'us-east-2';
 
 const MOCK_ARN_1 = 'MOCK_ARN_1'
 const MOCK_ARN_42161 = 'MOCK_ARN_42161'

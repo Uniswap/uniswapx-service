@@ -79,15 +79,15 @@ export class GetOrdersHandler extends APIGLambdaHandler<
           //   and for priority orders, the returned object will contain offerer instead of swapper
           orders: getOrdersResult.orders.map((order: any) => {
             if (order.offerer) {
-              const { offerer, ...rest } = order;
+              const { offerer, ...rest } = order
               return {
                 ...rest,
-                swapper: offerer
-              };
+                swapper: offerer,
+              }
             }
-            return order;
+            return order
           }),
-          cursor: getOrdersResult.cursor
+          cursor: getOrdersResult.cursor,
         },
       }
     } catch (e: unknown) {
