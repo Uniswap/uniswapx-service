@@ -47,15 +47,8 @@ export class OffChainUniswapXOrderValidator {
       }
     }
 
-    if (orderType == OrderType.Dutch_V2) {
-      const cosignerValidation = this.validateCosigner((order as CosignedV2DutchOrder).info.cosigner)
-      if (!cosignerValidation.valid) {
-        return cosignerValidation
-      }
-    }
-
-    if (orderType == OrderType.Dutch_V3) {
-      const cosignerValidation = this.validateCosigner((order as CosignedV3DutchOrder).info.cosigner)
+    if (orderType == OrderType.Dutch_V2 || orderType == OrderType.Dutch_V3) {
+      const cosignerValidation = this.validateCosigner((order as CosignedV2DutchOrder | CosignedV3DutchOrder).info.cosigner)
       if (!cosignerValidation.valid) {
         return cosignerValidation
       }

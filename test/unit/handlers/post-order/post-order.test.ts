@@ -365,7 +365,6 @@ describe('Testing post order handler.', () => {
         }),
         EVENT_CONTEXT
       )
-      console.log(JSON.stringify(postOrderResponse, null, 2))
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(

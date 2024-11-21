@@ -189,4 +189,16 @@ describe('SDKDutchOrderV3Factory', () => {
     expect(actual).toBeDefined()
     expect(actual.info.nonce).toEqual(BigNumber.from('1000'))
   })
+
+  it('fails when curve array lengths are not equal', () => {
+    expect(() => SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+        input: {
+          curve: {
+            relativeBlocks: [1, 2, 3],
+            relativeAmounts: [BigInt(4), BigInt(5)],
+          },
+        },
+      })
+    ).toThrow('Invariant failed: relativeBlocks and relativeAmounts length mismatch')
+  })
 })
