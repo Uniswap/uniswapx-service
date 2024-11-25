@@ -108,7 +108,7 @@ describe('OrderDispatcher', () => {
       const dispatcher = new OrderDispatcher(uniswapXServiceMock, mock<RelayOrderService>(), logger)
 
       const response = await dispatcher.getOrder(GetOrderTypeQueryParamEnum.Dutch_V3, {
-        params: new QueryParamsBuilder().withChainId(1).build(),
+        params: new QueryParamsBuilder().withChainId(42161).build(),
         limit: 50,
         cursor: undefined,
       })

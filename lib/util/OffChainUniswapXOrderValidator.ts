@@ -511,8 +511,20 @@ export class OffChainUniswapXOrderValidator {
   }
 
   private validateV3Curve(curve: NonlinearDutchDecay): OrderValidationResponse {
-    return curve.relativeAmounts.length == curve.relativeBlocks.length
-      ? { valid: true }
-      : { valid: false, errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length' }
+    if (curve.relativeAmounts.length != curve.relativeBlocks.length) {
+      return {
+        valid: false,
+        errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length',
+      }
+    }
+    for (let i = 1; i < curve.relativeBlocks.length; i++) {
+      if (curve.relativeBlocks[i] <= curve.relativeBlocks[i - 1]) {
+        return {
+          valid: false,
+          errorString: 'Invalid curve: relativeBlocks must be strictly increasing',
+        }
+      }
+    }
+    return { valid: true }
   }
 }

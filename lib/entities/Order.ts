@@ -17,7 +17,7 @@ export type OrderInput = {
 
 export type V3OrderInput = {
   token: string
-  startAmount?: string
+  startAmount: string
   curve?: NonlinearDutchDecay
   maxAmount: string
   adjustmentPerGweiBaseFee: string

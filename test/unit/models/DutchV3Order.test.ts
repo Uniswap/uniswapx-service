@@ -8,7 +8,7 @@ import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 
 describe('DutchV3 Model', () => {
   test('toEntity', () => {
-    const order = new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(), MOCK_SIGNATURE, ChainId.MAINNET)
+    const order = new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(), MOCK_SIGNATURE, ChainId.ARBITRUM_ONE)
     const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
     expect(entity.signature).toEqual(MOCK_SIGNATURE)

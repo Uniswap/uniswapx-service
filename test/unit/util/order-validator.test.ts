@@ -377,7 +377,7 @@ describe('Testing off chain validation', () => {
       })
     })
 
-    it('Should throw invalid input curve', () => {
+    it('Should throw invalid input curve with mismatched lengths', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
         cosigner: process.env.LABS_COSIGNER,
         input: {
@@ -396,9 +396,29 @@ describe('Testing off chain validation', () => {
         errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length',
       })
     })
+
+    it('Should throw invalid input curve with non-increasing relativeBlocks', () => {
+      const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+        cosigner: process.env.LABS_COSIGNER,
+        input: {
+          curve: {
+            relativeBlocks: [1, 2],
+            relativeAmounts: [BigInt(1000000000000000000), BigInt(1000000000000000000)],
+          },
+        },
+      })
+      // Set to be non increasing
+      order.info.input.curve.relativeBlocks = [1, 1];
+      order.info.deadline = CURRENT_TIME + ONE_DAY;
+      const validationResp = validationProvider.validate(order)
+      expect(validationResp).toEqual({
+        valid: false,
+        errorString: 'Invalid curve: relativeBlocks must be strictly increasing',
+      })
+    })
   })
 
-  it('Should throw invalid output curve', () => {
+  it('Should throw invalid output curve with mismatched lengths', () => {
     const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
       cosigner: process.env.LABS_COSIGNER,
       outputs: [
@@ -417,6 +437,28 @@ describe('Testing off chain validation', () => {
     expect(validationResp).toEqual({
       valid: false,
       errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length',
+    })
+  })
+
+  it('Should throw invalid output curve with non-increasing relativeBlocks', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      outputs: [
+        {
+          curve: {
+            relativeBlocks: [1, 2],
+            relativeAmounts: [BigInt(1000000000000000000), BigInt(1000000000000000000)],
+          },
+        },
+      ],
+    })
+    // Set to be non increasing
+    order.info.outputs[0].curve.relativeBlocks = [2, 1];
+    order.info.deadline = CURRENT_TIME + ONE_DAY;
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid curve: relativeBlocks must be strictly increasing',
     })
   })
 

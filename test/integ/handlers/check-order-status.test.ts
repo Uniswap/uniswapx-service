@@ -626,7 +626,7 @@ describe('Testing check order status handler', () => {
           amount: BigNumber.from(90),
         } as TokenTransfer
 
-        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.MAINNET, {
+        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
           input: {
             token: resolvedInput.token,
             startAmount: resolvedInput.amount.toString(),
@@ -671,7 +671,7 @@ describe('Testing check order status handler', () => {
           amount: BigNumber.from(90),
         } as TokenTransfer
 
-        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.MAINNET, {
+        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
           input: {
             token: resolvedInput.token,
             startAmount: resolvedInput.amount.div(2).toString(),
@@ -717,7 +717,7 @@ describe('Testing check order status handler', () => {
           amount: BigNumber.from(1),
         } as TokenTransfer
 
-        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.MAINNET, {
+        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
           input: {
             token: resolvedInput.token,
             startAmount: resolvedInput.amount.toString(),
@@ -762,7 +762,7 @@ describe('Testing check order status handler', () => {
           amount: BigNumber.from(1),
         } as TokenTransfer
 
-        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.MAINNET, {
+        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
           input: {
             token: resolvedInput.token,
             startAmount: resolvedInput.amount.div(2).toString(),
