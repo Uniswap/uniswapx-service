@@ -373,7 +373,7 @@ describe('Testing off chain validation', () => {
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         valid: false,
-        errorString: 'Invalid cosigner: ValidationError: \"value\" must be [0x4449Cd34d1eb1FEDCF02A1Be3834FfDe8E6A6180]',
+        errorString: 'Invalid cosigner: ValidationError: "value" must be [0x4449Cd34d1eb1FEDCF02A1Be3834FfDe8E6A6180]',
       })
     })
 
