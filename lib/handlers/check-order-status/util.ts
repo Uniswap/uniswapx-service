@@ -112,7 +112,7 @@ export function getDutchV3SettledAmounts(
   let amountIn: string
 
   if (!parsedOrder.info.input.curve || 
-    (parsedOrder.info.input.curve.relativeAmounts.length === 1 || 
+    (parsedOrder.info.input.curve.relativeAmounts.length === 1 && 
     parsedOrder.info.input.curve.relativeAmounts[0] === BigInt(0))) {
     // If the order is EXACT_INPUT then the input will not decay and resolves to the startAmount/endAmount.
     amountIn = parsedOrder.info.input.startAmount.toString()
