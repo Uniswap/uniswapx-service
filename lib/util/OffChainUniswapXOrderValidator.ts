@@ -48,9 +48,19 @@ export class OffChainUniswapXOrderValidator {
     }
 
     if (orderType == OrderType.Dutch_V2 || orderType == OrderType.Dutch_V3) {
-      const cosignerValidation = this.validateCosigner((order as CosignedV2DutchOrder | CosignedV3DutchOrder).info.cosigner)
+      const dutchOrder = order as CosignedV2DutchOrder | CosignedV3DutchOrder
+      const cosignerValidation = this.validateCosigner(dutchOrder.info.cosigner)
       if (!cosignerValidation.valid) {
         return cosignerValidation
+      }
+
+      // If input override is set, it must be less than the start amount
+      if (!dutchOrder.info.cosignerData.inputOverride.isZero() && 
+          dutchOrder.info.cosignerData.inputOverride.gt(  dutchOrder.info.input.startAmount)) {
+        return {
+          valid: false,
+          errorString: 'Invalid inputOverride > startAmount',
+        }
       }
     }
 
@@ -127,29 +137,29 @@ export class OffChainUniswapXOrderValidator {
         return outputsValidation
       }
     } else if (orderType == OrderType.Dutch_V3) {
-      const input = order.info.input as V3DutchInput
-      const inputStartAmountValidation = this.validateInputAmount(input.startAmount)
+      const dutchV3Order = order as CosignedV3DutchOrder
+      const inputStartAmountValidation = this.validateInputAmount(dutchV3Order.info.input.startAmount)
       if (!inputStartAmountValidation.valid) {
         return inputStartAmountValidation
       }
 
-      const curveValidation = this.validateV3Curve(input.curve)
+      const curveValidation = this.validateV3Curve(dutchV3Order.info.input.curve)
       if (!curveValidation.valid) {
         return curveValidation
       }
 
-      const inputMaxAmountValidation = this.validateInputAmount(input.maxAmount)
+      const inputMaxAmountValidation = this.validateInputAmount(dutchV3Order.info.input.maxAmount)
       if (!inputMaxAmountValidation.valid) {
         return inputMaxAmountValidation
       }
-      if (input.startAmount.gt(input.maxAmount)) {
+      if (dutchV3Order.info.input.startAmount.gt(dutchV3Order.info.input.maxAmount)) {
         return {
           valid: false,
           errorString: `Invalid maxAmount < startAmount`,
         }
       }
 
-      const outputsValidation = this.validateV3DutchOutputs(order.info.outputs as V3DutchOutput[])
+      const outputsValidation = this.validateV3DutchOutputs(order.info.outputs as V3DutchOutput[], dutchV3Order.info.cosignerData.outputOverrides)
       if (!outputsValidation.valid) {
         return outputsValidation
       }
@@ -383,14 +393,15 @@ export class OffChainUniswapXOrderValidator {
   }
 
 
-  private validateV3DutchOutputs(outputs: V3DutchOutput[]): OrderValidationResponse {
+  private validateV3DutchOutputs(outputs: V3DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
     if (outputs.length == 0) {
       return {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
       }
     }
-    for (const output of outputs) {
+    for (let i = 0; i < outputs.length; i++) {
+      const output = outputs[i]
       const { token, recipient, startAmount, curve, minAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
         return {
@@ -430,6 +441,13 @@ export class OffChainUniswapXOrderValidator {
       const curveValidation = this.validateV3Curve(curve)
       if (!curveValidation.valid) {
         return curveValidation
+      }
+
+      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(startAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid outputOverride < startAmount`,
+        }
       }
     }
     return {

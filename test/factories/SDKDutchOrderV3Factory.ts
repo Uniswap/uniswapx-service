@@ -55,7 +55,7 @@ export class SDKDutchOrderV3Factory {
       .inputOverride(
         overrides.cosignerData?.inputOverride
           ? BigNumber.from(overrides.cosignerData?.inputOverride)
-          : BigNumber.from('1000000')
+          : BigNumber.from('0')
       )
 
     const outputs = overrides.outputs ?? [{}]
@@ -77,7 +77,7 @@ export class SDKDutchOrderV3Factory {
 
     const outputOverrides = overrides.cosignerData?.outputOverrides
       ? overrides.cosignerData?.outputOverrides.map((num) => BigNumber.from(num))
-      : [BigNumber.from('1000000000000000000')]
+      : [BigNumber.from('0')]
 
     const validationInfo = encodeExclusiveFillerData(
       overrides.cosignerData?.exclusiveFiller ?? '0x1111111111111111111111111111111111111111',
