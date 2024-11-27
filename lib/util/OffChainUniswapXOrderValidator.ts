@@ -10,7 +10,6 @@ import {
   PriorityInput,
   PriorityOutput,
   REACTOR_ADDRESS_MAPPING,
-  V3DutchInput,
   V3DutchOutput,
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
@@ -56,7 +55,7 @@ export class OffChainUniswapXOrderValidator {
 
       // If input override is set, it must be less than the start amount
       if (!dutchOrder.info.cosignerData.inputOverride.isZero() && 
-          dutchOrder.info.cosignerData.inputOverride.gt(  dutchOrder.info.input.startAmount)) {
+          dutchOrder.info.cosignerData.inputOverride.gt(dutchOrder.info.input.startAmount)) {
         return {
           valid: false,
           errorString: 'Invalid inputOverride > startAmount',
