@@ -350,7 +350,7 @@ describe('Testing off chain validation', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
         cosigner: process.env.LABS_COSIGNER
       })
-      order.info.deadline = CURRENT_TIME + ONE_DAY;
+      order.info.deadline = CURRENT_TIME + ONE_DAY
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         valid: true
@@ -370,11 +370,13 @@ describe('Testing off chain validation', () => {
 
     it('Should throw missing cosigner', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE)
-      order.info.deadline = CURRENT_TIME + ONE_DAY;
+      // Invalid cosigner
+      order.info.cosigner = '0x0000000000000000000000000000000000000001'
+      order.info.deadline = CURRENT_TIME + ONE_DAY
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         valid: false,
-        errorString: 'Invalid cosigner: ValidationError: "value" must be [0x4449Cd34d1eb1FEDCF02A1Be3834FfDe8E6A6180]',
+        errorString: 'Invalid cosigner: ValidationError: "value" must be [0x0000000000000000000000000000000000000000]',
       })
     })
 
@@ -388,9 +390,9 @@ describe('Testing off chain validation', () => {
           },
         },
       })
-      order.info.deadline = CURRENT_TIME + ONE_DAY;
+      order.info.deadline = CURRENT_TIME + ONE_DAY
       // Set to be empty
-      order.info.input.curve.relativeBlocks = [];
+      order.info.input.curve.relativeBlocks = []
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         valid: false,
@@ -409,8 +411,8 @@ describe('Testing off chain validation', () => {
         },
       })
       // Set to be non increasing
-      order.info.input.curve.relativeBlocks = [1, 1];
-      order.info.deadline = CURRENT_TIME + ONE_DAY;
+      order.info.input.curve.relativeBlocks = [1, 1]
+      order.info.deadline = CURRENT_TIME + ONE_DAY
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         valid: false,
@@ -427,8 +429,8 @@ describe('Testing off chain validation', () => {
         },
       })
       // Override with more than the startAmount
-      order.info.cosignerData.inputOverride = BigNumber.from('1000000000000000000');
-      order.info.deadline = CURRENT_TIME + ONE_DAY;
+      order.info.cosignerData.inputOverride = BigNumber.from('1000000000000000000')
+      order.info.deadline = CURRENT_TIME + ONE_DAY
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         valid: false,
@@ -449,9 +451,9 @@ describe('Testing off chain validation', () => {
         },
       ]
     })
-    order.info.deadline = CURRENT_TIME + ONE_DAY;
+    order.info.deadline = CURRENT_TIME + ONE_DAY
     // Set to be empty
-    order.info.outputs[0].curve.relativeBlocks = [];
+    order.info.outputs[0].curve.relativeBlocks = []
     const validationResp = validationProvider.validate(order)
     expect(validationResp).toEqual({
       valid: false,
@@ -472,8 +474,8 @@ describe('Testing off chain validation', () => {
       ],
     })
     // Set to be non increasing
-    order.info.outputs[0].curve.relativeBlocks = [2, 1];
-    order.info.deadline = CURRENT_TIME + ONE_DAY;
+    order.info.outputs[0].curve.relativeBlocks = [2, 1]
+    order.info.deadline = CURRENT_TIME + ONE_DAY
     const validationResp = validationProvider.validate(order)
     expect(validationResp).toEqual({
       valid: false,
@@ -492,7 +494,7 @@ describe('Testing off chain validation', () => {
         maxAmount: BigNumber.from(10),
       },
     })
-    order.info.deadline = CURRENT_TIME + ONE_DAY;
+    order.info.deadline = CURRENT_TIME + ONE_DAY
     const validationResp = validationProvider.validate(order)
     expect(validationResp).toEqual({
       valid: false,
@@ -513,7 +515,7 @@ describe('Testing off chain validation', () => {
         },
       ],
     })
-    order.info.deadline = CURRENT_TIME + ONE_DAY;
+    order.info.deadline = CURRENT_TIME + ONE_DAY
     const validationResp = validationProvider.validate(order)
     expect(validationResp).toEqual({
       valid: false,
@@ -532,8 +534,8 @@ describe('Testing off chain validation', () => {
       ]
     })
     // Override with less than the startAmount
-    order.info.cosignerData.outputOverrides = [BigNumber.from('99')];
-    order.info.deadline = CURRENT_TIME + ONE_DAY;
+    order.info.cosignerData.outputOverrides = [BigNumber.from('99')]
+    order.info.deadline = CURRENT_TIME + ONE_DAY
     const validationResp = validationProvider.validate(order)
     expect(validationResp).toEqual({
       valid: false,
