@@ -370,6 +370,7 @@ describe('Testing off chain validation', () => {
 
     it('Should throw missing cosigner', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE)
+      order.info.deadline = CURRENT_TIME + ONE_DAY;
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         valid: false,
