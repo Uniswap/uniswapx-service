@@ -11,6 +11,10 @@ import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { SDKRelayOrderFactory } from '../../../factories/SDKRelayOrderFactory'
 import { QUOTE_ID, SIGNATURE } from '../../fixtures'
+import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
+import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
+import { SDKPriorityOrderFactory } from '../../../factories/SDKPriorityOrderFactory'
+import { PriorityOrder } from '../../../../lib/models/PriorityOrder'
 
 describe('PostOrderBodyParser', () => {
   const parser = new PostOrderBodyParser(mock<Logger>())
@@ -115,6 +119,34 @@ describe('PostOrderBodyParser', () => {
       }) as DutchV2Order
       expect(actual.orderType).toBe(OrderType.Dutch_V2)
       expect(actual.inner).toEqual(dutchV2Order)
+      expect(actual.chainId).toEqual(ChainId.MAINNET)
+      expect(actual.signature).toEqual(SIGNATURE)
+    })
+
+    it('parses a DutchV3 order', () => {
+      const dutchV3Order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE)
+      const actual = parser.fromPostRequest({
+        chainId: ChainId.ARBITRUM_ONE,
+        orderType: OrderType.Dutch_V3,
+        encodedOrder: dutchV3Order.serialize(),
+        signature: SIGNATURE,
+      }) as DutchV3Order
+      expect(actual.orderType).toBe(OrderType.Dutch_V3)
+      expect(actual.inner).toEqual(dutchV3Order)
+      expect(actual.chainId).toEqual(ChainId.ARBITRUM_ONE)
+      expect(actual.signature).toEqual(SIGNATURE)
+    })
+
+    it('parses a Priority order', () => {
+      const priorityOrder = SDKPriorityOrderFactory.buildPriorityOrder()
+      const actual = parser.fromPostRequest({
+        chainId: ChainId.MAINNET,
+        orderType: OrderType.Priority,
+        encodedOrder: priorityOrder.serialize(),
+        signature: SIGNATURE,
+      }) as PriorityOrder
+      expect(actual.orderType).toBe(OrderType.Priority)
+      expect(actual.inner).toEqual(priorityOrder)
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.signature).toEqual(SIGNATURE)
     })

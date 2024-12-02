@@ -6,6 +6,7 @@ import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
+import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 
 dotenv.config()
 
@@ -86,15 +87,6 @@ describe('Testing off chain validation', () => {
         noInstanceOrder as any
       )
       expect(validationResp).toEqual({ valid: false, errorString: 'Invalid orderType' })
-    })
-
-    it('Should throw invalid deadline with v2 order', () => {
-      const order = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, { cosigner: process.env.LABS_COSIGNER })
-      const validationResp = new OffChainUniswapXOrderValidator(() => 10, ONE_DAY_IN_SECONDS).validate(order)
-      expect(validationResp).toEqual({
-        valid: false,
-        errorString: 'Deadline field invalid: Order expiry cannot be larger than 1440 minutes',
-      })
     })
   })
 
@@ -350,6 +342,204 @@ describe('Testing off chain validation', () => {
           'Invalid orderHash: ValidationError: "value" with value "0xfoo" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{64}$/',
         valid: false,
       })
+    })
+  })
+
+  describe('Testing v3 order validation', () => {
+    it('Should return valid', () => {
+      const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+        cosigner: process.env.LABS_COSIGNER
+      })
+      order.info.deadline = CURRENT_TIME + ONE_DAY
+      const validationResp = validationProvider.validate(order)
+      expect(validationResp).toEqual({
+        valid: true
+      })
+    })
+
+    it('Should throw invalid deadline', () => {
+      const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+        cosigner: process.env.LABS_COSIGNER
+      })
+      const validationResp = validationProvider.validate(order)
+      expect(validationResp).toEqual({
+        valid: false,
+        errorString: 'Deadline field invalid: Order expiry cannot be larger than 1440 minutes',
+      })
+    })
+
+    it('Should throw missing cosigner', () => {
+      const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE)
+      // Invalid cosigner
+      order.info.cosigner = '0x0000000000000000000000000000000000000001'
+      order.info.deadline = CURRENT_TIME + ONE_DAY
+      const validationResp = validationProvider.validate(order)
+      expect(validationResp).toEqual({
+        valid: false,
+        errorString: 'Invalid cosigner: ValidationError: "value" must be [0x0000000000000000000000000000000000000000]',
+      })
+    })
+
+    it('Should throw invalid input curve with mismatched lengths', () => {
+      const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+        cosigner: process.env.LABS_COSIGNER,
+        input: {
+          curve: {
+            relativeBlocks: [1],
+            relativeAmounts: [BigInt(1000000000000000000)],
+          },
+        },
+      })
+      order.info.deadline = CURRENT_TIME + ONE_DAY
+      // Set to be empty
+      order.info.input.curve.relativeBlocks = []
+      const validationResp = validationProvider.validate(order)
+      expect(validationResp).toEqual({
+        valid: false,
+        errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length',
+      })
+    })
+
+    it('Should throw invalid input curve with non-increasing relativeBlocks', () => {
+      const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+        cosigner: process.env.LABS_COSIGNER,
+        input: {
+          curve: {
+            relativeBlocks: [1, 2],
+            relativeAmounts: [BigInt(1000000000000000000), BigInt(1000000000000000000)],
+          },
+        },
+      })
+      // Set to be non increasing
+      order.info.input.curve.relativeBlocks = [1, 1]
+      order.info.deadline = CURRENT_TIME + ONE_DAY
+      const validationResp = validationProvider.validate(order)
+      expect(validationResp).toEqual({
+        valid: false,
+        errorString: 'Invalid curve: relativeBlocks must be strictly increasing',
+      })
+    })
+
+    it('Should throw invalid input override if greater than startAmount', () => {
+      const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+        cosigner: process.env.LABS_COSIGNER,
+        input: {
+          startAmount: BigNumber.from(100),
+          maxAmount: BigNumber.from(100),
+        },
+      })
+      // Override with more than the startAmount
+      order.info.cosignerData.inputOverride = BigNumber.from('1000000000000000000')
+      order.info.deadline = CURRENT_TIME + ONE_DAY
+      const validationResp = validationProvider.validate(order)
+      expect(validationResp).toEqual({
+        valid: false,
+        errorString: 'Invalid inputOverride > startAmount',
+      })
+    })
+  })
+
+  it('Should throw invalid output curve with mismatched lengths', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      outputs: [
+        {
+          curve: {
+            relativeBlocks: [1],
+            relativeAmounts: [BigInt(1000000000000000000)],
+          },
+        },
+      ]
+    })
+    order.info.deadline = CURRENT_TIME + ONE_DAY
+    // Set to be empty
+    order.info.outputs[0].curve.relativeBlocks = []
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length',
+    })
+  })
+
+  it('Should throw invalid output curve with non-increasing relativeBlocks', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      outputs: [
+        {
+          curve: {
+            relativeBlocks: [1, 2],
+            relativeAmounts: [BigInt(1000000000000000000), BigInt(1000000000000000000)],
+          },
+        },
+      ],
+    })
+    // Set to be non increasing
+    order.info.outputs[0].curve.relativeBlocks = [2, 1]
+    order.info.deadline = CURRENT_TIME + ONE_DAY
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid curve: relativeBlocks must be strictly increasing',
+    })
+  })
+
+  it('Should throw invalid max input amount', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      cosignerData: {
+        inputOverride: BigNumber.from(100),
+      },
+      input: {
+        startAmount: BigNumber.from(100),
+        maxAmount: BigNumber.from(10),
+      },
+    })
+    order.info.deadline = CURRENT_TIME + ONE_DAY
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid maxAmount < startAmount',
+    })
+  })
+
+  it('Should throw invalid min output amount', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      cosignerData: {
+        outputOverrides: [BigInt(100)],
+      },
+      outputs: [
+        {
+          startAmount: BigNumber.from(100),
+          minAmount: BigNumber.from(1000),
+        },
+      ],
+    })
+    order.info.deadline = CURRENT_TIME + ONE_DAY
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid minAmount > startAmount',
+    })
+  })
+
+  it('Should throw invalid output override if less than startAmount', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      outputs: [
+        {
+          startAmount: BigNumber.from(100),
+            minAmount: BigNumber.from(100),
+        },
+      ]
+    })
+    // Override with less than the startAmount
+    order.info.cosignerData.outputOverrides = [BigNumber.from('99')]
+    order.info.deadline = CURRENT_TIME + ONE_DAY
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid outputOverride < startAmount',
     })
   })
 })

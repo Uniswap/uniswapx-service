@@ -2,7 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
-import { isPriorityOrderEntity, ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../entities'
+import { isDutchV3OrderEntity, isPriorityOrderEntity, ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
 
@@ -51,6 +51,19 @@ export class AnalyticsService implements AnalyticsServiceInterface {
           outputStartAmount: userOutput.amount,
           outputEndAmount: userOutput.amount,
           outputMpsPerPriorityFeeWei: userOutput.mpsPerPriorityFeeWei,
+        }),
+      })
+    } else if (isDutchV3OrderEntity(order)) {
+      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
+      this.logger.info('Analytics Message', {
+        eventType: 'OrderPosted',
+        body: Object.assign(sharedFields, {
+          startBlock: order.cosignerData.decayStartBlock,
+          inputStartAmount: order.input?.startAmount,
+          inputCurve: JSON.stringify(order.input?.curve),
+          outputStartAmount: userOutput.startAmount,
+          outputCurve: JSON.stringify(userOutput.curve),
+          startingBaseFee: order.startingBaseFee,
         }),
       })
     } else {

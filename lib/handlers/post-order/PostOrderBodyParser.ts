@@ -8,6 +8,8 @@ import {
   RelayOrder as SDKRelayOrder,
   RelayOrderParser,
   UniswapXOrderParser,
+  CosignedV3DutchOrder,
+  CosignedV3DutchOrder as SDKV3DutchOrder,
 } from '@uniswap/uniswapx-sdk'
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { DutchV1Order } from '../../models/DutchV1Order'
@@ -17,6 +19,7 @@ import { Order } from '../../models/Order'
 import { PriorityOrder } from '../../models/PriorityOrder'
 import { RelayOrder } from '../../models/RelayOrder'
 import { PostOrderRequestBody } from './schema'
+import { DutchV3Order } from '../../models/DutchV3Order'
 import { metrics } from '../../util/metrics'
 import { Unit } from 'aws-embedded-metrics'
 import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
@@ -36,6 +39,8 @@ export class PostOrderBodyParser {
         return this.tryParseLimitOrder(encodedOrder, signature, chainId, body.quoteId)
       case OrderType.Dutch_V2:
         return this.tryParseDutchV2Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
+      case OrderType.Dutch_V3:
+        return this.tryParseDutchV3Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Relay:
         return this.tryParseRelayOrder(encodedOrder, signature, chainId)
       case OrderType.Priority:
@@ -113,6 +118,27 @@ export class PostOrderBodyParser {
       return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV2 order', {
+        err,
+        encodedOrder,
+        chainId,
+        signature,
+      })
+      throw err
+    }
+  }
+
+  private tryParseDutchV3Order(
+    encodedOrder: string,
+    signature: string,
+    chainId: number,
+    quoteId?: string,
+    requestId?: string
+  ): DutchV3Order {
+    try {
+      const order = CosignedV3DutchOrder.parse(encodedOrder, chainId)
+      return new DutchV3Order(order as SDKV3DutchOrder, signature, chainId, undefined, undefined, quoteId, requestId)
+    } catch (err) {
+      this.logger.error('Unable to parse DutchV3 order', {
         err,
         encodedOrder,
         chainId,

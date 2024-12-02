@@ -35,7 +35,7 @@ describe('Testing get orders handler.', () => {
     ],
   }
 
-  const MOCK_V2_ORDER = {
+  const MOCK_V3_ORDER = {
     signature:
       '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
     orderStatus: ORDER_STATUS.OPEN,
@@ -43,16 +43,21 @@ describe('Testing get orders handler.', () => {
     swapper: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
     encodedOrder:
       '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000022000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000003867393cc6ea7b0414c2c3e1d9fe7cea987fd06600000000000000000000000011e4857bb9993a50c685a79afad4e6f65d518dda000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000660dd05e000000000000000000000000222222222222222222222222222222222222222200000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000660dd05e0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000029a2241af62c00000000000000000000000000000000000000000000000000001bc16d674ec8000000000000000000000000000011e4857bb9993a50c685a79afad4e6f65d518dda00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000de0b6b3a764000000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000029a2241af62c000000000000000000000000000000000000000000000000000000000000000000411c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b28341400000000000000000000000000000000000000000000000000000000000000',
-    type: OrderType.Dutch_V2,
-    chainId: 1,
+    type: OrderType.Dutch_V3,
+    chainId: 42161,
+    startingBaseFee: '1000000000000000000',
     input: {
       token: '0x0000000000000000000000000000000000000000',
       startAmount: '1000000000000000000',
-      endAmount: '1000000000000000000',
+      adjustmentPerGweiBaseFee: '5000',
+      curve: {
+        relativeBlocks: ['1', '2', '3'],
+        relativeAmounts: ['4', '5', '6'],
+      },
+      maxAmount: '1000000000000000000',
     },
     cosignerData: {
-      decayStartTime: 1,
-      decayEndTime: 3,
+      decayStartBlock: 1,
       exclusiveFiller: '0x0000000000000000000000000000000000000000',
       inputOverride: '1000000000000000000',
       outputOverrides: ['3000000000000000000'],
@@ -63,7 +68,12 @@ describe('Testing get orders handler.', () => {
       {
         token: '0x0000000000000000000000000000000000000001',
         startAmount: '3000000000000000000',
-        endAmount: '2000000000000000000',
+        adjustmentPerGweiBaseFee: '5000',
+        curve: {
+          relativeBlocks: ['1', '2', '3'],
+          relativeAmounts: ['4', '5', '6'],
+        },
+        minAmount: '2000000000000000000',
         recipient: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
       },
     ],
@@ -156,26 +166,6 @@ describe('Testing get orders handler.', () => {
     headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
   })
 
-  it('Testing valid request and response for Dutch_V2 without includeV2 flag, removes Dutch_V2 orders', async () => {
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
-
-    getOrdersMock.mockReturnValue({
-      orders: [MOCK_ORDER, MOCK_V2_ORDER],
-      cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
-    })
-    const getOrdersResponse = await getOrdersHandler().handler({} as any, {} as any)
-
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
-    expect(getOrdersResponse).toMatchObject({
-      body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' }),
-      statusCode: 200,
-    })
-    expect(getOrdersResponse.headers).not.toBeUndefined()
-    const headerExpectation = new HeaderExpectation(getOrdersResponse.headers)
-    headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
-  })
-
   it('Testing valid request and response, Priority order', async () => {
     const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
       new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
@@ -190,6 +180,29 @@ describe('Testing get orders handler.', () => {
     expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({
         orders: [MOCK_PRIORITY_ORDER],
+        cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
+      }),
+      statusCode: 200,
+    })
+    expect(getOrdersResponse.headers).not.toBeUndefined()
+    const headerExpectation = new HeaderExpectation(getOrdersResponse.headers)
+    headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
+  })
+
+  it('Testing valid request and response, DutchV3 order', async () => {
+    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+    getOrdersMock.mockReturnValue({
+      orders: [MOCK_V3_ORDER],
+      cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
+    })
+
+    const getOrdersResponse = await getOrdersHandler().handler({} as any, {} as any)
+
+    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
+    expect(getOrdersResponse).toMatchObject({
+      body: JSON.stringify({
+        orders: [MOCK_V3_ORDER],
         cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
       }),
       statusCode: 200,

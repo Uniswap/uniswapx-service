@@ -27,7 +27,6 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   swapper: FieldValidator.isValidEthAddress(),
   orderStatus: FieldValidator.isValidOrderStatus(),
   desc: Joi.boolean(),
-  includeV2: Joi.boolean(),
   orderType: FieldValidator.isValidGetQueryParamOrderType(),
 })
   .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler')
@@ -61,7 +60,6 @@ export type SharedGetOrdersQueryParams = {
 export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
   swapper?: string
   orderHashes: string
-  includeV2?: boolean
 }
 export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
   offerer?: string

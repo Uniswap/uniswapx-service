@@ -13,6 +13,7 @@ import { RelayOrder } from '../models/RelayOrder'
 import { UniswapXOrder } from '../models/UniswapXOrder'
 import { RelayOrderService } from './RelayOrderService'
 import { UniswapXOrderService } from './UniswapXOrderService'
+import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
 
 export class OrderDispatcher {
   constructor(
@@ -37,7 +38,9 @@ export class OrderDispatcher {
     orderType: GetOrderTypeQueryParamEnum,
     { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
   ): Promise<
-    | GetOrdersResponse<UniswapXOrderEntity | GetDutchV2OrderResponse | GetPriorityOrderResponse>
+    | GetOrdersResponse<
+        UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetPriorityOrderResponse
+      >
     | GetOrdersResponse<GetRelayOrderResponse>
   > {
     switch (orderType) {
@@ -47,6 +50,8 @@ export class OrderDispatcher {
         return await this.relayOrderService.getOrders(limit, params, cursor)
       case GetOrderTypeQueryParamEnum.Dutch_V2:
         return await this.uniswapXService.getDutchV2Orders(limit, params, cursor)
+      case GetOrderTypeQueryParamEnum.Dutch_V3:
+        return await this.uniswapXService.getDutchV3Orders(limit, params, cursor)
       case GetOrderTypeQueryParamEnum.Dutch:
         return await this.uniswapXService.getDutchOrders(limit, params, cursor)
       case GetOrderTypeQueryParamEnum.Priority:
@@ -63,6 +68,7 @@ export class OrderDispatcher {
       order.orderType === OrderType.Dutch ||
       order.orderType === OrderType.Limit ||
       order.orderType === OrderType.Dutch_V2 ||
+      order.orderType === OrderType.Dutch_V3 ||
       order.orderType === OrderType.Priority
     )
   }

@@ -62,14 +62,20 @@ export class StepFunctionStack extends cdk.NestedStack {
     // TODO: remove the if block after accounts are set up for parameterization-api
     if (props.envVars['FILL_EVENT_DESTINATION_ARN']) {
       new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
-        destinationArn: checkDefined(props.envVars['FILL_EVENT_DESTINATION_ARN']),
+        destinationArn: checkDefined(
+          props.envVars['FILL_EVENT_DESTINATION_ARN'],
+          'FILL_EVENT_DESTINATION_ARN is undefined'
+        ),
         // filter patterns should match ORDER_STATUS.FILLED, ORDER_STATUS.CANCELLED
         filterPattern: '{ $.orderInfo.orderStatus = "filled" || $.orderInfo.orderStatus = "cancelled" }',
         logGroupName: checkStatusFunction.logGroup.logGroupName,
       })
 
       new aws_logs.CfnSubscriptionFilter(this, 'nonTerminalSub', {
-        destinationArn: checkDefined(props.envVars['ACTIVE_ORDER_EVENT_DESTINATION_ARN']),
+        destinationArn: checkDefined(
+          props.envVars['ACTIVE_ORDER_EVENT_DESTINATION_ARN'],
+          'ACTIVE_ORDER_EVENT_DESTINATION_ARN is undefined'
+        ),
         filterPattern: '{ $.orderInfo.orderStatus = "insufficient-funds" }',
         logGroupName: checkStatusFunction.logGroup.logGroupName,
       })

@@ -1,6 +1,7 @@
 import {
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
+  CosignedV3DutchOrder,
   DutchOrder,
   FillInfo,
   OrderType,
@@ -81,6 +82,9 @@ export class CheckOrderStatusService {
       case OrderType.Dutch_V2:
         parsedOrder = CosignedV2DutchOrder.parse(order.encodedOrder, chainId)
         break
+      case OrderType.Dutch_V3:
+        parsedOrder = CosignedV3DutchOrder.parse(order.encodedOrder, chainId)
+        break
       case OrderType.Priority:
         parsedOrder = CosignedPriorityOrder.parse(order.encodedOrder, chainId)
         break
@@ -133,7 +137,7 @@ export class CheckOrderStatusService {
             maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
             maxFeePerGas: tx.maxFeePerGas,
           },
-          parsedOrder as DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder
+          parsedOrder as DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
         )
 
         await this.fillEventLogger.processFillEvent({

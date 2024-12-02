@@ -1,6 +1,4 @@
 import Joi from 'joi'
-
-import { OrderType } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { UniswapXOrderEntity } from '../../entities'
@@ -21,6 +19,7 @@ import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersRespo
 import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
 import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
 import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
+import { GetDutchV3OrderResponse } from './schema/GetDutchV3OrderResponse'
 
 export class GetOrdersHandler extends APIGLambdaHandler<
   ContainerInjected,
@@ -28,7 +27,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   void,
   RawGetOrdersQueryParams,
   GetOrdersResponse<
-    UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | undefined
+    UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | undefined
   >
 > {
   constructor(
@@ -44,13 +43,13 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   ): Promise<
     | Response<
         GetOrdersResponse<
-          UniswapXOrderEntity | GetDutchV2OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | undefined
+          UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | undefined
         >
       >
     | ErrorResponse
   > {
     const {
-      requestInjected: { limit, queryFilters, cursor, includeV2, orderType },
+      requestInjected: { limit, queryFilters, cursor, orderType },
       containerInjected: { dbInterface },
     } = params
 
@@ -72,9 +71,6 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
       //without orderType specified, keep legacy implementation
       const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
-      if (!includeV2) {
-        getOrdersResult.orders = getOrdersResult.orders.filter((order) => order.type !== OrderType.Dutch_V2)
-      }
 
       return {
         statusCode: 200,

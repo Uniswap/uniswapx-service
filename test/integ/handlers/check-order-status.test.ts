@@ -19,6 +19,7 @@ import { RelayOrderService } from '../../../lib/services/RelayOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
+import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 
@@ -587,6 +588,189 @@ describe('Testing check order status handler', () => {
               token: resolvedOutput.token,
               startAmount: resolvedOutput.amount.toString(),
               endAmount: resolvedOutput.amount.toString(),
+            },
+          ],
+          cosignerData: {
+            inputOverride: resolvedInput.amount.div(2).toString(),
+          },
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+        const mockFillInfo = getMockFillInfo([resolvedInput], [])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
+    })
+
+    describe('Dutch V3', () => {
+      it('exact input', () => {
+        const resolvedInput = {
+          token: 'weth',
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: 'usdc',
+          amount: BigNumber.from(90),
+        } as TokenTransfer
+
+        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+          input: {
+            token: resolvedInput.token,
+            startAmount: resolvedInput.amount.toString(),
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              startAmount: resolvedOutput.amount.toString(),
+            },
+          ],
+          cosignerData: {
+            inputOverride: resolvedInput.amount.toString(),
+          },
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+
+        const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
+
+      it('exact output', () => {
+        const resolvedInput = {
+          token: 'weth',
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: 'usdc',
+          amount: BigNumber.from(90),
+        } as TokenTransfer
+
+        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+          input: {
+            token: resolvedInput.token,
+            startAmount: resolvedInput.amount.div(2).toString(),
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              startAmount: resolvedOutput.amount.toString(),
+            },
+          ],
+          cosignerData: {
+            inputOverride: resolvedInput.amount.div(2).toString(),
+          },
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+
+        const mockFillInfo = getMockFillInfo([resolvedInput], [resolvedOutput])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
+
+      it('exact input ETH out', () => {
+        const resolvedInput = {
+          token: 'usdc',
+          amount: BigNumber.from(100),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: NATIVE_ADDRESS,
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+
+        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+          input: {
+            token: resolvedInput.token,
+            startAmount: resolvedInput.amount.toString(),
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              startAmount: resolvedOutput.amount.toString(),
+            },
+          ],
+          cosignerData: {
+            inputOverride: resolvedInput.amount.toString(),
+          },
+        })
+
+        mockOrder.resolve = () => {
+          return {
+            input: { token: resolvedInput.token, amount: resolvedInput.amount },
+            outputs: [resolvedOutput],
+          }
+        }
+        const mockFillInfo = getMockFillInfo([resolvedInput], [])
+
+        const settledAmounts = getSettledAmounts(mockFillInfo, { timestamp: 100 }, mockOrder)
+        expect(settledAmounts).toEqual([
+          {
+            tokenIn: resolvedInput.token,
+            amountIn: resolvedInput.amount.toString(),
+            tokenOut: resolvedOutput.token,
+            amountOut: resolvedOutput.amount.toString(),
+          },
+        ])
+      })
+
+      it('exact output ETH out', () => {
+        const resolvedInput = {
+          token: 'usdc',
+          amount: BigNumber.from(100),
+        } as TokenTransfer
+        const resolvedOutput = {
+          token: NATIVE_ADDRESS,
+          amount: BigNumber.from(1),
+        } as TokenTransfer
+
+        const mockOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+          input: {
+            token: resolvedInput.token,
+            startAmount: resolvedInput.amount.div(2).toString(),
+          },
+          outputs: [
+            {
+              token: resolvedOutput.token,
+              startAmount: resolvedOutput.amount.toString(),
             },
           ],
           cosignerData: {

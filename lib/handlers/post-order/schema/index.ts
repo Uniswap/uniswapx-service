@@ -54,6 +54,15 @@ export type DutchV2OrderPostRequestBody = {
   requestId?: string
 }
 
+export type DutchV3OrderPostRequestBody = {
+  orderType: OrderType.Dutch_V3
+  chainId: number
+  encodedOrder: string
+  signature: string
+  quoteId?: string
+  requestId?: string
+}
+
 export type PriorityOrderPostRequestBody = {
   orderType: OrderType.Priority
   chainId: number
@@ -74,6 +83,7 @@ export type PostOrderRequestBody =
   | LegacyDutchOrderPostRequestBody
   | DutchV1OrderPostRequestBody
   | DutchV2OrderPostRequestBody
+  | DutchV3OrderPostRequestBody
   | LimitOrderPostRequestBody
   | RelayOrderPostRequestBody
   | PriorityOrderPostRequestBody
