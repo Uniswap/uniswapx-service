@@ -105,7 +105,7 @@ export class DutchV3Order extends Order {
         token: this.inner.info.input.token,
         startAmount: this.inner.info.input.startAmount.toString(),
         curve: {
-          relativeBlocks: this.inner.info.input.curve.relativeBlocks.map((a) => a.toString()),
+          relativeBlocks: this.inner.info.input.curve.relativeBlocks,
           relativeAmounts: this.inner.info.input.curve.relativeAmounts.map((a) => a.toString()),
         },
         maxAmount: this.inner.info.input.maxAmount.toString(),
@@ -116,7 +116,7 @@ export class DutchV3Order extends Order {
           token: o.token,
           startAmount: o.startAmount.toString(),
           curve: {
-            relativeBlocks: o.curve.relativeBlocks.map((a) => a.toString()),
+            relativeBlocks: o.curve.relativeBlocks,
             relativeAmounts: o.curve.relativeAmounts.map((a) => a.toString()),
           },
           minAmount: o.minAmount.toString(),

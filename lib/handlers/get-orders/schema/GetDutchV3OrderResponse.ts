@@ -20,7 +20,7 @@ export type GetDutchV3OrderResponse = {
     token: string
     startAmount: string
     curve: {
-      relativeBlocks: string[]
+      relativeBlocks: number[]
       relativeAmounts: string[]
     }
     maxAmount: string
@@ -30,7 +30,7 @@ export type GetDutchV3OrderResponse = {
     token: string
     startAmount: string
     curve: {
-      relativeBlocks: string[]
+      relativeBlocks: number[]
       relativeAmounts: string[]
     }
     recipient: string
