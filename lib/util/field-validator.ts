@@ -158,6 +158,10 @@ export default class FieldValidator {
     return this.BIG_NUMBER_JOI
   }
 
+  public static isValidNumber(): NumberSchema {
+    return this.NUMBER_JOI
+  }
+
   public static isValidOrderHashes(): StringSchema {
     return this.ORDER_HASHES_JOI
   }
