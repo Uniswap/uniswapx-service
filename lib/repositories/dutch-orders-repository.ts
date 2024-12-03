@@ -38,6 +38,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         cosignature: { type: DYNAMODB_TYPES.STRING },
         auctionStartBlock: { type: DYNAMODB_TYPES.NUMBER },
         baselinePriorityFeeWei: { type: DYNAMODB_TYPES.STRING },
+        startingBaseFee: { type: DYNAMODB_TYPES.STRING },
         cosigner: { type: DYNAMODB_TYPES.STRING },
 
         //on chain data
