@@ -73,7 +73,7 @@ export const GetDutchV3OrderResponseEntryJoi = Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
     startAmount: FieldValidator.isValidAmount().required(),
     curve: Joi.object({
-      relativeBlocks: Joi.array().items(FieldValidator.isValidAmount()),
+      relativeBlocks: Joi.array().items(FieldValidator.isValidNumber()),
       relativeAmounts: Joi.array().items(FieldValidator.isValidAmount()),
     }),
     maxAmount: FieldValidator.isValidAmount(),
@@ -84,7 +84,7 @@ export const GetDutchV3OrderResponseEntryJoi = Joi.object({
       token: FieldValidator.isValidEthAddress().required(),
       startAmount: FieldValidator.isValidAmount().required(),
       curve: Joi.object({
-        relativeBlocks: Joi.array().items(FieldValidator.isValidAmount()),
+        relativeBlocks: Joi.array().items(FieldValidator.isValidNumber()),
         relativeAmounts: Joi.array().items(FieldValidator.isValidAmount()),
       }),
       recipient: FieldValidator.isValidEthAddress().required(),
