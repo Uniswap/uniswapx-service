@@ -53,7 +53,7 @@ describe('Testing get orders handler.', () => {
       startAmount: '1000000000000000000',
       adjustmentPerGweiBaseFee: '5000',
       curve: {
-        relativeBlocks: ['1', '2', '3'],
+        relativeBlocks: [1, 2, 3],
         relativeAmounts: ['4', '5', '6'],
       },
       maxAmount: '1000000000000000000',
@@ -72,7 +72,7 @@ describe('Testing get orders handler.', () => {
         startAmount: '3000000000000000000',
         adjustmentPerGweiBaseFee: '5000',
         curve: {
-          relativeBlocks: ['1', '2', '3'],
+          relativeBlocks: [1, 2, 3],
           relativeAmounts: ['4', '5', '6'],
         },
         minAmount: '2000000000000000000',
