@@ -5,6 +5,10 @@ import { eventRecordToOrder } from '../../util/order'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
+import { CosignedV2DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
+import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
+import { Unit } from 'aws-embedded-metrics'
+import { ChainId } from '../../util/chain'
 
 const WEBHOOK_TIMEOUT_MS = 500
 
@@ -22,6 +26,22 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
     for (const record of event.Records) {
       try {
         const newOrder = eventRecordToOrder(record)
+
+        // Log the decay start time difference for debugging
+        if (newOrder.orderType == OrderType.Dutch_V2) {
+          const order = CosignedV2DutchOrder.parse(newOrder.encodedOrder, newOrder.chainId)
+          const decayStartTime = order.info.cosignerData.decayStartTime
+          const currentTime = Math.floor(Date.now() / 1000) // Convert to seconds
+          const timeDifference = Number(decayStartTime) - currentTime
+
+          // GPA currentlys sets mainnet decay start to 24 secs into the future
+          if (newOrder.chainId == ChainId.MAINNET && timeDifference > DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC) {
+            const staleOrderMetricName = `NotificationStaleOrder-chain-${newOrder.chainId.toString()}`
+            metrics.putMetric(staleOrderMetricName, 1, Unit.Count)
+          }
+          const staleOrderMetricName = `NotificationOrderStaleness-chain-${newOrder.chainId.toString()}`
+          metrics.putMetric(staleOrderMetricName, timeDifference)
+        }
 
         const registeredEndpoints = await webhookProvider.getEndpoints({
           offerer: newOrder.swapper,

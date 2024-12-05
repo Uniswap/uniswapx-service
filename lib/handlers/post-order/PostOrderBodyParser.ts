@@ -23,6 +23,7 @@ import { DutchV3Order } from '../../models/DutchV3Order'
 import { metrics } from '../../util/metrics'
 import { Unit } from 'aws-embedded-metrics'
 import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
+import { ChainId } from '../../util/chain'
 
 export class PostOrderBodyParser {
   private readonly uniswapXParser = new UniswapXOrderParser()
@@ -106,9 +107,10 @@ export class PostOrderBodyParser {
       // Log the decay start time difference for debugging
       const decayStartTime = order.info.cosignerData.decayStartTime
       const currentTime = Math.floor(Date.now() / 1000) // Convert to seconds
-      const timeDifference = currentTime - Number(decayStartTime)
+      const timeDifference = Number(decayStartTime) - currentTime
 
-      if (timeDifference > DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC) {
+      // GPA currentlys sets mainnet decay start to 24 secs into the future
+      if (chainId == ChainId.MAINNET && timeDifference > DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC) {
         const staleOrderMetricName = `StaleOrder-chain-${chainId.toString()}`
         metrics.putMetric(staleOrderMetricName, 1, Unit.Count)
       }
