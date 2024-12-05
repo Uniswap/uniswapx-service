@@ -469,6 +469,43 @@ export class DashboardStack extends cdk.NestedStack {
             },
           },
           {
+            height: 6,
+            width: 12,
+            y: 62,
+            x: 0,
+            type: 'metric',
+            properties: {
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
+                ['Uniswap', `NotificationOrderStaleness-chain-${chainId}`, 'Service', `UniswapXService`],
+                ['.', '.', '.', `.`, { stat: 'p99' }],
+                ['.', '.', '.', `.`, { stat: 'p50' }],
+                ['.', '.', '.', `.`, { stat: 'Average' }],
+              ]),
+              view: 'timeSeries',
+              region,
+              title: 'DutchV2 Notification Order Staleness',
+              period: 300,
+              stat: 'p90',
+            },
+          },
+          {
+            height: 6,
+            width: 12,
+            y: 62,
+            x: 12,
+            type: 'metric',
+            properties: {
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
+                ['Uniswap', `NotificationStaleOrder-chain-${chainId}`, 'Service', `UniswapXService`],
+              ]),
+              view: 'timeSeries',
+              region,
+              title: 'DutchV2 Notification Stale Order Count',
+              period: 300,
+              stat: 'Sum',
+            },
+          },
+          {
             height: 1,
             width: 24,
             y: 25,
