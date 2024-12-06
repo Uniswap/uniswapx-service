@@ -142,6 +142,8 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/order-notification/index.ts'),
       handler: 'orderNotificationHandler',
+      retryAttempts: 0,
+      reservedConcurrentExecutions: 10,
       memorySize: 512,
       timeout: Duration.seconds(29),
       bundling: {
@@ -163,8 +165,8 @@ export class LambdaStack extends cdk.NestedStack {
 
     const notificationConfig = {
       startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
-      batchSize: 1,
-      retryAttempts: 1,
+      batchSize: 10,
+      retryAttempts: 0,
       bisectBatchOnError: true,
       reportBatchItemFailures: true,
     }

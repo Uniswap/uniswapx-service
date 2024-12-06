@@ -10,7 +10,7 @@ import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
 import { Unit } from 'aws-embedded-metrics'
 import { ChainId } from '../../util/chain'
 
-const WEBHOOK_TIMEOUT_MS = 500
+const WEBHOOK_TIMEOUT_MS = 200
 
 export class OrderNotificationHandler extends DynamoStreamLambdaHandler<ContainerInjected, RequestInjected> {
   public async handleRequest(input: {
@@ -52,7 +52,9 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
 
         log.info({ order: newOrder, registeredEndpoints }, 'Sending order to registered webhooks.')
 
-        const requests: Promise<AxiosResponse>[] = registeredEndpoints.map((endpoint) =>
+        // Randomize the order to prevent any filler from having a consistent advantage
+        const shuffledEndpoints = [...registeredEndpoints].sort(() => Math.random())
+        const requests: Promise<AxiosResponse>[] = shuffledEndpoints.map((endpoint) =>
           axios.post(
             endpoint.url,
             {
