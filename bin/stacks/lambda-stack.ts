@@ -53,6 +53,7 @@ export class LambdaStack extends cdk.NestedStack {
     const { provisionedConcurrency, kmsKey, tableCapacityConfig, indexCapacityConfig, chatbotSNSArn } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
+    const orderNotificationProvisionedConcurrency = 10
 
     const lambdaRole = new aws_iam.Role(this, `${lambdaName}-LambdaRole`, {
       assumedBy: new aws_iam.ServicePrincipal('lambda.amazonaws.com'),
@@ -142,6 +143,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/handlers/order-notification/index.ts'),
       handler: 'orderNotificationHandler',
+      retryAttempts: 0,
       memorySize: 512,
       timeout: Duration.seconds(29),
       bundling: {
@@ -163,8 +165,8 @@ export class LambdaStack extends cdk.NestedStack {
 
     const notificationConfig = {
       startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
-      batchSize: 1,
-      retryAttempts: 1,
+      batchSize: 10,
+      retryAttempts: 0,
       bisectBatchOnError: true,
       reportBatchItemFailures: true,
     }
@@ -364,7 +366,7 @@ export class LambdaStack extends cdk.NestedStack {
     this.orderNotificationLambdaAlias = new aws_lambda.Alias(this, `OrderNotificationAlias`, {
       aliasName: 'live',
       version: this.orderNotificationLambda.currentVersion,
-      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
+      provisionedConcurrentExecutions: orderNotificationProvisionedConcurrency,
     })
 
     if (enableProvisionedConcurrency) {
