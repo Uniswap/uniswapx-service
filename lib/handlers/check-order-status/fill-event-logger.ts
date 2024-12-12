@@ -19,8 +19,8 @@ export type ProcessFillEventRequest = {
   startingBlockNumber: number
   settledAmounts: SettledAmount[]
   quoteId?: string
-  tx: ethers.providers.TransactionResponse
-  block: ethers.providers.Block
+  tx?: ethers.providers.TransactionResponse
+  block?: ethers.providers.Block
   timestamp: number
 }
 export class FillEventLogger {
@@ -40,32 +40,36 @@ export class FillEventLogger {
     block,
     timestamp,
   }: ProcessFillEventRequest): Promise<SettledAmount[]> {
-    const receipt = await tx.wait()
-    const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
+    if (tx && block) {
+      const receipt = await tx.wait()
+      const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
 
-    this.analyticsService.logFillInfo(
-      fillEvent,
-      order,
-      quoteId,
-      timestamp,
-      gasCostInETH,
-      receipt.effectiveGasPrice.toString(),
-      receipt.gasUsed.toString(),
-      receipt.effectiveGasPrice.sub(block.baseFeePerGas ?? 0).toString(),
-      settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
-    )
+      this.analyticsService.logFillInfo(
+        fillEvent,
+        order,
+        quoteId,
+        timestamp,
+        gasCostInETH,
+        receipt.effectiveGasPrice.toString(),
+        receipt.gasUsed.toString(),
+        receipt.effectiveGasPrice.sub(block.baseFeePerGas ?? 0).toString(),
+        settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
+      )
 
-    if (order.type === OrderType.Dutch || order.type === OrderType.Dutch_V2) {
-      const percentDecayed = this.calculatePercentDecayed(order, timestamp)
-      metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
+      if (order.type === OrderType.Dutch || order.type === OrderType.Dutch_V2) {
+        const percentDecayed = this.calculatePercentDecayed(order, timestamp)
+        metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
+      }
+
+      // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
+      if (startingBlockNumber != 0) {
+        const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + this.fillEventBlockLookback(chainId))
+        metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
+      }
+      return settledAmounts
+    } else {
+      return []
     }
-
-    // blocks until fill is the number of blocks between the fill event and the starting block number (need to add back the look back blocks)
-    if (startingBlockNumber != 0) {
-      const blocksUntilFill = fillEvent.blockNumber - (startingBlockNumber + this.fillEventBlockLookback(chainId))
-      metrics.putMetric(`OrderSfn-BlocksUntilFill-chain-${chainId}`, blocksUntilFill, Unit.Count)
-    }
-    return settledAmounts
   }
 
   private calculatePercentDecayed(order: DutchV1OrderEntity | DutchV2OrderEntity, timestamp: number): number {
