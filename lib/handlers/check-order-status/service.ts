@@ -23,6 +23,8 @@ import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
 import { getSettledAmounts, IS_TERMINAL_STATE } from './util'
 
+const FILL_CHECK_OVERLAP_BLOCK = 20
+
 export type CheckOrderStatusRequest = {
   chainId: number
   orderHash: string
@@ -123,39 +125,53 @@ export class CheckOrderStatusService {
     // so check for a fillEvent
     // if no fill event, process in the unfilled path
     if (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) {
-      const fillEvent = await this.getFillEventForOrder(orderHash, fromBlock, curBlockNumber, orderWatcher)
+      const fillEvent = await this.getFillEventForOrder(
+        orderHash,
+        fromBlock - FILL_CHECK_OVERLAP_BLOCK,
+        curBlockNumber,
+        orderWatcher
+      )
       if (fillEvent) {
-        const [tx, block] = await Promise.all([
-          provider.getTransaction(fillEvent.txHash),
-          provider.getBlock(fillEvent.blockNumber),
-        ])
-        const settledAmounts = getSettledAmounts(
-          fillEvent,
-          {
+        try {
+          const [tx, block] = await Promise.all([
+            provider.getTransaction(fillEvent.txHash),
+            provider.getBlock(fillEvent.blockNumber),
+          ])
+          const settledAmounts = getSettledAmounts(
+            fillEvent,
+            {
+              timestamp: block.timestamp,
+              gasPrice: tx.gasPrice,
+              maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+              maxFeePerGas: tx.maxFeePerGas,
+            },
+            parsedOrder as DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
+          )
+
+          await this.fillEventLogger.processFillEvent({
+            fillEvent,
+            quoteId,
+            chainId,
+            startingBlockNumber,
+            order,
+            settledAmounts,
+            tx,
+            block,
             timestamp: block.timestamp,
-            gasPrice: tx.gasPrice,
-            maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
-            maxFeePerGas: tx.maxFeePerGas,
-          },
-          parsedOrder as DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
-        )
+          })
 
-        await this.fillEventLogger.processFillEvent({
-          fillEvent,
-          quoteId,
-          chainId,
-          startingBlockNumber,
-          order,
-          settledAmounts,
-          tx,
-          block,
-          timestamp: block.timestamp,
-        })
-
-        extraUpdateInfo = {
-          orderStatus: ORDER_STATUS.FILLED,
-          txHash: fillEvent.txHash,
-          settledAmounts,
+          extraUpdateInfo = {
+            orderStatus: ORDER_STATUS.FILLED,
+            txHash: fillEvent.txHash,
+            settledAmounts,
+          }
+        } catch (e) {
+          log.error('error processing fill event', { error: e })
+          extraUpdateInfo = {
+            orderStatus: ORDER_STATUS.FILLED,
+            txHash: '',
+            settledAmounts: [],
+          }
         }
       }
     }
