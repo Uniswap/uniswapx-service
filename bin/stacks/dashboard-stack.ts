@@ -506,6 +506,26 @@ export class DashboardStack extends cdk.NestedStack {
             },
           },
           {
+            height: 6,
+            width: 12,
+            y: 68,
+            x: 0,
+            type: 'metric',
+            properties: {
+              metrics: _.flatMap(SUPPORTED_CHAINS, (chainId) => [
+                ['Uniswap', `NotificationRecordStaleness-chain-${chainId}`, 'Service', `UniswapXService`],
+                ['.', '.', '.', `.`, { stat: 'p99' }],
+                ['.', '.', '.', `.`, { stat: 'p50' }],
+                ['.', '.', '.', `.`, { stat: 'Average' }],
+              ]),
+              view: 'timeSeries',
+              region,
+              title: 'DutchV2 Notification Record Staleness',
+              period: 300,
+              stat: 'p90',
+            },
+          },
+          {
             height: 1,
             width: 24,
             y: 25,

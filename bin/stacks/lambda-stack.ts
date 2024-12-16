@@ -165,7 +165,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     const notificationConfig = {
       startingPosition: aws_lambda.StartingPosition.TRIM_HORIZON,
-      batchSize: 10,
+      batchSize: 1,
       retryAttempts: 0,
       bisectBatchOnError: true,
       reportBatchItemFailures: true,

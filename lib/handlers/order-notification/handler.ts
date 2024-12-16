@@ -32,15 +32,20 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
           const order = CosignedV2DutchOrder.parse(newOrder.encodedOrder, newOrder.chainId)
           const decayStartTime = order.info.cosignerData.decayStartTime
           const currentTime = Math.floor(Date.now() / 1000) // Convert to seconds
-          const timeDifference = Number(decayStartTime) - currentTime
+          const decayTimeDifference = Number(decayStartTime) - currentTime
+          if (record.dynamodb && record.dynamodb.ApproximateCreationDateTime) {
+            const recordTimeDifference = record.dynamodb.ApproximateCreationDateTime - currentTime
+            const staleRecordMetricName = `NotificationRecordStaleness-chain-${newOrder.chainId.toString()}`
+            metrics.putMetric(staleRecordMetricName, recordTimeDifference)
+          }
 
-          // GPA currentlys sets mainnet decay start to 24 secs into the future
-          if (newOrder.chainId == ChainId.MAINNET && timeDifference > DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC) {
+          // GPA currently sets mainnet decay start to 24 secs into the future
+          if (newOrder.chainId == ChainId.MAINNET && decayTimeDifference > DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC) {
             const staleOrderMetricName = `NotificationStaleOrder-chain-${newOrder.chainId.toString()}`
             metrics.putMetric(staleOrderMetricName, 1, Unit.Count)
           }
-          const staleOrderMetricName = `NotificationOrderStaleness-chain-${newOrder.chainId.toString()}`
-          metrics.putMetric(staleOrderMetricName, timeDifference)
+          const orderStalenessMetricName = `NotificationOrderStaleness-chain-${newOrder.chainId.toString()}`
+          metrics.putMetric(orderStalenessMetricName, decayTimeDifference)
         }
 
         const registeredEndpoints = await webhookProvider.getEndpoints({
