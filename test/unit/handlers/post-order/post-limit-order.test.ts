@@ -162,7 +162,8 @@ describe('Testing post limit order handler.', () => {
       expect(validatorMock).toBeCalledWith(order)
       expect(kickoffOrderTrackingSfn).toHaveBeenCalledWith(
         expect.objectContaining({ orderType: 'Limit' }),
-        expect.anything()
+        expect.anything(),
+        0
       )
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),

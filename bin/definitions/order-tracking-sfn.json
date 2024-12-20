@@ -12,7 +12,7 @@
             "Lambda.SdkClientException"
           ],
           "IntervalSeconds": 2,
-          "MaxAttempts": 4,
+          "MaxAttempts": 100,
           "BackoffRate": 2
         }
       ],

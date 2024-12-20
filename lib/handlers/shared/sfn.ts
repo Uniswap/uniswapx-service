@@ -13,19 +13,18 @@ export type OrderTrackingSfnInput = {
   stateMachineArn: string
 }
 
-//TODO: remove random for sfn name
-//this is to stop collisions in the running step function name
-const BIG_NUMBER = 1000000000000
-
-export async function kickoffOrderTrackingSfn(sfnInput: OrderTrackingSfnInput, stateMachineArn: string) {
+export async function kickoffOrderTrackingSfn(
+  sfnInput: OrderTrackingSfnInput,
+  stateMachineArn: string,
+  retryCount = 0
+) {
   log.info('starting state machine')
   const region = checkDefined(process.env['REGION'], 'REGION is undefined')
   const sfnClient = new SFNClient({ region: region })
-  const rand = Math.floor(Math.random() * BIG_NUMBER)
   const startExecutionCommand = new StartExecutionCommand({
     stateMachineArn: stateMachineArn,
     input: JSON.stringify(sfnInput),
-    name: sfnInput.orderHash + '_' + rand,
+    name: sfnInput.orderHash + '_' + retryCount,
   })
   log.info('Starting state machine execution', { startExecutionCommand })
   await sfnClient.send(startExecutionCommand)

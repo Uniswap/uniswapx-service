@@ -4,11 +4,11 @@ import { KmsSigner } from '@uniswap/signer'
 import {
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
+  CosignedV3DutchOrder,
   DutchOrder,
   OrderType,
   OrderValidation,
   OrderValidator as OnChainOrderValidator,
-  CosignedV3DutchOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
@@ -17,6 +17,7 @@ import { OrderValidationFailedError } from '../errors/OrderValidationFailedError
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
+import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
@@ -32,7 +33,6 @@ import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
-import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
 const MAX_QUERY_RETRY = 10
 
 export class UniswapXOrderService {
@@ -174,7 +174,8 @@ export class UniswapXOrderService {
         orderType,
         stateMachineArn,
       },
-      stateMachineArn
+      stateMachineArn,
+      0
     )
   }
 
