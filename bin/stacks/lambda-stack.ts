@@ -144,7 +144,7 @@ export class LambdaStack extends cdk.NestedStack {
       entry: path.join(__dirname, '../../lib/handlers/order-notification/index.ts'),
       handler: 'orderNotificationHandler',
       retryAttempts: 0,
-      memorySize: 512,
+      memorySize: 1024,
       timeout: Duration.seconds(29),
       bundling: {
         minify: true,
@@ -169,6 +169,7 @@ export class LambdaStack extends cdk.NestedStack {
       retryAttempts: 0,
       bisectBatchOnError: true,
       reportBatchItemFailures: true,
+      parallelizationFactor: 10,
     }
 
     // TODO: add alarms on the size of this dead letter queue
@@ -475,7 +476,7 @@ export class LambdaStack extends cdk.NestedStack {
 
       const orderNotificationLambdaTarget = new asg.ScalableTarget(this, `OrderNotificationLambda-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
-        maxCapacity: provisionedConcurrency * 2,
+        maxCapacity: provisionedConcurrency * 4,
         minCapacity: provisionedConcurrency,
         resourceId: `function:${this.orderNotificationLambdaAlias.lambda.functionName}:${this.orderNotificationLambdaAlias.aliasName}`,
         scalableDimension: 'lambda:function:ProvisionedConcurrency',
@@ -484,7 +485,7 @@ export class LambdaStack extends cdk.NestedStack {
       orderNotificationLambdaTarget.node.addDependency(this.orderNotificationLambdaAlias)
 
       orderNotificationLambdaTarget.scaleToTrackMetric(`OrderNotificationLambda-ProvConcTracking`, {
-        targetValue: 0.8,
+        targetValue: 0.5,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
     }
