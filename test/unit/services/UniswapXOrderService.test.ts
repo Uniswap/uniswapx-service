@@ -6,21 +6,21 @@ import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { DutchV1Order, DutchV2Order } from '../../../lib/models'
+import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { PriorityOrder } from '../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
+import { ChainId } from '../../../lib/util/chain'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT } from '../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
+import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 import { COSIGNATURE, MOCK_PROVIDER_MAP } from '../fixtures'
-import { DutchV3Order } from '../../../lib/models/DutchV3Order'
-import { ChainId } from '../../../lib/util/chain'
-import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -81,7 +81,8 @@ describe('UniswapXOrderService', () => {
         quoteId: '',
         stateMachineArn: undefined,
       },
-      undefined
+      undefined,
+      0
     )
   })
 
@@ -131,7 +132,8 @@ describe('UniswapXOrderService', () => {
         quoteId: '',
         stateMachineArn: undefined,
       },
-      undefined
+      undefined,
+      0
     )
   })
 
@@ -615,9 +617,10 @@ describe('UniswapXOrderService', () => {
     )
   })
 
-
   test('getDutchV3Orders calls db with Dutch_V3', async () => {
-    const dutchV3Orders = [1, 2, 3].map(() => new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE), '', ChainId.ARBITRUM_ONE))
+    const dutchV3Orders = [1, 2, 3].map(
+      () => new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE), '', ChainId.ARBITRUM_ONE)
+    )
     const mockOrder = dutchV3Orders.map((o) => o.toEntity(ORDER_STATUS.OPEN))
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     repository.getOrdersFilteredByType.mockResolvedValue({ orders: mockOrder })
@@ -636,7 +639,12 @@ describe('UniswapXOrderService', () => {
     )
 
     const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId(ChainId.ARBITRUM_ONE).build()
+    const params = new QueryParamsBuilder()
+      .withDesc()
+      .withSort()
+      .withSortKey()
+      .withChainId(ChainId.ARBITRUM_ONE)
+      .build()
     const response = await service.getDutchV3Orders(limit, params, undefined)
     const expectedResponse = {
       orders: mockOrder.map((o) => DutchV3Order.fromEntity(o).toGetResponse()),
@@ -655,7 +663,9 @@ describe('UniswapXOrderService', () => {
   })
 
   test('getDutchV3Orders loops with empty response', async () => {
-    const dutchV3Orders = [1, 2, 3].map(() => new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE), '', ChainId.ARBITRUM_ONE))
+    const dutchV3Orders = [1, 2, 3].map(
+      () => new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE), '', ChainId.ARBITRUM_ONE)
+    )
     const mockOrder = dutchV3Orders.map((o) => o.toEntity(ORDER_STATUS.OPEN))
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     repository.getOrdersFilteredByType.mockResolvedValueOnce({ orders: [], cursor: 'cursor' })
@@ -675,7 +685,12 @@ describe('UniswapXOrderService', () => {
     )
 
     const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId(ChainId.ARBITRUM_ONE).build()
+    const params = new QueryParamsBuilder()
+      .withDesc()
+      .withSort()
+      .withSortKey()
+      .withChainId(ChainId.ARBITRUM_ONE)
+      .build()
     const response = await service.getDutchV3Orders(limit, params, undefined)
     const expectedResponse = {
       orders: mockOrder.map((o) => DutchV3Order.fromEntity(o).toGetResponse()),
@@ -717,7 +732,12 @@ describe('UniswapXOrderService', () => {
     )
 
     const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId(ChainId.ARBITRUM_ONE).build()
+    const params = new QueryParamsBuilder()
+      .withDesc()
+      .withSort()
+      .withSortKey()
+      .withChainId(ChainId.ARBITRUM_ONE)
+      .build()
     const response = await service.getDutchV3Orders(limit, params, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })

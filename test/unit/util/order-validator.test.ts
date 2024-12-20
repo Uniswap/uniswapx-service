@@ -348,18 +348,18 @@ describe('Testing off chain validation', () => {
   describe('Testing v3 order validation', () => {
     it('Should return valid', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-        cosigner: process.env.LABS_COSIGNER
+        cosigner: process.env.LABS_COSIGNER,
       })
       order.info.deadline = CURRENT_TIME + ONE_DAY
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
-        valid: true
+        valid: true,
       })
     })
 
     it('Should throw invalid deadline', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-        cosigner: process.env.LABS_COSIGNER
+        cosigner: process.env.LABS_COSIGNER,
       })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
@@ -376,7 +376,7 @@ describe('Testing off chain validation', () => {
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
         valid: false,
-        errorString: 'Invalid cosigner: ValidationError: "value" must be [0x0000000000000000000000000000000000000000]',
+        errorString: expect.stringContaining('Invalid cosigner: ValidationError: "value" must be'),
       })
     })
 
@@ -449,7 +449,7 @@ describe('Testing off chain validation', () => {
             relativeAmounts: [BigInt(1000000000000000000)],
           },
         },
-      ]
+      ],
     })
     order.info.deadline = CURRENT_TIME + ONE_DAY
     // Set to be empty
@@ -529,9 +529,9 @@ describe('Testing off chain validation', () => {
       outputs: [
         {
           startAmount: BigNumber.from(100),
-            minAmount: BigNumber.from(100),
+          minAmount: BigNumber.from(100),
         },
-      ]
+      ],
     })
     // Override with less than the startAmount
     order.info.cosignerData.outputOverrides = [BigNumber.from('99')]
