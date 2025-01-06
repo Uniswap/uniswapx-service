@@ -397,6 +397,10 @@
             "description": "TxHash field is defined when the order has been filled and there is a txHash associated with the fill.",
             "type": "string"
           },
+          "fillBlock": {
+            "description": "Fill block field is defined when the order has been filled and the fill block has been recorded.",
+            "type": "number"
+          },
           "settledAmounts": {
             "description": "SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.",
             "type": "array",
