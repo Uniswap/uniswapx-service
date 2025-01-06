@@ -119,7 +119,7 @@ export abstract class GenericOrdersRepository<
         ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
         ...(txHash && { txHash }),
         ...(fillBlock && { fillBlock }),
-        ...(settledAmounts && { settledAmounts }),
+        ...(settledAmounts && { settledAmounts })
       })
     } catch (e) {
       log.error('updateOrderStatus error', { error: e })
