@@ -105,6 +105,7 @@ export abstract class GenericOrdersRepository<
     orderHash: string,
     status: ORDER_STATUS,
     txHash?: string,
+    fillBlock?: number,
     settledAmounts?: SettledAmount[]
   ): Promise<void> {
     try {
@@ -117,6 +118,7 @@ export abstract class GenericOrdersRepository<
         [TABLE_KEY.ORDER_HASH]: orderHash,
         ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
         ...(txHash && { txHash }),
+        ...(fillBlock && { fillBlock }),
         ...(settledAmounts && { settledAmounts }),
       })
     } catch (e) {

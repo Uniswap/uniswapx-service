@@ -10,6 +10,7 @@ export class DutchV3Order extends Order {
     readonly chainId: number,
     readonly orderStatus?: ORDER_STATUS,
     readonly txHash?: string,
+    readonly fillBlock?: number,
     readonly quoteId?: string,
     readonly requestId?: string,
     readonly createdAt?: number
@@ -65,6 +66,7 @@ export class DutchV3Order extends Order {
         outputOverrides: decodedOrder.info.cosignerData.outputOverrides.map((o) => o.toString()),
       },
       txHash: this.txHash,
+      fillBlock: this.fillBlock,
       cosignature: decodedOrder.info.cosignature,
       quoteId: this.quoteId,
       requestId: this.requestId,
@@ -81,6 +83,7 @@ export class DutchV3Order extends Order {
       entity.chainId,
       entity.orderStatus,
       entity.txHash,
+      entity.fillBlock,
       entity.quoteId,
       entity.requestId,
       entity.createdAt
@@ -96,6 +99,7 @@ export class DutchV3Order extends Order {
       chainId: this.chainId,
       nonce: this.inner.info.nonce.toString(),
       txHash: this.txHash,
+      fillBlock: this.fillBlock,
       orderHash: this.inner.hash(),
       swapper: this.inner.info.swapper,
       reactor: this.inner.info.reactor,
