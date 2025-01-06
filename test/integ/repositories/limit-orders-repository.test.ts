@@ -545,7 +545,6 @@ describe('OrdersRepository update status test', () => {
       chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
       chainId_orderStatus_filler: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}_${(MOCK_ORDER_1 as any).filler}`,
       txHash: 'txHash',
-      fillBlock: 1,
       settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
     })
   })
