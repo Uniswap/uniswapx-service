@@ -4,4 +4,6 @@ import { PostUnimindInjector } from './injector'
 const postUnimindInjectorPromise = new PostUnimindInjector('postUnimindInjector').build()
 const postUnimindHandler = new PostUnimindHandler('postUnimindHandler', postUnimindInjectorPromise)
 
-export const handler = postUnimindHandler.handler
+module.exports = {
+  postUnimindHandler: postUnimindHandler.handler,
+}
