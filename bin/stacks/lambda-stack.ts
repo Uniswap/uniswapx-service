@@ -48,6 +48,9 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
 
+  public readonly postUnimindLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly postUnimindLambdaAlias: aws_lambda.Alias
+
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
     const { provisionedConcurrency, kmsKey, tableCapacityConfig, indexCapacityConfig, chatbotSNSArn } = props
@@ -306,6 +309,21 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
+    this.postUnimindLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostUnimind${lambdaName}`, {
+      role: lambdaRole,
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      entry: path.join(__dirname, '../../lib/handlers/post-unimind/index.ts'),
+      handler: 'postUnimindHandler',
+      timeout: Duration.seconds(29),
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: postOrderEnv,
+      tracing: aws_lambda.Tracing.ACTIVE,
+    })
+
     if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
       new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
         destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
@@ -368,6 +386,12 @@ export class LambdaStack extends cdk.NestedStack {
       aliasName: 'live',
       version: this.orderNotificationLambda.currentVersion,
       provisionedConcurrentExecutions: orderNotificationProvisionedConcurrency,
+    })
+
+    this.postUnimindLambdaAlias = new aws_lambda.Alias(this, `PostUnimindLiveAlias`, {
+      aliasName: 'live',
+      version: this.postUnimindLambda.currentVersion,
+      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
     if (enableProvisionedConcurrency) {
