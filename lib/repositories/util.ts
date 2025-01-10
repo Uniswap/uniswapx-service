@@ -5,6 +5,7 @@ export enum TABLE_NAMES {
   RelayOrders = 'RelayOrders',
   Orders = 'Orders',
   Nonces = 'Nonces',
+  ExtrinsicValues = 'ExtrinsicValues',
 }
 
 export const getTableIndices = (tableName: TABLE_NAMES) => {
