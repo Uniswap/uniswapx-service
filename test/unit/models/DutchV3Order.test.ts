@@ -27,6 +27,7 @@ describe('DutchV3 Model', () => {
       undefined,
       undefined,
       undefined,
+      undefined,
       100
     )
     const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
@@ -42,6 +43,7 @@ describe('DutchV3 Model', () => {
       MOCK_SIGNATURE,
       ChainId.ARBITRUM_ONE,
       ORDER_STATUS.OPEN,
+      undefined,
       undefined,
       undefined,
       undefined,

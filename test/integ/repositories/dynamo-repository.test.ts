@@ -635,7 +635,7 @@ describe('OrdersRepository get order count by offerer test', () => {
 
 describe('OrdersRepository update status test', () => {
   it('should successfully update orderStatus of an order identified by orderHash', async () => {
-    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash', [
+    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash', 1, [
       { tokenOut: '0x1', amountOut: '1' } as SettledAmount,
     ])
     await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
@@ -644,6 +644,7 @@ describe('OrdersRepository update status test', () => {
       chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
       chainId_orderStatus_filler: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}_undefined`,
       txHash: 'txHash',
+      fillBlock: 1,
       settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
     })
   })

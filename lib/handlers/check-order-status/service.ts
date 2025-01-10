@@ -42,6 +42,7 @@ export type CheckOrderStatusRequest = {
 export type ExtraUpdateInfo = {
   orderStatus: ORDER_STATUS
   txHash?: string
+  fillBlock?: number
   settledAmounts?: SettledAmount[]
   getFillLogAttempts?: number
 }
@@ -163,6 +164,7 @@ export class CheckOrderStatusService {
           extraUpdateInfo = {
             orderStatus: ORDER_STATUS.FILLED,
             txHash: fillEvent.txHash,
+            fillBlock: fillEvent.blockNumber,
             settledAmounts,
           }
         } catch (e) {
@@ -170,6 +172,7 @@ export class CheckOrderStatusService {
           extraUpdateInfo = {
             orderStatus: ORDER_STATUS.FILLED,
             txHash: '',
+            fillBlock: -1,
             settledAmounts: [],
           }
         }
@@ -227,6 +230,7 @@ export class CheckOrderStatusUtils {
     validation: OrderValidation
     quoteId: string
     txHash?: string
+    fillBlock?: number
     settledAmounts?: SettledAmount[]
     getFillLogAttempts?: number
   }): Promise<SfnStateInputOutput> {
@@ -239,6 +243,7 @@ export class CheckOrderStatusUtils {
       lastStatus,
       orderStatus,
       txHash,
+      fillBlock,
       settledAmounts,
       getFillLogAttempts,
       validation,
@@ -253,7 +258,7 @@ export class CheckOrderStatusUtils {
         this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
       }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
-      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, settledAmounts)
+      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, fillBlock, settledAmounts)
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
@@ -286,6 +291,7 @@ export class CheckOrderStatusUtils {
       chainId: chainId,
       ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
+      ...(fillBlock && { fillBlock }),
       ...(getFillLogAttempts && { getFillLogAttempts }),
     }
   }

@@ -179,7 +179,7 @@ export class DashboardStack extends cdk.NestedStack {
             x: 0,
             type: 'log',
             properties: {
-              query: `SOURCE '/aws/lambda/${orderStatusLambdaName}' | fields orderInfo.orderHash as orderHash, orderInfo.tokenInChainId as chainId, orderInfo.offerer as offerer,orderInfo.exclusiveFiller as exclusiveFiller, orderInfo.filler as filler, orderInfo.tokenOut as tokenOut, orderInfo.amountOut as amountOut, orderInfo.blockNumber as blockNumber, orderInfo.txHash as txHash, orderInfo.gasUsed as gasUsed, orderInfo.gasCostInETH as gasCostInEth\n| filter ispresent(orderInfo.orderStatus) and orderInfo.orderStatus = 'filled'\n| sort @timestamp desc`,
+              query: `SOURCE '/aws/lambda/${orderStatusLambdaName}' | fields orderInfo.orderHash as orderHash, orderInfo.tokenInChainId as chainId, orderInfo.offerer as offerer,orderInfo.exclusiveFiller as exclusiveFiller, orderInfo.filler as filler, orderInfo.tokenOut as tokenOut, orderInfo.amountOut as amountOut, orderInfo.blockNumber as blockNumber, orderInfo.txHash as txHash, orderInfo.fillBlock as fillBlock, orderInfo.gasUsed as gasUsed, orderInfo.gasCostInETH as gasCostInEth\n| filter ispresent(orderInfo.orderStatus) and orderInfo.orderStatus = 'filled'\n| sort @timestamp desc`,
               region,
               stacked: false,
               view: 'table',

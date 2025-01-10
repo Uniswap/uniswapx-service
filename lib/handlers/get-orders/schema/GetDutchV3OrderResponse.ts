@@ -15,6 +15,7 @@ export type GetDutchV3OrderResponse = {
   reactor: string
 
   txHash: string | undefined
+  fillBlock: number | undefined
   deadline: number
   input: {
     token: string
@@ -69,6 +70,7 @@ export const GetDutchV3OrderResponseEntryJoi = Joi.object({
   chainId: FieldValidator.isValidChainId().required(),
   startingBaseFee: FieldValidator.isValidAmount(),
   txHash: FieldValidator.isValidTxHash(),
+  fillBlock: FieldValidator.isValidNumber(),
   input: Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
     startAmount: FieldValidator.isValidAmount().required(),

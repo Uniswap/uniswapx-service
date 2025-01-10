@@ -42,6 +42,7 @@ export class RelayOrderRepository extends GenericOrdersRepository<string, string
         relayFee: { type: DYNAMODB_TYPES.MAP },
         quoteId: { type: DYNAMODB_TYPES.STRING },
         txHash: { type: DYNAMODB_TYPES.STRING },
+        fillBlock: { type: DYNAMODB_TYPES.NUMBER },
         settledAmounts: { type: DYNAMODB_TYPES.LIST },
 
         offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },

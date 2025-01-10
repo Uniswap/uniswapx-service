@@ -39,6 +39,7 @@ export interface BaseOrdersRepository<T extends OrderEntityType> {
     orderHash: string,
     status: ORDER_STATUS,
     txHash?: string,
+    fillBlock?: number,
     settledAmounts?: SettledAmount[]
   ) => Promise<void>
   deleteOrders: (orderHashes: string[]) => Promise<void>
