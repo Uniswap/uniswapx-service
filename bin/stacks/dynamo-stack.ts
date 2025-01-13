@@ -37,6 +37,7 @@ export type TableCapacityConfig = {
   relayOrder: TableCapacityOptions
   nonce: TableCapacityOptions
   extrinsicValues: TableCapacityOptions
+  intrinsicValues: TableCapacityOptions
 }
 
 export type DynamoStackProps = {
@@ -51,6 +52,7 @@ export class DynamoStack extends cdk.NestedStack {
   public readonly limitOrdersTable: aws_dynamo.Table
   public readonly relayOrdersTable: aws_dynamo.Table
   public readonly extrinsicValuesTable: aws_dynamo.Table
+  public readonly intrinsicValuesTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
@@ -138,6 +140,21 @@ export class DynamoStack extends cdk.NestedStack {
 
     this.alarmsPerTable(this.extrinsicValuesTable, 'ExtrinsicValues', chatbotSNSArn)
 
+    const intrinsicValuesTable = new aws_dynamo.Table(this, `${SERVICE_NAME}IntrinsicValuesTable`, {
+      tableName: 'IntrinsicValues',
+      partitionKey: {
+        name: 'pair',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      deletionProtection: true,
+      pointInTimeRecovery: true,
+      contributorInsightsEnabled: false,
+      ...tableCapacityConfig.intrinsicValues,
+    })
+    this.intrinsicValuesTable = intrinsicValuesTable
+
+    this.alarmsPerTable(this.intrinsicValuesTable, 'IntrinsicValues', chatbotSNSArn)
+
     // Dynamos built-in PointInTimeRecovery retention is max 35 days.
     // In addition to PITR being enabled on the tables we do a monthly backup
     // in case we need to recover to a point older than 35 months.
@@ -148,6 +165,7 @@ export class DynamoStack extends cdk.NestedStack {
         aws_backup.BackupResource.fromDynamoDbTable(nonceTable),
         aws_backup.BackupResource.fromDynamoDbTable(ordersTable),
        // aws_backup.BackupResource.fromDynamoDbTable(extrinsicValuesTable), TODO: Do we want to backup?
+       // aws_backup.BackupResource.fromDynamoDbTable(intrinsicValuesTable),
       ],
     })
   }

@@ -21,4 +21,5 @@ export const PROD_TABLE_CAPACITY: TableCapacityConfig = {
   relayOrder: { billingMode: BillingMode.PAY_PER_REQUEST },
   nonce: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 1000 },
   extrinsicValues: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 1000 }, // TODO: Update numbers
+  intrinsicValues: { billingMode: BillingMode.PAY_PER_REQUEST },
 }
