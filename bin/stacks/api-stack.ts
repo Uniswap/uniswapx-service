@@ -14,6 +14,7 @@ import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 
 export class APIStack extends cdk.Stack {
   public readonly url: CfnOutput
@@ -508,6 +509,18 @@ export class APIStack extends cdk.Stack {
       apiAlarmLatencySev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
       apiAlarmLatencySev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
     }
+
+    const dynamoPolicy = new PolicyStatement({
+      actions: [
+        'dynamodb:PutItem',
+        'dynamodb:GetItem'
+      ],
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/ExtrinsicValues`
+      ]
+    })
+
+    postUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)
 
     this.url = new CfnOutput(this, 'Url', {
       value: api.url,

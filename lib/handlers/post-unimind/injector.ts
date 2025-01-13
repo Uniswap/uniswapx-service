@@ -4,18 +4,31 @@ import { ApiInjector, ApiRInj } from '../base'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
+import { DocumentClient } from 'aws-sdk/clients/dynamodb'
+import { DynamoExtrinsicValuesRepository, ExtrinsicValuesRepository, ExtrinsicValues } from '../../repositories/extrinsic-values-repository'
 
 export type RequestInjected = ApiRInj
-export type ContainerInjected = Record<string, never>
+export interface ContainerInjected {
+  extrinsicValuesRepository: ExtrinsicValuesRepository
+}
 
-export class PostUnimindInjector extends ApiInjector<ContainerInjected, RequestInjected, void, void> {
+export class PostUnimindInjector extends ApiInjector<ContainerInjected, RequestInjected, ExtrinsicValues, void> {
+  private readonly documentClient: DocumentClient
+
+  constructor(name: string) {
+    super(name)
+    this.documentClient = new DocumentClient()
+  }
+
   public async buildContainerInjected(): Promise<ContainerInjected> {
-    return {}
+    return {
+      extrinsicValuesRepository: DynamoExtrinsicValuesRepository.create(this.documentClient)
+    }
   }
 
   public async getRequestInjected(
     _containerInjected: ContainerInjected,
-    _requestBody: void,
+    _requestBody: ExtrinsicValues,
     _requestQueryParams: void,
     _event: APIGatewayEvent,
     context: Context,
