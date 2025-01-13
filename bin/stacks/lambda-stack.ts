@@ -512,6 +512,8 @@ export class LambdaStack extends cdk.NestedStack {
         targetValue: 0.5,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
+
+      // TODO: Add unimind-related targets
     }
 
     let chatBotTopic: cdk.aws_sns.ITopic | undefined
