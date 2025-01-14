@@ -1,5 +1,6 @@
 export enum ChainId {
   MAINNET = 1,
+  UNICHAIN = 130,
   BASE = 8453,
   OPTIMISM = 10,
   ARBITRUM_ONE = 42161,
@@ -17,4 +18,5 @@ export const SUPPORTED_CHAINS = [
   ChainId.GÖRLI,
   ChainId.ARBITRUM_ONE,
   ChainId.BASE,
+  ChainId.UNICHAIN,
 ]
