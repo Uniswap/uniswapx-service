@@ -61,6 +61,12 @@ export const MOCK_PROVIDER_MAP = new Map([
     },
   ],
   [
+    ChainId.UNICHAIN,
+    {
+      getBlockNumber: providerGetLatestBlockMock,
+    },
+  ],
+  [
     ChainId.BASE,
     {
       getBlockNumber: providerGetLatestBlockMock,

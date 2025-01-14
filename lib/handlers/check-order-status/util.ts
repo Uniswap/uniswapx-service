@@ -248,6 +248,8 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
       return 12
     case ChainId.ARBITRUM_ONE:
       return 1
+    case ChainId.UNICHAIN:
+      return 1
     case ChainId.BASE:
       return 2
     case ChainId.POLYGON:
