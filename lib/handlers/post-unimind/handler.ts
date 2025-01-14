@@ -2,6 +2,7 @@ import Joi from 'joi'
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base'
 import { ContainerInjected, RequestInjected } from './injector'
 import { ExtrinsicValues } from '../../repositories/extrinsic-values-repository'
+import { IntrinsicValues } from '../../repositories/intrinsic-values-repository'
 
 type UnimindResponse = {
   pi: number
@@ -29,12 +30,20 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
       }
     }
 
+    const parameters = this.calculateParameters(intrinsicValues, requestBody)
+
     return {
       statusCode: 200,
-      body: {
-        pi: intrinsicValues.pi,
-        tau: intrinsicValues.tau
-      }
+      body: parameters
+    }
+  }
+
+  calculateParameters(intrinsicValues: IntrinsicValues, extrinsicValues: ExtrinsicValues): UnimindResponse {
+    const pi = intrinsicValues.pi * extrinsicValues.priceImpact
+    const tau = intrinsicValues.tau * extrinsicValues.priceImpact
+    return {
+      pi,
+      tau
     }
   }
 
