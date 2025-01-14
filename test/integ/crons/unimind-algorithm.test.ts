@@ -24,9 +24,6 @@ const log: Logger = bunyan.createLogger({
 })
 
 describe('updateIntrinsicValues Test', () => {
-  beforeEach(async () => {
-  })
-
   afterEach(() => {
     jest.clearAllMocks()
   })

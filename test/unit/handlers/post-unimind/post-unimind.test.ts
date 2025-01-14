@@ -4,10 +4,12 @@ import { HeaderExpectation } from '../../../HeaderExpectation'
 import { EVENT_CONTEXT } from '../../fixtures'
 import { PostUnimindHandler } from '../../../../lib/handlers/post-unimind/handler'
 import { ExtrinsicValuesRepository } from '../../../../lib/repositories/extrinsic-values-repository'
+import { IntrinsicValuesRepository } from '../../../../lib/repositories/intrinsic-values-repository'
 
 describe('Testing post unimind handler', () => {
   const mockLog = mock<Logger>()
   const mockExtrinsicValuesRepo = mock<ExtrinsicValuesRepository>()
+  const mockIntrinsicValuesRepo = mock<IntrinsicValuesRepository>()
 
   const requestInjected = {
     requestId: 'testRequest',
@@ -16,7 +18,8 @@ describe('Testing post unimind handler', () => {
 
   const injectorPromiseMock: any = {
     getContainerInjected: () => ({
-      extrinsicValuesRepository: mockExtrinsicValuesRepo
+      extrinsicValuesRepository: mockExtrinsicValuesRepo,
+      intrinsicValuesRepository: mockIntrinsicValuesRepo
     }),
     getRequestInjected: () => requestInjected,
   }
@@ -33,6 +36,12 @@ describe('Testing post unimind handler', () => {
       referencePrice: '4221.21',
       priceImpact: 0.01
     }
+
+    mockIntrinsicValuesRepo.getByPair.mockResolvedValue({
+      pair: 'ETH-USDC',
+      pi: 3.14,
+      tau: 4.2
+    })
 
     const response = await postUnimindHandler.handler(
       {

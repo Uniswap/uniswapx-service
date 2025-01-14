@@ -6,10 +6,12 @@ import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { DynamoExtrinsicValuesRepository, ExtrinsicValuesRepository, ExtrinsicValues } from '../../repositories/extrinsic-values-repository'
+import { DynamoIntrinsicValuesRepository, IntrinsicValuesRepository } from '../../repositories/intrinsic-values-repository'
 
 export type RequestInjected = ApiRInj
 export interface ContainerInjected {
   extrinsicValuesRepository: ExtrinsicValuesRepository
+  intrinsicValuesRepository: IntrinsicValuesRepository
 }
 
 export class PostUnimindInjector extends ApiInjector<ContainerInjected, RequestInjected, ExtrinsicValues, void> {
@@ -22,7 +24,8 @@ export class PostUnimindInjector extends ApiInjector<ContainerInjected, RequestI
 
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      extrinsicValuesRepository: DynamoExtrinsicValuesRepository.create(this.documentClient)
+      extrinsicValuesRepository: DynamoExtrinsicValuesRepository.create(this.documentClient),
+      intrinsicValuesRepository: DynamoIntrinsicValuesRepository.create(this.documentClient)
     }
   }
 
