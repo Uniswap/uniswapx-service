@@ -142,6 +142,21 @@ const PRIORITY_ORDER_1 = {
   cosigner: '0xsigner',
 }
 
+const PRIORITY_ORDER_2 = {
+  ...MOCK_ORDER_1,
+  chainId: 130,
+  filler: '0xsearcher',
+  offerer: '0xmevtax',
+  orderHash: '0x11',
+  type: 'Priority',
+  auctionStartBlock: 10,
+  baselinePriorityFeeWei: '0',
+  cosignerData: {
+    auctionTargetBlock: 5,
+  },
+  cosigner: '0xsigner',
+}
+
 const DUTCHV3_1 = {
   orderHash: '0x42161',
   offerer: '0xmaker',
@@ -195,6 +210,11 @@ describe('OrdersRepository put item test', () => {
     expect(() => {
       mockTime(1)
       ordersRepository.putOrderAndUpdateNonceTransaction(PRIORITY_ORDER_1 as unknown as UniswapXOrderEntity)
+    }).not.toThrow()
+
+    expect(() => {
+      mockTime(1)
+      ordersRepository.putOrderAndUpdateNonceTransaction(PRIORITY_ORDER_2 as unknown as UniswapXOrderEntity)
     }).not.toThrow()
   })
 
@@ -252,6 +272,7 @@ describe('OrdersRepository getOrders test', () => {
     expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_1))
     expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(queryResult.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
+    expect(queryResult.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
     expect(queryResult.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
   })
 
@@ -443,6 +464,7 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(allOrders).toContainEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(allOrders).toContainEqual(expect.objectContaining(DUTCHV3_1))
     expect(allOrders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
+    expect(allOrders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
     expect(orders.cursor).toEqual(undefined)
   })
 
@@ -473,6 +495,7 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
     expect(orders.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
     expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
+    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
     await expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, orders.cursor)).rejects.toThrow(
       Error('Invalid cursor.')
     )
@@ -484,6 +507,7 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
     expect(orders.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
     expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
+    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
     await expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, 'wrong_cursor')).rejects.toThrow(
       Error('Invalid cursor.')
     )
@@ -541,6 +565,7 @@ describe('OrdersRepository getOrders test with sorting', () => {
     expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_1))
     expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
     expect(queryResult.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
+    expect(queryResult.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
     expect(queryResult.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
   })
 
@@ -554,10 +579,10 @@ describe('OrdersRepository getOrders test with sorting', () => {
     expect(queryResult.orders).toHaveLength(5)
     expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
     expect(queryResult.orders[1]).toEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(queryResult.orders[2]).toEqual(expect.objectContaining(DUTCHV3_1))
-    expect(queryResult.orders[3]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders[4]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-
+    expect(queryResult.orders[2]).toEqual(expect.objectContaining(PRIORITY_ORDER_2))
+    expect(queryResult.orders[3]).toEqual(expect.objectContaining(DUTCHV3_1))
+    expect(queryResult.orders[4]).toEqual(expect.objectContaining(MOCK_ORDER_1))
+    expect(queryResult.orders[3]).toEqual(expect.objectContaining(MOCK_ORDER_2))
   })
 })
 
