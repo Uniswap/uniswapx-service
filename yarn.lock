@@ -4309,10 +4309,10 @@
     asn1.js "^5.4.1"
     ethers "^6.8.1"
 
-"@uniswap/uniswapx-sdk@^2.1.0-beta.22":
-  version "2.1.0-beta.22"
-  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-2.1.0-beta.22.tgz#ddcdf036c66ddf49c97b916a08c2ddc4e68cb09b"
-  integrity sha512-g6a+/gGJnVjGgDhnKsC5NcyeHaPz0wK+Lzu1zCJiPUcvVcMskshlepBMwYTyGu2OEVeTOhkvw/1df4sjovRizw==
+"@uniswap/uniswapx-sdk@^3.0.0-beta.2":
+  version "3.0.0-beta.2"
+  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.0-beta.2.tgz#9323cc14147085442610a8b0bd2fe126f79e8a0d"
+  integrity sha512-xEhlNEpCh2gRXMVXZl/a28M+zpxiFwKBM02Po8uczwzdIFGQ8feyfqpwmcd411ukqWsX2IZsCP+0sTxmy6qCxA==
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"

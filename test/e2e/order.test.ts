@@ -1,6 +1,6 @@
 /* eslint-disable jest/no-disabled-tests */
 import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedUniswapXOrder, UnsignedV2DutchOrder, V2DutchOrderBuilder } from '@uniswap/uniswapx-sdk'
-import { factories } from '@uniswap/uniswapx-sdk/dist/src/contracts/index'
+import { factories } from '@uniswap/uniswapx-sdk/dist/types/src/contracts'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
