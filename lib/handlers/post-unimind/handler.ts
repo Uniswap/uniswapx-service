@@ -9,7 +9,9 @@ type UnimindResponse = {
   tau: number
 }
 
-type UnimindRequest = ExtrinsicValues
+type UnimindRequest = ExtrinsicValues & {
+  pair: string
+}
 
 export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, RequestInjected, UnimindRequest, void, UnimindResponse> {
   public async handleRequest(
@@ -18,15 +20,20 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
     const { requestBody, containerInjected } = params
     const { extrinsicValuesRepository, intrinsicValuesRepository } = containerInjected
 
-    await extrinsicValuesRepository.put(requestBody)
-    const pair = 'ETH-USDC'
+    const extrinsicValues : ExtrinsicValues = {
+        quoteId: requestBody.quoteId,
+        referencePrice: requestBody.referencePrice,
+        priceImpact: requestBody.priceImpact
+    }
     
-    const intrinsicValues = await intrinsicValuesRepository.getByPair(pair)
+    await extrinsicValuesRepository.put(extrinsicValues)
+    
+    const intrinsicValues = await intrinsicValuesRepository.getByPair(requestBody.pair)
     if (!intrinsicValues) {
       return {
         statusCode: 404,
         errorCode: ErrorCode.NoIntrinsicValuesFound,
-        detail: `No intrinsic values found for ${pair}`
+        detail: `No intrinsic values found for ${requestBody.pair}`
       }
     }
 
@@ -50,6 +57,7 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
   protected requestBodySchema(): Joi.ObjectSchema {
     return Joi.object({
       quoteId: Joi.string().required(),
+      pair: Joi.string().required(),
       referencePrice: Joi.string().required(),
       priceImpact: Joi.number().required()
     })
