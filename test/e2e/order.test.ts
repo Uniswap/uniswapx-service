@@ -1,13 +1,10 @@
 /* eslint-disable jest/no-disabled-tests */
 import { DutchOrder, DutchOrderBuilder, REACTOR_ADDRESS_MAPPING, SignedUniswapXOrder, UnsignedV2DutchOrder, V2DutchOrderBuilder } from '@uniswap/uniswapx-sdk'
-
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
 import { MAX_UINT96, PERMIT2, UNI, WETH, ZERO_ADDRESS } from './constants'
 import { v4 as uuidv4 } from 'uuid'
-
-
 
 import { UniswapXOrderEntity } from '../../lib/entities'
 import { AVERAGE_BLOCK_TIME } from '../../lib/handlers/check-order-status/util'
@@ -16,7 +13,6 @@ import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from './abis/erc20.json'
 import { stringValue } from 'aws-sdk/clients/iot'
 import { ExclusiveDutchOrderReactor__factory } from '@uniswap/uniswapx-sdk/dist/cjs/src/contracts/factories'
-//import { ExclusiveDutchOrderReactor__factory } from '@uniswap/uniswapx-sdk'
 const { abi } = ERC20_ABI
 
 dotenv.config()
