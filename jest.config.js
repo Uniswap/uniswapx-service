@@ -24,4 +24,7 @@ module.exports = {
     // https://swc.rs/docs/usage/jest#usage
     '^.+\\.(t|j)s?$': '@swc/jest',
   },
+  moduleNameMapper: {
+    '^@uniswap/uniswapx-sdk/dist/cjs/(.*)$': '<rootDir>/node_modules/@uniswap/uniswapx-sdk/dist/cjs/$1'
+  }
 }
