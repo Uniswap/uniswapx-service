@@ -27,12 +27,18 @@ export async function updateIntrinsicValues(
   log: Logger, 
   metrics?: MetricsLogger
 ): Promise<void> {
+  const beforeUpdateTime = Date.now()
+
+  const pair = 'ETH-USDC'
   await repo.put({
-    pair: 'ETH-USDC',
+    pair,
     pi: 3.14,
     tau: Date.now() % 123,
   })
-  log.info('Intrinsic values updated')
-  metrics?.putMetric('IntrinsicValuesUpdated', 1, Unit.Count)
+  log.info(`Intrinsic values for ${pair} updated`)
+  metrics?.putMetric(`intrinsic-values-updated-${pair}`, 1, Unit.Count)
+  
+  const afterUpdateTime = Date.now()
+  const updateTime = afterUpdateTime - beforeUpdateTime
+  metrics?.putMetric(`intrinsic-values-update-time`, updateTime)
 }
-

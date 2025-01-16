@@ -3,6 +3,9 @@ import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Re
 import { ContainerInjected, RequestInjected } from './injector'
 import { ExtrinsicValues } from '../../repositories/extrinsic-values-repository'
 import { IntrinsicValues } from '../../repositories/intrinsic-values-repository'
+import { Unit } from 'aws-embedded-metrics'
+import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
+import { metrics } from '../../util/metrics'
 
 type UnimindResponse = {
   pi: number
@@ -37,7 +40,11 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
       }
     }
 
+    const beforeCalculateTime = Date.now()
     const parameters = this.calculateParameters(intrinsicValues, requestBody)
+    const afterCalculateTime = Date.now()
+    const calculateTime = afterCalculateTime - beforeCalculateTime
+    metrics.putMetric(`extrinsic-calculation-time`, calculateTime)
 
     return {
       statusCode: 200,
@@ -72,5 +79,32 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
       pi: Joi.number().required(),
       tau: Joi.number().required()
     })
+  }
+
+  protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
+    const { statusCode } = response
+
+    // Try and extract the pair from the raw json
+    let pair = 'unknown'
+    try {
+      const rawBody = JSON.parse(event.body!)
+      pair = rawBody.pair ?? pair
+    } catch (err) {
+      // no-op. If we can't get pair still log the metric as unknown
+    }
+
+    const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
+
+    const postUnimindByPairMetricName = `PostUnimindPair${pair}Status${statusCodeMod}`
+    metrics.putMetric(postUnimindByPairMetricName, 1, Unit.Count)
+
+    const postUnimindMetricName = `PostUnimindStatus${statusCodeMod}`
+    metrics.putMetric(postUnimindMetricName, 1, Unit.Count)
+
+    const postUnimindRequestMetricName = `PostUnimindRequest`
+    metrics.putMetric(postUnimindRequestMetricName, 1, Unit.Count)
+
+    const postUnimindRequestByPairMetricName = `PostUnimindRequestPair${pair}`
+    metrics.putMetric(postUnimindRequestByPairMetricName, 1, Unit.Count)
   }
 } 
