@@ -33,6 +33,7 @@ import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
+import { ExtrinsicValues, ExtrinsicValuesRepository } from '../repositories/extrinsic-values-repository'
 const MAX_QUERY_RETRY = 10
 
 export class UniswapXOrderService {
@@ -41,6 +42,7 @@ export class UniswapXOrderService {
     private readonly onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>,
     private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
     private readonly limitRepository: BaseOrdersRepository<UniswapXOrderEntity>,
+    private readonly extrinsicRepository: ExtrinsicValuesRepository,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
     private analyticsService: AnalyticsServiceInterface,
@@ -53,8 +55,11 @@ export class UniswapXOrderService {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
     } else if (order instanceof DutchV2Order || order instanceof DutchV3Order) {
-      await this.validateOrder(order.inner, order.signature, order.chainId)
-      orderEntity = order.toEntity(ORDER_STATUS.OPEN)
+      const [extrinsic] = await Promise.all([
+        order.quoteId ? this.fetchExtrinsicValues(order.quoteId) : undefined,
+        this.validateOrder(order.inner, order.signature, order.chainId)
+      ])
+      orderEntity = order.toEntity(ORDER_STATUS.OPEN, extrinsic)
     } else if (order instanceof PriorityOrder) {
       // following https://github.com/Uniswap/uniswapx-parameterization-api/pull/358
       // recreate KmsSigner every request
@@ -68,9 +73,11 @@ export class UniswapXOrderService {
 
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner)
       this.logger.info('cosigned priority order', { order: cosignedOrder })
-
-      await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
-      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN)
+      const [extrinsic] = await Promise.all([
+        order.quoteId ? this.fetchExtrinsicValues(order.quoteId) : undefined,
+        this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
+      ])
+      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN, extrinsic)
     } else {
       throw new Error('unsupported OrderType')
     }
@@ -330,5 +337,13 @@ export class UniswapXOrderService {
     // TODO: DAT-313: Fix order type for Limit Orders
     const queryResults = await this.limitRepository.getOrdersFilteredByType(limit, params, [OrderType.Dutch], cursor)
     return queryResults
+  }
+
+  private async fetchExtrinsicValues(quoteId: string): Promise<ExtrinsicValues | undefined> {
+    const extrinsic = await this.extrinsicRepository.getByQuoteId(quoteId)
+    if (!extrinsic) {
+      this.logger.warn({ quoteId, message: 'No extrinsic values found for order' })
+    }
+    return extrinsic
   }
 }

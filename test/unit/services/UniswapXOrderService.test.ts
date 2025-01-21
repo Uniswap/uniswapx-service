@@ -21,6 +21,7 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 import { COSIGNATURE, MOCK_PROVIDER_MAP } from '../fixtures'
+import { ExtrinsicValuesRepository } from '../../../lib/repositories/extrinsic-values-repository'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -54,6 +55,7 @@ describe('UniswapXOrderService', () => {
       onChainValidatorMap,
       repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       logger,
       () => {
         return 10
@@ -105,6 +107,7 @@ describe('UniswapXOrderService', () => {
       onChainValidatorMap,
       repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
+      mock<ExtrinsicValuesRepository>(),
       logger,
       () => {
         return 10
@@ -150,6 +153,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -187,6 +191,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -225,6 +230,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -255,6 +261,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -297,6 +304,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -331,6 +339,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -370,6 +379,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -412,6 +422,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -440,6 +451,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -484,6 +496,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -523,6 +536,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -565,6 +579,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -594,6 +609,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
       limitRepository, // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -630,6 +646,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -676,6 +693,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -723,6 +741,7 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<ExtrinsicValuesRepository>(),
       mock<Logger>(),
       () => {
         return 10

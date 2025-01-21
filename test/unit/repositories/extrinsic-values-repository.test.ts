@@ -9,6 +9,19 @@ describe('ExtrinsicValuesRepository', () => {
     quoteId: 'test-quote-id',
     referencePrice: "21212121",
     priceImpact: 0.21,
+    route: {
+        quote: "1234",
+        quote_gas_adjusted: "5678",
+        gas_price_wei: "1234",
+        gas_use_estimate_quote: "2345",
+        gas_use_estimate: "3456",
+        method_parameters: {
+            calldata: "0xabcdef",
+            value: "1234",
+            to: "0abcdef"
+        }
+    },
+    pair: 'ETH-USDC',
   }
 
   beforeEach(() => {

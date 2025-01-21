@@ -4,10 +4,27 @@ import { Entity, Table } from 'dynamodb-toolbox'
 import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { TABLE_NAMES } from './util'
 
+interface MethodParameters {
+    calldata: string
+    value: string
+    to: string
+}
+
+export interface Route {
+    quote: string
+    quote_gas_adjusted: string
+    gas_price_wei: string
+    gas_use_estimate_quote: string
+    gas_use_estimate: string
+    method_parameters: MethodParameters
+}
+
 export interface ExtrinsicValues {
   quoteId: string
   referencePrice: string
   priceImpact: number
+  route: Route
+  pair: string
 }
 
 export interface ExtrinsicValuesRepository {
@@ -36,6 +53,8 @@ export class DynamoExtrinsicValuesRepository implements ExtrinsicValuesRepositor
         quoteId: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         referencePrice: { type: DYNAMODB_TYPES.STRING, required: true },
         priceImpact: { type: DYNAMODB_TYPES.NUMBER, required: true },
+        route: {type: DYNAMODB_TYPES.MAP, required: true},
+        pair: {type: DYNAMODB_TYPES.STRING, required: true}
       },
       table,
     } as const)

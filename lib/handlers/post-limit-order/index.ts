@@ -24,6 +24,7 @@ import { PostOrderHandler } from '../post-order/handler'
 import { PostOrderBodyParser } from '../post-order/PostOrderBodyParser'
 import { ProviderMap } from '../shared'
 import { getMaxLimitOpenOrders, PostLimitOrderInjector } from './injector'
+import { DynamoExtrinsicValuesRepository } from '../../repositories/extrinsic-values-repository'
 
 const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
 
@@ -44,6 +45,7 @@ const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTi
   SkipDecayStartTimeValidation: true,
 })
 const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
+const extrinsicValuesRepository = DynamoExtrinsicValuesRepository.create(new DynamoDB.DocumentClient())
 
 const postLimitOrderInjectorPromise = new PostLimitOrderInjector('postLimitOrderInjector').build()
 
@@ -51,7 +53,8 @@ const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,
   onChainValidatorMap,
   repo,
-  repo, // same repo for limit orders as
+  repo, // same repo for limit orders
+  extrinsicValuesRepository,
   log,
   getMaxLimitOpenOrders,
   AnalyticsService.create(),

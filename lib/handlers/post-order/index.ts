@@ -8,6 +8,7 @@ import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
+import { DynamoExtrinsicValuesRepository } from '../../repositories/extrinsic-values-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
@@ -45,6 +46,7 @@ const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').buil
 
 const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
 const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
+const extrinsicRepo = DynamoExtrinsicValuesRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 
 const uniswapXOrderService = new UniswapXOrderService(
@@ -52,6 +54,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   onChainValidatorMap,
   repo,
   limitRepo,
+  extrinsicRepo,
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),

@@ -26,7 +26,9 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
     const extrinsicValues : ExtrinsicValues = {
         quoteId: requestBody.quoteId,
         referencePrice: requestBody.referencePrice,
-        priceImpact: requestBody.priceImpact
+        priceImpact: requestBody.priceImpact,
+        route: requestBody.route,
+        pair: requestBody.pair
     }
     
     await extrinsicValuesRepository.put(extrinsicValues)
@@ -66,7 +68,19 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
       quoteId: Joi.string().required(),
       pair: Joi.string().required(),
       referencePrice: Joi.string().required(),
-      priceImpact: Joi.number().required()
+      priceImpact: Joi.number().required(),
+      route: Joi.object({
+        quote: Joi.string().required(),
+        quote_gas_adjusted: Joi.string().required(),
+        gas_price_wei: Joi.string().required(),
+        gas_use_estimate_quote: Joi.string().required(),
+        gas_use_estimate: Joi.string().required(),
+        method_parameters: Joi.object({
+          calldata: Joi.string().required(),
+          value: Joi.string().required(),
+          to: Joi.string().required()
+        }).required()
+      }).required()
     })
   }
 

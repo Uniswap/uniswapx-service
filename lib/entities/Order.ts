@@ -1,4 +1,5 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { Route } from '../repositories/extrinsic-values-repository'
 
 export enum ORDER_STATUS {
   OPEN = 'open',
@@ -85,6 +86,10 @@ export type SharedXOrderEntity = {
   fillBlock?: number
   // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
   settledAmounts?: SettledAmount[]
+  referencePrice?: string
+  priceImpact?: number
+  route?: Route
+  pair?: string
 }
 
 export type DutchV1OrderEntity = SharedXOrderEntity & {

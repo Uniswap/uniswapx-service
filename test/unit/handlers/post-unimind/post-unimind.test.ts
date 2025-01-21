@@ -5,6 +5,19 @@ import { PostUnimindHandler } from '../../../../lib/handlers/post-unimind/handle
 import { ExtrinsicValuesRepository } from '../../../../lib/repositories/extrinsic-values-repository'
 import { IntrinsicValuesRepository } from '../../../../lib/repositories/intrinsic-values-repository'
 
+const SAMPLE_ROUTE = {
+  quote: "1234",
+  quote_gas_adjusted: "5678",
+  gas_price_wei: "1234",
+  gas_use_estimate_quote: "2345",
+  gas_use_estimate: "3456",
+  method_parameters: {
+    calldata: "0xabcdef",
+    value: "1234",
+    to: "0abcdef"
+  }
+} as const
+
 describe('Testing post unimind handler', () => {
   const mockLog = mock<Logger>()
   const mockExtrinsicValuesRepo = mock<ExtrinsicValuesRepository>()
@@ -34,10 +47,9 @@ describe('Testing post unimind handler', () => {
       quoteId: 'test-quote-id',
       pair: 'ETH-USDC',
       referencePrice: '4221.21',
-      priceImpact: 0.01
+      priceImpact: 0.01,
+      route: SAMPLE_ROUTE
     }
-
-    const { pair, ...extrinsicValues } = postRequestBody
 
     mockIntrinsicValuesRepo.getByPair.mockResolvedValue({
       pair: 'ETH-USDC',
@@ -61,7 +73,7 @@ describe('Testing post unimind handler', () => {
       tau: 4.2 * 0.01  // intrinsic.tau * extrinsic.priceImpact
     })
     expect(response.statusCode).toBe(200)
-    expect(mockExtrinsicValuesRepo.put).toHaveBeenCalledWith(extrinsicValues)
+    expect(mockExtrinsicValuesRepo.put).toHaveBeenCalledWith(postRequestBody)
     expect(mockIntrinsicValuesRepo.getByPair).toHaveBeenCalledWith('ETH-USDC')
   })
 
@@ -70,7 +82,8 @@ describe('Testing post unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ALAN-LEN'
+      pair: 'ALAN-LEN',
+      route: SAMPLE_ROUTE
     }
 
     mockIntrinsicValuesRepo.getByPair.mockResolvedValue(undefined)
@@ -139,10 +152,9 @@ describe('Testing post unimind handler', () => {
       quoteId: 'this-should-fail',
       pair: 'ETH-USDC',
       referencePrice: '666.56',
-      priceImpact: 0.01
+      priceImpact: 0.01,
+      route: SAMPLE_ROUTE
     }
-
-    const { pair, ...extrinsicValues } = postRequestBody
 
     mockExtrinsicValuesRepo.put.mockRejectedValueOnce(new Error('DB Error'))
 
@@ -157,6 +169,6 @@ describe('Testing post unimind handler', () => {
     )
 
     expect(response.statusCode).toBe(500)
-    expect(mockExtrinsicValuesRepo.put).toHaveBeenCalledWith(extrinsicValues)
+    expect(mockExtrinsicValuesRepo.put).toHaveBeenCalledWith(postRequestBody)
   })
 }) 
