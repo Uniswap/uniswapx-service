@@ -31,9 +31,11 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
         pair: requestBody.pair
     }
     
-    await extrinsicValuesRepository.put(extrinsicValues)
+    const [_, intrinsicValues] = await Promise.all([
+      extrinsicValuesRepository.put(extrinsicValues),
+      intrinsicValuesRepository.getByPair(requestBody.pair)
+    ])
     
-    const intrinsicValues = await intrinsicValuesRepository.getByPair(requestBody.pair)
     if (!intrinsicValues) {
       return {
         statusCode: 404,
