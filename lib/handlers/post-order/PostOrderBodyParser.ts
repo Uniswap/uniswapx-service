@@ -138,7 +138,7 @@ export class PostOrderBodyParser {
   ): DutchV3Order {
     try {
       const order = CosignedV3DutchOrder.parse(encodedOrder, chainId)
-      return new DutchV3Order(order as SDKV3DutchOrder, signature, chainId, undefined, undefined, undefined, quoteId, requestId)
+      return new DutchV3Order(order as SDKV3DutchOrder, signature, chainId, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV3 order', {
         err,
