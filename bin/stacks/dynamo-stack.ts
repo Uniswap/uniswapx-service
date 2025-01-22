@@ -164,8 +164,7 @@ export class DynamoStack extends cdk.NestedStack {
       resources: [
         aws_backup.BackupResource.fromDynamoDbTable(nonceTable),
         aws_backup.BackupResource.fromDynamoDbTable(ordersTable),
-       // aws_backup.BackupResource.fromDynamoDbTable(extrinsicValuesTable), TODO: Do we want to backup?
-       // aws_backup.BackupResource.fromDynamoDbTable(intrinsicValuesTable),
+        aws_backup.BackupResource.fromDynamoDbTable(intrinsicValuesTable),
       ],
     })
   }

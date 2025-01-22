@@ -70,7 +70,7 @@ export class CronStack extends cdk.NestedStack {
     })
 
     new aws_events.Rule(this, `${SERVICE_NAME}UnimindAlgorithmCron`, {
-      schedule: aws_events.Schedule.rate(cdk.Duration.minutes(1)),
+      schedule: aws_events.Schedule.rate(cdk.Duration.minutes(15)),
       targets: [new cdk.aws_events_targets.LambdaFunction(this.unimindAlgorithmCronLambda)],
     })
   }
