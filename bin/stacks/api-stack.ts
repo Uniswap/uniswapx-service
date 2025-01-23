@@ -62,8 +62,8 @@ export class APIStack extends cdk.Stack {
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
       checkStatusFunction,
-      postUnimindLambdaAlias,
-      // postUnimindLambda, TODO: dashboard
+      getUnimindLambdaAlias,
+      // getUnimindLambda, TODO: dashboard
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       stage: stage as STAGE,
@@ -372,7 +372,7 @@ export class APIStack extends cdk.Stack {
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
     const getDocsUILambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsUILambdaAlias, {})
-    const postUnimindLambdaIntegration = new aws_apigateway.LambdaIntegration(postUnimindLambdaAlias, {})
+    const getUnimindLambdaIntegration = new aws_apigateway.LambdaIntegration(getUnimindLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -420,11 +420,11 @@ export class APIStack extends cdk.Stack {
     const unimind = api.root.addResource('unimind', {
       defaultCorsPreflightOptions: {
         allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
-        allowMethods: ['POST'],
+        allowMethods: ['GET'],
       },
     })
 
-    unimind.addMethod('POST', postUnimindLambdaIntegration)
+    unimind.addMethod('GET', getUnimindLambdaIntegration)
 
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
@@ -521,7 +521,7 @@ export class APIStack extends cdk.Stack {
       ]
     })
 
-    postUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)
+    getUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)
 
     this.url = new CfnOutput(this, 'Url', {
       value: api.url,

@@ -48,8 +48,8 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
 
-  public readonly postUnimindLambda: aws_lambda_nodejs.NodejsFunction
-  public readonly postUnimindLambdaAlias: aws_lambda.Alias
+  public readonly getUnimindLambda: aws_lambda_nodejs.NodejsFunction
+  public readonly getUnimindLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -309,11 +309,11 @@ export class LambdaStack extends cdk.NestedStack {
       },
     })
 
-    this.postUnimindLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostUnimind${lambdaName}`, {
+    this.getUnimindLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetUnimind${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_18_X,
-      entry: path.join(__dirname, '../../lib/handlers/post-unimind/index.ts'),
-      handler: 'postUnimindHandler',
+      entry: path.join(__dirname, '../../lib/handlers/get-unimind/index.ts'),
+      handler: 'getUnimindHandler',
       timeout: Duration.seconds(29),
       memorySize: 512,
       bundling: {
@@ -388,9 +388,9 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: orderNotificationProvisionedConcurrency,
     })
 
-    this.postUnimindLambdaAlias = new aws_lambda.Alias(this, `PostUnimindLiveAlias`, {
+    this.getUnimindLambdaAlias = new aws_lambda.Alias(this, `GetUnimindLiveAlias`, {
       aliasName: 'live',
-      version: this.postUnimindLambda.currentVersion,
+      version: this.getUnimindLambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 

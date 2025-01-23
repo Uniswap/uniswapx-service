@@ -1,24 +1,27 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { mock } from 'jest-mock-extended'
 import { EVENT_CONTEXT } from '../../fixtures'
-import { PostUnimindHandler } from '../../../../lib/handlers/post-unimind/handler'
+import { GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
 import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
+import { ErrorCode } from '../../../../lib/handlers/base'
 
 const SAMPLE_ROUTE = {
   quote: "1234",
-  quote_gas_adjusted: "5678",
-  gas_price_wei: "1234",
-  gas_use_estimate_quote: "2345",
-  gas_use_estimate: "3456",
-  method_parameters: {
+  quoteGasAdjusted: "5678",
+  gasPriceWei: "1234",
+  gasUseEstimateQuote: "2345",
+  gasUseEstimate: "3456",
+  methodParameters: {
     calldata: "0xabcdef",
     value: "1234",
     to: "0abcdef"
   }
 } as const
 
-describe('Testing post unimind handler', () => {
+const STRINGIFIED_ROUTE = JSON.stringify(SAMPLE_ROUTE)
+
+describe('Testing get unimind handler', () => {
   const mockLog = mock<Logger>()
   const mockQuoteMetadataRepo = mock<QuoteMetadataRepository>()
   const mockUnimindParametersRepo = mock<UnimindParametersRepository>()
@@ -36,19 +39,19 @@ describe('Testing post unimind handler', () => {
     getRequestInjected: () => requestInjected,
   }
 
-  const postUnimindHandler = new PostUnimindHandler('postUnimindHandler', injectorPromiseMock)
+  const getUnimindHandler = new GetUnimindHandler('getUnimindHandler', injectorPromiseMock)
 
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
   it('Testing valid request and response', async () => {
-    const postRequestBody = {
+    const getRequestParams = {
       quoteId: 'test-quote-id',
       pair: 'ETH-USDC',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      route: SAMPLE_ROUTE
+      route: STRINGIFIED_ROUTE
     }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
@@ -57,9 +60,9 @@ describe('Testing post unimind handler', () => {
       tau: 4.2
     })
 
-    const response = await postUnimindHandler.handler(
+    const response = await getUnimindHandler.handler(
       {
-        body: JSON.stringify(postRequestBody),
+        queryStringParameters: getRequestParams,
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -69,11 +72,14 @@ describe('Testing post unimind handler', () => {
 
     const body = JSON.parse(response.body)
     expect(body).toEqual({
-      pi: 3.14 * 0.01, // intrinsic.pi * extrinsic.priceImpact
-      tau: 4.2 * 0.01  // intrinsic.tau * extrinsic.priceImpact
+      pi: 3.14 * 0.01,
+      tau: 4.2 * 0.01
     })
     expect(response.statusCode).toBe(200)
-    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith(postRequestBody)
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
+      ...getRequestParams,
+      route: SAMPLE_ROUTE // Should be parsed object when stored
+    })
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('ETH-USDC')
   })
 
@@ -83,14 +89,14 @@ describe('Testing post unimind handler', () => {
       referencePrice: '4221.21',
       priceImpact: 0.01,
       pair: 'ALAN-LEN',
-      route: SAMPLE_ROUTE
+      route: STRINGIFIED_ROUTE
     }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue(undefined)
 
-    const response = await postUnimindHandler.handler(
+    const response = await getUnimindHandler.handler(
       {
-        body: JSON.stringify(quoteMetadata),
+        queryStringParameters: quoteMetadata,
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -105,14 +111,15 @@ describe('Testing post unimind handler', () => {
   })
 
   it('Returns correct CORS headers', async () => {
-    const response = await postUnimindHandler.handler(
+    const response = await getUnimindHandler.handler(
       {
-        body: JSON.stringify({ 
+        queryStringParameters: { 
           quoteId: 'this-should-work', 
           referencePrice: '100', 
           priceImpact: 0.1,
-          pair: 'ETH-USDC'
-        }),
+          pair: 'ETH-USDC',
+          route: STRINGIFIED_ROUTE
+        },
         requestContext: { requestId: 'test-request-id-cors' }
       } as any,
       EVENT_CONTEXT
@@ -133,9 +140,9 @@ describe('Testing post unimind handler', () => {
       priceImpact: 0.01
     }
 
-    const response = await postUnimindHandler.handler(
+    const response = await getUnimindHandler.handler(
       {
-        body: JSON.stringify(incompleteValues),
+        queryStringParameters: incompleteValues,
         requestContext: {
           requestId: 'test-request-id-missing-fields'
         }
@@ -148,19 +155,19 @@ describe('Testing post unimind handler', () => {
   })
 
   it('fails when repository throws error', async () => {
-    const postRequestBody = {
+    const getRequestParams = {
       quoteId: 'this-should-fail',
       pair: 'ETH-USDC',
       referencePrice: '666.56',
       priceImpact: 0.01,
-      route: SAMPLE_ROUTE
+      route: STRINGIFIED_ROUTE
     }
 
-    mockQuoteMetadataRepo.put.mockRejectedValueOnce(new Error('DB Error'))
+    mockQuoteMetadataRepo.put.mockRejectedValue(new Error('DB Error'))
 
-    const response = await postUnimindHandler.handler(
+    const response = await getUnimindHandler.handler(
       {
-        body: JSON.stringify(postRequestBody),
+        queryStringParameters: getRequestParams,
         requestContext: {
           requestId: 'test-request-id-repo-error'
         }
@@ -169,6 +176,36 @@ describe('Testing post unimind handler', () => {
     )
 
     expect(response.statusCode).toBe(500)
-    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith(postRequestBody)
+    const body = JSON.parse(response.body)
+    expect(body.errorCode).toBe(ErrorCode.InternalError)
+    expect(body.detail).toBe('DB Error')
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
+      ...getRequestParams,
+      route: SAMPLE_ROUTE // Should be parsed object when stored
+    })
+  })
+
+  it('fails when route is invalid JSON', async () => {
+    const getRequestParams = {
+      quoteId: 'test-quote-id',
+      pair: 'ETH-USDC',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      route: '{invalid json'
+    }
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: getRequestParams,
+        requestContext: {
+          requestId: 'test-request-id'
+        }
+      } as any,
+      EVENT_CONTEXT
+    )
+
+    expect(response.statusCode).toBe(400)
+    const body = JSON.parse(response.body)
+    expect(body.detail).toContain('route must be a valid JSON string')
   })
 }) 

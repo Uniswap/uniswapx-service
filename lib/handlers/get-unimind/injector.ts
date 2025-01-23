@@ -5,8 +5,9 @@ import { MetricsLogger } from 'aws-embedded-metrics'
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import { DynamoQuoteMetadataRepository, QuoteMetadata, QuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
+import { DynamoQuoteMetadataRepository, QuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 import { DynamoUnimindParametersRepository, UnimindParametersRepository } from '../../repositories/unimind-parameters-repository'
+import { UnimindQueryParams } from './schema'
 
 export type RequestInjected = ApiRInj
 export interface ContainerInjected {
@@ -14,7 +15,7 @@ export interface ContainerInjected {
   unimindParametersRepository: UnimindParametersRepository
 }
 
-export class PostUnimindInjector extends ApiInjector<ContainerInjected, RequestInjected, QuoteMetadata, void> {
+export class GetUnimindInjector extends ApiInjector<ContainerInjected, RequestInjected, void, UnimindQueryParams> {
   private readonly documentClient: DocumentClient
 
   constructor(name: string) {
@@ -31,8 +32,8 @@ export class PostUnimindInjector extends ApiInjector<ContainerInjected, RequestI
 
   public async getRequestInjected(
     _containerInjected: ContainerInjected,
-    _requestBody: QuoteMetadata,
-    _requestQueryParams: void,
+    _requestBody: void,
+    _requestQueryParams: UnimindQueryParams,
     _event: APIGatewayEvent,
     context: Context,
     log: Logger,
