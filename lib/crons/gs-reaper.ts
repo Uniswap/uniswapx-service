@@ -148,18 +148,11 @@ export async function cleanupOrphanedOrders(
             status: ORDER_STATUS.CANCELLED,
           })
         }
-      }
-    }
-
-    // See which unfilled orders have expired
-    for (const orderHash of parsedOrders.keys()) {
-      if (!orderUpdates.has(orderHash)) {
-        const expired = parsedOrders.get(orderHash)!.deadline < Date.now() / 1000
-        if (expired) {
-            orderUpdates.set(orderHash, {
-              status: ORDER_STATUS.EXPIRED,
-            })
-          }
+        if (validation === OrderValidation.Expired) {
+          orderUpdates.set(orderHash, {
+            status: ORDER_STATUS.EXPIRED,
+          })
+        }
       }
     }
 
