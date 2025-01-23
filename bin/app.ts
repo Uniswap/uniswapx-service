@@ -188,7 +188,7 @@ export class APIPipeline extends Stack {
         relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         extrinsicValues: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        intrinsicValues: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
+        unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
       },
     })
 
@@ -353,7 +353,7 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
     relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     extrinsicValues: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    intrinsicValues: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
+    unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   },
 })
 

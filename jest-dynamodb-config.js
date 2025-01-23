@@ -293,7 +293,7 @@ module.exports = {
       ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
     },
     {
-      TableName: 'IntrinsicValues',
+      TableName: 'UnimindParameters',
       KeySchema: [{ AttributeName: 'pair', KeyType: 'HASH' }],
       AttributeDefinitions: [
         { AttributeName: 'pair', AttributeType: 'S' }

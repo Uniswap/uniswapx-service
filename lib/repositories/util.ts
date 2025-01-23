@@ -6,7 +6,7 @@ export enum TABLE_NAMES {
   Orders = 'Orders',
   Nonces = 'Nonces',
   ExtrinsicValues = 'ExtrinsicValues',
-  IntrinsicValues = 'IntrinsicValues'
+  UnimindParameters = 'UnimindParameters'
 }
 
 export const getTableIndices = (tableName: TABLE_NAMES) => {

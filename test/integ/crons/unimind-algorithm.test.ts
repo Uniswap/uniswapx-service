@@ -1,7 +1,7 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { updateIntrinsicValues } from '../../../lib/crons/unimind-algorithm'
-import { DynamoIntrinsicValuesRepository } from '../../../lib/repositories/intrinsic-values-repository'
+import { updateParameters } from '../../../lib/crons/unimind-algorithm'
+import { DynamoUnimindParametersRepository } from '../../../lib/repositories/unimind-parameters-repository'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -15,7 +15,7 @@ const dynamoConfig = {
 }
 
 const documentClient = new DocumentClient(dynamoConfig)
-const intrinsicValuesRepository = DynamoIntrinsicValuesRepository.create(documentClient)
+const unimindParametersRepository = DynamoUnimindParametersRepository.create(documentClient)
 
 const log: Logger = bunyan.createLogger({
   name: 'test',
@@ -23,15 +23,15 @@ const log: Logger = bunyan.createLogger({
   level: 'fatal',
 })
 
-describe('updateIntrinsicValues Test', () => {
+describe('updateParameters Test', () => {
   afterEach(() => {
     jest.clearAllMocks()
   })
 
-  it('should update intrinsic values', async () => {
-    await updateIntrinsicValues(intrinsicValuesRepository, log)
+  it('should update unimind parameters', async () => {
+    await updateParameters(unimindParametersRepository, log)
     
-    const updatedValues = await intrinsicValuesRepository.getByPair('ETH-USDC')
+    const updatedValues = await unimindParametersRepository.getByPair('ETH-USDC')
     expect(updatedValues).toBeDefined()
     expect(updatedValues?.pair).toBe('ETH-USDC')
     expect(updatedValues?.pi).toBe(3.14)

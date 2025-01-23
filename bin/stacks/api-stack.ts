@@ -517,7 +517,7 @@ export class APIStack extends cdk.Stack {
       ],
       resources: [
         `arn:aws:dynamodb:${this.region}:${this.account}:table/ExtrinsicValues`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/IntrinsicValues`
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/UnimindParameters`
       ]
     })
 

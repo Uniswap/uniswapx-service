@@ -37,7 +37,7 @@ export type TableCapacityConfig = {
   relayOrder: TableCapacityOptions
   nonce: TableCapacityOptions
   extrinsicValues: TableCapacityOptions
-  intrinsicValues: TableCapacityOptions
+  unimindParameters: TableCapacityOptions
 }
 
 export type DynamoStackProps = {
@@ -52,7 +52,7 @@ export class DynamoStack extends cdk.NestedStack {
   public readonly limitOrdersTable: aws_dynamo.Table
   public readonly relayOrdersTable: aws_dynamo.Table
   public readonly extrinsicValuesTable: aws_dynamo.Table
-  public readonly intrinsicValuesTable: aws_dynamo.Table
+  public readonly unimindParametersTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
@@ -140,8 +140,8 @@ export class DynamoStack extends cdk.NestedStack {
 
     this.alarmsPerTable(this.extrinsicValuesTable, 'ExtrinsicValues', chatbotSNSArn)
 
-    const intrinsicValuesTable = new aws_dynamo.Table(this, `${SERVICE_NAME}IntrinsicValuesTable`, {
-      tableName: 'IntrinsicValues',
+    const unimindParametersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}UnimindParametersTable`, {
+      tableName: 'UnimindParameters',
       partitionKey: {
         name: 'pair',
         type: aws_dynamo.AttributeType.STRING,
@@ -149,11 +149,11 @@ export class DynamoStack extends cdk.NestedStack {
       deletionProtection: true,
       pointInTimeRecovery: true,
       contributorInsightsEnabled: false,
-      ...tableCapacityConfig.intrinsicValues,
+      ...tableCapacityConfig.unimindParameters,
     })
-    this.intrinsicValuesTable = intrinsicValuesTable
+    this.unimindParametersTable = unimindParametersTable
 
-    this.alarmsPerTable(this.intrinsicValuesTable, 'IntrinsicValues', chatbotSNSArn)
+    this.alarmsPerTable(this.unimindParametersTable, 'UnimindParameters', chatbotSNSArn)
 
     // Dynamos built-in PointInTimeRecovery retention is max 35 days.
     // In addition to PITR being enabled on the tables we do a monthly backup
@@ -164,7 +164,7 @@ export class DynamoStack extends cdk.NestedStack {
       resources: [
         aws_backup.BackupResource.fromDynamoDbTable(nonceTable),
         aws_backup.BackupResource.fromDynamoDbTable(ordersTable),
-        aws_backup.BackupResource.fromDynamoDbTable(intrinsicValuesTable),
+        aws_backup.BackupResource.fromDynamoDbTable(unimindParametersTable),
       ],
     })
   }

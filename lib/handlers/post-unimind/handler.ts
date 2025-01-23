@@ -2,7 +2,7 @@ import Joi from 'joi'
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base'
 import { ContainerInjected, RequestInjected } from './injector'
 import { ExtrinsicValues } from '../../repositories/extrinsic-values-repository'
-import { IntrinsicValues } from '../../repositories/intrinsic-values-repository'
+import { UnimindParameters } from '../../repositories/unimind-parameters-repository'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
@@ -21,7 +21,7 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, UnimindRequest, void>
   ): Promise<Response<UnimindResponse> | ErrorResponse> {
     const { requestBody, containerInjected } = params
-    const { extrinsicValuesRepository, intrinsicValuesRepository } = containerInjected
+    const { extrinsicValuesRepository, unimindParametersRepository } = containerInjected
 
     const extrinsicValues : ExtrinsicValues = {
         quoteId: requestBody.quoteId,
@@ -31,21 +31,21 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
         pair: requestBody.pair
     }
     
-    const [_, intrinsicValues] = await Promise.all([
+    const [_, unimindParameters] = await Promise.all([
       extrinsicValuesRepository.put(extrinsicValues),
-      intrinsicValuesRepository.getByPair(requestBody.pair)
+      unimindParametersRepository.getByPair(requestBody.pair)
     ])
-    
-    if (!intrinsicValues) {
+
+    if (!unimindParameters) {
       return {
         statusCode: 404,
-        errorCode: ErrorCode.NoIntrinsicValuesFound,
-        detail: `No intrinsic values found for ${requestBody.pair}`
+        errorCode: ErrorCode.NoUnimindParametersFound,
+        detail: `No unimind parameters found for ${requestBody.pair}`
       }
     }
 
     const beforeCalculateTime = Date.now()
-    const parameters = this.calculateParameters(intrinsicValues, requestBody)
+    const parameters = this.calculateParameters(unimindParameters, requestBody)
     const afterCalculateTime = Date.now()
     const calculateTime = afterCalculateTime - beforeCalculateTime
     metrics.putMetric(`extrinsic-calculation-time`, calculateTime)
@@ -56,7 +56,7 @@ export class PostUnimindHandler extends APIGLambdaHandler<ContainerInjected, Req
     }
   }
 
-  calculateParameters(intrinsicValues: IntrinsicValues, extrinsicValues: ExtrinsicValues): UnimindResponse {
+  calculateParameters(intrinsicValues: UnimindParameters, extrinsicValues: ExtrinsicValues): UnimindResponse {
     const pi = intrinsicValues.pi * extrinsicValues.priceImpact
     const tau = intrinsicValues.tau * extrinsicValues.priceImpact
     return {

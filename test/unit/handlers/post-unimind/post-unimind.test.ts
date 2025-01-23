@@ -3,7 +3,7 @@ import { mock } from 'jest-mock-extended'
 import { EVENT_CONTEXT } from '../../fixtures'
 import { PostUnimindHandler } from '../../../../lib/handlers/post-unimind/handler'
 import { ExtrinsicValuesRepository } from '../../../../lib/repositories/extrinsic-values-repository'
-import { IntrinsicValuesRepository } from '../../../../lib/repositories/intrinsic-values-repository'
+import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 
 const SAMPLE_ROUTE = {
   quote: "1234",
@@ -21,7 +21,7 @@ const SAMPLE_ROUTE = {
 describe('Testing post unimind handler', () => {
   const mockLog = mock<Logger>()
   const mockExtrinsicValuesRepo = mock<ExtrinsicValuesRepository>()
-  const mockIntrinsicValuesRepo = mock<IntrinsicValuesRepository>()
+  const mockUnimindParametersRepo = mock<UnimindParametersRepository>()
 
   const requestInjected = {
     requestId: 'testRequest',
@@ -31,7 +31,7 @@ describe('Testing post unimind handler', () => {
   const injectorPromiseMock: any = {
     getContainerInjected: () => ({
       extrinsicValuesRepository: mockExtrinsicValuesRepo,
-      intrinsicValuesRepository: mockIntrinsicValuesRepo
+      unimindParametersRepository: mockUnimindParametersRepo
     }),
     getRequestInjected: () => requestInjected,
   }
@@ -51,7 +51,7 @@ describe('Testing post unimind handler', () => {
       route: SAMPLE_ROUTE
     }
 
-    mockIntrinsicValuesRepo.getByPair.mockResolvedValue({
+    mockUnimindParametersRepo.getByPair.mockResolvedValue({
       pair: 'ETH-USDC',
       pi: 3.14,
       tau: 4.2
@@ -74,10 +74,10 @@ describe('Testing post unimind handler', () => {
     })
     expect(response.statusCode).toBe(200)
     expect(mockExtrinsicValuesRepo.put).toHaveBeenCalledWith(postRequestBody)
-    expect(mockIntrinsicValuesRepo.getByPair).toHaveBeenCalledWith('ETH-USDC')
+    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('ETH-USDC')
   })
 
-  it('Returns 404 when intrinsic values not found', async () => {
+  it('Returns 404 when unimind parameters not found', async () => {
     const extrinsicValues = {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
@@ -86,7 +86,7 @@ describe('Testing post unimind handler', () => {
       route: SAMPLE_ROUTE
     }
 
-    mockIntrinsicValuesRepo.getByPair.mockResolvedValue(undefined)
+    mockUnimindParametersRepo.getByPair.mockResolvedValue(undefined)
 
     const response = await postUnimindHandler.handler(
       {
@@ -100,8 +100,8 @@ describe('Testing post unimind handler', () => {
 
     expect(response.statusCode).toBe(404)
     const body = JSON.parse(response.body)
-    expect(body.errorCode).toBe('NO_INTRINSIC_VALUES_FOUND')
-    expect(body.detail).toBe('No intrinsic values found for ALAN-LEN')
+    expect(body.errorCode).toBe('NO_UNIMIND_PARAMETERS_FOUND')
+    expect(body.detail).toBe('No unimind parameters found for ALAN-LEN')
   })
 
   it('Returns correct CORS headers', async () => {

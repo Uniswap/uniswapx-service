@@ -2,8 +2,8 @@ import { EventBridgeEvent, ScheduledHandler } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
-import { DynamoIntrinsicValuesRepository } from '../repositories/intrinsic-values-repository'
-import { IntrinsicValuesRepository } from '../repositories/intrinsic-values-repository'
+import { DynamoUnimindParametersRepository } from '../repositories/unimind-parameters-repository'
+import { UnimindParametersRepository } from '../repositories/unimind-parameters-repository'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -18,12 +18,12 @@ async function main(metrics: MetricsLogger) {
     level: 'info',
   })
 
-  const repo = DynamoIntrinsicValuesRepository.create(new DynamoDB.DocumentClient())
-  await updateIntrinsicValues(repo, log, metrics)
+  const repo = DynamoUnimindParametersRepository.create(new DynamoDB.DocumentClient())
+  await updateParameters(repo, log, metrics)
 }
 
-export async function updateIntrinsicValues(
-  repo: IntrinsicValuesRepository, 
+export async function updateParameters(
+  repo: UnimindParametersRepository, 
   log: Logger, 
   metrics?: MetricsLogger
 ): Promise<void> {
@@ -35,10 +35,10 @@ export async function updateIntrinsicValues(
     pi: 3.14,
     tau: Date.now() % 123,
   })
-  log.info(`Intrinsic values for ${pair} updated`)
-  metrics?.putMetric(`intrinsic-values-updated-${pair}`, 1, Unit.Count)
+  log.info(`Unimind parameters for ${pair} updated`)
+  metrics?.putMetric(`unimind-parameters-updated-${pair}`, 1, Unit.Count)
   
   const afterUpdateTime = Date.now()
   const updateTime = afterUpdateTime - beforeUpdateTime
-  metrics?.putMetric(`intrinsic-values-update-time`, updateTime)
+  metrics?.putMetric(`unimind-parameters-update-time`, updateTime)
 }

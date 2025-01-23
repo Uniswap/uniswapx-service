@@ -583,7 +583,7 @@ export class DashboardStack extends cdk.NestedStack {
             properties: {
               metrics: [
                 ['Uniswap', 'extrinsic-calculation-time', 'Service', 'UniswapXService', { label: 'Extrinsic Calculation Time' }],
-                ['Uniswap', 'intrinsic-values-update-time', 'Service', 'UniswapXServiceCron', { label: 'Intrinsic Update Time' }],
+                ['Uniswap', 'unimind-parameters-update-time', 'Service', 'UniswapXServiceCron', { label: 'Unimind Parameters Update Time' }],
               ],
               view: 'timeSeries',
               stacked: false,
