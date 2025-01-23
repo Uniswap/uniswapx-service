@@ -8,7 +8,7 @@ import { DutchOrdersRepository } from '../../../../lib/repositories/dutch-orders
 import { BLOCK_RANGE, OLDEST_BLOCK_BY_CHAIN } from '../../../../lib/util/constants'
 import { ChainId } from '../../../../lib/util/chain'
 import { cleanupOrphanedOrders } from '../../../../lib/crons/gs-reaper'
-import { MOCK_ORDER_ENTITY } from '../../../test-data'
+import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY } from '../../../test-data'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -67,27 +67,44 @@ const mockOrdersRepository = {
 }
 
 // Setup mock provider
-const mockProvider = {
-  getBlockNumber: jest.fn().mockResolvedValue(OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE),
-  getTransaction: jest.fn().mockResolvedValue({
-    gasPrice: '1000000000',
-    maxPriorityFeePerGas: null,
-    maxFeePerGas: null,
-  }),
-  getBlock: jest.fn().mockResolvedValue({
-    timestamp: MOCK_ORDER_ENTITY.decayStartTime,
-  }),
-}
 const mockProviders = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
-mockProviders.set(ChainId.MAINNET, mockProvider);
+for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
+  const chainId = Number(chainIdKey)
+  const mockProvider = {
+    getBlockNumber: jest.fn().mockResolvedValue(OLDEST_BLOCK_BY_CHAIN[chainId] + BLOCK_RANGE),
+    getTransaction: jest.fn().mockResolvedValue({
+      gasPrice: '1000000000',
+      maxPriorityFeePerGas: null,
+      maxFeePerGas: null,
+    }),
+  getBlock: jest.fn().mockResolvedValue({
+    timestamp: Date.now() / 1000,
+  }),
+  }
+  mockProviders.set(chainId, mockProvider);
+}
 
 // Setup mock watcher
 const mockFillBlockNumber = OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE/2
 const mockWatcher = {
-  getFillEvents: jest.fn().mockResolvedValue([{ orderHash: MOCK_ORDER_ENTITY.orderHash }]),
+  getFillEvents: jest.fn().mockImplementation(async (chainId, fromBlock, toBlock) => {
+    // Only return events if the block range matches expected range
+    if (mockFillBlockNumber >= fromBlock && mockFillBlockNumber <= toBlock) {
+      return [
+        { orderHash: MOCK_ORDER_ENTITY.orderHash },
+        { orderHash: MOCK_V2_ORDER_ENTITY.orderHash },
+      ]
+    }
+    return []
+  }),
   getFillInfo: jest.fn().mockResolvedValue([{
     orderHash: MOCK_ORDER_ENTITY.orderHash,
     txHash: '0xmocktxhash',
+    blockNumber: mockFillBlockNumber,
+  },
+  {
+    orderHash: MOCK_V2_ORDER_ENTITY.orderHash,
+    txHash: '0xmocktxhash2',
     blockNumber: mockFillBlockNumber,
   }]),
 }
@@ -122,7 +139,6 @@ jest.mock('../../../../lib/handlers/check-order-status/util', () => {
   }
 })
 
-
 describe('update filled orders', () => {
 })
 
@@ -130,6 +146,7 @@ describe('cleanupOrphanedOrders', () => {
   beforeEach(async () => {
     // Add test order to repository
     await mockOrdersRepository.addOrder(MOCK_ORDER_ENTITY)
+    mockWatcher.getFillEvents.mockResolvedValue([{ orderHash: MOCK_V2_ORDER_ENTITY.orderHash }, { orderHash: MOCK_ORDER_ENTITY.orderHash }])
   })
 
   afterEach(async () => {
@@ -210,11 +227,65 @@ describe('cleanupOrphanedOrders', () => {
 
     await cleanupOrphanedOrders(mockOrdersRepository, mockProviders, log)
 
-    // Verify order was updated
+    // Verify order remains OPEN
     const updatedOrder = await mockOrdersRepository.getOrder(unexpiredOrder.orderHash)
     expect(updatedOrder?.orderStatus).toBe(ORDER_STATUS.OPEN)
     expect(updatedOrder?.txHash).not.toBeDefined()
     expect(updatedOrder?.fillBlock).not.toBeDefined()
     expect(updatedOrder?.settledAmounts).not.toBeDefined()
+  })
+
+  it('updates multiple order types on a single chain', async () => {
+    await mockOrdersRepository.addOrder(MOCK_V2_ORDER_ENTITY)
+    await cleanupOrphanedOrders(mockOrdersRepository, mockProviders, log)
+
+    // Verify order was updated
+    const updatedOrder = await mockOrdersRepository.getOrder(MOCK_ORDER_ENTITY.orderHash)
+    expect(updatedOrder?.orderStatus).toBe(ORDER_STATUS.FILLED)
+    expect(updatedOrder?.txHash).toBe('0xmocktxhash')
+    expect(updatedOrder?.fillBlock).toBe(mockFillBlockNumber)
+    expect(updatedOrder?.settledAmounts).toBeDefined()
+    expect(updatedOrder?.settledAmounts[0].tokenOut).toBe(MOCK_ORDER_ENTITY.outputs[0].token)
+    expect(updatedOrder?.settledAmounts[0].amountOut).toBe(MOCK_ORDER_ENTITY.outputs[0].startAmount)
+    expect(updatedOrder?.settledAmounts[0].tokenIn).toBe(MOCK_ORDER_ENTITY.input.token)
+    expect(updatedOrder?.settledAmounts[0].amountIn).toBe(MOCK_ORDER_ENTITY.input.startAmount)
+
+    const updatedV2Order = await mockOrdersRepository.getOrder(MOCK_V2_ORDER_ENTITY.orderHash)
+    expect(updatedV2Order?.orderStatus).toBe(ORDER_STATUS.FILLED)
+    expect(updatedV2Order?.txHash).toBe('0xmocktxhash2')
+    expect(updatedV2Order?.fillBlock).toBe(mockFillBlockNumber)
+    expect(updatedV2Order?.settledAmounts).toBeDefined()
+    expect(updatedV2Order?.settledAmounts[0].tokenOut).toBe(MOCK_V2_ORDER_ENTITY.outputs[0].token)
+    expect(updatedV2Order?.settledAmounts[0].amountOut).toBe(MOCK_V2_ORDER_ENTITY.outputs[0].startAmount)
+    expect(updatedV2Order?.settledAmounts[0].tokenIn).toBe(MOCK_V2_ORDER_ENTITY.input.token)
+    expect(updatedV2Order?.settledAmounts[0].amountIn).toBe(MOCK_V2_ORDER_ENTITY.input.startAmount)
+  })
+
+  it('iterates through multiple blocks batches', async () => {
+    // Start 10 blocks ahead of the oldest block
+    const mockProvider = {
+      getBlockNumber: jest.fn().mockResolvedValue(OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * 10),
+      getTransaction: jest.fn().mockResolvedValue({
+        gasPrice: '1000000000',
+        maxPriorityFeePerGas: null,
+        maxFeePerGas: null,
+      }),
+      getBlock: jest.fn().mockResolvedValue({
+        timestamp: Date.now() / 1000,
+      }),
+    }
+    mockProviders.set(ChainId.MAINNET, mockProvider)
+    await cleanupOrphanedOrders(mockOrdersRepository, mockProviders, log)
+
+    // Verify order was updated
+    const updatedOrder = await mockOrdersRepository.getOrder(MOCK_ORDER_ENTITY.orderHash)
+    expect(updatedOrder?.orderStatus).toBe(ORDER_STATUS.FILLED)
+    expect(updatedOrder?.txHash).toBe('0xmocktxhash')
+    expect(updatedOrder?.fillBlock).toBe(mockFillBlockNumber)
+    expect(updatedOrder?.settledAmounts).toBeDefined()
+    expect(updatedOrder?.settledAmounts[0].tokenOut).toBe(MOCK_ORDER_ENTITY.outputs[0].token)
+    expect(updatedOrder?.settledAmounts[0].amountOut).toBe(MOCK_ORDER_ENTITY.outputs[0].startAmount)
+    expect(updatedOrder?.settledAmounts[0].tokenIn).toBe(MOCK_ORDER_ENTITY.input.token)
+    expect(updatedOrder?.settledAmounts[0].amountIn).toBe(MOCK_ORDER_ENTITY.input.startAmount)
   })
 })
