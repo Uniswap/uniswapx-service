@@ -2,7 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { mock } from 'jest-mock-extended'
 import { EVENT_CONTEXT } from '../../fixtures'
 import { PostUnimindHandler } from '../../../../lib/handlers/post-unimind/handler'
-import { ExtrinsicValuesRepository } from '../../../../lib/repositories/extrinsic-values-repository'
+import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 
 const SAMPLE_ROUTE = {
@@ -20,7 +20,7 @@ const SAMPLE_ROUTE = {
 
 describe('Testing post unimind handler', () => {
   const mockLog = mock<Logger>()
-  const mockExtrinsicValuesRepo = mock<ExtrinsicValuesRepository>()
+  const mockQuoteMetadataRepo = mock<QuoteMetadataRepository>()
   const mockUnimindParametersRepo = mock<UnimindParametersRepository>()
 
   const requestInjected = {
@@ -30,7 +30,7 @@ describe('Testing post unimind handler', () => {
 
   const injectorPromiseMock: any = {
     getContainerInjected: () => ({
-      extrinsicValuesRepository: mockExtrinsicValuesRepo,
+      quoteMetadataRepository: mockQuoteMetadataRepo,
       unimindParametersRepository: mockUnimindParametersRepo
     }),
     getRequestInjected: () => requestInjected,
@@ -73,12 +73,12 @@ describe('Testing post unimind handler', () => {
       tau: 4.2 * 0.01  // intrinsic.tau * extrinsic.priceImpact
     })
     expect(response.statusCode).toBe(200)
-    expect(mockExtrinsicValuesRepo.put).toHaveBeenCalledWith(postRequestBody)
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith(postRequestBody)
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('ETH-USDC')
   })
 
   it('Returns 404 when unimind parameters not found', async () => {
-    const extrinsicValues = {
+    const quoteMetadata = {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
@@ -90,7 +90,7 @@ describe('Testing post unimind handler', () => {
 
     const response = await postUnimindHandler.handler(
       {
-        body: JSON.stringify(extrinsicValues),
+        body: JSON.stringify(quoteMetadata),
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -144,7 +144,7 @@ describe('Testing post unimind handler', () => {
     )
 
     expect(response.statusCode).toBe(400)
-    expect(mockExtrinsicValuesRepo.put).not.toHaveBeenCalled()
+    expect(mockQuoteMetadataRepo.put).not.toHaveBeenCalled()
   })
 
   it('fails when repository throws error', async () => {
@@ -156,7 +156,7 @@ describe('Testing post unimind handler', () => {
       route: SAMPLE_ROUTE
     }
 
-    mockExtrinsicValuesRepo.put.mockRejectedValueOnce(new Error('DB Error'))
+    mockQuoteMetadataRepo.put.mockRejectedValueOnce(new Error('DB Error'))
 
     const response = await postUnimindHandler.handler(
       {
@@ -169,6 +169,6 @@ describe('Testing post unimind handler', () => {
     )
 
     expect(response.statusCode).toBe(500)
-    expect(mockExtrinsicValuesRepo.put).toHaveBeenCalledWith(postRequestBody)
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith(postRequestBody)
   })
 }) 

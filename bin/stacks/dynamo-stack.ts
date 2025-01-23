@@ -36,7 +36,7 @@ export type TableCapacityConfig = {
   limitOrder: TableCapacityOptions
   relayOrder: TableCapacityOptions
   nonce: TableCapacityOptions
-  extrinsicValues: TableCapacityOptions
+  quoteMetadata: TableCapacityOptions
   unimindParameters: TableCapacityOptions
 }
 
@@ -51,7 +51,7 @@ export class DynamoStack extends cdk.NestedStack {
   public readonly nonceTable: aws_dynamo.Table
   public readonly limitOrdersTable: aws_dynamo.Table
   public readonly relayOrdersTable: aws_dynamo.Table
-  public readonly extrinsicValuesTable: aws_dynamo.Table
+  public readonly quoteMetadataTable: aws_dynamo.Table
   public readonly unimindParametersTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
@@ -125,8 +125,8 @@ export class DynamoStack extends cdk.NestedStack {
     this.alarmsPerTable(this.nonceTable, 'Nonces', chatbotSNSArn)
     this.alarmsPerTable(this.ordersTable, 'Orders', chatbotSNSArn)
 
-    const extrinsicValuesTable = new aws_dynamo.Table(this, `${SERVICE_NAME}ExtrinsicValuesTable`, {
-      tableName: 'ExtrinsicValues',
+    const quoteMetadataTable = new aws_dynamo.Table(this, `${SERVICE_NAME}QuoteMetadataTable`, {
+      tableName: 'QuoteMetadata',
       partitionKey: {
         name: 'quoteId',
         type: aws_dynamo.AttributeType.STRING,
@@ -134,11 +134,11 @@ export class DynamoStack extends cdk.NestedStack {
       deletionProtection: true,
       pointInTimeRecovery: true,
       contributorInsightsEnabled: false,
-      ...tableCapacityConfig.extrinsicValues,
+      ...tableCapacityConfig.quoteMetadata,
     })
-    this.extrinsicValuesTable = extrinsicValuesTable
+    this.quoteMetadataTable = quoteMetadataTable
 
-    this.alarmsPerTable(this.extrinsicValuesTable, 'ExtrinsicValues', chatbotSNSArn)
+    this.alarmsPerTable(this.quoteMetadataTable, 'QuoteMetadata', chatbotSNSArn)
 
     const unimindParametersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}UnimindParametersTable`, {
       tableName: 'UnimindParameters',

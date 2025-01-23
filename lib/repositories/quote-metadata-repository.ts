@@ -19,7 +19,7 @@ export interface Route {
     method_parameters: MethodParameters
 }
 
-export interface ExtrinsicValues {
+export interface QuoteMetadata {
   quoteId: string
   referencePrice: string
   priceImpact: number
@@ -27,28 +27,28 @@ export interface ExtrinsicValues {
   pair: string
 }
 
-export interface ExtrinsicValuesRepository {
-  put(values: ExtrinsicValues): Promise<void>
-  getByQuoteId(quoteId: string): Promise<ExtrinsicValues | undefined>
+export interface QuoteMetadataRepository {
+  put(values: QuoteMetadata): Promise<void>
+  getByQuoteId(quoteId: string): Promise<QuoteMetadata | undefined>
 }
 
-export class DynamoExtrinsicValuesRepository implements ExtrinsicValuesRepository {
+export class DynamoQuoteMetadataRepository implements QuoteMetadataRepository {
   private readonly entity: Entity
 
-  static create(documentClient: DocumentClient): ExtrinsicValuesRepository {
+  static create(documentClient: DocumentClient): QuoteMetadataRepository {
     const log = Logger.createLogger({
-      name: 'ExtrinsicValuesRepository',
+      name: 'QuoteMetadataRepository',
       serializers: Logger.stdSerializers,
     })
 
     const table = new Table({
-      name: TABLE_NAMES.ExtrinsicValues,
+      name: TABLE_NAMES.QuoteMetadata,
       partitionKey: 'quoteId',
       DocumentClient: documentClient,
     })
 
     const entity = new Entity({
-      name: 'ExtrinsicValues',
+    name: 'QuoteMetadata',
       attributes: {
         quoteId: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         referencePrice: { type: DYNAMODB_TYPES.STRING, required: true },
@@ -59,24 +59,24 @@ export class DynamoExtrinsicValuesRepository implements ExtrinsicValuesRepositor
       table,
     } as const)
 
-    return new DynamoExtrinsicValuesRepository(entity, log)
+    return new DynamoQuoteMetadataRepository(entity, log)
   }
 
   constructor(entity: Entity, private readonly log: Logger) {
     this.entity = entity
   }
 
-  async put(values: ExtrinsicValues): Promise<void> {
+  async put(values: QuoteMetadata): Promise<void> {
     try {
       await this.entity.put(values)
     } catch (error) {
-      this.log.error({ error, values }, 'Failed to put extrinsic values')
+      this.log.error({ error, values }, 'Failed to put quote metadata')
       throw error
     }
   }
 
-  async getByQuoteId(quoteId: string): Promise<ExtrinsicValues | undefined> {
+  async getByQuoteId(quoteId: string): Promise<QuoteMetadata | undefined> {
     const result = await this.entity.get({ quoteId }, { execute: true })
-    return result.Item as ExtrinsicValues | undefined
+    return result.Item as QuoteMetadata | undefined
   }
 } 

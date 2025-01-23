@@ -1,5 +1,5 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { Route } from '../repositories/extrinsic-values-repository'
+import { Route } from '../repositories/quote-metadata-repository'
 
 export enum ORDER_STATUS {
   OPEN = 'open',

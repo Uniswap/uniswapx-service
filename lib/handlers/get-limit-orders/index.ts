@@ -18,10 +18,10 @@ import { GetOrdersHandler } from '../get-orders/handler'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
 import { GetLimitOrdersInjector } from './injector'
-import { DynamoExtrinsicValuesRepository } from '../../repositories/extrinsic-values-repository'
+import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 
 const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
-const extrinsicValuesRepository = DynamoExtrinsicValuesRepository.create(new DynamoDB.DocumentClient())
+const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 
@@ -30,7 +30,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   onChainValidatorMap,
   repo,
   repo, //same as normal repo for limit orders
-  extrinsicValuesRepository,
+  quoteMetadataRepository,
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),

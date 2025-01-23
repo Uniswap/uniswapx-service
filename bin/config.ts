@@ -20,6 +20,6 @@ export const PROD_TABLE_CAPACITY: TableCapacityConfig = {
   limitOrder: { billingMode: BillingMode.PAY_PER_REQUEST },
   relayOrder: { billingMode: BillingMode.PAY_PER_REQUEST },
   nonce: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 1000 },
-  extrinsicValues: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 1000 }, // TODO: Update numbers
+  quoteMetadata: { billingMode: BillingMode.PROVISIONED, readCapacity: 2000, writeCapacity: 1000 }, // TODO: Update numbers
   unimindParameters: { billingMode: BillingMode.PAY_PER_REQUEST },
 }

@@ -1,11 +1,11 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { mock } from 'jest-mock-extended'
-import { DynamoExtrinsicValuesRepository, ExtrinsicValues } from '../../../lib/repositories/extrinsic-values-repository'
+import { DynamoQuoteMetadataRepository, QuoteMetadata } from '../../../lib/repositories/quote-metadata-repository'
 
-describe('ExtrinsicValuesRepository', () => {
+describe('QuoteMetadataRepository', () => {
   const mockDocumentClient = mock<DocumentClient>()
 
-  const mockExtrinsicValues: ExtrinsicValues = {
+  const mockQuoteMetadata: QuoteMetadata = {
     quoteId: 'test-quote-id',
     referencePrice: "21212121",
     priceImpact: 0.21,
@@ -29,29 +29,29 @@ describe('ExtrinsicValuesRepository', () => {
   })
 
   describe('put', () => {
-    it('successfully puts extrinsic values', async () => {
-      const repository = DynamoExtrinsicValuesRepository.create(mockDocumentClient)
+    it('successfully puts quote metadata', async () => {
+      const repository = DynamoQuoteMetadataRepository.create(mockDocumentClient)
       mockDocumentClient.put.mockReturnValue({
         promise: () => Promise.resolve({}),
       } as any)
 
-      await repository.put(mockExtrinsicValues)
+      await repository.put(mockQuoteMetadata)
 
       expect(mockDocumentClient.put).toHaveBeenCalledTimes(1)
     })
 
     it('throws error when put fails', async () => {
-      const repository = DynamoExtrinsicValuesRepository.create(mockDocumentClient)
+      const repository = DynamoQuoteMetadataRepository.create(mockDocumentClient)
       const error = new Error('DynamoDB Error')
       mockDocumentClient.put.mockReturnValue({
         promise: () => Promise.reject(error),
       } as any)
 
-      await expect(repository.put(mockExtrinsicValues)).rejects.toThrow(error)
+      await expect(repository.put(mockQuoteMetadata)).rejects.toThrow(error)
     })
 
     it('throws error when missing required fields', async () => {
-      const repository = DynamoExtrinsicValuesRepository.create(mockDocumentClient)
+      const repository = DynamoQuoteMetadataRepository.create(mockDocumentClient)
       
       const incompleteValues = {
         quoteId: 'messed-up',
@@ -67,20 +67,20 @@ describe('ExtrinsicValuesRepository', () => {
   })
 
   describe('getByQuoteId', () => {
-    it('successfully gets extrinsic values by quoteId', async () => {
-      const repository = DynamoExtrinsicValuesRepository.create(mockDocumentClient)
+    it('successfully gets quote metadata by quoteId', async () => {
+      const repository = DynamoQuoteMetadataRepository.create(mockDocumentClient)
       mockDocumentClient.get.mockReturnValue({
-        promise: () => Promise.resolve({ Item: mockExtrinsicValues }),
+        promise: () => Promise.resolve({ Item: mockQuoteMetadata }),
       } as any)
 
       const result = await repository.getByQuoteId('test-quote-id')
 
-      expect(result).toEqual(mockExtrinsicValues)
+      expect(result).toEqual(mockQuoteMetadata)
       expect(mockDocumentClient.get).toHaveBeenCalledTimes(1)
     })
 
     it('returns undefined when item not found', async () => {
-      const repository = DynamoExtrinsicValuesRepository.create(mockDocumentClient)
+      const repository = DynamoQuoteMetadataRepository.create(mockDocumentClient)
       mockDocumentClient.get.mockReturnValue({
         promise: () => Promise.resolve({ Item: undefined }),
       } as any)

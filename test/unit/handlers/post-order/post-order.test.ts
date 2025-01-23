@@ -45,7 +45,7 @@ import {
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
 import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
-import { ExtrinsicValuesRepository } from '../../../../lib/repositories/extrinsic-values-repository'
+import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 
 jest.mock('@aws-sdk/client-kms');
 jest.mock('@uniswap/signer', () => {
@@ -70,7 +70,7 @@ const MOCK_START_EXECUTION_INPUT = JSON.stringify({
   chainId: 1,
   orderStatus: ORDER_STATUS.OPEN,
 })
-const SAMPLE_EXTRINSIC = {
+const SAMPLE_QUOTE_METADATA = {
   quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
   referencePrice: '4221.21',
   priceImpact: 0.01,
@@ -112,7 +112,7 @@ describe('Testing post order handler.', () => {
   const validatorMock = jest.fn()
   const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
-  const extrinsicValuesRepositoryMock = mock<ExtrinsicValuesRepository>()
+  const quoteMetadataRepositoryMock = mock<QuoteMetadataRepository>()
 
   const mockLog = mock<Logger>()
   const requestInjected = {
@@ -168,7 +168,7 @@ describe('Testing post order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
-        extrinsicValuesRepositoryMock,
+        quoteMetadataRepositoryMock,
         mockLog,
         getMaxOpenOrders,
         {
@@ -454,13 +454,13 @@ describe('Testing post order handler.', () => {
       })
     })
 
-    it('Attaches extrinsic values to DutchV3 order when available', async () => {
+    it('Attaches quote metadata to DutchV3 order when available', async () => {
       validatorMock.mockReturnValue({ valid: true })
       countOrdersByOffererAndStatusMock.mockResolvedValue(0)
   
-      extrinsicValuesRepositoryMock.getByQuoteId.mockResolvedValue(SAMPLE_EXTRINSIC)
+      quoteMetadataRepositoryMock.getByQuoteId.mockResolvedValue(SAMPLE_QUOTE_METADATA)
     
-      const QUOTE_ID = SAMPLE_EXTRINSIC.quoteId
+      const QUOTE_ID = SAMPLE_QUOTE_METADATA.quoteId
     
       const sdkOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE)
       const order = new DutchV3Order(
@@ -485,9 +485,9 @@ describe('Testing post order handler.', () => {
         EVENT_CONTEXT
       )
     
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN, SAMPLE_EXTRINSIC)
+      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN, SAMPLE_QUOTE_METADATA)
       expect(putOrderAndUpdateNonceTransactionMock).toHaveBeenCalledWith(expectedOrderEntity)
-      expect(extrinsicValuesRepositoryMock.getByQuoteId).toHaveBeenCalledWith(QUOTE_ID)
+      expect(quoteMetadataRepositoryMock.getByQuoteId).toHaveBeenCalledWith(QUOTE_ID)
     })
   })
 

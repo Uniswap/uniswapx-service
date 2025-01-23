@@ -2,7 +2,7 @@ import { CosignedV3DutchOrder as SDKV3DutchOrder, OrderType } from '@uniswap/uni
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { Order } from './Order'
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
-import { ExtrinsicValues } from '../repositories/extrinsic-values-repository'
+import { QuoteMetadata } from '../repositories/quote-metadata-repository'
 
 export class DutchV3Order extends Order {
   constructor(
@@ -23,7 +23,7 @@ export class DutchV3Order extends Order {
     return OrderType.Dutch_V3
   }
 
-  public toEntity(orderStatus: ORDER_STATUS, extrinsicValues?: ExtrinsicValues): UniswapXOrderEntity {
+  public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): UniswapXOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: UniswapXOrderEntity = {
@@ -72,10 +72,10 @@ export class DutchV3Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      referencePrice: extrinsicValues?.referencePrice,
-      priceImpact: extrinsicValues?.priceImpact,
-      route: extrinsicValues?.route,
-      pair: extrinsicValues?.pair
+      referencePrice: quoteMetadata?.referencePrice,
+      priceImpact: quoteMetadata?.priceImpact,
+      route: quoteMetadata?.route,
+      pair: quoteMetadata?.pair
     }
 
     return order

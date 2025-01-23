@@ -5,7 +5,7 @@ export enum TABLE_NAMES {
   RelayOrders = 'RelayOrders',
   Orders = 'Orders',
   Nonces = 'Nonces',
-  ExtrinsicValues = 'ExtrinsicValues',
+  QuoteMetadata = 'QuoteMetadata',
   UnimindParameters = 'UnimindParameters'
 }
 
