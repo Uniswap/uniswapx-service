@@ -9,9 +9,15 @@ export const ONE_DAY_IN_SECONDS = 60 * 60 * 24
 export const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
 export const OLDEST_BLOCK_BY_CHAIN = {
   [ChainId.MAINNET]: 20120259,
-  [ChainId.ARBITRUM_ONE]: 253597707,
-  [ChainId.BASE]: 22335646,
-  [ChainId.UNICHAIN]: 6747397,
+  // [ChainId.ARBITRUM_ONE]: 253597707,
+  // [ChainId.BASE]: 22335646,
+  // [ChainId.UNICHAIN]: 6747397,
+}
+export const BLOCK_TIME_MS_BY_CHAIN = {
+  [ChainId.MAINNET]: 12000,
+  [ChainId.ARBITRUM_ONE]: 250,
+  [ChainId.BASE]: 2000,
+  [ChainId.UNICHAIN]: 1000,
 }
 export const BLOCK_RANGE = 10000
 export const CRON_MAX_ATTEMPTS = 10

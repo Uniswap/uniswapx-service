@@ -8,7 +8,6 @@ import {
   OrderValidation,
   OrderValidator,
   UniswapXEventWatcher,
-  UniswapXOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
@@ -67,7 +66,6 @@ export class CheckOrderStatusService {
     orderQuoter,
     orderWatcher,
     orderStatus,
-    orderType,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order: UniswapXOrderEntity = checkDefined(
       await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
@@ -78,7 +76,6 @@ export class CheckOrderStatusService {
     )
 
     const parsedOrder = parseOrder(order, chainId)
-
     const validation = await wrapWithTimerMetric(
       orderQuoter.validate({
         order: parsedOrder,

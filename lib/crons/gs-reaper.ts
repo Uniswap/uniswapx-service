@@ -1,10 +1,9 @@
 import { EventBridgeEvent, ScheduledHandler } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
-
 import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../entities'
-import { BaseOrdersRepository } from '../repositories/base'
+import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
 import { BLOCK_RANGE, CRON_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN } from '../util/constants'
 import { ethers } from 'ethers'
@@ -26,7 +25,14 @@ async function main(metrics: MetricsLogger) {
     level: 'info',
   })
   const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
-  await cleanupOrphanedOrders(repo, log, metrics)
+  const providers = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
+  for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
+    const chainId = Number(chainIdKey) as keyof typeof OLDEST_BLOCK_BY_CHAIN
+    const rpcURL = process.env[`RPC_${chainId}`]
+    const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
+    providers.set(chainId, provider)
+  }
+  await cleanupOrphanedOrders(repo, providers, log, metrics)
 }
 
 type OrderUpdate = {
@@ -38,19 +44,23 @@ type OrderUpdate = {
 
 export async function cleanupOrphanedOrders(
   repo: BaseOrdersRepository<UniswapXOrderEntity>,
+  providers: Map<ChainId, ethers.providers.StaticJsonRpcProvider>,
   log: Logger,
   metrics?: MetricsLogger
 ): Promise<void> {
   
   for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
     const chainId = Number(chainIdKey) as keyof typeof OLDEST_BLOCK_BY_CHAIN
+    const provider = providers.get(chainId)
+    if (!provider) {
+      log.error(`No provider found for chainId ${chainId}`)
+      continue
+    }
 
     const parsedOrders = await getParsedOrders(repo, chainId)
     const orderUpdates = new Map<string, OrderUpdate>()
 
     // Look through events to find if any of the orders have been filled
-    const rpcURL = process.env[`RPC_${chainId}`]
-    const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
     for (const orderType of Object.keys(REACTOR_ADDRESS_MAPPING[chainId])){
       const reactorAddress = REACTOR_ADDRESS_MAPPING[chainId][orderType as OrderType]
       if (!reactorAddress) continue
@@ -58,6 +68,11 @@ export async function cleanupOrphanedOrders(
       let lastProcessedBlock = await provider.getBlockNumber()
       let recentErrors = 0
       const earliestBlock = OLDEST_BLOCK_BY_CHAIN[chainId]
+      // TODO: Lookback 1.2 days
+      // const msPerDay = 1000 * 60 * 60 * 24 * 1.2
+      // const blocksPerDay = msPerDay / BLOCK_TIME_MS_BY_CHAIN[chainId]
+      // const earliestBlock = lastProcessedBlock - blocksPerDay
+
       for (let i = lastProcessedBlock; i > earliestBlock; i -= BLOCK_RANGE) {
         let attempts = 0
         while (attempts < CRON_MAX_ATTEMPTS) {
@@ -72,7 +87,6 @@ export async function cleanupOrphanedOrders(
                 // range due to additional RPC calls that are required for fill info
                 const fillInfo = await watcher.getFillInfo(i - BLOCK_RANGE, i)
                 const fillEvent = fillInfo.find((f) => f.orderHash === e.orderHash)
-                
                 if (fillEvent) {
                 const [tx, block] = await Promise.all([
                   provider.getTransaction(fillEvent.txHash),
@@ -107,6 +121,7 @@ export async function cleanupOrphanedOrders(
           } catch (error) {
             attempts++
             recentErrors++
+            console.log(`Failed to get fill events for blocks ${i - BLOCK_RANGE} to ${i}, error: ${error}`)
             log.error({ error }, `Failed to get fill events for blocks ${i - BLOCK_RANGE} to ${i}`)
             if (attempts === CRON_MAX_ATTEMPTS) {
               log.error({ error }, `Failed to get fill events after ${attempts} attempts for blocks ${i - BLOCK_RANGE} to ${i}`)
@@ -121,13 +136,13 @@ export async function cleanupOrphanedOrders(
     }
 
     // Loop through unfilled orders and see if they were cancelled
-    const quoter = new OrderValidator(provider, chainId);
+    const quoter = new OrderValidator(provider, chainId)
       for (const orderHash of parsedOrders.keys()) {
         if (!orderUpdates.has(orderHash)) {
         const validation = await quoter.validate({
           order: parsedOrders.get(orderHash)!.order,
           signature: parsedOrders.get(orderHash)!.signature,
-        });
+        })
         if (validation === OrderValidation.NonceUsed) {
           orderUpdates.set(orderHash, {
             status: ORDER_STATUS.CANCELLED,
@@ -139,7 +154,7 @@ export async function cleanupOrphanedOrders(
     // See which unfilled orders have expired
     for (const orderHash of parsedOrders.keys()) {
       if (!orderUpdates.has(orderHash)) {
-        const expired = parsedOrders.get(orderHash)!.deadline < Date.now() / 1000;
+        const expired = parsedOrders.get(orderHash)!.deadline < Date.now() / 1000
         if (expired) {
             orderUpdates.set(orderHash, {
               status: ORDER_STATUS.EXPIRED,
@@ -171,7 +186,7 @@ async function getParsedOrders(repo: BaseOrdersRepository<UniswapXOrderEntity>, 
     let cursor: string | undefined = undefined
     let allOrders: UniswapXOrderEntity[] = []
     do {
-      const openOrders = await repo.getOrders(DYNAMO_BATCH_WRITE_MAX, {
+      const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(DYNAMO_BATCH_WRITE_MAX, {
         orderStatus: ORDER_STATUS.OPEN,
         chainId: chainId,
         cursor: cursor,
