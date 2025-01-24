@@ -57,7 +57,8 @@ describe('Testing get unimind handler', () => {
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
       pair: 'ETH-USDC',
       pi: 3.14,
-      tau: 4.2
+      tau: 4.2,
+      count: 0
     })
 
     const response = await getUnimindHandler.handler(
