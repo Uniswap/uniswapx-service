@@ -16,6 +16,11 @@ export const handler: ScheduledHandler = metricScope((metrics) => async (_event:
   await main(metrics)
 })
 
+/**
+ * The Reaper is a cron job that runs daily and checks for any orphaned orders
+ * that have been filled, cancelled or expired
+ * @param metrics - The metrics logger
+ */
 async function main(metrics: MetricsLogger) {
   metrics.setNamespace('Uniswap')
   metrics.setDimensions({ Service: 'UniswapXServiceCron' })
@@ -57,6 +62,7 @@ export async function cleanupOrphanedOrders(
       continue
     }
 
+    // get a map of all open orders from the database
     const parsedOrders = await getParsedOrders(repo, chainId)
     const orderUpdates = new Map<string, OrderUpdate>()
 
@@ -173,6 +179,12 @@ export async function cleanupOrphanedOrders(
   }
 }
 
+/**
+ * Get all open orders from the database and parse them
+ * @param repo - The orders repository
+ * @param chainId - The chain ID
+ * @returns A map of order hashes to their parsed order data
+ */
 async function getParsedOrders(repo: BaseOrdersRepository<UniswapXOrderEntity>, chainId: ChainId) {
 
     // Collect all open orders
