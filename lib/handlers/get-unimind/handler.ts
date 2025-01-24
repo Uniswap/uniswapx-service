@@ -32,7 +32,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         route: JSON.parse(requestQueryParams.route)
       }
 
-      let [_, unimindParameters] = await Promise.all([
+      let [, unimindParameters] = await Promise.all([
         quoteMetadataRepository.put(quoteMetadata),
         unimindParametersRepository.getByPair(requestQueryParams.pair)
       ])
