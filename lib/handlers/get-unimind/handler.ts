@@ -13,6 +13,12 @@ type UnimindResponse = {
   tau: number
 }
 
+const DEFAULT_UNIMIND_PARAMETERS = {
+  pi: 5,
+  tau: 5,
+  count: 0
+}
+
 export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, RequestInjected, void, UnimindQueryParams, UnimindResponse> {
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, UnimindQueryParams>
@@ -26,17 +32,18 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         route: JSON.parse(requestQueryParams.route)
       }
 
-      const [_, unimindParameters] = await Promise.all([
+      let [_, unimindParameters] = await Promise.all([
         quoteMetadataRepository.put(quoteMetadata),
         unimindParametersRepository.getByPair(requestQueryParams.pair)
       ])
 
       if (!unimindParameters) {
-        return {
-          statusCode: 404,
-          errorCode: ErrorCode.NoUnimindParametersFound,
-          detail: `No unimind parameters found for ${requestQueryParams.pair}`
+        const defaultUnimindParameters = {
+            ...DEFAULT_UNIMIND_PARAMETERS,
+            pair: requestQueryParams.pair
         }
+        await unimindParametersRepository.put(defaultUnimindParameters)
+        unimindParameters = defaultUnimindParameters
       }
 
       const beforeCalculateTime = Date.now()

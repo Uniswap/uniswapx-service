@@ -84,7 +84,7 @@ describe('Testing get unimind handler', () => {
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('ETH-USDC')
   })
 
-  it('Returns 404 when unimind parameters not found', async () => {
+  it('Returns default parameters when not found in unimindParametersRepository', async () => {
     const quoteMetadata = {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
@@ -105,10 +105,12 @@ describe('Testing get unimind handler', () => {
       EVENT_CONTEXT
     )
 
-    expect(response.statusCode).toBe(404)
+    expect(response.statusCode).toBe(200)
     const body = JSON.parse(response.body)
-    expect(body.errorCode).toBe('NO_UNIMIND_PARAMETERS_FOUND')
-    expect(body.detail).toBe('No unimind parameters found for ALAN-LEN')
+    expect(body).toEqual({
+      pi: expect.any(Number),
+      tau: expect.any(Number)
+    })
   })
 
   it('Returns correct CORS headers', async () => {
