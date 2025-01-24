@@ -71,7 +71,7 @@ export async function cleanupOrphanedOrders(
       const reactorAddress = REACTOR_ADDRESS_MAPPING[chainId][orderType as OrderType]
       if (!reactorAddress) continue
       const watcher = new UniswapXEventWatcher(provider, reactorAddress)
-      let lastProcessedBlock = await provider.getBlockNumber()
+      const lastProcessedBlock = await provider.getBlockNumber()
       let recentErrors = 0
       const earliestBlock = OLDEST_BLOCK_BY_CHAIN[chainId]
       // TODO: Lookback 1.2 days
