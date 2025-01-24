@@ -20,9 +20,11 @@ import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
+import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 
 const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
 const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
+const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 const providerMap = new Map()
@@ -32,6 +34,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   onChainValidatorMap,
   repo,
   limitRepo,
+  quoteMetadataRepository,
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),

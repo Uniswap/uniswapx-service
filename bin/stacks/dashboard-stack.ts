@@ -548,5 +548,52 @@ export class DashboardStack extends cdk.NestedStack {
         ],
       }),
     })
+
+    new aws_cloudwatch.CfnDashboard(this, `UnimindDashboard`, {
+      dashboardName: `UnimindDashboard`,
+      dashboardBody: JSON.stringify({
+        periodOverride: 'inherit',
+        widgets: [
+          {
+            height: 6,
+            width: 12,
+            y: 0,
+            x: 0,
+            type: 'metric',
+            properties: {
+              metrics: [
+                ['Uniswap', 'PostUnimindRequest', 'Service', 'UniswapXService'],
+                ['.', 'PostUnimindStatus2XX', '.', '.'],
+                ['.', 'PostUnimindStatus4XX', '.', '.'],
+                ['.', 'PostUnimindStatus5XX', '.', '.'],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Sum',
+              title: 'Unimind Requests/Responses',
+            },
+          },
+          {
+            height: 6,
+            width: 12,
+            y: 0,
+            x: 12,
+            type: 'metric',
+            properties: {
+              metrics: [
+                ['Uniswap', 'final-parameters-calculation-time', 'Service', 'UniswapXService', { label: 'Final Parameters Calculation Time' }],
+                ['Uniswap', 'unimind-parameters-update-time', 'Service', 'UniswapXServiceCron', { label: 'Unimind Parameters Update Time' }],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Average',
+              title: 'Unimind Calculation Times (ms)',
+            },
+          },
+        ],
+      }),
+    })
   }
 }

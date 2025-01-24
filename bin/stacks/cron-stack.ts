@@ -15,6 +15,7 @@ export interface CronStackProps extends cdk.NestedStackProps {
 
 export class CronStack extends cdk.NestedStack {
   public readonly gsReaperCronLambda?: aws_lambda_nodejs.NodejsFunction
+  public readonly unimindAlgorithmCronLambda?: aws_lambda_nodejs.NodejsFunction
 
   constructor(scope: Construct, name: string, props: CronStackProps) {
     super(scope, name, props)
@@ -50,6 +51,27 @@ export class CronStack extends cdk.NestedStack {
       }),
       threshold: 1,
       evaluationPeriods: 1,
+    })
+
+    this.unimindAlgorithmCronLambda = new aws_lambda_nodejs.NodejsFunction(this, 'unimindAlgorithmCronLambda', {
+      role: lambdaRole,
+      runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+      entry: path.join(__dirname, '../../lib/crons/unimind-algorithm.ts'),
+      handler: 'handler',
+      timeout: cdk.Duration.minutes(1),
+      memorySize: 512,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      environment: {
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    })
+
+    new aws_events.Rule(this, `${SERVICE_NAME}UnimindAlgorithmCron`, {
+      schedule: aws_events.Schedule.rate(cdk.Duration.minutes(15)),
+      targets: [new cdk.aws_events_targets.LambdaFunction(this.unimindAlgorithmCronLambda)],
     })
   }
 }
