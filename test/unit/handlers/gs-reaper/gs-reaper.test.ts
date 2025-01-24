@@ -139,9 +139,6 @@ jest.mock('../../../../lib/handlers/check-order-status/util', () => {
   }
 })
 
-describe('update filled orders', () => {
-})
-
 describe('cleanupOrphanedOrders', () => {
   beforeEach(async () => {
     // Add test order to repository
