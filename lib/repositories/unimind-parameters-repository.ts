@@ -8,6 +8,7 @@ export interface UnimindParameters {
   pair: string
   pi: number
   tau: number
+  count: number
 }
 
 export interface UnimindParametersRepository {
@@ -36,6 +37,7 @@ export class DynamoUnimindParametersRepository implements UnimindParametersRepos
         pair: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         pi: { type: DYNAMODB_TYPES.NUMBER, required: true },
         tau: { type: DYNAMODB_TYPES.NUMBER, required: true },
+        count: { type: DYNAMODB_TYPES.NUMBER, required: true },
       },
       table,
     } as const)
