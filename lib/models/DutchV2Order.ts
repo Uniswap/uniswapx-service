@@ -2,6 +2,7 @@ import { CosignedV2DutchOrder as SDKV2DutchOrder, OrderType } from '@uniswap/uni
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { Order } from './Order'
+import { QuoteMetadata } from '../repositories/quote-metadata-repository'
 
 export class DutchV2Order extends Order {
   constructor(
@@ -21,7 +22,7 @@ export class DutchV2Order extends Order {
     return OrderType.Dutch_V2
   }
 
-  public toEntity(orderStatus: ORDER_STATUS): UniswapXOrderEntity {
+  public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): UniswapXOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: UniswapXOrderEntity = {
@@ -61,6 +62,10 @@ export class DutchV2Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
+      referencePrice: quoteMetadata?.referencePrice,
+      priceImpact: quoteMetadata?.priceImpact,
+      route: quoteMetadata?.route,
+      pair: quoteMetadata?.pair,
     }
 
     return order

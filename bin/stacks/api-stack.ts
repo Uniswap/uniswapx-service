@@ -14,6 +14,7 @@ import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 
 export class APIStack extends cdk.Stack {
   public readonly url: CfnOutput
@@ -61,6 +62,8 @@ export class APIStack extends cdk.Stack {
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
       checkStatusFunction,
+      getUnimindLambdaAlias,
+      // getUnimindLambda, TODO: dashboard
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       stage: stage as STAGE,
@@ -369,6 +372,7 @@ export class APIStack extends cdk.Stack {
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
     const getDocsUILambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsUILambdaAlias, {})
+    const getUnimindLambdaIntegration = new aws_apigateway.LambdaIntegration(getUnimindLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -412,6 +416,15 @@ export class APIStack extends cdk.Stack {
     const nonce = dutchAuction.addResource('nonce')
     orders.addMethod('GET', getOrdersLambdaIntegration, {})
     nonce.addMethod('GET', getNonceLambdaIntegration, {})
+
+    const unimind = api.root.addResource('unimind', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
+        allowMethods: ['GET'],
+      },
+    })
+
+    unimind.addMethod('GET', getUnimindLambdaIntegration)
 
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
@@ -496,6 +509,19 @@ export class APIStack extends cdk.Stack {
       apiAlarmLatencySev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
       apiAlarmLatencySev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
     }
+
+    const dynamoPolicy = new PolicyStatement({
+      actions: [
+        'dynamodb:PutItem',
+        'dynamodb:GetItem'
+      ],
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/QuoteMetadata`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/UnimindParameters`
+      ]
+    })
+
+    getUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)
 
     this.url = new CfnOutput(this, 'Url', {
       value: api.url,

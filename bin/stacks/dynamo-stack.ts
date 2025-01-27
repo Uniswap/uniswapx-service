@@ -36,6 +36,8 @@ export type TableCapacityConfig = {
   limitOrder: TableCapacityOptions
   relayOrder: TableCapacityOptions
   nonce: TableCapacityOptions
+  quoteMetadata: TableCapacityOptions
+  unimindParameters: TableCapacityOptions
 }
 
 export type DynamoStackProps = {
@@ -49,6 +51,8 @@ export class DynamoStack extends cdk.NestedStack {
   public readonly nonceTable: aws_dynamo.Table
   public readonly limitOrdersTable: aws_dynamo.Table
   public readonly relayOrdersTable: aws_dynamo.Table
+  public readonly quoteMetadataTable: aws_dynamo.Table
+  public readonly unimindParametersTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
@@ -121,6 +125,36 @@ export class DynamoStack extends cdk.NestedStack {
     this.alarmsPerTable(this.nonceTable, 'Nonces', chatbotSNSArn)
     this.alarmsPerTable(this.ordersTable, 'Orders', chatbotSNSArn)
 
+    const quoteMetadataTable = new aws_dynamo.Table(this, `${SERVICE_NAME}QuoteMetadataTable`, {
+      tableName: 'QuoteMetadata',
+      partitionKey: {
+        name: 'quoteId',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      deletionProtection: true,
+      pointInTimeRecovery: true,
+      contributorInsightsEnabled: false,
+      ...tableCapacityConfig.quoteMetadata,
+    })
+    this.quoteMetadataTable = quoteMetadataTable
+
+    this.alarmsPerTable(this.quoteMetadataTable, 'QuoteMetadata', chatbotSNSArn)
+
+    const unimindParametersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}UnimindParametersTable`, {
+      tableName: 'UnimindParameters',
+      partitionKey: {
+        name: 'pair',
+        type: aws_dynamo.AttributeType.STRING,
+      },
+      deletionProtection: true,
+      pointInTimeRecovery: true,
+      contributorInsightsEnabled: false,
+      ...tableCapacityConfig.unimindParameters,
+    })
+    this.unimindParametersTable = unimindParametersTable
+
+    this.alarmsPerTable(this.unimindParametersTable, 'UnimindParameters', chatbotSNSArn)
+
     // Dynamos built-in PointInTimeRecovery retention is max 35 days.
     // In addition to PITR being enabled on the tables we do a monthly backup
     // in case we need to recover to a point older than 35 months.
@@ -130,6 +164,7 @@ export class DynamoStack extends cdk.NestedStack {
       resources: [
         aws_backup.BackupResource.fromDynamoDbTable(nonceTable),
         aws_backup.BackupResource.fromDynamoDbTable(ordersTable),
+        aws_backup.BackupResource.fromDynamoDbTable(unimindParametersTable),
       ],
     })
   }

@@ -6,6 +6,7 @@ import { ORDER_STATUS, PriorityOrderEntity, UniswapXOrderEntity } from '../entit
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
+import { QuoteMetadata } from '../repositories/quote-metadata-repository'
 
 export class PriorityOrder extends Order {
   constructor(
@@ -25,7 +26,7 @@ export class PriorityOrder extends Order {
     return OrderType.Priority
   }
 
-  public toEntity(orderStatus: ORDER_STATUS): PriorityOrderEntity {
+  public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): PriorityOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: PriorityOrderEntity = {
@@ -60,6 +61,10 @@ export class PriorityOrder extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
+      referencePrice: quoteMetadata?.referencePrice,
+      priceImpact: quoteMetadata?.priceImpact,
+      route: quoteMetadata?.route,
+      pair: quoteMetadata?.pair,
     }
 
     return order
