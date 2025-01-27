@@ -8,7 +8,6 @@ import {
   OrderValidation,
   OrderValidator,
   UniswapXEventWatcher,
-  UniswapXOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
@@ -22,6 +21,7 @@ import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
 import { getSettledAmounts, IS_TERMINAL_STATE } from './util'
+import { parseOrder } from '../OrderParser'
 
 const FILL_CHECK_OVERLAP_BLOCK = 20
 
@@ -66,7 +66,6 @@ export class CheckOrderStatusService {
     orderQuoter,
     orderWatcher,
     orderStatus,
-    orderType,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order: UniswapXOrderEntity = checkDefined(
       await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
@@ -76,25 +75,7 @@ export class CheckOrderStatusService {
       `cannot find order by hash when updating order status, hash: ${orderHash}`
     )
 
-    let parsedOrder: UniswapXOrder
-    switch (orderType) {
-      case OrderType.Dutch:
-      case OrderType.Limit:
-        parsedOrder = DutchOrder.parse(order.encodedOrder, chainId)
-        break
-      case OrderType.Dutch_V2:
-        parsedOrder = CosignedV2DutchOrder.parse(order.encodedOrder, chainId)
-        break
-      case OrderType.Dutch_V3:
-        parsedOrder = CosignedV3DutchOrder.parse(order.encodedOrder, chainId)
-        break
-      case OrderType.Priority:
-        parsedOrder = CosignedPriorityOrder.parse(order.encodedOrder, chainId)
-        break
-      default:
-        throw new Error(`Unsupported OrderType ${orderType}, No Parser Configured`)
-    }
-
+    const parsedOrder = parseOrder(order, chainId)
     const validation = await wrapWithTimerMetric(
       orderQuoter.validate({
         order: parsedOrder,

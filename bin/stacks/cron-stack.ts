@@ -26,7 +26,7 @@ export class CronStack extends cdk.NestedStack {
       runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/crons/gs-reaper.ts'),
       handler: 'handler',
-      timeout: cdk.Duration.minutes(1),
+      timeout: cdk.Duration.minutes(15),
       memorySize: 512,
       bundling: {
         minify: true,
