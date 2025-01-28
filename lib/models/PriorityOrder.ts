@@ -3,12 +3,14 @@ import { KmsSigner } from '@uniswap/signer'
 import { CosignedPriorityOrder as SDKPriorityOrder, OrderType } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS, PriorityOrderEntity, UniswapXOrderEntity } from '../entities'
-import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
 import { QuoteMetadata } from '../repositories/quote-metadata-repository'
+import { ChainId } from '../util/chain'
 
 export class PriorityOrder extends Order {
+  private static readonly DEFAULT_TARGET_BLOCK_BUFFER = 2
+
   constructor(
     readonly inner: SDKPriorityOrder,
     readonly signature: string,
@@ -20,6 +22,15 @@ export class PriorityOrder extends Order {
     readonly createdAt?: number
   ) {
     super()
+  }
+
+  public get targetBlockBuffer(): number {
+    switch (this.chainId) {
+      case ChainId.BASE:
+        return 2
+      default:
+        return PriorityOrder.DEFAULT_TARGET_BLOCK_BUFFER
+    }
   }
 
   get orderType(): OrderType {
@@ -86,7 +97,7 @@ export class PriorityOrder extends Order {
   public async reparameterizeAndCosign(provider: StaticJsonRpcProvider, cosigner: KmsSigner): Promise<this> {
     const currentBlock = await provider.getBlockNumber()
     this.inner.info.cosignerData = {
-      auctionTargetBlock: BigNumber.from(currentBlock).add(PRIORITY_ORDER_TARGET_BLOCK_BUFFER),
+      auctionTargetBlock: BigNumber.from(currentBlock).add(this.targetBlockBuffer),
     }
 
     this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash(this.inner.info.cosignerData))
