@@ -4288,12 +4288,15 @@
     ethers "^5.7.0"
     tiny-invariant "^1.1.0"
 
-"@uniswap/sdk-core@^5.0.0":
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-5.0.0.tgz#7accd8c7372b14811777cbd1d92133d4de57c683"
-  integrity sha512-m5KmkqvvEz5rurRHdG3zGJappi1Crxet3B2dpgDFgq5MKoKd6qCbeChRkoQjTTJpY1MLGCsXj8ZtZ0/arisvLQ==
+"@uniswap/sdk-core@^7.5.0":
+  version "7.5.0"
+  resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.5.0.tgz#54165c9268df0e56a322a581876fed4774e1ea70"
+  integrity sha512-4eMbQTu+pEO6CGFG+G9M4ACFPephhfNPpRH40+GGgceHzs73OwQ+5v6Fw5e2JGxr/DEJrS/KcJ2Xjmg/QQ3D6Q==
   dependencies:
     "@ethersproject/address" "^5.0.2"
+    "@ethersproject/bytes" "^5.7.0"
+    "@ethersproject/keccak256" "5.7.0"
+    "@ethersproject/strings" "5.7.0"
     big.js "^5.2.2"
     decimal.js-light "^2.5.0"
     jsbi "^3.1.4"
@@ -4309,15 +4312,15 @@
     asn1.js "^5.4.1"
     ethers "^6.8.1"
 
-"@uniswap/uniswapx-sdk@^3.0.0-beta.2":
-  version "3.0.0-beta.2"
-  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.0-beta.2.tgz#9323cc14147085442610a8b0bd2fe126f79e8a0d"
-  integrity sha512-xEhlNEpCh2gRXMVXZl/a28M+zpxiFwKBM02Po8uczwzdIFGQ8feyfqpwmcd411ukqWsX2IZsCP+0sTxmy6qCxA==
+"@uniswap/uniswapx-sdk@^3.0.0-beta.3":
+  version "3.0.0-beta.3"
+  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.0-beta.3.tgz#eb827666bfc9b704eb75dcb3e3c0460d2ef44fc5"
+  integrity sha512-5j54ZRfDMBQnpG4m95hm8/TswfVh5/Ca9jjIhjLyZkFAquhh+y71IBa5nb2HoIgBSiOcMK3bncSwhziXxtkzNQ==
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"
     "@uniswap/permit2-sdk" "^1.2.1"
-    "@uniswap/sdk-core" "^5.0.0"
+    "@uniswap/sdk-core" "^7.5.0"
     ethers "^5.7.0"
 
 accepts@~1.3.8:
