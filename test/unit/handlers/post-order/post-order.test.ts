@@ -343,8 +343,7 @@ describe('Testing post order handler.', () => {
           requestId: expect.any(String),
           cosignature: COSIGNATURE,
           cosignerData: {
-            // MOCK_LATEST_BLOCK + 3
-            auctionTargetBlock: 103,
+            auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK).add(PRIORITY_ORDER_TARGET_BLOCK_BUFFER).toNumber(),
           },
         })
       )
