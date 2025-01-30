@@ -46,12 +46,16 @@ describe('Testing get unimind handler', () => {
   })
 
   it('Testing valid request and response', async () => {
-    const getRequestParams = {
+    const quoteMetadata = {
       quoteId: 'test-quote-id',
       pair: 'ETH-USDC',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      route: STRINGIFIED_ROUTE
+      route: STRINGIFIED_ROUTE,
+    }
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      expectParams: true
     }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
@@ -62,7 +66,7 @@ describe('Testing get unimind handler', () => {
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: getRequestParams,
+        queryStringParameters: quoteQueryParams,
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -77,26 +81,68 @@ describe('Testing get unimind handler', () => {
     })
     expect(response.statusCode).toBe(200)
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
-      ...getRequestParams,
+      ...quoteMetadata,
       route: SAMPLE_ROUTE // Should be parsed object when stored
     })
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('ETH-USDC')
   })
 
-  it('Returns 404 when unimind parameters not found', async () => {
+  it('Returns default parameters when unimind parameters not found', async () => {
     const quoteMetadata = {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
       pair: 'ALAN-LEN',
-      route: STRINGIFIED_ROUTE
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      expectParams: true
     }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue(undefined)
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: quoteMetadata,
+        queryStringParameters: quoteQueryParams,
+        requestContext: {
+          requestId: 'test-request-id'
+        }
+      } as any,
+      EVENT_CONTEXT
+    )
+    //Handler should have saved the quote metadata since we expect params in response
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
+      ...quoteMetadata,
+      route: JSON.parse(quoteMetadata.route)
+    })
+
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(body).toEqual({
+      pi: expect.any(Number),
+      tau: expect.any(Number)
+    })
+  })
+
+  it('Returns empty parameters when expectParams is false', async () => {
+    const quoteMetadata = {
+      quoteId: 'this-should-work',
+      referencePrice: '100',
+      priceImpact: 0.1,
+      pair: '0xabc-0xdef',
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      expectParams: false
+    }
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: quoteQueryParams,
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -104,10 +150,58 @@ describe('Testing get unimind handler', () => {
       EVENT_CONTEXT
     )
 
-    expect(response.statusCode).toBe(404)
+    expect(response.statusCode).toBe(200)
     const body = JSON.parse(response.body)
-    expect(body.errorCode).toBe('NO_UNIMIND_PARAMETERS_FOUND')
-    expect(body.detail).toBe('No unimind parameters found for ALAN-LEN')
+    expect(body).toEqual({
+      pi: 0,
+      tau: 0
+    })
+
+    // Quote metadata should be saved
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
+      ...quoteMetadata,
+      route: JSON.parse(quoteMetadata.route)
+    })
+  })
+
+  it('Appends QuoteMetadata, Does not append UnimindParameters if expectParams is false', async () => {
+    const quoteMetadata = {
+      quoteId: 'this-should-work',
+      referencePrice: '100',
+      priceImpact: 0.1,
+      pair: 'ETH-USDC',
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      expectParams: false
+    }
+
+    // This pair does not exist in unimindParametersRepository
+    mockUnimindParametersRepo.getByPair.mockResolvedValue(undefined)
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: quoteQueryParams,
+        requestContext: {
+          requestId: 'test-request-id'
+        }
+      } as any,
+      EVENT_CONTEXT
+    )
+
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
+      ...quoteMetadata,
+      route: JSON.parse(quoteMetadata.route)
+    })
+    expect(mockUnimindParametersRepo.put).not.toHaveBeenCalled()
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(body).toEqual({
+      pi: 0,
+      tau: 0
+    })
   })
 
   it('Returns correct CORS headers', async () => {
@@ -136,7 +230,7 @@ describe('Testing get unimind handler', () => {
   it('fails when missing required fields', async () => {
     const incompleteValues = {
       quoteId: 'this-should-fail',
-      // missing referencePrice and pair
+      // missing fields
       priceImpact: 0.01
     }
 
@@ -155,19 +249,24 @@ describe('Testing get unimind handler', () => {
   })
 
   it('fails when repository throws error', async () => {
-    const getRequestParams = {
+    const quoteMetadata = {
       quoteId: 'this-should-fail',
       pair: 'ETH-USDC',
       referencePrice: '666.56',
       priceImpact: 0.01,
-      route: STRINGIFIED_ROUTE
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      expectParams: true
     }
 
     mockQuoteMetadataRepo.put.mockRejectedValue(new Error('DB Error'))
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: getRequestParams,
+        queryStringParameters: quoteQueryParams,
         requestContext: {
           requestId: 'test-request-id-repo-error'
         }
@@ -180,7 +279,7 @@ describe('Testing get unimind handler', () => {
     expect(body.errorCode).toBe(ErrorCode.InternalError)
     expect(body.detail).toBe('DB Error')
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
-      ...getRequestParams,
+      ...quoteMetadata,
       route: SAMPLE_ROUTE // Should be parsed object when stored
     })
   })
