@@ -23,3 +23,8 @@ export const BLOCK_RANGE = 10000
 export const CRON_MAX_ATTEMPTS = 10
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
+
+export const DEFAULT_UNIMIND_PARAMETERS = {
+  pi: 5,
+  tau: 5
+}

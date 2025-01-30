@@ -38,10 +38,10 @@ export const unimindQueryParamsSchema = Joi.object({
       'string.invalidJson': 'route must be a valid JSON string',
       'string.routeInvalid': 'route structure is invalid after parsing'
     }),
-  expectParams: Joi.boolean().required()
+  logOnly: Joi.boolean().optional()
 })
 
 export type UnimindQueryParams = Omit<QuoteMetadata, 'route'> & {
   route: string, // route is now a JSON string to be used as a GET query param
-  expectParams: boolean
+  logOnly?: boolean
 }

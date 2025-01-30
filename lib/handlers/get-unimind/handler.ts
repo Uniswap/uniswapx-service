@@ -7,11 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-
-const DEFAULT_UNIMIND_PARAMETERS = {
-  pi: 5,
-  tau: 5
-}
+import { DEFAULT_UNIMIND_PARAMETERS } from '../../util/constants'
 
 type UnimindResponse = {
   pi: number
@@ -26,13 +22,13 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
     const { quoteMetadataRepository, unimindParametersRepository } = containerInjected
     
     try {
-      const { expectParams, ...quoteMetadataFields } = requestQueryParams
+      const { logOnly, ...quoteMetadataFields } = requestQueryParams
       const quoteMetadata = {
         ...quoteMetadataFields,
         route: JSON.parse(requestQueryParams.route)
       }
       // For requests that don't expect params, we only save the quote metadata and return
-      if (!expectParams) { 
+      if (logOnly) { 
         await quoteMetadataRepository.put(quoteMetadata)
         return {
           statusCode: 200,

@@ -53,10 +53,6 @@ describe('Testing get unimind handler', () => {
       priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
     }
-    const quoteQueryParams = {
-      ...quoteMetadata,
-      expectParams: true
-    }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
       pair: 'ETH-USDC',
@@ -66,7 +62,7 @@ describe('Testing get unimind handler', () => {
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: quoteQueryParams,
+        queryStringParameters: quoteMetadata,
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -96,16 +92,11 @@ describe('Testing get unimind handler', () => {
       route: STRINGIFIED_ROUTE,
     }
 
-    const quoteQueryParams = {
-      ...quoteMetadata,
-      expectParams: true
-    }
-
     mockUnimindParametersRepo.getByPair.mockResolvedValue(undefined)
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: quoteQueryParams,
+        queryStringParameters: quoteMetadata,
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -137,7 +128,7 @@ describe('Testing get unimind handler', () => {
 
     const quoteQueryParams = {
       ...quoteMetadata,
-      expectParams: false
+      logOnly: true
     }
 
     const response = await getUnimindHandler.handler(
@@ -175,7 +166,7 @@ describe('Testing get unimind handler', () => {
 
     const quoteQueryParams = {
       ...quoteMetadata,
-      expectParams: false
+      logOnly: true
     }
 
     // This pair does not exist in unimindParametersRepository
@@ -257,16 +248,11 @@ describe('Testing get unimind handler', () => {
       route: STRINGIFIED_ROUTE,
     }
 
-    const quoteQueryParams = {
-      ...quoteMetadata,
-      expectParams: true
-    }
-
     mockQuoteMetadataRepo.put.mockRejectedValue(new Error('DB Error'))
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: quoteQueryParams,
+        queryStringParameters: quoteMetadata,
         requestContext: {
           requestId: 'test-request-id-repo-error'
         }
