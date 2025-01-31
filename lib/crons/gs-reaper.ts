@@ -191,11 +191,14 @@ async function getParsedOrders(repo: BaseOrdersRepository<UniswapXOrderEntity>, 
     let cursor: string | undefined = undefined
     let allOrders: UniswapXOrderEntity[] = []
     do {
-      const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(DYNAMO_BATCH_WRITE_MAX, {
-        orderStatus: ORDER_STATUS.OPEN,
-        chainId: chainId,
-        cursor: cursor,
-      })
+      const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
+        DYNAMO_BATCH_WRITE_MAX,
+        {
+          orderStatus: ORDER_STATUS.OPEN,
+          chainId: chainId,
+        },
+        cursor
+      )
       cursor = openOrders.cursor
       allOrders = allOrders.concat(openOrders.orders)
 
