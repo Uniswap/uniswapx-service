@@ -293,4 +293,121 @@ describe('Testing get unimind handler', () => {
     const body = JSON.parse(response.body)
     expect(body.detail).toContain('route must be a valid JSON string')
   })
+
+  it('rejects case-sensitive variations of "true" for logOnly', async () => {
+    const quoteMetadata = {
+      quoteId: 'test-quote-id',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      pair: 'ETH-USDC',
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const variations = ['TrUe', 'TRUE', 'True']
+
+    for (const valueToTest of variations) {
+      mockQuoteMetadataRepo.put.mockClear()
+      mockUnimindParametersRepo.getByPair.mockClear()
+
+      const response = await getUnimindHandler.handler(
+        {
+          queryStringParameters: { ...quoteMetadata, logOnly: valueToTest },
+          requestContext: {
+            requestId: 'test-request-id'
+          }
+        } as any,
+        EVENT_CONTEXT
+      )
+
+      expect(response.statusCode).toBe(400)
+      expect(mockQuoteMetadataRepo.put).not.toHaveBeenCalled()
+      expect(mockUnimindParametersRepo.getByPair).not.toHaveBeenCalled()
+    }
+  })
+
+  it('rejects case-sensitive variations of "false" for logOnly', async () => {
+    const quoteMetadata = {
+      quoteId: 'test-quote-id',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      pair: 'ETH-USDC',
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const variations = ['FALSE', 'False', 'fAlSe']
+
+    for (const valueToTest of variations) {
+      mockQuoteMetadataRepo.put.mockClear()
+      mockUnimindParametersRepo.getByPair.mockClear()
+
+      const response = await getUnimindHandler.handler(
+        {
+          queryStringParameters: { ...quoteMetadata, logOnly: valueToTest },
+          requestContext: {
+            requestId: 'test-request-id'
+          }
+        } as any,
+        EVENT_CONTEXT
+      )
+
+      expect(response.statusCode).toBe(400)
+      expect(mockQuoteMetadataRepo.put).not.toHaveBeenCalled()
+      expect(mockUnimindParametersRepo.getByPair).not.toHaveBeenCalled()
+    }
+  })
+
+  it('logOnly works when we pass in true', async () => {
+    const quoteMetadata = {
+      quoteId: 'test-quote-id',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      pair: 'ETH-USDC',
+      route: STRINGIFIED_ROUTE,
+    }
+    //mock the put as successful
+    mockQuoteMetadataRepo.put.mockResolvedValue()
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: { ...quoteMetadata, logOnly: 'true' },
+        requestContext: {
+          requestId: 'test-request-id'
+        }
+      } as any,
+      EVENT_CONTEXT
+    )
+
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(body).toEqual({
+      pi: 0,
+      tau: 0
+    })
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledTimes(1)
+    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledTimes(0)
+  })
+
+  it('logOnly does not run when we pass in false', async () => {
+    const quoteMetadata = {
+      quoteId: 'test-quote-id',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      pair: 'ETH-USDC',
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: { ...quoteMetadata, logOnly: 'false' },
+        requestContext: {
+          requestId: 'test-request-id'
+        }
+      } as any,
+      EVENT_CONTEXT
+    )
+
+    expect(response.statusCode).toBe(200)
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledTimes(1)
+    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledTimes(1)
+  }) 
 }) 

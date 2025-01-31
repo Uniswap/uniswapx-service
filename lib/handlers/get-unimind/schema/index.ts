@@ -39,6 +39,10 @@ export const unimindQueryParamsSchema = Joi.object({
       'string.routeInvalid': 'route structure is invalid after parsing'
     }),
   logOnly: Joi.boolean().optional()
+    .truthy('true')
+    .falsy('false')
+    .sensitive()
+    // All other values are rejected for a 400 error
 })
 
 export type UnimindQueryParams = Omit<QuoteMetadata, 'route'> & {
