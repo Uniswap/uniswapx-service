@@ -425,6 +425,26 @@ describe('OrdersRepository getOrders test', () => {
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_6))
     await ordersRepository.deleteOrders([MOCK_ORDER_6.orderHash])
   })
+
+  it('should successfully get orders given chainId, order status, and empty cursor', async () => {
+    try {
+      await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_5 as UniswapXOrderEntity)
+      await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_6 as UniswapXOrderEntity)
+      const orders = await ordersRepository.getOrders(
+        25,
+        {
+          chainId: 5,
+          orderStatus: ORDER_STATUS.OPEN,
+        },
+        undefined
+      )
+      expect(orders.orders).toHaveLength(1)
+      expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_6))
+    } finally {
+      await ordersRepository.deleteOrders([MOCK_ORDER_6.orderHash])
+      await ordersRepository.deleteOrders([MOCK_ORDER_5.orderHash])
+    }
+  })
 })
 
 describe('OrdersRepository getOrders test with pagination', () => {
