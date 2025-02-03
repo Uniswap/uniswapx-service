@@ -14,12 +14,6 @@ type UnimindResponse = {
   tau: number
 }
 
-const DEFAULT_UNIMIND_PARAMETERS = {
-  pi: 5,
-  tau: 5,
-  count: 0
-}
-
 export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, RequestInjected, void, UnimindQueryParams, UnimindResponse> {
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, UnimindQueryParams>
@@ -54,7 +48,8 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         // Use default parameters and add to unimindParametersRepository
         const entry = {
             ...DEFAULT_UNIMIND_PARAMETERS,
-            pair: requestQueryParams.pair
+            pair: requestQueryParams.pair,
+            count: 0
         }
         await unimindParametersRepository.put(entry)
         unimindParameters = entry
