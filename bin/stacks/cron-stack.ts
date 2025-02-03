@@ -19,14 +19,14 @@ export class CronStack extends cdk.NestedStack {
 
   constructor(scope: Construct, name: string, props: CronStackProps) {
     super(scope, name, props)
-    const { lambdaRole } = props
+    const { lambdaRole, envVars } = props
 
     this.gsReaperCronLambda = new aws_lambda_nodejs.NodejsFunction(this, 'gsReaperCronLambda', {
       role: lambdaRole,
       runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
       entry: path.join(__dirname, '../../lib/crons/gs-reaper.ts'),
       handler: 'handler',
-      timeout: cdk.Duration.minutes(1),
+      timeout: cdk.Duration.minutes(15),
       memorySize: 512,
       bundling: {
         minify: true,
@@ -34,6 +34,7 @@ export class CronStack extends cdk.NestedStack {
       },
       environment: {
         NODE_OPTIONS: '--enable-source-maps',
+        ...envVars,
       },
     })
     new aws_events.Rule(this, `${SERVICE_NAME}GSReaperCron`, {

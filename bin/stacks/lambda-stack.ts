@@ -570,6 +570,10 @@ export class LambdaStack extends cdk.NestedStack {
     }
 
     /* cron stack */
-    new CronStack(this, `${SERVICE_NAME}CronStack`, { lambdaRole })
+    new CronStack(this, `${SERVICE_NAME}CronStack`, { 
+      lambdaRole,
+      envVars: props.envVars,
+      chatbotSNSArn: props.chatbotSNSArn,
+    })
   }
 }

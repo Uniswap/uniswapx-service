@@ -17,6 +17,18 @@ describe('Analytics Service', () => {
     decayStartTime: 100,
     decayEndTime: 200,
     deadline: 300,
+    route: {
+      quote: "141645031452",
+      quote_gas_adjusted: "141645001774",
+      gas_price_wei: "28348591",
+      gas_use_estimate_quote: "29677",
+      gas_use_estimate: "186938",
+      method_parameters: {
+        calldata: "0x12341234123412341234",
+        value: "0x1234",
+        to: "0xdeadbeef"
+      }
+    },
     input: {
       token: '0xInputToken',
       startAmount: '5000',
@@ -61,6 +73,7 @@ describe('Analytics Service', () => {
           tokenOut: '0xOutputToken',
           filler: '0xGetAddress',
           orderType: 'Limit',
+          route: JSON.stringify(mockedOrder.route)
         },
       })
     })
@@ -97,6 +110,7 @@ describe('Analytics Service', () => {
           tokenOut: '0xOutputToken',
           filler: '0xGetAddress',
           orderType: 'Limit',
+          route: JSON.stringify(mockedOrder.route)
         },
       })
     })

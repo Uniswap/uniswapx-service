@@ -7,6 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
+import { DEFAULT_UNIMIND_PARAMETERS } from '../../util/constants'
 
 type UnimindResponse = {
   pi: number
@@ -27,9 +28,21 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
     const { quoteMetadataRepository, unimindParametersRepository } = containerInjected
     
     try {
+      const { logOnly, ...quoteMetadataFields } = requestQueryParams
       const quoteMetadata = {
-        ...requestQueryParams,
+        ...quoteMetadataFields,
         route: JSON.parse(requestQueryParams.route)
+      }
+      // For requests that don't expect params, we only save the quote metadata and return
+      if (logOnly) { 
+        await quoteMetadataRepository.put(quoteMetadata)
+        return {
+          statusCode: 200,
+          body: {
+            pi: 0,
+            tau: 0
+          }
+        }
       }
 
       let [, unimindParameters] = await Promise.all([
@@ -38,12 +51,13 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       ])
 
       if (!unimindParameters) {
-        const defaultUnimindParameters = {
+        // Use default parameters and add to unimindParametersRepository
+        const entry = {
             ...DEFAULT_UNIMIND_PARAMETERS,
             pair: requestQueryParams.pair
         }
-        await unimindParametersRepository.put(defaultUnimindParameters)
-        unimindParameters = defaultUnimindParameters
+        await unimindParametersRepository.put(entry)
+        unimindParameters = entry
       }
 
       const beforeCalculateTime = Date.now()
