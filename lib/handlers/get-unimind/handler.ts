@@ -25,7 +25,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       const { logOnly, ...quoteMetadataFields } = requestQueryParams
       const quoteMetadata = {
         ...quoteMetadataFields,
-        route: JSON.parse(requestQueryParams.route)
+        route: requestQueryParams.route ? JSON.parse(requestQueryParams.route) : undefined
       }
       // For requests that don't expect params, we only save the quote metadata and return
       if (logOnly) { 
