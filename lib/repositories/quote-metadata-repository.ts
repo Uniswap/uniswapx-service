@@ -53,8 +53,8 @@ export class DynamoQuoteMetadataRepository implements QuoteMetadataRepository {
         quoteId: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         referencePrice: { type: DYNAMODB_TYPES.STRING, required: true },
         priceImpact: { type: DYNAMODB_TYPES.NUMBER, required: true },
-        route: {type: DYNAMODB_TYPES.MAP, required: true},
-        pair: {type: DYNAMODB_TYPES.STRING, required: true}
+        pair: {type: DYNAMODB_TYPES.STRING, required: true},
+        route: {type: DYNAMODB_TYPES.MAP, required: false}
       },
       table,
     } as const)

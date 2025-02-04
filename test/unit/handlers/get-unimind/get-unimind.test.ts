@@ -409,5 +409,27 @@ describe('Testing get unimind handler', () => {
     expect(response.statusCode).toBe(200)
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledTimes(1)
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledTimes(1)
-  }) 
+  })
+
+  it('Allow route to be optional', async () => {
+    const quoteMetadata = {
+      quoteId: 'test-quote-id',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      pair: 'ETH-USDC',
+      // missing route
+    }
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: quoteMetadata,
+        requestContext: { requestId: 'test-request-id' }
+      } as any,
+      EVENT_CONTEXT
+    )
+
+    expect(response.statusCode).toBe(200)
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledTimes(1)
+    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledTimes(1)
+  })
 }) 

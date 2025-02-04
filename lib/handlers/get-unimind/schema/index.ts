@@ -21,7 +21,7 @@ export const unimindQueryParamsSchema = Joi.object({
   referencePrice: Joi.string().required(),
   priceImpact: Joi.number().required(),
   route: Joi.string()
-    .required()
+    .optional()
     .custom((value, helpers) => {
       try {
         const parsed = JSON.parse(value)
