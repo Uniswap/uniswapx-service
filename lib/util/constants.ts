@@ -20,7 +20,8 @@ export const BLOCK_TIME_MS_BY_CHAIN = {
   [ChainId.UNICHAIN]: 1000,
 }
 export const BLOCK_RANGE = 10000
-export const CRON_MAX_ATTEMPTS = 10
+export const REAPER_MAX_ATTEMPTS = 10
+export const REAPER_RANGES_PER_RUN = 10
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
