@@ -20,8 +20,9 @@ export const unimindQueryParamsSchema = Joi.object({
   pair: Joi.string().required(),
   referencePrice: Joi.string().required(),
   priceImpact: Joi.number().required(),
+  blockNumber: Joi.number().optional(),
   route: Joi.string()
-    .required()
+    .optional()
     .custom((value, helpers) => {
       try {
         const parsed = JSON.parse(value)
