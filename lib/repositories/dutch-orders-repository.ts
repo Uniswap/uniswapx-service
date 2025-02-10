@@ -42,6 +42,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         cosigner: { type: DYNAMODB_TYPES.STRING },
         referencePrice: { type: DYNAMODB_TYPES.STRING },
         priceImpact: { type: DYNAMODB_TYPES.NUMBER },
+        blockNumber: { type: DYNAMODB_TYPES.NUMBER },
         route: { type: DYNAMODB_TYPES.MAP },
         pair: { type: DYNAMODB_TYPES.STRING },
 
