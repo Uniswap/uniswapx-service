@@ -23,6 +23,7 @@ export interface QuoteMetadata {
   quoteId: string
   referencePrice: string
   priceImpact: number
+  blockNumber: number
   route: Route
   pair: string
 }
@@ -54,6 +55,7 @@ export class DynamoQuoteMetadataRepository implements QuoteMetadataRepository {
         referencePrice: { type: DYNAMODB_TYPES.STRING, required: true },
         priceImpact: { type: DYNAMODB_TYPES.NUMBER, required: true },
         pair: {type: DYNAMODB_TYPES.STRING, required: true},
+        blockNumber: {type: DYNAMODB_TYPES.NUMBER, required: false},
         route: {type: DYNAMODB_TYPES.MAP, required: false}
       },
       table,
