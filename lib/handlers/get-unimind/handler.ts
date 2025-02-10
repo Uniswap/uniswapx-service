@@ -7,7 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
 
 type UnimindResponse = {
   pi: number
@@ -20,9 +20,8 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   ): Promise<Response<UnimindResponse> | ErrorResponse> {
     const { containerInjected, requestQueryParams } = params
     const { quoteMetadataRepository, unimindParametersRepository } = containerInjected
-    
     try {
-      const { logOnly, ...quoteMetadataFields } = requestQueryParams
+      const { logOnly, swapper, ...quoteMetadataFields } = requestQueryParams
       const quoteMetadata = {
         ...quoteMetadataFields,
         route: requestQueryParams.route ? JSON.parse(requestQueryParams.route) : undefined
@@ -36,6 +35,12 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
             pi: 0,
             tau: 0
           }
+        }
+      }
+      if (!swapper || swapper != UNIMIND_DEV_SWAPPER_ADDRESS) {
+        return {
+            statusCode: 200,
+            body: PUBLIC_UNIMIND_PARAMETERS
         }
       }
 

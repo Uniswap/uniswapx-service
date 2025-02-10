@@ -41,11 +41,13 @@ export const unimindQueryParamsSchema = Joi.object({
   logOnly: Joi.boolean().optional()
     .truthy('true')
     .falsy('false')
-    .sensitive()
+    .sensitive(),
     // All other values are rejected for a 400 error
+  swapper: Joi.string().optional()
 })
 
 export type UnimindQueryParams = Omit<QuoteMetadata, 'route'> & {
   route: string, // route is now a JSON string to be used as a GET query param
-  logOnly?: boolean
+  logOnly?: boolean,
+  swapper?: string
 }

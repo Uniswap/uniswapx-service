@@ -5,6 +5,7 @@ import { GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
 import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 import { ErrorCode } from '../../../../lib/handlers/base'
+import { UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
 
 const SAMPLE_ROUTE = {
   quote: "1234",
@@ -53,6 +54,10 @@ describe('Testing get unimind handler', () => {
       priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
     }
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS
+    }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
       pair: 'ETH-USDC',
@@ -62,7 +67,7 @@ describe('Testing get unimind handler', () => {
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: quoteMetadata,
+        queryStringParameters: quoteQueryParams,
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -91,12 +96,16 @@ describe('Testing get unimind handler', () => {
       pair: 'ALAN-LEN',
       route: STRINGIFIED_ROUTE,
     }
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS
+    }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue(undefined)
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: quoteMetadata,
+        queryStringParameters: quoteQueryParams,
         requestContext: {
           requestId: 'test-request-id'
         }
@@ -117,7 +126,7 @@ describe('Testing get unimind handler', () => {
     })
   })
 
-  it('Returns empty parameters when expectParams is false', async () => {
+  it('Returns empty parameters when logOnly is true', async () => {
     const quoteMetadata = {
       quoteId: 'this-should-work',
       referencePrice: '100',
@@ -247,12 +256,16 @@ describe('Testing get unimind handler', () => {
       priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
     }
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS
+    }
 
     mockQuoteMetadataRepo.put.mockRejectedValue(new Error('DB Error'))
 
     const response = await getUnimindHandler.handler(
       {
-        queryStringParameters: quoteMetadata,
+        queryStringParameters: quoteQueryParams,
         requestContext: {
           requestId: 'test-request-id-repo-error'
         }
@@ -394,6 +407,7 @@ describe('Testing get unimind handler', () => {
       priceImpact: 0.01,
       pair: 'ETH-USDC',
       route: STRINGIFIED_ROUTE,
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS
     }
 
     const response = await getUnimindHandler.handler(
@@ -417,6 +431,7 @@ describe('Testing get unimind handler', () => {
       referencePrice: '4221.21',
       priceImpact: 0.01,
       pair: 'ETH-USDC',
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS
       // missing route
     }
 
