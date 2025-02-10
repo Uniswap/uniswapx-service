@@ -28,6 +28,32 @@ type StepFunctionState = {
   stage: 'INIT' | 'PROCESS_BLOCKS' | 'CHECK_CANCELLED' | 'UPDATE_DB'
 }
 
+/**
+ * Step Function Handler for the GS (Get Status) Reaper
+ * 
+ * This handler processes orphaned orders across multiple chains to update their statuses in the database.
+ * It operates in the following stages:
+ * 
+ * 1. INIT:
+ *    - Retrieves all open orders for the current chain from the database
+ *    - Parses orders into UniswapX SDK format for validation
+ * 
+ * 2. PROCESS_BLOCKS:
+ *    - Processes multiple block ranges (configured by REAPER_RANGES_PER_RUN)
+ *    - For each range, checks for fill events of open orders
+ *    - If an order is filled, records the transaction details and settled amounts
+ *    - Continues until reaching the earliest block or completing configured ranges
+ * 
+ * 3. CHECK_CANCELLED:
+ *    - Validates remaining unfilled orders for the chain
+ *    - Marks orders as CANCELLED if their nonce was used
+ *    - Marks orders as EXPIRED if they've passed their deadline
+ * 
+ * 4. UPDATE_DB:
+ *    - Writes all status updates to the database
+ *    - If there are more chains to process, initializes the next chain
+ *    - Otherwise, completes the step function
+ */
 export const handler = metricScope((metrics) => async (event: StepFunctionState | EventBridgeEvent<string, void>): Promise<StepFunctionState | void> => {
   metrics.setNamespace('Uniswap')
   metrics.setDimensions({ Service: 'UniswapXServiceCron' })
