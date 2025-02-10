@@ -63,7 +63,6 @@ export class PriorityOrder extends Order {
       createdAt: this.createdAt,
       referencePrice: quoteMetadata?.referencePrice,
       priceImpact: quoteMetadata?.priceImpact,
-      blockNumber: quoteMetadata?.blockNumber,
       route: quoteMetadata?.route,
       pair: quoteMetadata?.pair,
     }
