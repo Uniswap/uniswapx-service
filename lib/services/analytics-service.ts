@@ -35,7 +35,6 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       tokenIn: order.input?.token,
       tokenOut: order.outputs[0].token,
       orderType: orderType,
-      blockNumber: order?.blockNumber,
       route: JSON.stringify(order?.route),
     }
 

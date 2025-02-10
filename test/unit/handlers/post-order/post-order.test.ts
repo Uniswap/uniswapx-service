@@ -75,7 +75,6 @@ const SAMPLE_QUOTE_METADATA = {
   referencePrice: '4221.21',
   priceImpact: 0.01,
   pair: 'ETH-USDC',
-  blockNumber: 123456,
   route: {
     quote: '1234',
     quote_gas_adjusted: '5678',

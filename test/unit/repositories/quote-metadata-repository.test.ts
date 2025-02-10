@@ -9,7 +9,6 @@ describe('QuoteMetadataRepository', () => {
     quoteId: 'test-quote-id',
     referencePrice: "21212121",
     priceImpact: 0.21,
-    blockNumber: 123456,
     route: {
         quote: "1234",
         quote_gas_adjusted: "5678",

@@ -88,7 +88,6 @@ export type SharedXOrderEntity = {
   settledAmounts?: SettledAmount[]
   referencePrice?: string
   priceImpact?: number
-  blockNumber?: number
   route?: Route
   pair?: string
 }
