@@ -431,7 +431,8 @@ describe('Testing get unimind handler', () => {
       referencePrice: '4221.21',
       priceImpact: 0.01,
       pair: 'ETH-USDC',
-      swapper: UNIMIND_DEV_SWAPPER_ADDRESS
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS,
+      blockNumber: 1234,
       // missing route
     }
 
@@ -447,4 +448,28 @@ describe('Testing get unimind handler', () => {
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledTimes(1)
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledTimes(1)
   })
-}) 
+
+  it('blockNumber is optional', async () => {
+    const quoteMetadata = {
+      quoteId: 'test-quote-id',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      pair: 'ETH-USDC',
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS,
+      // missing blockNumber
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: quoteMetadata,
+        requestContext: { requestId: 'test-request-id' }
+      } as any,
+      EVENT_CONTEXT
+    )
+
+    expect(response.statusCode).toBe(200)
+    expect(mockQuoteMetadataRepo.put).toHaveBeenCalledTimes(1)
+    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledTimes(1)
+  })
+})
