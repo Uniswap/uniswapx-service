@@ -5,6 +5,5 @@ export enum ErrorCode {
   InternalError = 'INTERNAL_ERROR',
   ValidationError = 'VALIDATION_ERROR',
   TooManyRequests = 'TOO_MANY_REQUESTS',
-  InvalidTokenInAddress = 'INVALID_TOKEN_IN_ADDRESS',
-  NoUnimindParametersFound = 'NO_UNIMIND_PARAMETERS_FOUND',
+  InvalidTokenInAddress = 'INVALID_TOKEN_IN_ADDRESS'
 }
