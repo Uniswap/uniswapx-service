@@ -13,7 +13,7 @@ import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { FillEventLogger } from '../../../../lib/handlers/check-order-status/fill-event-logger'
-import { DEFAULT_MAX_OPEN_ORDERS, PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../../lib/handlers/constants'
+import { DEFAULT_MAX_OPEN_ORDERS } from '../../../../lib/handlers/constants'
 import { EventWatcherMap } from '../../../../lib/handlers/EventWatcherMap'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
@@ -332,7 +332,7 @@ describe('Testing post order handler.', () => {
       // cosignature and cosignerData gets overwritten within the handler
       order.inner.info.cosignature = COSIGNATURE
       order.inner.info.cosignerData = {
-        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER),
+        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + order.targetBlockBuffer),
       }
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
@@ -344,8 +344,7 @@ describe('Testing post order handler.', () => {
           requestId: expect.any(String),
           cosignature: COSIGNATURE,
           cosignerData: {
-            // MOCK_LATEST_BLOCK + 3
-            auctionTargetBlock: 103,
+            auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK).add(order.targetBlockBuffer).toNumber(),
           },
         })
       )
