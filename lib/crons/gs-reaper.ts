@@ -25,7 +25,7 @@ type StepFunctionState = {
   earliestBlock: number
   orderUpdates: Record<string, OrderUpdate>
   parsedOrders: Record<string, { order: UniswapXOrder; signature: string; deadline: number }>
-  stage: 'INIT' | 'PROCESS_BLOCKS' | 'CHECK_CANCELLED' | 'UPDATE_DB'
+  stage: 'GET_OPEN_ORDERS' | 'PROCESS_BLOCKS' | 'CHECK_CANCELLED' | 'UPDATE_DB'
 }
 
 /**
@@ -34,7 +34,7 @@ type StepFunctionState = {
  * This handler processes orphaned orders across multiple chains to update their statuses in the database.
  * It operates in the following stages:
  * 
- * 1. INIT:
+ * 1. GET_OPEN_ORDERS:
  *    - Retrieves all open orders for the current chain from the database
  *    - Parses orders into UniswapX SDK format for validation
  * 
@@ -81,24 +81,24 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
       throw new Error(`No provider found for chainId ${firstChainId}`)
     }
     const currentBlock = await provider.getBlockNumber()
+    log.info(`Initializing GS Reaper for chainId ${firstChainId} with current block ${currentBlock} and earliest block ${OLDEST_BLOCK_BY_CHAIN[firstChainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]}`)
     return {
       chainId: firstChainId,
       currentBlock,
+      // TODO: After first run, use 1 day ago as earliest block
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[firstChainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
       orderUpdates: {},
       parsedOrders: {},
-      stage: 'INIT'
+      stage: 'GET_OPEN_ORDERS'
     }
   }
 
   const state = event as StepFunctionState
   const provider = providers.get(state.chainId)
-  if (!provider) {
-    throw new Error(`No provider found for chainId ${state.chainId}`)
-  }
 
   switch (state.stage) {
-    case 'INIT': {
+    case 'GET_OPEN_ORDERS': {
+      log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
       const parsedOrdersMap = await getParsedOrders(repo, state.chainId)
       return {
         ...state,
@@ -108,26 +108,32 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
     }
 
     case 'PROCESS_BLOCKS': {
+      if (!provider) {
+        throw new Error(`No provider found for chainId ${state.chainId}`)
+      }
       // Process multiple block ranges before returning
+      let currentBlock = state.currentBlock
+      let orderUpdates = state.orderUpdates
       for (let i = 0; i < REAPER_RANGES_PER_RUN; i++) {
-        const nextBlock = state.currentBlock - BLOCK_RANGE
-        const orderUpdates = await processBlockRange(
-          state.currentBlock,
+        const nextBlock = currentBlock - BLOCK_RANGE
+        log.info(`PROCESS_BLOCKS for chainId ${state.chainId} blocks ${currentBlock} to ${nextBlock}`)
+        orderUpdates = await processBlockRange(
+          currentBlock,
           nextBlock,
           state.chainId,
           state.parsedOrders,
           provider,
-          state.orderUpdates,
+          orderUpdates,
           log,
           metrics
         )
 
-        state.currentBlock = nextBlock
-        state.orderUpdates = orderUpdates
-
-        if (nextBlock <= state.earliestBlock) {
+        currentBlock = nextBlock
+        if (currentBlock <= state.earliestBlock) {
           return {
             ...state,
+            currentBlock,
+            orderUpdates,
             stage: 'CHECK_CANCELLED'
           }
         }
@@ -135,11 +141,17 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
 
       return {
         ...state,
+        currentBlock,
+        orderUpdates,
         stage: 'PROCESS_BLOCKS'
       }
     }
 
     case 'CHECK_CANCELLED': {
+      log.info(`CHECK_CANCELLED for chainId ${state.chainId}`)
+      if (!provider) {
+        throw new Error(`No provider found for chainId ${state.chainId}`)
+      }
       const orderUpdates = await checkCancelledOrders(
         state.parsedOrders,
         state.orderUpdates,
@@ -155,6 +167,7 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
     }
 
     case 'UPDATE_DB': {
+      log.info(`UPDATE_DB for chainId ${state.chainId}`)
       await updateOrders(repo, state.orderUpdates, log, metrics)
       
       const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
@@ -162,6 +175,7 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
       
       // We're done
       if (currentChainIndex === chainIds.length - 1) {
+        log.info(`Done`)
         return
       }
 
@@ -177,7 +191,7 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[nextChainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
         orderUpdates: {},
         parsedOrders: {},
-        stage: 'INIT'
+        stage: 'GET_OPEN_ORDERS'
       }
     }
   }
@@ -198,7 +212,8 @@ async function processBlockRange(
   
   for (const orderType of Object.keys(REACTOR_ADDRESS_MAPPING[chainId])) {
     const reactorAddress = REACTOR_ADDRESS_MAPPING[chainId][orderType as OrderType]
-    if (!reactorAddress) continue
+    if (!reactorAddress || reactorAddress === "0x0000000000000000000000000000000000000000") continue
+    log.info(`Processing block range ${fromBlock} to ${toBlock} for chainId ${chainId} orderType ${orderType}`)
     
     const watcher = new UniswapXEventWatcher(provider, reactorAddress)
     let attempts = 0
@@ -206,7 +221,6 @@ async function processBlockRange(
 
     while (attempts < REAPER_MAX_ATTEMPTS) {
       try {
-        log.info(`Getting fill events for blocks ${toBlock} to ${fromBlock}`)
         const fillEvents = await watcher.getFillEvents(toBlock, fromBlock)
         recentErrors = Math.max(0, recentErrors - 1)
         
@@ -245,9 +259,9 @@ async function processBlockRange(
         }))
         break
       } catch (error) {
+        log.error({ error }, `Attempt ${attempts}/${REAPER_MAX_ATTEMPTS} failed to get fill events for blocks ${toBlock} to ${fromBlock}`)
         attempts++
         recentErrors++
-        log.error({ error }, `Failed to get fill events for blocks ${toBlock} to ${fromBlock}`)
         if (attempts === REAPER_MAX_ATTEMPTS) {
           log.error({ error }, `Failed to get fill events after ${attempts} attempts for blocks ${toBlock} to ${fromBlock}`)
           metrics?.putMetric(`GetFillEventsError`, 1, Unit.Count)
