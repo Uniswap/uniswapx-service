@@ -11,17 +11,7 @@ import { cleanupOrphanedOrders } from '../../../../lib/crons/gs-reaper'
 import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY } from '../../../test-data'
 import { handler } from '../../../../lib/crons/gs-reaper'
 import { parseOrder } from '../../../../lib/handlers/OrderParser'
-
-const dynamoConfig = {
-  convertEmptyValues: true,
-  endpoint: 'localhost:8000',
-  region: 'local-env',
-  sslEnabled: false,
-  credentials: {
-    accessKeyId: 'fakeMyKeyId',
-    secretAccessKey: 'fakeSecretAccessKey',
-  },
-}
+import * as AWS from 'aws-sdk'
 
 const log: Logger = bunyan.createLogger({
   name: 'test',
@@ -193,7 +183,6 @@ jest.mock('../../../../lib/repositories/dutch-orders-repository', () => ({
 describe('gs-reaper handler', () => {
   beforeEach(async () => {
     // Configure AWS
-    const AWS = require('aws-sdk')
     AWS.config.update({
       region: 'local-env',
       credentials: {
@@ -227,18 +216,18 @@ describe('gs-reaper handler', () => {
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
       orderUpdates: {},
       parsedOrders: {},
-      stage: 'INIT'
+      stage: 'GET_OPEN_ORDERS'
     })
   })
 
-  it('processes INIT stage correctly', async () => {
+  it('processes GET_OPEN_ORDERS stage correctly', async () => {
     const initialState = {
       chainId: ChainId.MAINNET,
       currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
       orderUpdates: {},
       parsedOrders: {},
-      stage: 'INIT' as const
+      stage: 'GET_OPEN_ORDERS' as const
     }
 
     const result = await handler(initialState)
@@ -330,7 +319,7 @@ describe('gs-reaper handler', () => {
     // Verify we're moving to the next chain
     const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
     expect(result.chainId).toBe(chainIds[chainIds.indexOf(ChainId.MAINNET) + 1])
-    expect(result.stage).toBe('INIT')
+    expect(result.stage).toBe('GET_OPEN_ORDERS')
   })
 
   it('returns undefined when processing UPDATE_DB stage for the last chain', async () => {
