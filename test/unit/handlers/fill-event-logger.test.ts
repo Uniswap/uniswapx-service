@@ -25,7 +25,7 @@ describe('processFillEvent', () => {
     log.setLogLevel('SILENT')
   })
 
-  it('should return the settled amount', async () => {
+  it('should return the settled amounts even if output token is not found in settled amounts', async () => {
     const quoteId = '1'
     const order = MOCK_ORDER_ENTITY
     const chainId = 1
@@ -60,5 +60,61 @@ describe('processFillEvent', () => {
       timestamp: 1,
     })
     expect(response).toEqual([settledAmounts])
+  })
+
+  it('should return the settled amount in output token', async () => {
+    const quoteId = '1'
+    const order = MOCK_ORDER_ENTITY
+    const chainId = 1
+    const startingBlockNumber = 0
+
+    const settledAmounts = {
+      tokenOut: '0xoutput',
+      amountOut: '1',
+      tokenIn: 'in',
+      amountIn: '2',
+    }
+    // this output should be ignored
+    const settledAmounts2 = {
+      tokenOut: '0xoutput2',
+      amountOut: '1',
+      tokenIn: 'in',
+      amountIn: '2',
+    }
+
+    const analyticsService = mock<AnalyticsService>()
+    const fillEventProcessor = new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, analyticsService)
+
+    await fillEventProcessor.processFillEvent({
+      fillEvent: MOCK_FILL_EVENT,
+      quoteId,
+      order,
+      chainId,
+      startingBlockNumber,
+      settledAmounts: [settledAmounts, settledAmounts2],
+      tx: {
+        wait: () =>
+          Promise.resolve({
+            effectiveGasPrice: BigNumber.from(1),
+            gasUsed: 100,
+          }),
+      } as any,
+      block: {
+        baseFeePerGas: 1,
+      } as any,
+      timestamp: 1,
+    })
+    
+    expect(analyticsService.logFillInfo).toHaveBeenCalledWith(
+      MOCK_FILL_EVENT,
+      order,
+      quoteId,
+      1,
+      '0.0000000000000001',
+      '1',
+      '100',
+      '0',
+      settledAmounts  // Expect settleAmounts since it matches the output token
+    )
   })
 })

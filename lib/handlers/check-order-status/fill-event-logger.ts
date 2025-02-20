@@ -11,6 +11,7 @@ import {
 import { AnalyticsService } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
+import { log } from '../../util/log'
 
 export type ProcessFillEventRequest = {
   fillEvent: FillInfo
@@ -44,17 +45,25 @@ export class FillEventLogger {
       const receipt = await tx.wait()
       const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
 
-      this.analyticsService.logFillInfo(
-        fillEvent,
-        order,
-        quoteId,
-        timestamp,
-        gasCostInETH,
-        receipt.effectiveGasPrice.toString(),
-        receipt.gasUsed.toString(),
-        receipt.effectiveGasPrice.sub(block.baseFeePerGas ?? 0).toString(),
-        settledAmounts.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
-      )
+      let filteredOutputs = settledAmounts
+      if (order.type != OrderType.Relay) {
+        filteredOutputs = settledAmounts.filter(amount => amount.tokenOut == order.outputs[0].token)
+      }
+      if (filteredOutputs.length > 0) {
+        this.analyticsService.logFillInfo(
+          fillEvent,
+          order,
+          quoteId,
+          timestamp,
+          gasCostInETH,
+          receipt.effectiveGasPrice.toString(),
+          receipt.gasUsed.toString(),
+          receipt.effectiveGasPrice.sub(block.baseFeePerGas ?? 0).toString(),
+          filteredOutputs.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
+        )
+      } else {
+        log.error('no matching settled amounts found for fill event', { fillEvent })
+      }
 
       if (order.type === OrderType.Dutch || order.type === OrderType.Dutch_V2) {
         const percentDecayed = this.calculatePercentDecayed(order, timestamp)
