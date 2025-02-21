@@ -26,6 +26,18 @@ export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'i
   quoteId: string | undefined
   requestId: string | undefined
   createdAt: number | undefined
+  route: {
+    quote: string
+    quoteGasAdjusted: string
+    gasPriceWei: string
+    gasUseEstimateQuote: string
+    gasUseEstimate: string
+    methodParameters: {
+      calldata: string
+      value: string
+      to: string
+    }
+  }
 }
 
 export const PriorityCosignerDataJoi = Joi.object({
@@ -71,4 +83,16 @@ export const GetPriorityOrderResponseEntryJoi = Joi.object({
   cosignerData: PriorityCosignerDataJoi,
   cosignature: Joi.string(),
   createdAt: Joi.number(),
+  route: Joi.object({
+    quote: FieldValidator.isValidAmount(),
+    quoteGasAdjusted: FieldValidator.isValidAmount(),
+    gasPriceWei: FieldValidator.isValidAmount(),
+    gasUseEstimateQuote: FieldValidator.isValidAmount(),
+    gasUseEstimate: FieldValidator.isValidAmount(),
+    methodParameters: Joi.object({
+      calldata: Joi.string(),
+      value: Joi.string(),
+      to: FieldValidator.isValidEthAddress(),
+    }),
+  }),
 })

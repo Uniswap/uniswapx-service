@@ -17,7 +17,8 @@ export class PriorityOrder extends Order {
     readonly txHash?: string,
     readonly quoteId?: string,
     readonly requestId?: string,
-    readonly createdAt?: number
+    readonly createdAt?: number,
+    readonly route?: any
   ) {
     super()
   }
@@ -80,7 +81,8 @@ export class PriorityOrder extends Order {
       entity.txHash,
       entity.quoteId,
       entity.requestId,
-      entity.createdAt
+      entity.createdAt,
+      entity.route
     )
   }
 
@@ -129,6 +131,18 @@ export class PriorityOrder extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
+      route: {
+        quote: this.route.quote,
+        quoteGasAdjusted: this.route.quoteGasAdjusted,
+        gasPriceWei: this.route.gasPriceWei,
+        gasUseEstimateQuote: this.route.gasUseEstimateQuote,
+        gasUseEstimate: this.route.gasUseEstimate,
+        methodParameters: {
+          calldata: this.route.methodParameters.calldata,
+          value: this.route.methodParameters.value,
+          to: this.route.methodParameters.to,
+        },
+      },
     }
   }
 }

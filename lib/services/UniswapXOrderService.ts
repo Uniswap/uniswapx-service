@@ -66,6 +66,7 @@ export class UniswapXOrderService {
       const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
       const awsRegion = checkDefined(process.env.REGION, 'REGION is not defined')
       const cosigner = new KmsSigner(new KMSClient({ region: awsRegion }), kmsKeyId)
+      this.logger.info(`The cosigner address is ${await cosigner.getAddress()}`)
       const provider = checkDefined(
         this.providerMap.get(order.chainId),
         `provider not found for chainId: ${order.chainId}`

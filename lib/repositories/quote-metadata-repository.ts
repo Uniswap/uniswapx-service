@@ -12,11 +12,11 @@ interface MethodParameters {
 
 export interface Route {
     quote: string
-    quote_gas_adjusted: string
-    gas_price_wei: string
-    gas_use_estimate_quote: string
-    gas_use_estimate: string
-    method_parameters: MethodParameters
+    quoteGasAdjusted: string
+    gasPriceWei: string
+    gasUseEstimateQuote: string
+    gasUseEstimate: string
+    methodParameters: MethodParameters
 }
 
 export interface QuoteMetadata {
