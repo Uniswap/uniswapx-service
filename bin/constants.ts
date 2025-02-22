@@ -3,3 +3,4 @@
 // name, and thus be redeployed. Should be camel case and contain no non-alphanumeric characters.
 export const SERVICE_NAME = 'GoudaService'
 export const HEALTH_CHECK_PORT = 80
+export const UNIMIND_ALGORITHM_CRON_INTERVAL = 15 // minutes
