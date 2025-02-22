@@ -146,76 +146,69 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
 export function artemisModifyCalldata(calldata: string, log: Logger): string {
     try {
-        let parsedCommands;
-        let parsedInputs;
+      const functionSignatures: Record<string, string> = {
+        "24856bc3": "function execute(bytes commands, bytes[] inputs)",
+        "3593564c": "function execute(bytes commands, bytes[] inputs, uint256 deadline)"
+      };
 
-        // Decode the main execute function
-        if (calldata.slice(2, 10) == "24856bc3") {
-          log.info('Modifying calldata for execute(bytes commands, bytes[] inputs)')
-          const iface = new Interface(["function execute(bytes commands, bytes[] inputs)"])
-          const { commands, inputs } = iface.decodeFunctionData('execute', calldata)
-          parsedCommands = commands
-          parsedInputs = inputs
-        } else if (calldata.slice(2, 10) == "3593564c") {
-          log.info('Modifying calldata for execute(bytes commands, bytes[] inputs, uint256 deadline)')
-          const iface = new Interface(["function execute(bytes commands, bytes[] inputs, uint256 deadline)"])
-          // We don't care about the deadline because overriding it to the future
-          const { commands, inputs } = iface.decodeFunctionData('execute', calldata)
-          parsedCommands = commands
-          parsedInputs = inputs
-        } else {
-          throw new Error('Unrecognized function selector in calldata')
-        }
+      const functionSelector = calldata.slice(2, 10)
+      const signature = functionSignatures[functionSelector]
+      if (!signature) {
+        throw new Error('Unrecognized function selector in calldata')
+      }
         
-        let commandArray = getCommands(parsedCommands)
-        let inputsArray = [...parsedInputs]
-        
-        // Find and remove PAY_PORTION command and its input
-        const payPortionIndex = commandArray.findIndex(command => command == CommandType.PAY_PORTION)
-        if (payPortionIndex !== -1) {
-            commandArray.splice(payPortionIndex, 1)
-            inputsArray.splice(payPortionIndex, 1)
-        }
+      log.info(`Modifying calldata for ${signature}`);
+      // Decode the UR execute calldata
+      const iface = new Interface([signature]);
+      const { commands, inputs } = iface.decodeFunctionData('execute', calldata);
 
-        // Find and modify SWEEP command
-        const sweepIndex = commandArray.findIndex(command => command == CommandType.SWEEP)
-        if (sweepIndex !== -1) {
-            const sweepInput = inputsArray[sweepIndex]
-            // Decode sweep parameters
-            const [token, , amountMinimum] = defaultAbiCoder.decode(
-                ['address', 'address', 'uint256'],
-                sweepInput
-            )
-            // Encode the parameters with executor address as recipient
-            const modifiedSweepInput = defaultAbiCoder.encode(
-                ['address', 'address', 'uint256'],
-                [token, EXECUTOR_ADDRESS, amountMinimum]
-            )
-            inputsArray[sweepIndex] = modifiedSweepInput
-        }
+      let commandArray = getCommands(commands)
+      let inputsArray = [...inputs]
         
-        // Re-encode the complete calldata
-        let modifiedCalldata;
-        if (calldata.slice(2, 10) == "24856bc3") {
-            const iface = new Interface(["function execute(bytes commands, bytes[] inputs)"])
-            modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray])
-        } else if (calldata.slice(2, 10) == "3593564c") {
-            const iface = new Interface(["function execute(bytes commands, bytes[] inputs, uint256 deadline)"])
-            const newDeadline = Math.floor(Date.now()/1000) + 60;
-            // This function has a deadline parameter
-            modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray, newDeadline])
-        }
-        if (!modifiedCalldata) {
-          throw new Error('Failed to modify calldata')
-        }
-        log.info('Successfully modified calldata')
-        return modifiedCalldata
+      // Find and remove PAY_PORTION command and its input
+      const payPortionIndex = commandArray.findIndex(command => command == CommandType.PAY_PORTION)
+      if (payPortionIndex !== -1) {
+          commandArray.splice(payPortionIndex, 1)
+          inputsArray.splice(payPortionIndex, 1)
+      }
+
+      // Find and modify SWEEP command
+      const sweepIndex = commandArray.findIndex(command => command == CommandType.SWEEP)
+      if (sweepIndex !== -1) {
+          const sweepInput = inputsArray[sweepIndex]
+          // Decode sweep parameters
+          const [token, , amountMinimum] = defaultAbiCoder.decode(
+              ['address', 'address', 'uint256'],
+              sweepInput
+          )
+          // Encode the parameters with executor address as recipient
+          const modifiedSweepInput = defaultAbiCoder.encode(
+              ['address', 'address', 'uint256'],
+              [token, EXECUTOR_ADDRESS, amountMinimum]
+          )
+          inputsArray[sweepIndex] = modifiedSweepInput
+      }
+      
+      // Re-encode the complete calldata
+      let modifiedCalldata;
+      if (functionSelector == "24856bc3") {
+          modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray])
+      } else if (functionSelector == "3593564c") {
+          const newDeadline = Math.floor(Date.now()/1000) + 60;
+          // This function has a deadline parameter
+          modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray, newDeadline])
+      }
+      if (!modifiedCalldata) {
+        throw new Error('Failed to modify calldata')
+      }
+      log.info('Successfully modified calldata')
+      return modifiedCalldata
     } catch (e) {
-        log.error('Error modifying calldata', {
-            error: (e as Error)?.message ?? 'Unknown error',
-            calldata
-        })
-        return ""
+      log.error('Error modifying calldata', {
+          error: (e as Error)?.message ?? 'Unknown error',
+          calldata
+      })
+      return ""
     }
 }
 
