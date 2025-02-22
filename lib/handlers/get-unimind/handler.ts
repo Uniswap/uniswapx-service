@@ -8,7 +8,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
 import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
-import { CommandParser, CommandType } from '@uniswap/universal-router-sdk'
+import { CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
 import { EXECUTOR_ADDRESS } from '../constants'
 import { defaultAbiCoder } from '@ethersproject/abi'
@@ -33,14 +33,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       }
       // For requests that don't expect params, we only save the quote metadata and return
       if (logOnly) { 
-        log.info('route details', { 
-            route: quoteMetadata.route,
-            calldata: quoteMetadata.route?.methodParameters?.calldata
-        })
-        const decoded = CommandParser.parseCalldata(quoteMetadata.route?.methodParameters?.calldata)
-        log.info('decoded', { decodedStr: JSON.stringify(decoded, null, 2) })
         const artemisCallDataRoute = artemisModifyCalldata(quoteMetadata.route?.methodParameters?.calldata, log)
-        log.info('artemisCallDataRoute', { artemisCallDataRoute })
         quoteMetadata.route.methodParameters.calldata = artemisCallDataRoute
         await quoteMetadataRepository.put(quoteMetadata)
         return {
