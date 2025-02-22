@@ -37,7 +37,7 @@ export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'i
       value: string
       to: string
     }
-  }
+  } | undefined
 }
 
 export const PriorityCosignerDataJoi = Joi.object({
