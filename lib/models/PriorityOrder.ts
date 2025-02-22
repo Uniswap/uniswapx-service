@@ -132,15 +132,15 @@ export class PriorityOrder extends Order {
       requestId: this.requestId,
       createdAt: this.createdAt,
       route: {
-        quote: this.route.quote,
-        quoteGasAdjusted: this.route.quoteGasAdjusted,
-        gasPriceWei: this.route.gasPriceWei,
-        gasUseEstimateQuote: this.route.gasUseEstimateQuote,
-        gasUseEstimate: this.route.gasUseEstimate,
+        quote: this.route?.quote,
+        quoteGasAdjusted: this.route?.quoteGasAdjusted,
+        gasPriceWei: this.route?.gasPriceWei,
+        gasUseEstimateQuote: this.route?.gasUseEstimateQuote,
+        gasUseEstimate: this.route?.gasUseEstimate,
         methodParameters: {
-          calldata: this.route.methodParameters.calldata,
-          value: this.route.methodParameters.value,
-          to: this.route.methodParameters.to,
+          calldata: this.route?.methodParameters?.calldata,
+          value: this.route?.methodParameters?.value,
+          to: this.route?.methodParameters?.to,
         },
       },
     }

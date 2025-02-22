@@ -216,7 +216,7 @@ export function artemisModifyCalldata(calldata: string, log?: any): string {
             modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray])
         } else if (calldata.slice(2, 10) == "3593564c") {
             const iface = new Interface(["function execute(bytes commands, bytes[] inputs, uint256 deadline)"])
-            const newDeadline = Math.floor(Date.now()/1000) + 20;
+            const newDeadline = Math.floor(Date.now()/1000) + 60;
             // This function has a deadline parameter
             modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray, newDeadline])
         }
