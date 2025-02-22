@@ -34,8 +34,12 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       }
       // For requests that don't expect params, we only save the quote metadata and return
       if (logOnly) { 
-        const artemisCallDataRoute = artemisModifyCalldata(quoteMetadata.route?.methodParameters?.calldata, log)
-        quoteMetadata.route.methodParameters.calldata = artemisCallDataRoute
+        if (quoteMetadata.route?.methodParameters?.calldata) {
+            const artemisCallDataRoute = artemisModifyCalldata(quoteMetadata.route.methodParameters.calldata, log)
+            quoteMetadata.route.methodParameters.calldata = artemisCallDataRoute
+        } else {
+            log.warn('Route, methodParameters, or calldata is missing from quoteMetadata');
+        }
         await quoteMetadataRepository.put(quoteMetadata)
         return {
           statusCode: 200,
