@@ -12,6 +12,7 @@ import { CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
 import { EXECUTOR_ADDRESS } from '../constants'
 import { defaultAbiCoder } from '@ethersproject/abi'
+import { default as Logger } from 'bunyan'
 
 type UnimindResponse = {
   pi: number
@@ -81,7 +82,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       return {
         statusCode: 500,
         errorCode: ErrorCode.InternalError,
-        detail: e instanceof Error ? e.message : 'Unknown error occurred'
+        detail: (e as Error)?.message ?? 'Unknown error occurred'
       }
     }
   }
@@ -139,66 +140,53 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   }
 }
 
-export function artemisModifyCalldata(calldata: string, log?: any): string {
+export function artemisModifyCalldata(calldata: string, log: Logger): string {
     try {
         let parsedCommands;
         let parsedInputs;
 
         // Decode the main execute function
         if (calldata.slice(2, 10) == "24856bc3") {
-            const iface = new Interface(["function execute(bytes commands, bytes[] inputs)"])
-            const { commands, inputs } = iface.decodeFunctionData('execute', calldata)
-            parsedCommands = commands
-            parsedInputs = inputs
-            log.info('parsedCommands', { parsedCommands })
-            log.info('parsedInputs', { parsedInputs })
+          log.info('Modifying calldata for execute(bytes commands, bytes[] inputs)')
+          const iface = new Interface(["function execute(bytes commands, bytes[] inputs)"])
+          const { commands, inputs } = iface.decodeFunctionData('execute', calldata)
+          parsedCommands = commands
+          parsedInputs = inputs
         } else if (calldata.slice(2, 10) == "3593564c") {
-            const iface = new Interface(["function execute(bytes commands, bytes[] inputs, uint256 deadline)"])
-            const { commands, inputs } = iface.decodeFunctionData('execute', calldata)
-            parsedCommands = commands
-            parsedInputs = inputs
-            log.info('parsedCommands', { parsedCommands })
-            log.info('parsedInputs', { parsedInputs })
+          log.info('Modifying calldata for execute(bytes commands, bytes[] inputs, uint256 deadline)')
+          const iface = new Interface(["function execute(bytes commands, bytes[] inputs, uint256 deadline)"])
+          // We don't care about the deadline because overriding it to the future
+          const { commands, inputs } = iface.decodeFunctionData('execute', calldata)
+          parsedCommands = commands
+          parsedInputs = inputs
+        } else {
+          throw new Error('Unrecognized function selector in calldata')
         }
         
         let commandArray = getCommands(parsedCommands)
         let inputsArray = [...parsedInputs]
-        log.info('commandArray before removing PAY_PORTION', { commandArray })
-        log.info('inputsArray before removing PAY_PORTION', { inputsArray })
         
-        // Remove PAY_PORTION command and input
+        // Find and remove PAY_PORTION command and its input
         const payPortionIndex = commandArray.findIndex(command => command == CommandType.PAY_PORTION)
         if (payPortionIndex !== -1) {
             commandArray.splice(payPortionIndex, 1)
             inputsArray.splice(payPortionIndex, 1)
         }
-        log.info('commandArray after removing PAY_PORTION', { commandArray })
-        log.info('inputsArray after removing PAY_PORTION', { inputsArray })
+
         // Find and modify SWEEP command
         const sweepIndex = commandArray.findIndex(command => command == CommandType.SWEEP)
         if (sweepIndex !== -1) {
             const sweepInput = inputsArray[sweepIndex]
-            
             // Decode sweep parameters
             const [token, , amountMinimum] = defaultAbiCoder.decode(
                 ['address', 'address', 'uint256'],
                 sweepInput
             )
-            log.info('sweepInput', { sweepInput })
-            log.info('original token', { token })
-            log.info('original amountMinimum', { amountMinimum })
-
             // Encode the parameters with executor address as recipient
             const modifiedSweepInput = defaultAbiCoder.encode(
                 ['address', 'address', 'uint256'],
                 [token, EXECUTOR_ADDRESS, amountMinimum]
             )
-
-            log.info('modifiedSweepInput', { modifiedSweepInput })
-            log.info('modified token', { token })
-            log.info('modified address', { address: EXECUTOR_ADDRESS })
-            log.info('modified amountMinimum', { amountMinimum })
-            
             inputsArray[sweepIndex] = modifiedSweepInput
         }
         
@@ -213,17 +201,16 @@ export function artemisModifyCalldata(calldata: string, log?: any): string {
             // This function has a deadline parameter
             modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray, newDeadline])
         }
-
-        log.info('modifiedCalldata', { modifiedCalldata })
-
-        return modifiedCalldata ?? ""
-    } catch (e) {
-        if (log) {
-            log.error('Error modifying calldata', { 
-                error: e instanceof Error ? e.message : 'Unknown error',
-                calldata
-            })
+        if (!modifiedCalldata) {
+          throw new Error('Failed to modify calldata')
         }
+        log.info('Successfully modified calldata')
+        return modifiedCalldata
+    } catch (e) {
+        log.error('Error modifying calldata', {
+            error: (e as Error)?.message ?? 'Unknown error',
+            calldata
+        })
         return ""
     }
 }

@@ -1,4 +1,4 @@
-import { Logger } from '@aws-lambda-powertools/logger'
+import { default as Logger } from 'bunyan'
 import { mock } from 'jest-mock-extended'
 import { EVENT_CONTEXT } from '../../fixtures'
 import { artemisModifyCalldata, GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
