@@ -2,7 +2,7 @@ import { CosignedV3DutchOrder as SDKV3DutchOrder, OrderType } from '@uniswap/uni
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { Order } from './Order'
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
-import { QuoteMetadata } from '../repositories/quote-metadata-repository'
+import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 
 export class DutchV3Order extends Order {
   constructor(
@@ -14,7 +14,8 @@ export class DutchV3Order extends Order {
     readonly fillBlock?: number,
     readonly quoteId?: string,
     readonly requestId?: string,
-    readonly createdAt?: number
+    readonly createdAt?: number,
+    readonly route?: Route
   ) {
     super()
   }
@@ -91,7 +92,8 @@ export class DutchV3Order extends Order {
       entity.fillBlock,
       entity.quoteId,
       entity.requestId,
-      entity.createdAt
+      entity.createdAt,
+      entity.route
     )
   }
 
@@ -143,6 +145,18 @@ export class DutchV3Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
+      route: {
+        quote: this.route?.quote ?? '',
+        quoteGasAdjusted: this.route?.quoteGasAdjusted ?? '',
+        gasPriceWei: this.route?.gasPriceWei ?? '',
+        gasUseEstimateQuote: this.route?.gasUseEstimateQuote ?? '',
+        gasUseEstimate: this.route?.gasUseEstimate ?? '',
+        methodParameters: {
+          calldata: this.route?.methodParameters?.calldata ?? '',
+          value: this.route?.methodParameters?.value ?? '',
+          to: this.route?.methodParameters?.to ?? '',
+        },
+      },
     }
   }
 }

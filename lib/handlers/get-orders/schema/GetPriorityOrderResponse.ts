@@ -2,6 +2,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
 import FieldValidator from '../../../util/field-validator'
 import { GetDutchV2OrderResponse } from './GetDutchV2OrderResponse'
+import { Route } from '../../../repositories/quote-metadata-repository'
 
 export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'input' | 'outputs' | 'cosignerData'> & {
   type: OrderType.Priority
@@ -26,18 +27,7 @@ export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'i
   quoteId: string | undefined
   requestId: string | undefined
   createdAt: number | undefined
-  route: {
-    quote: string
-    quoteGasAdjusted: string
-    gasPriceWei: string
-    gasUseEstimateQuote: string
-    gasUseEstimate: string
-    methodParameters: {
-      calldata: string
-      value: string
-      to: string
-    }
-  } | undefined
+  route: Route | undefined
 }
 
 export const PriorityCosignerDataJoi = Joi.object({

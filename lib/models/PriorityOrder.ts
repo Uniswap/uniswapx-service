@@ -6,7 +6,7 @@ import { ORDER_STATUS, PriorityOrderEntity, UniswapXOrderEntity } from '../entit
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
-import { QuoteMetadata } from '../repositories/quote-metadata-repository'
+import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 
 export class PriorityOrder extends Order {
   constructor(
@@ -18,7 +18,7 @@ export class PriorityOrder extends Order {
     readonly quoteId?: string,
     readonly requestId?: string,
     readonly createdAt?: number,
-    readonly route?: any
+    readonly route?: Route
   ) {
     super()
   }
@@ -132,15 +132,15 @@ export class PriorityOrder extends Order {
       requestId: this.requestId,
       createdAt: this.createdAt,
       route: {
-        quote: this.route?.quote,
-        quoteGasAdjusted: this.route?.quoteGasAdjusted,
-        gasPriceWei: this.route?.gasPriceWei,
-        gasUseEstimateQuote: this.route?.gasUseEstimateQuote,
-        gasUseEstimate: this.route?.gasUseEstimate,
+        quote: this.route?.quote ?? '',
+        quoteGasAdjusted: this.route?.quoteGasAdjusted ?? '',
+        gasPriceWei: this.route?.gasPriceWei ?? '',
+        gasUseEstimateQuote: this.route?.gasUseEstimateQuote ?? '',
+        gasUseEstimate: this.route?.gasUseEstimate ?? '',
         methodParameters: {
-          calldata: this.route?.methodParameters?.calldata,
-          value: this.route?.methodParameters?.value,
-          to: this.route?.methodParameters?.to,
+          calldata: this.route?.methodParameters?.calldata ?? '',
+          value: this.route?.methodParameters?.value ?? '',
+          to: this.route?.methodParameters?.to ?? '',
         },
       },
     }

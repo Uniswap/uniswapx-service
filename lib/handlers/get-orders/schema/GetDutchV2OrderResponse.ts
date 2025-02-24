@@ -2,6 +2,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
 import { ORDER_STATUS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
+import { Route } from '../../../repositories/quote-metadata-repository'
 
 export type GetDutchV2OrderResponse = {
   type: OrderType.Dutch_V2
@@ -39,6 +40,7 @@ export type GetDutchV2OrderResponse = {
   quoteId: string | undefined
   requestId: string | undefined
   createdAt: number | undefined
+  route: Route | undefined
 }
 
 export const CosignerDataJoi = Joi.object({
@@ -87,4 +89,16 @@ export const GetDutchV2OrderResponseEntryJoi = Joi.object({
   cosignerData: CosignerDataJoi,
   cosignature: Joi.string(),
   createdAt: Joi.number(),
+  route: Joi.object({
+    quote: FieldValidator.isValidAmount(),
+    quoteGasAdjusted: FieldValidator.isValidAmount(),
+    gasPriceWei: FieldValidator.isValidAmount(),
+    gasUseEstimateQuote: FieldValidator.isValidAmount(),
+    gasUseEstimate: FieldValidator.isValidAmount(),
+    methodParameters: Joi.object({
+      calldata: Joi.string(),
+      value: Joi.string(),
+      to: FieldValidator.isValidEthAddress(),
+    }),
+  }),
 })
