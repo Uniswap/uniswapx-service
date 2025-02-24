@@ -28,6 +28,10 @@ type StepFunctionState = {
   stage: 'GET_OPEN_ORDERS' | 'PROCESS_BLOCKS' | 'CHECK_CANCELLED' | 'UPDATE_DB'
 }
 
+// Step functions have a max payload size of 256KB
+// Avg parsed order size is 2KB so 50 orders ensures we stay well under the limit
+const MAX_ORDERS_PER_CHAIN = 50
+
 /**
  * Step Function Handler for the GS (Get Status) Reaper
  * 
@@ -99,7 +103,7 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
   switch (state.stage) {
     case 'GET_OPEN_ORDERS': {
       log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
-      const parsedOrdersMap = await getParsedOrders(repo, state.chainId)
+      const parsedOrdersMap = await getParsedOrders(repo, state.chainId, MAX_ORDERS_PER_CHAIN)
       return {
         ...state,
         parsedOrders: Object.fromEntries(parsedOrdersMap),
@@ -250,10 +254,12 @@ async function processBlockRange(
                 fillBlock: fillEvent.blockNumber,
                 settledAmounts: settledAmounts,
               }
+              delete parsedOrders[e.orderHash]
             } else {
               orderUpdates[e.orderHash] = {
                 status: ORDER_STATUS.FILLED,
               }
+              delete parsedOrders[e.orderHash]
             }
           }
         }))
@@ -284,7 +290,10 @@ async function checkCancelledOrders(
   const orderUpdates = { ...existingUpdates }
   const quoter = new OrderValidator(provider, chainId)
   
-  for (const [orderHash, orderData] of Object.entries(parsedOrders)) {
+  // Create array of entries first to avoid modification during iteration
+  const entries = Object.entries(parsedOrders)
+  
+  for (const [orderHash, orderData] of entries) {
     if (!orderUpdates[orderHash]) {
       const validation = await quoter.validate({
         order: orderData.order,
@@ -294,11 +303,13 @@ async function checkCancelledOrders(
         orderUpdates[orderHash] = {
           status: ORDER_STATUS.CANCELLED,
         }
+        delete parsedOrders[orderHash]
       }
       if (validation === OrderValidation.Expired) {
         orderUpdates[orderHash] = {
           status: ORDER_STATUS.EXPIRED,
         }
+        delete parsedOrders[orderHash]
       }
     }
   }
@@ -333,11 +344,10 @@ async function updateOrders(
  * Get all open orders from the database and parse them
  * @param repo - The orders repository
  * @param chainId - The chain ID
+ * @param maxOrders - Maximum number of orders to return
  * @returns A map of order hashes to their parsed order data
  */
-async function getParsedOrders(repo: BaseOrdersRepository<UniswapXOrderEntity>, chainId: ChainId) {
-
-    // Collect all open orders
+async function getParsedOrders(repo: BaseOrdersRepository<UniswapXOrderEntity>, chainId: ChainId, maxOrders: number) {
     let cursor: string | undefined = undefined
     let allOrders: UniswapXOrderEntity[] = []
     do {
@@ -351,7 +361,12 @@ async function getParsedOrders(repo: BaseOrdersRepository<UniswapXOrderEntity>, 
       )
       cursor = openOrders.cursor
       allOrders = allOrders.concat(openOrders.orders)
-
+      
+      // Break if we've reached the maximum number of orders
+      if (allOrders.length >= maxOrders) {
+        allOrders = allOrders.slice(0, maxOrders)
+        break
+      }
     } while (cursor)
     const parsedOrders = new Map<string, {order: UniswapXOrder, signature: string, deadline: number}>()
     allOrders.forEach((o) => parsedOrders.set(o.orderHash, {order: parseOrder(o, chainId), signature: o.signature, deadline: o.deadline}))

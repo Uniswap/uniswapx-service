@@ -268,7 +268,7 @@ export class StepFunctionStack extends cdk.NestedStack {
 
     // Schedule the GS Reaper to run every day
     new aws_events.Rule(this, 'GSReaperSchedule', {
-      schedule: aws_events.Schedule.rate(Duration.days(1)),
+      schedule: aws_events.Schedule.rate(Duration.hours(1)),
       targets: [new aws_events_targets.SfnStateMachine(gsReaperStateMachine)],
     })
 
