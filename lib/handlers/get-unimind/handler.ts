@@ -162,8 +162,8 @@ export function artemisModifyCalldata(calldata: string, log: Logger): string {
       const iface = new Interface([signature]);
       const { commands, inputs } = iface.decodeFunctionData('execute', calldata);
 
-      let commandArray = getCommands(commands)
-      let inputsArray = [...inputs]
+      const commandArray = getCommands(commands)
+      const inputsArray = [...inputs]
         
       // Find and remove PAY_PORTION command and its input
       const payPortionIndex = commandArray.findIndex(command => command == CommandType.PAY_PORTION)
