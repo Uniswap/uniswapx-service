@@ -260,6 +260,8 @@ describe('gs-reaper handler', () => {
     expect(result.currentBlock).toBe(OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET])
     expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
     expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.FILLED)
+    // Verify order was removed from parsedOrders
+    expect(result.parsedOrders[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
   })
 
   it('processes CHECK_CANCELLED stage correctly', async () => {
@@ -290,6 +292,8 @@ describe('gs-reaper handler', () => {
     expect(result.stage).toBe('UPDATE_DB')
     expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
     expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.CANCELLED)
+    // Verify order was removed from parsedOrders
+    expect(result.parsedOrders[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
   })
 
   it('processes UPDATE_DB stage correctly and moves to next chain', async () => {
