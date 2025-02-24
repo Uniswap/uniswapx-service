@@ -10,7 +10,7 @@ import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
 import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
 import { CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
-import { EXECUTOR_ADDRESS } from '../constants'
+import { EXECUTOR_ADDRESS, universalRouterFunctionSigs } from '../constants'
 import { defaultAbiCoder } from '@ethersproject/abi'
 import { default as Logger } from 'bunyan'
 
@@ -146,13 +146,8 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
 export function artemisModifyCalldata(calldata: string, log: Logger): string {
     try {
-      const functionSignatures: Record<string, string> = {
-        "24856bc3": "function execute(bytes commands, bytes[] inputs)",
-        "3593564c": "function execute(bytes commands, bytes[] inputs, uint256 deadline)"
-      };
-
       const functionSelector = calldata.slice(2, 10)
-      const signature = functionSignatures[functionSelector]
+      const signature = universalRouterFunctionSigs[functionSelector]
       if (!signature) {
         throw new Error('Unrecognized function selector in calldata')
       }

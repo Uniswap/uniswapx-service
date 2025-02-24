@@ -16,3 +16,8 @@ export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER = 3
 export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20;
 
 export const EXECUTOR_ADDRESS = "0xBa38d33ce3166D62733e6269A55036D7Cf794031"
+
+export const universalRouterFunctionSigs: Record<string, string> = {
+  "24856bc3": "function execute(bytes commands, bytes[] inputs)",
+  "3593564c": "function execute(bytes commands, bytes[] inputs, uint256 deadline)"
+};
