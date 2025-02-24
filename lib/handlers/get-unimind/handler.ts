@@ -10,7 +10,7 @@ import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
 import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
 import { CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
-import { EXECUTOR_ADDRESS, universalRouterFunctionSigs } from '../constants'
+import { EXECUTOR_ADDRESS, UR_EXECUTE_DEADLINE_BUFFER, UR_EXECUTE_FUNCTION, UR_EXECUTE_SELECTOR, UR_EXECUTE_WITH_DEADLINE_SELECTOR, UR_FUNCTION_SIGNATURES } from '../constants'
 import { defaultAbiCoder } from '@ethersproject/abi'
 import { default as Logger } from 'bunyan'
 
@@ -147,7 +147,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 export function artemisModifyCalldata(calldata: string, log: Logger): string {
     try {
       const functionSelector = calldata.slice(2, 10)
-      const signature = universalRouterFunctionSigs[functionSelector]
+      const signature = UR_FUNCTION_SIGNATURES[functionSelector]
       if (!signature) {
         throw new Error('Unrecognized function selector in calldata')
       }
@@ -155,7 +155,7 @@ export function artemisModifyCalldata(calldata: string, log: Logger): string {
       log.info(`Modifying calldata for ${signature}`);
       // Decode the UR execute calldata
       const iface = new Interface([signature]);
-      const { commands, inputs } = iface.decodeFunctionData('execute', calldata);
+      const { commands, inputs } = iface.decodeFunctionData(UR_EXECUTE_FUNCTION, calldata);
 
       const commandArray = getCommands(commands)
       const inputsArray = [...inputs]
@@ -186,12 +186,12 @@ export function artemisModifyCalldata(calldata: string, log: Logger): string {
       
       // Re-encode the complete calldata
       let modifiedCalldata;
-      if (functionSelector == "24856bc3") {
-          modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray])
-      } else if (functionSelector == "3593564c") {
-          const newDeadline = Math.floor(Date.now()/1000) + 60;
+      if (functionSelector == UR_EXECUTE_SELECTOR) {
+          modifiedCalldata = iface.encodeFunctionData(UR_EXECUTE_FUNCTION, [commandArray, inputsArray])
+      } else if (functionSelector == UR_EXECUTE_WITH_DEADLINE_SELECTOR) {
+          const newDeadline = Math.floor(Date.now()/1000) + UR_EXECUTE_DEADLINE_BUFFER;
           // This function has a deadline parameter
-          modifiedCalldata = iface.encodeFunctionData('execute', [commandArray, inputsArray, newDeadline])
+          modifiedCalldata = iface.encodeFunctionData(UR_EXECUTE_FUNCTION, [commandArray, inputsArray, newDeadline])
       }
       if (!modifiedCalldata) {
         throw new Error('Failed to modify calldata')

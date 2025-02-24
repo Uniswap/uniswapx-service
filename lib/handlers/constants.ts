@@ -17,7 +17,11 @@ export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20;
 
 export const EXECUTOR_ADDRESS = "0xBa38d33ce3166D62733e6269A55036D7Cf794031"
 
-export const universalRouterFunctionSigs: Record<string, string> = {
-  "24856bc3": "function execute(bytes commands, bytes[] inputs)",
-  "3593564c": "function execute(bytes commands, bytes[] inputs, uint256 deadline)"
+export const UR_EXECUTE_SELECTOR = "24856bc3"
+export const UR_EXECUTE_WITH_DEADLINE_SELECTOR = "3593564c"
+export const UR_EXECUTE_FUNCTION = "execute"
+export const UR_FUNCTION_SIGNATURES: Record<string, string> = {
+  [UR_EXECUTE_SELECTOR]: "function execute(bytes commands, bytes[] inputs)",
+  [UR_EXECUTE_WITH_DEADLINE_SELECTOR]: "function execute(bytes commands, bytes[] inputs, uint256 deadline)"
 };
+export const UR_EXECUTE_DEADLINE_BUFFER = 60; // Seconds to extend calldata deadline
