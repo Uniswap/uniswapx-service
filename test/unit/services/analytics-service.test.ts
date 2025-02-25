@@ -1,7 +1,7 @@
-import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
+import { default as Logger } from 'bunyan'
 
 describe('Analytics Service', () => {
   const mockedOrder: UniswapXOrderEntity = {

@@ -1,4 +1,5 @@
-import { Logger } from '@aws-lambda-powertools/logger'
+import { default as Logger } from 'bunyan'
+import bunyan from 'bunyan'
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import {
   OrderType,
@@ -204,7 +205,7 @@ describe('Testing post order handler.', () => {
     process.env['STATE_MACHINE_ARN_11155111'] = MOCK_ARN_11155111
     process.env['REGION'] = 'region'
     process.env['KMS_KEY_ID'] = 'testtest'
-    log.setLogLevel('SILENT')
+    log.level(bunyan.FATAL + 1) // Silence logs
   })
 
   beforeEach(() => {
