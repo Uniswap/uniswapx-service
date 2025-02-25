@@ -3,6 +3,8 @@ import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { Order } from './Order'
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
+import Logger from 'bunyan'
+import { artemisModifyCalldata } from '../handlers/get-unimind/handler'
 
 export class DutchV3Order extends Order {
   constructor(
@@ -88,7 +90,19 @@ export class DutchV3Order extends Order {
     return order
   }
 
-  public static fromEntity(entity: UniswapXOrderEntity): DutchV3Order {
+  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): DutchV3Order {
+    const route = executeAddress && entity.route ? {
+      quote: entity.route.quote,
+      quoteGasAdjusted: entity.route.quoteGasAdjusted,
+      gasPriceWei: entity.route.gasPriceWei,
+      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
+      gasUseEstimate: entity.route.gasUseEstimate,
+      methodParameters : {
+        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
+        value: entity.route.methodParameters.value,
+        to: entity.route.methodParameters.to,
+      },
+    } : entity.route
     return new DutchV3Order(
       SDKV3DutchOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
@@ -100,7 +114,7 @@ export class DutchV3Order extends Order {
       entity.requestId,
       entity.createdAt,
       entity.settledAmounts,
-      entity.route
+      route
     )
   }
 

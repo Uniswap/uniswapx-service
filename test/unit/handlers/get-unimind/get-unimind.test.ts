@@ -6,7 +6,6 @@ import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-meta
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
-import { EXECUTOR_ADDRESS } from '../../../../lib/handlers/constants'
 import { CommandParser, CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
 
@@ -492,6 +491,7 @@ describe('Testing get unimind handler', () => {
 
 describe('Correctly modify URA calldata for Artemis support', () => {
   const mockLog = mock<Logger>()
+  const EXECUTOR_ADDRESS = "0xBa38d33ce3166D62733e6269A55036D7Cf794031"
   it('artemisModifyCalldata for execute + deadline', () => {
     // Calldata to UR function execute(bytes commands, bytes[] inputs, uint256 deadline)
     // Contains the following commands: V3_SWAP_EXACT_IN, PAY_PORTION, SWEEP
@@ -500,7 +500,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
     const decoded = CommandParser.parseCalldata(calldata)
     const swapCommand = decoded.commands[0]
 
-    const modifiedCalldata = artemisModifyCalldata(calldata, mockLog)
+    const modifiedCalldata = artemisModifyCalldata(calldata, mockLog, EXECUTOR_ADDRESS)
     const modifiedDecoded = CommandParser.parseCalldata(modifiedCalldata)
     const modifiedSwapCommand = modifiedDecoded.commands[0]
     expect(modifiedSwapCommand).toEqual(swapCommand)
@@ -523,7 +523,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
     const decoded = CommandParser.parseCalldata(calldata)
     const swapCommand = decoded.commands[0]
 
-    const modifiedCalldata = artemisModifyCalldata(calldata, mockLog)
+    const modifiedCalldata = artemisModifyCalldata(calldata, mockLog, EXECUTOR_ADDRESS)
     const modifiedDecoded = CommandParser.parseCalldata(modifiedCalldata)
     const modifiedSwapCommand = modifiedDecoded.commands[0]
     expect(modifiedSwapCommand).toEqual(swapCommand)

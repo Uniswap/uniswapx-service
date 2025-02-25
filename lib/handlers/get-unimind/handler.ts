@@ -10,7 +10,7 @@ import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
 import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
 import { CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
-import { EXECUTOR_ADDRESS, UR_EXECUTE_DEADLINE_BUFFER, UR_EXECUTE_FUNCTION, UR_EXECUTE_SELECTOR, UR_EXECUTE_WITH_DEADLINE_SELECTOR, UR_FUNCTION_SIGNATURES } from '../constants'
+import { UR_EXECUTE_DEADLINE_BUFFER, UR_EXECUTE_FUNCTION, UR_EXECUTE_SELECTOR, UR_EXECUTE_WITH_DEADLINE_SELECTOR, UR_FUNCTION_SIGNATURES } from '../constants'
 import { defaultAbiCoder } from '@ethersproject/abi'
 import { default as Logger } from 'bunyan'
 
@@ -23,7 +23,6 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, UnimindQueryParams>
   ): Promise<Response<UnimindResponse> | ErrorResponse> {
-    const log = params.requestInjected.log
     const { containerInjected, requestQueryParams } = params
     const { quoteMetadataRepository, unimindParametersRepository } = containerInjected
     try {
@@ -34,12 +33,6 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       }
       // For requests that don't expect params, we only save the quote metadata and return
       if (logOnly) { 
-        if (quoteMetadata.route?.methodParameters?.calldata) {
-            const artemisCallDataRoute = artemisModifyCalldata(quoteMetadata.route.methodParameters.calldata, log)
-            quoteMetadata.route.methodParameters.calldata = artemisCallDataRoute
-        } else {
-            log.warn('Route, methodParameters, or calldata is missing from quoteMetadata');
-        }
         await quoteMetadataRepository.put(quoteMetadata)
         return {
           statusCode: 200,
@@ -144,7 +137,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   }
 }
 
-export function artemisModifyCalldata(calldata: string, log: Logger): string {
+export function artemisModifyCalldata(calldata: string, log: Logger, executeAddress: string): string {
     try {
       const HEX_PREFIX = "0x"
       const SELECTOR_BYTES = 4
@@ -185,7 +178,7 @@ export function artemisModifyCalldata(calldata: string, log: Logger): string {
           // Encode the parameters with executor address as recipient
           const modifiedSweepInput = defaultAbiCoder.encode(
               ['address', 'address', 'uint256'],
-              [token, EXECUTOR_ADDRESS, amountMinimum]
+              [token, executeAddress, amountMinimum]
           )
           inputsArray[sweepIndex] = modifiedSweepInput
       }

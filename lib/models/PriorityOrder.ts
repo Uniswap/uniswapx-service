@@ -7,7 +7,8 @@ import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
-
+import { artemisModifyCalldata } from '../handlers/get-unimind/handler'
+import Logger from 'bunyan'
 export class PriorityOrder extends Order {
   constructor(
     readonly inner: SDKPriorityOrder,
@@ -78,7 +79,19 @@ export class PriorityOrder extends Order {
     return order
   }
 
-  public static fromEntity(entity: UniswapXOrderEntity): PriorityOrder {
+  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): PriorityOrder {
+    const route = executeAddress && entity.route ? {
+      quote: entity.route.quote,
+      quoteGasAdjusted: entity.route.quoteGasAdjusted,
+      gasPriceWei: entity.route.gasPriceWei,
+      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
+      gasUseEstimate: entity.route.gasUseEstimate,
+      methodParameters : {
+        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
+        value: entity.route.methodParameters.value,
+        to: entity.route.methodParameters.to,
+      },
+    } : entity.route
     return new PriorityOrder(
       SDKPriorityOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
@@ -89,7 +102,7 @@ export class PriorityOrder extends Order {
       entity.requestId,
       entity.createdAt,
       entity.settledAmounts,
-      entity.route
+      route
     )
   }
 
