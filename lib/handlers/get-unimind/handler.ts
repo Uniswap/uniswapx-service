@@ -146,7 +146,13 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
 export function artemisModifyCalldata(calldata: string, log: Logger): string {
     try {
-      const functionSelector = calldata.slice(2, 10)
+      const HEX_PREFIX = "0x"
+      const SELECTOR_BYTES = 4
+      const CHARS_PER_BYTE = 2
+      const functionSelector = calldata.slice(
+        HEX_PREFIX.length, 
+        HEX_PREFIX.length + SELECTOR_BYTES * CHARS_PER_BYTE
+      )
       const signature = UR_FUNCTION_SIGNATURES[functionSelector]
       if (!signature) {
         throw new Error('Unrecognized function selector in calldata')
