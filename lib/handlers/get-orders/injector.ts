@@ -15,6 +15,7 @@ export interface RequestInjected extends ApiRInj {
   queryFilters: GetOrdersQueryParams
   cursor?: string
   orderType?: GetOrderTypeQueryParamEnum
+  executeAddress?: string
 }
 
 export interface ContainerInjected {

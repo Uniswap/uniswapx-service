@@ -1,4 +1,4 @@
-import { Logger } from '@aws-lambda-powertools/logger'
+import { default as Logger } from 'bunyan'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { NoHandlerConfiguredError } from '../../../lib/errors/NoHandlerConfiguredError'

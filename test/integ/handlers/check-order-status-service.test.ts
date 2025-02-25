@@ -13,6 +13,7 @@ import {
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
 } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
+import bunyan from 'bunyan'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH, MOCK_V2_ORDER_ENTITY } from '../../test-data'
 
 jest.mock('../../../lib/handlers/check-order-status/util', () => {
@@ -49,7 +50,7 @@ describe('checkOrderStatusService', () => {
       openOrderRequest: CheckOrderStatusRequest
 
     beforeEach(() => {
-      log.setLogLevel('SILENT')
+      log.level(bunyan.FATAL + 1) // Silence logs
       jest.clearAllMocks()
       ordersRepositoryMock = {
         updateOrderStatus: jest.fn(),

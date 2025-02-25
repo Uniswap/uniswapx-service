@@ -37,6 +37,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
           }
         }
       }
+
       if (!swapper || swapper != UNIMIND_DEV_SWAPPER_ADDRESS) {
         return {
             statusCode: 200,
@@ -73,7 +74,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       return {
         statusCode: 500,
         errorCode: ErrorCode.InternalError,
-        detail: e instanceof Error ? e.message : 'Unknown error occurred'
+        detail: (e as Error)?.message ?? 'Unknown error occurred'
       }
     }
   }
@@ -129,4 +130,4 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
     const getUnimindRequestByPairMetricName = `GetUnimindRequestPair${pair}`
     metrics.putMetric(getUnimindRequestByPairMetricName, 1, Unit.Count)
   }
-} 
+}

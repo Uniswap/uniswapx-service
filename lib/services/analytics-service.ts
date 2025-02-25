@@ -1,4 +1,4 @@
-import { Logger } from '@aws-lambda-powertools/logger'
+import { default as Logger } from 'bunyan'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'

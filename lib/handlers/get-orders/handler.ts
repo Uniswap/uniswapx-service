@@ -49,7 +49,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     | ErrorResponse
   > {
     const {
-      requestInjected: { limit, queryFilters, cursor, orderType },
+      requestInjected: { limit, queryFilters, cursor, orderType, executeAddress },
       containerInjected: { dbInterface },
     } = params
 
@@ -61,6 +61,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
           limit,
           params: queryFilters,
           cursor,
+          executeAddress,
         })
 
         return {

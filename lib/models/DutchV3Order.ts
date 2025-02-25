@@ -2,7 +2,9 @@ import { CosignedV3DutchOrder as SDKV3DutchOrder, OrderType } from '@uniswap/uni
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { Order } from './Order'
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
-import { QuoteMetadata } from '../repositories/quote-metadata-repository'
+import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
+import Logger from 'bunyan'
+import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
 
 export class DutchV3Order extends Order {
   constructor(
@@ -14,7 +16,14 @@ export class DutchV3Order extends Order {
     readonly fillBlock?: number,
     readonly quoteId?: string,
     readonly requestId?: string,
-    readonly createdAt?: number
+    readonly createdAt?: number,
+    readonly settledAmounts?: {
+      tokenOut: string
+      amountOut: string
+      tokenIn: string
+      amountIn: string
+    }[],
+    readonly route?: Route
   ) {
     super()
   }
@@ -81,7 +90,19 @@ export class DutchV3Order extends Order {
     return order
   }
 
-  public static fromEntity(entity: UniswapXOrderEntity): DutchV3Order {
+  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): DutchV3Order {
+    const route = executeAddress && entity.route ? {
+      quote: entity.route.quote,
+      quoteGasAdjusted: entity.route.quoteGasAdjusted,
+      gasPriceWei: entity.route.gasPriceWei,
+      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
+      gasUseEstimate: entity.route.gasUseEstimate,
+      methodParameters : {
+        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
+        value: entity.route.methodParameters.value,
+        to: entity.route.methodParameters.to,
+      },
+    } : entity.route
     return new DutchV3Order(
       SDKV3DutchOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
@@ -91,7 +112,9 @@ export class DutchV3Order extends Order {
       entity.fillBlock,
       entity.quoteId,
       entity.requestId,
-      entity.createdAt
+      entity.createdAt,
+      entity.settledAmounts,
+      route
     )
   }
 
@@ -133,6 +156,7 @@ export class DutchV3Order extends Order {
           adjustmentPerGweiBaseFee: o.adjustmentPerGweiBaseFee.toString(),
         }
       }),
+      settledAmounts: this.settledAmounts,
       cosignerData: {
         decayStartBlock: this.inner.info.cosignerData.decayStartBlock,
         exclusiveFiller: this.inner.info.cosignerData.exclusiveFiller,
@@ -143,6 +167,7 @@ export class DutchV3Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
+      route: this.route,
     }
   }
 }

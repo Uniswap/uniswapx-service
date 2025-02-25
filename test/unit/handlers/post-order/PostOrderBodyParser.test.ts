@@ -1,4 +1,4 @@
-import { Logger } from '@aws-lambda-powertools/logger'
+import { default as Logger } from 'bunyan'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'

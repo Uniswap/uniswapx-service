@@ -1,4 +1,5 @@
-import { Logger } from '@aws-lambda-powertools/logger'
+import { default as Logger } from 'bunyan'
+import bunyan from 'bunyan'
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import {
   OrderType,
@@ -78,11 +79,11 @@ const SAMPLE_QUOTE_METADATA = {
   blockNumber: 123456,
   route: {
     quote: '1234',
-    quote_gas_adjusted: '5678',
-    gas_price_wei: '1234',
-    gas_use_estimate_quote: '2345',
-    gas_use_estimate: '3456',
-    method_parameters: {
+    quoteGasAdjusted: '5678',
+    gasPriceWei: '1234',
+    gasUseEstimateQuote: '2345',
+    gasUseEstimate: '3456',
+    methodParameters: {
       calldata: '0xabcdef',
       value: '1234',
       to: '0abcdef',
@@ -204,7 +205,7 @@ describe('Testing post order handler.', () => {
     process.env['STATE_MACHINE_ARN_11155111'] = MOCK_ARN_11155111
     process.env['REGION'] = 'region'
     process.env['KMS_KEY_ID'] = 'testtest'
-    log.setLogLevel('SILENT')
+    log.level(bunyan.FATAL + 1) // Silence logs
   })
 
   beforeEach(() => {

@@ -1,4 +1,4 @@
-import { Logger } from '@aws-lambda-powertools/logger'
+import { default as Logger } from 'bunyan'
 import { KmsSigner } from '@uniswap/signer'
 import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
@@ -350,9 +350,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getDutchV2Orders(limit, params, undefined)
+    const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o, mock<Logger>()).toGetResponse()),
       cursor: undefined,
     }
 
@@ -390,9 +390,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getDutchV2Orders(limit, params, undefined)
+    const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o, mock<Logger>()).toGetResponse()),
       cursor: undefined,
     }
 
@@ -433,7 +433,7 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getDutchV2Orders(limit, params, undefined)
+    const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
     expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
@@ -462,9 +462,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 1
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getDutchV2Orders(limit, params, undefined)
+    const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o, mock<Logger>()).toGetResponse()),
       cursor: undefined,
     }
 
@@ -507,9 +507,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getPriorityOrders(limit, params, undefined)
+    const response = await service.getPriorityOrders(limit, params, undefined, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o, mock<Logger>()).toGetResponse()),
       cursor: undefined,
     }
 
@@ -547,9 +547,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getPriorityOrders(limit, params, undefined)
+    const response = await service.getPriorityOrders(limit, params, undefined, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o, mock<Logger>()).toGetResponse()),
       cursor: undefined,
     }
 
@@ -590,7 +590,7 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getPriorityOrders(limit, params, undefined)
+    const response = await service.getPriorityOrders(limit, params, undefined, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
     expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
@@ -662,9 +662,9 @@ describe('UniswapXOrderService', () => {
       .withSortKey()
       .withChainId(ChainId.ARBITRUM_ONE)
       .build()
-    const response = await service.getDutchV3Orders(limit, params, undefined)
+    const response = await service.getDutchV3Orders(limit, params, undefined, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o, mock<Logger>()).toGetResponse()),
       cursor: undefined,
     }
 
@@ -709,9 +709,9 @@ describe('UniswapXOrderService', () => {
       .withSortKey()
       .withChainId(ChainId.ARBITRUM_ONE)
       .build()
-    const response = await service.getDutchV3Orders(limit, params, undefined)
+    const response = await service.getDutchV3Orders(limit, params, undefined, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o, mock<Logger>()).toGetResponse()),
       cursor: undefined,
     }
 
@@ -757,7 +757,7 @@ describe('UniswapXOrderService', () => {
       .withSortKey()
       .withChainId(ChainId.ARBITRUM_ONE)
       .build()
-    const response = await service.getDutchV3Orders(limit, params, undefined)
+    const response = await service.getDutchV3Orders(limit, params, undefined, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
     expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)

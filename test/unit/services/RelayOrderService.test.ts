@@ -1,4 +1,4 @@
-import { Logger } from '@aws-lambda-powertools/logger'
+import { default as Logger } from 'bunyan'
 import { AddressZero } from '@ethersproject/constants'
 import { OrderValidation, RelayEventWatcher, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { BigNumber, ethers } from 'ethers'
