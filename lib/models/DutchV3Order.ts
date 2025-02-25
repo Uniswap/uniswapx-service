@@ -15,6 +15,12 @@ export class DutchV3Order extends Order {
     readonly quoteId?: string,
     readonly requestId?: string,
     readonly createdAt?: number,
+    readonly settledAmounts?: {
+      tokenOut: string
+      amountOut: string
+      tokenIn: string
+      amountIn: string
+    }[],
     readonly route?: Route
   ) {
     super()
@@ -93,6 +99,7 @@ export class DutchV3Order extends Order {
       entity.quoteId,
       entity.requestId,
       entity.createdAt,
+      entity.settledAmounts,
       entity.route
     )
   }
@@ -135,6 +142,7 @@ export class DutchV3Order extends Order {
           adjustmentPerGweiBaseFee: o.adjustmentPerGweiBaseFee.toString(),
         }
       }),
+      settledAmounts: this.settledAmounts,
       cosignerData: {
         decayStartBlock: this.inner.info.cosignerData.decayStartBlock,
         exclusiveFiller: this.inner.info.cosignerData.exclusiveFiller,

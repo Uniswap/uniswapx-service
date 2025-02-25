@@ -3,6 +3,7 @@ import Joi from 'joi'
 import { ORDER_STATUS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 import { Route } from '../../../repositories/quote-metadata-repository'
+import { CommonOrderValidationFields } from './Common'
 
 export type GetDutchV2OrderResponse = {
   type: OrderType.Dutch_V2
@@ -28,6 +29,12 @@ export type GetDutchV2OrderResponse = {
     endAmount: string
     recipient: string
   }[]
+  settledAmounts: {
+    tokenOut: string
+    amountOut: string
+    tokenIn: string
+    amountIn: string
+  }[] | undefined
   cosignerData: {
     decayStartTime: number
     decayEndTime: number
@@ -52,16 +59,8 @@ export const CosignerDataJoi = Joi.object({
 })
 
 export const GetDutchV2OrderResponseEntryJoi = Joi.object({
-  encodedOrder: FieldValidator.isValidEncodedOrder().required(),
-  signature: FieldValidator.isValidSignature().required(),
-  orderStatus: FieldValidator.isValidOrderStatus().required(),
-  orderHash: FieldValidator.isValidOrderHash().required(),
-  swapper: FieldValidator.isValidEthAddress().required(),
-  //only Dutch_V2
+  ...CommonOrderValidationFields,
   type: Joi.string().valid(OrderType.Dutch_V2).required(),
-  chainId: FieldValidator.isValidChainId().required(),
-
-  txHash: FieldValidator.isValidTxHash(),
   input: Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
     startAmount: FieldValidator.isValidAmount().required(),
@@ -75,30 +74,5 @@ export const GetDutchV2OrderResponseEntryJoi = Joi.object({
       recipient: FieldValidator.isValidEthAddress().required(),
     })
   ),
-  settledAmounts: Joi.array().items(
-    Joi.object({
-      tokenOut: FieldValidator.isValidEthAddress(),
-      amountOut: FieldValidator.isValidAmount(),
-      tokenIn: FieldValidator.isValidEthAddress(),
-      amountIn: FieldValidator.isValidAmount(),
-    })
-  ),
-  quoteId: FieldValidator.isValidQuoteId(),
-  requestId: FieldValidator.isValidRequestId(),
-  nonce: FieldValidator.isValidNonce(),
   cosignerData: CosignerDataJoi,
-  cosignature: Joi.string(),
-  createdAt: Joi.number(),
-  route: Joi.object({
-    quote: FieldValidator.isValidAmount(),
-    quoteGasAdjusted: FieldValidator.isValidAmount(),
-    gasPriceWei: FieldValidator.isValidAmount(),
-    gasUseEstimateQuote: FieldValidator.isValidAmount(),
-    gasUseEstimate: FieldValidator.isValidAmount(),
-    methodParameters: Joi.object({
-      calldata: Joi.string(),
-      value: Joi.string(),
-      to: FieldValidator.isValidEthAddress(),
-    }),
-  }),
 })

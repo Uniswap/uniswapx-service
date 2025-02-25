@@ -18,6 +18,12 @@ export class PriorityOrder extends Order {
     readonly quoteId?: string,
     readonly requestId?: string,
     readonly createdAt?: number,
+    readonly settledAmounts?: {
+      tokenOut: string
+      amountOut: string
+      tokenIn: string
+      amountIn: string
+    }[],
     readonly route?: Route
   ) {
     super()
@@ -82,6 +88,7 @@ export class PriorityOrder extends Order {
       entity.quoteId,
       entity.requestId,
       entity.createdAt,
+      entity.settledAmounts,
       entity.route
     )
   }
@@ -124,6 +131,7 @@ export class PriorityOrder extends Order {
           recipient: o.recipient,
         }
       }),
+      settledAmounts: this.settledAmounts,
       cosignerData: {
         auctionTargetBlock: this.inner.info.cosignerData.auctionTargetBlock.toNumber(),
       },
