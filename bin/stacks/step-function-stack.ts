@@ -228,7 +228,7 @@ export class StepFunctionStack extends cdk.NestedStack {
         minify: true,
         sourceMap: true,
       },
-      timeout: Duration.seconds(300),
+      timeout: Duration.minutes(15),
       environment: {
         VERSION: '1',
         NODE_OPTIONS: '--enable-source-maps',
