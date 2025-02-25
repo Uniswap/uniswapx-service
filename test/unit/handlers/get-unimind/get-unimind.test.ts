@@ -1,13 +1,14 @@
 import { default as Logger } from 'bunyan'
 import { mock } from 'jest-mock-extended'
 import { EVENT_CONTEXT } from '../../fixtures'
-import { artemisModifyCalldata, GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
+import { GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
 import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
 import { CommandParser, CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
+import { artemisModifyCalldata } from '../../../../lib/util/UniversalRouterCalldata'
 
 const SAMPLE_ROUTE = {
   quote: "1234",

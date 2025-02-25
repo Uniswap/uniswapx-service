@@ -3,7 +3,7 @@ import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
-import { artemisModifyCalldata } from '../handlers/get-unimind/handler'
+import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
 import Logger from 'bunyan'
 
 export class DutchV2Order extends Order {

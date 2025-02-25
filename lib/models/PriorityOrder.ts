@@ -7,7 +7,7 @@ import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
-import { artemisModifyCalldata } from '../handlers/get-unimind/handler'
+import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
 import Logger from 'bunyan'
 export class PriorityOrder extends Order {
   constructor(
