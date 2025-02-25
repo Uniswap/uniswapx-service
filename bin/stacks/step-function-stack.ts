@@ -10,6 +10,9 @@ import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.json'
+import { aws_stepfunctions, aws_events } from 'aws-cdk-lib'
+import * as aws_events_targets from 'aws-cdk-lib/aws-events-targets'
+import * as aws_stepfunctions_tasks from 'aws-cdk-lib/aws-stepfunctions-tasks'
 
 export class StepFunctionStack extends cdk.NestedStack {
   public chainIdToStatusTrackingStateMachineArn: { [key: string]: string } = {}
@@ -213,5 +216,72 @@ export class StepFunctionStack extends cdk.NestedStack {
         sev3ExpiredRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
       }
     }
+
+    // Add GS Reaper Step Function
+    const gsReaperFunction = new NodejsFunction(this, `${SERVICE_NAME}-${stage}-GSReaperLambda`, {
+      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      role: props.lambdaRole,
+      entry: path.join(__dirname, '../../lib/crons/gs-reaper.ts'),
+      handler: 'handler',
+      memorySize: 1024,
+      bundling: {
+        minify: true,
+        sourceMap: true,
+      },
+      timeout: Duration.seconds(300),
+      environment: {
+        VERSION: '1',
+        NODE_OPTIONS: '--enable-source-maps',
+        ...props.envVars,
+        stage: stage,
+      },
+    })
+
+    const gsReaperTask = new aws_stepfunctions_tasks.LambdaInvoke(this, 'InvokeGSReaper', {
+      lambdaFunction: gsReaperFunction,
+      resultPath: '$.result',
+      retryOnServiceExceptions: true,
+    })
+
+    const gsReaperDefinition = aws_stepfunctions.Chain.start(
+      gsReaperTask.next(
+        new aws_stepfunctions.Choice(this, 'CheckContinue')
+          .when(
+            aws_stepfunctions.Condition.isNotNull('$.result.Payload'),
+            new aws_stepfunctions.Wait(this, 'Wait5Seconds', {
+              time: aws_stepfunctions.WaitTime.duration(Duration.seconds(5)),
+            }).next(
+              new aws_stepfunctions.Pass(this, 'ContinueExecution', {
+                inputPath: '$.result.Payload',
+              }).next(gsReaperTask)
+            )
+          )
+          .otherwise(new aws_stepfunctions.Succeed(this, 'Done'))
+      )
+    )
+
+    const gsReaperStateMachine = new aws_stepfunctions.StateMachine(this, `${SERVICE_NAME}-${stage}-GSReaper`, {
+      definition: gsReaperDefinition,
+      timeout: Duration.days(1),
+      role: stateMachineRole,
+    })
+
+    // Schedule the GS Reaper to run every day
+    new aws_events.Rule(this, 'GSReaperSchedule', {
+      schedule: aws_events.Schedule.rate(Duration.hours(5)),
+      targets: [new aws_events_targets.SfnStateMachine(gsReaperStateMachine)],
+    })
+
+    new cdk.aws_cloudwatch.Alarm(this, `ReaperErrorAlarmSev3`, {
+      alarmName: `${SERVICE_NAME}-SEV3-${stage}-ReaperError`,
+      metric: new cdk.aws_cloudwatch.Metric({
+        period: Duration.days(1),
+        metricName: 'DeleteStaleOrdersError',
+        namespace: 'Uniswap',
+        statistic: 'sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+    })
   }
 }
