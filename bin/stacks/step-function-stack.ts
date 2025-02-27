@@ -44,12 +44,12 @@ export class StepFunctionStack extends cdk.NestedStack {
       role: props.lambdaRole,
       entry: path.join(__dirname, '../../lib/handlers/check-order-status/index.ts'),
       handler: 'checkOrderStatusHandler',
-      memorySize: 512,
+      memorySize: 1024,
       bundling: {
         minify: true,
         sourceMap: true,
       },
-      timeout: Duration.seconds(60),
+      timeout: Duration.minutes(5),
       environment: {
         VERSION: '3',
         NODE_OPTIONS: '--enable-source-maps',
