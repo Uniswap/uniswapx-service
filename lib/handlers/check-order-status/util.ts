@@ -99,7 +99,7 @@ export function getPrioritySettledAmounts(
 }
 
 /**
- * get the ammounts transfered on chain
+ * get the amounts transfered on chain
  * used for logging
  */
 export function getDutchV3SettledAmounts(
@@ -166,7 +166,7 @@ export function getDutchV3SettledAmounts(
 }
 
 /**
- * get the ammounts transfered on chain
+ * get the amounts transfered on chain
  * used for logging
  */
 export function getDutchSettledAmounts(
