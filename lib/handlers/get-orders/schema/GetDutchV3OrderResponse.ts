@@ -2,6 +2,8 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
 import { ORDER_STATUS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
+import { Route } from '../../../repositories/quote-metadata-repository'
+import { CommonOrderValidationFields } from './Common'
 
 export type GetDutchV3OrderResponse = {
   type: OrderType.Dutch_V3
@@ -38,6 +40,12 @@ export type GetDutchV3OrderResponse = {
     minAmount: string
     adjustmentPerGweiBaseFee: string
   }[]
+  settledAmounts: {
+    tokenOut: string
+    amountOut: string
+    tokenIn: string
+    amountIn: string
+  }[] | undefined
   startingBaseFee: string
   cosignerData: {
     decayStartBlock: number
@@ -50,6 +58,7 @@ export type GetDutchV3OrderResponse = {
   quoteId: string | undefined
   requestId: string | undefined
   createdAt: number | undefined
+  route: Route | undefined
 }
 
 export const CosignerDataJoi = Joi.object({
@@ -60,16 +69,10 @@ export const CosignerDataJoi = Joi.object({
 })
 
 export const GetDutchV3OrderResponseEntryJoi = Joi.object({
-  encodedOrder: FieldValidator.isValidEncodedOrder().required(),
-  signature: FieldValidator.isValidSignature().required(),
-  orderStatus: FieldValidator.isValidOrderStatus().required(),
-  orderHash: FieldValidator.isValidOrderHash().required(),
-  swapper: FieldValidator.isValidEthAddress().required(),
+  ...CommonOrderValidationFields,
   //only Dutch_V3
   type: Joi.string().valid(OrderType.Dutch_V3).required(),
-  chainId: FieldValidator.isValidChainId().required(),
   startingBaseFee: FieldValidator.isValidAmount(),
-  txHash: FieldValidator.isValidTxHash(),
   fillBlock: FieldValidator.isValidNumber(),
   input: Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
@@ -94,18 +97,5 @@ export const GetDutchV3OrderResponseEntryJoi = Joi.object({
       adjustmentPerGweiBaseFee: FieldValidator.isValidAmount(),
     })
   ),
-  settledAmounts: Joi.array().items(
-    Joi.object({
-      tokenOut: FieldValidator.isValidEthAddress(),
-      amountOut: FieldValidator.isValidAmount(),
-      tokenIn: FieldValidator.isValidEthAddress(),
-      amountIn: FieldValidator.isValidAmount(),
-    })
-  ),
-  quoteId: FieldValidator.isValidQuoteId(),
-  requestId: FieldValidator.isValidRequestId(),
-  nonce: FieldValidator.isValidNonce(),
   cosignerData: CosignerDataJoi,
-  cosignature: Joi.string(),
-  createdAt: Joi.number(),
 })
