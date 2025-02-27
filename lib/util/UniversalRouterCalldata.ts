@@ -126,12 +126,19 @@ export function artemisModifyCalldata(calldata: string, log: Logger, executeAddr
 }
 
 function getCommands(commands: string): CommandType[] {
-  const commandTypes = []
-
-  for (let i = 2; i < commands.length; i += 2) {
-    const byte = commands.substring(i, i + 2)
-    commandTypes.push(parseInt(byte, 16) as CommandType)
+  // Skip the "0x" prefix
+  const hexString = commands.slice(2);
+  
+  // Validate this is a hex string with even length
+  if (hexString.length % 2 !== 0) {
+    throw new Error('Invalid commands hex string: length must be even');
   }
-
-  return commandTypes
+  
+  const commandTypes: CommandType[] = [];
+  for (let i = 0; i < hexString.length; i += 2) {
+    const byte = hexString.substring(i, i + 2);
+    commandTypes.push(parseInt(byte, 16) as CommandType);
+  }
+  
+  return commandTypes;
 }
