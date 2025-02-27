@@ -34,6 +34,7 @@ export async function updateParameters(
     pair,
     pi: 3.14,
     tau: Date.now() % 123,
+    count: 0,
   })
   log.info(`Unimind parameters for ${pair} updated`)
   metrics?.putMetric(`unimind-parameters-updated-${pair}`, 1, Unit.Count)
