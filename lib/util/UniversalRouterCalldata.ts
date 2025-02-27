@@ -46,7 +46,6 @@ export class UniversalRouterCalldata {
       throw new Error('Unrecognized function selector in calldata');
     }
 
-    this.log.info(`Parsing calldata for ${this.signature}`);
     this.iface = new Interface([this.signature]);
 
     const { commands, inputs } = this.iface.decodeFunctionData(UR_EXECUTE_FUNCTION, calldata);
@@ -59,7 +58,6 @@ export class UniversalRouterCalldata {
     if (payPortionIndex !== -1) {
       this.commandArray.splice(payPortionIndex, 1);
       this.inputsArray.splice(payPortionIndex, 1);
-      this.log.info('Removed PAY_PORTION command');
     }
     return this;
   }
@@ -79,7 +77,6 @@ export class UniversalRouterCalldata {
         [token, recipient, amountMinimum]
       );
       this.inputsArray[sweepIndex] = modifiedSweepInput;
-      this.log.info('Modified SWEEP command recipient');
     }
     return this;
   }
@@ -98,7 +95,6 @@ export class UniversalRouterCalldata {
         throw new Error('Failed to encode modified calldata');
       }
 
-      this.log.info('Successfully encoded modified calldata');
       return modifiedCalldata;
     } catch (e) {
       this.log.error('Error encoding modified calldata', {
