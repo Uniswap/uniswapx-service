@@ -4,7 +4,7 @@ import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV
 import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
-import Logger from 'bunyan'
+import { Logger } from '@aws-lambda-powertools/logger'
 
 export class DutchV2Order extends Order {
   constructor(

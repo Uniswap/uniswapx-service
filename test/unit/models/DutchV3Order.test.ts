@@ -6,7 +6,7 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { MOCK_SIGNATURE } from '../../test-data'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { mock } from 'jest-mock-extended'
-import Logger from 'bunyan'
+import { Logger } from '@aws-lambda-powertools/logger'
 
 describe('DutchV3 Model', () => {
   const log = mock<Logger>()

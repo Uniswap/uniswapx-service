@@ -1,4 +1,4 @@
-import { default as Logger } from 'bunyan'
+import { Logger } from '@aws-lambda-powertools/logger'
 import { KMSClient } from '@aws-sdk/client-kms'
 import { KmsSigner } from '@uniswap/signer'
 import {
@@ -34,6 +34,7 @@ import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderVal
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
 import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
+
 const MAX_QUERY_RETRY = 10
 
 export class UniswapXOrderService {

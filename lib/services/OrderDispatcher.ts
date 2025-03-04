@@ -1,4 +1,4 @@
-import { default as Logger } from 'bunyan'
+import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { UniswapXOrderEntity } from '../entities'
 import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'

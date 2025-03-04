@@ -6,7 +6,7 @@ import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { MOCK_SIGNATURE } from '../../test-data'
 import { mock } from 'jest-mock-extended'
-import Logger from 'bunyan'
+import { Logger } from '@aws-lambda-powertools/logger'
 
 describe('DutchV2 Model', () => {
   const log = mock<Logger>()
