@@ -8,7 +8,8 @@ import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPrior
 import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
-import Logger from 'bunyan'
+import { Logger } from '@aws-lambda-powertools/logger'
+
 export class PriorityOrder extends Order {
   constructor(
     readonly inner: SDKPriorityOrder,

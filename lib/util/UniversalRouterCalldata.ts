@@ -1,5 +1,5 @@
 import { CommandType } from "@uniswap/universal-router-sdk";
-import Logger from "bunyan";
+import { Logger } from '@aws-lambda-powertools/logger'
 import { defaultAbiCoder, Interface } from "ethers/lib/utils";
 import { UR_EXECUTE_DEADLINE_BUFFER, UR_EXECUTE_FUNCTION, UR_EXECUTE_SELECTOR, UR_EXECUTE_WITH_DEADLINE_SELECTOR, UR_FUNCTION_SIGNATURES } from "../handlers/constants";
 

@@ -1,4 +1,4 @@
-import { default as Logger } from 'bunyan'
+import { Logger } from '@aws-lambda-powertools/logger'
 import { KmsSigner } from '@uniswap/signer'
 import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'

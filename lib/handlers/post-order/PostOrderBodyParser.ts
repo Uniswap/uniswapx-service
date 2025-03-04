@@ -1,4 +1,4 @@
-import { default as Logger } from 'bunyan'
+import { Logger } from '@aws-lambda-powertools/logger'
 import {
   CosignedPriorityOrder as SDKPriorityOrder,
   CosignedV2DutchOrder,

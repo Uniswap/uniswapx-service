@@ -4,7 +4,6 @@ import { mock } from 'jest-mock-extended'
 import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
-import bunyan from 'bunyan'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 
@@ -23,7 +22,7 @@ const MOCK_FILL_EVENT = {
 
 describe('processFillEvent', () => {
   beforeEach(() => {
-    log.level(bunyan.FATAL + 1) // Silence logs
+    log.setLogLevel('SILENT')
   })
 
   it('should return the settled amounts even if output token is not found in settled amounts', async () => {

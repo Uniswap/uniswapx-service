@@ -12,7 +12,6 @@ import {
   getSettledAmounts,
 } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
-import bunyan from 'bunyan'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
@@ -50,7 +49,7 @@ describe('Testing check order status handler', () => {
   const mockLookbackFn = () => 10
 
   beforeAll(() => {
-    log.level(bunyan.FATAL + 1) // Silence logs
+    log.setLogLevel('SILENT')
   })
 
   const buildInjectorPromiseMock = (retryCount: number, orderStatus: string) => {
