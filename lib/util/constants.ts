@@ -31,6 +31,6 @@ export const DEFAULT_UNIMIND_PARAMETERS = {
 }
 export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
 export const PUBLIC_UNIMIND_PARAMETERS = {
-  pi: 8,
-  tau: 5
+  pi: 15,
+  tau: 15
 }
