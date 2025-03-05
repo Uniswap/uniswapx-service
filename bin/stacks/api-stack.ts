@@ -98,6 +98,7 @@ export class APIStack extends cdk.Stack {
         allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
         allowMethods: aws_apigateway.Cors.ALL_METHODS,
       },
+      apiKeySourceType: aws_apigateway.ApiKeySourceType.HEADER,
     })
 
     const ipThrottlingACL = new aws_waf.CfnWebACL(this, `${SERVICE_NAME}IPThrottlingACL`, {
@@ -405,10 +406,14 @@ export class APIStack extends cdk.Stack {
     apiDocsUI.addMethod('GET', getDocsUILambdaIntegration)
 
     const order = dutchAuction.addResource('order')
-    order.addMethod('POST', postOrderLambdaIntegration)
+    order.addMethod('POST', postOrderLambdaIntegration, {
+      apiKeyRequired: false, // TODO: Set to true once Trading API has integrated
+    })
 
     const limitOrderOrder = limitOrders.addResource('order')
-    limitOrderOrder.addMethod('POST', postLimitOrderLambdaIntegration)
+    limitOrderOrder.addMethod('POST', postLimitOrderLambdaIntegration, {
+      apiKeyRequired: false, // TODO: Set to true once Trading API has integrated
+    })
     const limitOrderOrders = limitOrders.addResource('orders')
     limitOrderOrders.addMethod('GET', getLimitOrdersLambdaIntegration, {})
 
@@ -424,7 +429,9 @@ export class APIStack extends cdk.Stack {
       },
     })
 
-    unimind.addMethod('GET', getUnimindLambdaIntegration)
+    unimind.addMethod('GET', getUnimindLambdaIntegration, {
+      apiKeyRequired: false, // TODO: Set to true once URA has integrated
+    })
 
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
@@ -522,6 +529,30 @@ export class APIStack extends cdk.Stack {
     })
 
     getUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)
+
+    // Add API keys and usage plan
+    const tradingAPIKey = new aws_apigateway.ApiKey(this, 'TradingAPIKey', {
+      apiKeyName: 'tradingAPIKey',
+      description: 'API Key for trading endpoints',
+    })
+
+    const devAPIKey = new aws_apigateway.ApiKey(this, 'DevAPIKey', {
+      apiKeyName: 'devAPIKey',
+      description: 'API Key for development use',
+    })
+
+    const usagePlan = new aws_apigateway.UsagePlan(this, 'UsagePlan', {
+      name: `${SERVICE_NAME}-usage-plan`,
+      apiStages: [
+        {
+          api,
+          stage: api.deploymentStage,
+        },
+      ],
+    })
+
+    usagePlan.addApiKey(tradingAPIKey)
+    usagePlan.addApiKey(devAPIKey)
 
     this.url = new CfnOutput(this, 'Url', {
       value: api.url,
