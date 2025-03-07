@@ -28,3 +28,5 @@ export const DEFAULT_UNIMIND_PARAMETERS = {
   pi: 5,
   tau: 5
 }
+
+export const UNIMIND_UPDATE_THRESHOLD = 50
