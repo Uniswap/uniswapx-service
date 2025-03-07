@@ -36,7 +36,7 @@ export class OrderDispatcher {
 
   async getOrder(
     orderType: GetOrderTypeQueryParamEnum,
-    { params, limit, cursor }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined }
+    { params, limit, cursor, executeAddress }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined; executeAddress?: string }
   ): Promise<
     | GetOrdersResponse<
         UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetPriorityOrderResponse
@@ -49,13 +49,13 @@ export class OrderDispatcher {
       case GetOrderTypeQueryParamEnum.Relay:
         return await this.relayOrderService.getOrders(limit, params, cursor)
       case GetOrderTypeQueryParamEnum.Dutch_V2:
-        return await this.uniswapXService.getDutchV2Orders(limit, params, cursor)
+        return await this.uniswapXService.getDutchV2Orders(limit, params, cursor, executeAddress)
       case GetOrderTypeQueryParamEnum.Dutch_V3:
-        return await this.uniswapXService.getDutchV3Orders(limit, params, cursor)
+        return await this.uniswapXService.getDutchV3Orders(limit, params, cursor, executeAddress)
       case GetOrderTypeQueryParamEnum.Dutch:
         return await this.uniswapXService.getDutchOrders(limit, params, cursor)
       case GetOrderTypeQueryParamEnum.Priority:
-        return await this.uniswapXService.getPriorityOrders(limit, params, cursor)
+        return await this.uniswapXService.getPriorityOrders(limit, params, cursor, executeAddress)
       case GetOrderTypeQueryParamEnum.Limit:
         return await this.uniswapXService.getLimitOrders(limit, params, cursor)
       default:

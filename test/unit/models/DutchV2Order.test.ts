@@ -5,8 +5,11 @@ import { DutchV2Order } from '../../../lib/models'
 import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { MOCK_SIGNATURE } from '../../test-data'
+import { mock } from 'jest-mock-extended'
+import { Logger } from '@aws-lambda-powertools/logger'
 
 describe('DutchV2 Model', () => {
+  const log = mock<Logger>()
   test('toEntity', () => {
     const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), MOCK_SIGNATURE, ChainId.MAINNET)
     const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
@@ -30,7 +33,7 @@ describe('DutchV2 Model', () => {
       100
     )
     const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
-    const fromEntity = DutchV2Order.fromEntity(entity)
+    const fromEntity = DutchV2Order.fromEntity(entity, log)
 
     expect(order).toEqual(fromEntity)
     expect(order.createdAt).toEqual(100)

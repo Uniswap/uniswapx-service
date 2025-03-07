@@ -20,7 +20,8 @@ export const BLOCK_TIME_MS_BY_CHAIN = {
   [ChainId.UNICHAIN]: 1000,
 }
 export const BLOCK_RANGE = 10000
-export const CRON_MAX_ATTEMPTS = 10
+export const REAPER_MAX_ATTEMPTS = 10
+export const REAPER_RANGES_PER_RUN = 10
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
@@ -28,5 +29,9 @@ export const DEFAULT_UNIMIND_PARAMETERS = {
   pi: 5,
   tau: 5
 }
-
 export const UNIMIND_UPDATE_THRESHOLD = 50
+export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
+export const PUBLIC_UNIMIND_PARAMETERS = {
+  pi: 15,
+  tau: 15
+}

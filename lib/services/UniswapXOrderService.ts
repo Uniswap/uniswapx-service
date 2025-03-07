@@ -34,6 +34,7 @@ import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderVal
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
 import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
+
 const MAX_QUERY_RETRY = 10
 
 export class UniswapXOrderService {
@@ -201,7 +202,7 @@ export class UniswapXOrderService {
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
       if (order.type === OrderType.Dutch_V2) {
-        const dutchV2Order = DutchV2Order.fromEntity(order)
+        const dutchV2Order = DutchV2Order.fromEntity(order, this.logger)
         resultList.push(dutchV2Order.toGetResponse())
       } else {
         resultList.push(order)
@@ -213,7 +214,8 @@ export class UniswapXOrderService {
   public async getDutchV2Orders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined
+    cursor: string | undefined,
+    executeAddress: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
     let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V2], cursor)
     const dutchV2QueryResults = [...queryResults.orders]
@@ -233,7 +235,7 @@ export class UniswapXOrderService {
     const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
     for (let i = 0; i < dutchV2QueryResults.length; i++) {
       const order = dutchV2QueryResults[i]
-      const dutchV2Order = DutchV2Order.fromEntity(order)
+      const dutchV2Order = DutchV2Order.fromEntity(order, this.logger, executeAddress)
       dutchV2OrderResponses.push(dutchV2Order.toGetResponse())
     }
 
@@ -243,7 +245,8 @@ export class UniswapXOrderService {
   public async getDutchV3Orders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined
+    cursor: string | undefined,
+    executeAddress: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV3OrderResponse>> {
     let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V3], cursor)
     const dutchV3QueryResults = [...queryResults.orders]
@@ -263,7 +266,7 @@ export class UniswapXOrderService {
     const dutchV3OrderResponses: GetDutchV3OrderResponse[] = []
     for (let i = 0; i < dutchV3QueryResults.length; i++) {
       const order = dutchV3QueryResults[i]
-      const dutchV3Order = DutchV3Order.fromEntity(order)
+      const dutchV3Order = DutchV3Order.fromEntity(order, this.logger, executeAddress)
       dutchV3OrderResponses.push(dutchV3Order.toGetResponse())
     }
 
@@ -302,7 +305,8 @@ export class UniswapXOrderService {
   public async getPriorityOrders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined
+    cursor: string | undefined,
+    executeAddress: string | undefined
   ): Promise<GetOrdersResponse<GetPriorityOrderResponse>> {
     let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Priority], cursor)
     const priorityQueryResults = [...queryResults.orders]
@@ -322,7 +326,7 @@ export class UniswapXOrderService {
     const priorityOrderResponses: GetPriorityOrderResponse[] = []
     for (let i = 0; i < priorityQueryResults.length; i++) {
       const order = priorityQueryResults[i]
-      const priorityOrder = PriorityOrder.fromEntity(order)
+      const priorityOrder = PriorityOrder.fromEntity(order, this.logger, executeAddress)
       priorityOrderResponses.push(priorityOrder.toGetResponse())
     }
 

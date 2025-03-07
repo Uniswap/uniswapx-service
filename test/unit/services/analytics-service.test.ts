@@ -1,7 +1,7 @@
-import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
+import { Logger } from '@aws-lambda-powertools/logger'
 
 describe('Analytics Service', () => {
   const mockedOrder: UniswapXOrderEntity = {
@@ -19,11 +19,11 @@ describe('Analytics Service', () => {
     deadline: 300,
     route: {
       quote: "141645031452",
-      quote_gas_adjusted: "141645001774",
-      gas_price_wei: "28348591",
-      gas_use_estimate_quote: "29677",
-      gas_use_estimate: "186938",
-      method_parameters: {
+      quoteGasAdjusted: "141645001774",
+      gasPriceWei: "28348591",
+      gasUseEstimateQuote: "29677",
+      gasUseEstimate: "186938",
+      methodParameters: {
         calldata: "0x12341234123412341234",
         value: "0x1234",
         to: "0xdeadbeef"

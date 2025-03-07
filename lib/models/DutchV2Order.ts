@@ -2,7 +2,9 @@ import { CosignedV2DutchOrder as SDKV2DutchOrder, OrderType } from '@uniswap/uni
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { Order } from './Order'
-import { QuoteMetadata } from '../repositories/quote-metadata-repository'
+import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
+import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
+import { Logger } from '@aws-lambda-powertools/logger'
 
 export class DutchV2Order extends Order {
   constructor(
@@ -13,7 +15,14 @@ export class DutchV2Order extends Order {
     readonly txHash?: string,
     readonly quoteId?: string,
     readonly requestId?: string,
-    readonly createdAt?: number
+    readonly createdAt?: number,
+    readonly settledAmounts?: {
+      tokenOut: string
+      amountOut: string
+      tokenIn: string
+      amountIn: string
+    }[],
+    readonly route?: Route
   ) {
     super()
   }
@@ -70,8 +79,19 @@ export class DutchV2Order extends Order {
 
     return order
   }
-
-  public static fromEntity(entity: UniswapXOrderEntity): DutchV2Order {
+  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): DutchV2Order {
+    const route = executeAddress && entity.route ? {
+      quote: entity.route.quote,
+      quoteGasAdjusted: entity.route.quoteGasAdjusted,
+      gasPriceWei: entity.route.gasPriceWei,
+      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
+      gasUseEstimate: entity.route.gasUseEstimate,
+      methodParameters : {
+        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
+        value: entity.route.methodParameters.value,
+        to: entity.route.methodParameters.to,
+      },
+    } : entity.route
     return new DutchV2Order(
       SDKV2DutchOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
@@ -80,7 +100,9 @@ export class DutchV2Order extends Order {
       entity.txHash,
       entity.quoteId,
       entity.requestId,
-      entity.createdAt
+      entity.createdAt,
+      entity.settledAmounts,
+      route
     )
   }
 
@@ -110,6 +132,7 @@ export class DutchV2Order extends Order {
           recipient: o.recipient,
         }
       }),
+      settledAmounts: this.settledAmounts,
       cosignerData: {
         decayStartTime: this.inner.info.cosignerData.decayStartTime,
         decayEndTime: this.inner.info.cosignerData.decayEndTime,
@@ -121,6 +144,7 @@ export class DutchV2Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
+      route: this.route,
     }
   }
 }

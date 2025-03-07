@@ -6,7 +6,9 @@ import { ORDER_STATUS, PriorityOrderEntity, UniswapXOrderEntity } from '../entit
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
-import { QuoteMetadata } from '../repositories/quote-metadata-repository'
+import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
+import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
+import { Logger } from '@aws-lambda-powertools/logger'
 
 export class PriorityOrder extends Order {
   constructor(
@@ -17,7 +19,14 @@ export class PriorityOrder extends Order {
     readonly txHash?: string,
     readonly quoteId?: string,
     readonly requestId?: string,
-    readonly createdAt?: number
+    readonly createdAt?: number,
+    readonly settledAmounts?: {
+      tokenOut: string
+      amountOut: string
+      tokenIn: string
+      amountIn: string
+    }[],
+    readonly route?: Route
   ) {
     super()
   }
@@ -71,7 +80,19 @@ export class PriorityOrder extends Order {
     return order
   }
 
-  public static fromEntity(entity: UniswapXOrderEntity): PriorityOrder {
+  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): PriorityOrder {
+    const route = executeAddress && entity.route ? {
+      quote: entity.route.quote,
+      quoteGasAdjusted: entity.route.quoteGasAdjusted,
+      gasPriceWei: entity.route.gasPriceWei,
+      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
+      gasUseEstimate: entity.route.gasUseEstimate,
+      methodParameters : {
+        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
+        value: entity.route.methodParameters.value,
+        to: entity.route.methodParameters.to,
+      },
+    } : entity.route
     return new PriorityOrder(
       SDKPriorityOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
@@ -80,7 +101,9 @@ export class PriorityOrder extends Order {
       entity.txHash,
       entity.quoteId,
       entity.requestId,
-      entity.createdAt
+      entity.createdAt,
+      entity.settledAmounts,
+      route
     )
   }
 
@@ -122,6 +145,7 @@ export class PriorityOrder extends Order {
           recipient: o.recipient,
         }
       }),
+      settledAmounts: this.settledAmounts,
       cosignerData: {
         auctionTargetBlock: this.inner.info.cosignerData.auctionTargetBlock.toNumber(),
       },
@@ -129,6 +153,7 @@ export class PriorityOrder extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
+      route: this.route,
     }
   }
 }

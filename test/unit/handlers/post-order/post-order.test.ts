@@ -78,11 +78,11 @@ const SAMPLE_QUOTE_METADATA = {
   blockNumber: 123456,
   route: {
     quote: '1234',
-    quote_gas_adjusted: '5678',
-    gas_price_wei: '1234',
-    gas_use_estimate_quote: '2345',
-    gas_use_estimate: '3456',
-    method_parameters: {
+    quoteGasAdjusted: '5678',
+    gasPriceWei: '1234',
+    gasUseEstimateQuote: '2345',
+    gasUseEstimate: '3456',
+    methodParameters: {
       calldata: '0xabcdef',
       value: '1234',
       to: '0abcdef',

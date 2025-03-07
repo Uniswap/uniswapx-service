@@ -2,6 +2,8 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
 import FieldValidator from '../../../util/field-validator'
 import { GetDutchV2OrderResponse } from './GetDutchV2OrderResponse'
+import { Route } from '../../../repositories/quote-metadata-repository'
+import { CommonOrderValidationFields } from './Common'
 
 export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'input' | 'outputs' | 'cosignerData'> & {
   type: OrderType.Priority
@@ -26,6 +28,7 @@ export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'i
   quoteId: string | undefined
   requestId: string | undefined
   createdAt: number | undefined
+  route: Route | undefined
 }
 
 export const PriorityCosignerDataJoi = Joi.object({
@@ -33,15 +36,8 @@ export const PriorityCosignerDataJoi = Joi.object({
 })
 
 export const GetPriorityOrderResponseEntryJoi = Joi.object({
-  encodedOrder: FieldValidator.isValidEncodedOrder().required(),
-  signature: FieldValidator.isValidSignature().required(),
-  orderStatus: FieldValidator.isValidOrderStatus().required(),
-  orderHash: FieldValidator.isValidOrderHash().required(),
+  ...CommonOrderValidationFields,
   type: Joi.string().valid(OrderType.Priority).required(),
-  chainId: FieldValidator.isValidChainId().required(),
-  swapper: FieldValidator.isValidEthAddress().required(),
-
-  txHash: FieldValidator.isValidTxHash(),
   input: Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
     amount: FieldValidator.isValidAmount().required(),
@@ -55,20 +51,7 @@ export const GetPriorityOrderResponseEntryJoi = Joi.object({
       recipient: FieldValidator.isValidEthAddress().required(),
     })
   ),
-  settledAmounts: Joi.array().items(
-    Joi.object({
-      tokenOut: FieldValidator.isValidEthAddress(),
-      amountOut: FieldValidator.isValidAmount(),
-      tokenIn: FieldValidator.isValidEthAddress(),
-      amountIn: FieldValidator.isValidAmount(),
-    })
-  ),
   auctionStartBlock: Joi.number().min(0),
   baselinePriorityFeeWei: FieldValidator.isValidAmount(),
-  quoteId: FieldValidator.isValidQuoteId(),
-  requestId: FieldValidator.isValidRequestId(),
-  nonce: FieldValidator.isValidNonce(),
   cosignerData: PriorityCosignerDataJoi,
-  cosignature: Joi.string(),
-  createdAt: Joi.number(),
 })
