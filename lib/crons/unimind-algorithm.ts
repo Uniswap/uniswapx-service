@@ -69,7 +69,7 @@ export async function updateParameters(
   metrics?.putMetric(`unimind-parameters-update-time`, updateTime)
 }
 
-async function getOrdersByTimeRange(ordersRepo: DutchOrdersRepository, timeRange: number): Promise<UniswapXOrderEntity[]> {
+export async function getOrdersByTimeRange(ordersRepo: DutchOrdersRepository, timeRange: number): Promise<UniswapXOrderEntity[]> {
   // Calculate the timestamp from timeRange minutes ago
   const timeRangeMs = timeRange * 60 * 1000 // convert minutes to milliseconds
   const cutoffTime = Math.floor((Date.now() - timeRangeMs) / 1000) // Convert to seconds for DDB
