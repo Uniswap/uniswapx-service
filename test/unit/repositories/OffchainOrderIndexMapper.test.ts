@@ -101,6 +101,14 @@ describe('OffchainOrderIndexMapper', () => {
       const queryParams = queryParamsBuilder.build()
       expect(indexMapper.getIndexFromParams(queryParams)).toBeUndefined()
     })
+
+    it('should give pair index', async () => {
+      const queryParams = queryParamsBuilder.withPair().build()
+      expect(indexMapper.getIndexFromParams(queryParams)).toEqual({
+        partitionKey: 'ETH-USDC-1',
+        index: `${TABLE_KEY.PAIR}`,
+      })
+    })
   })
 
   describe('getIndexFieldsForUpdate', () => {
@@ -111,6 +119,7 @@ describe('OffchainOrderIndexMapper', () => {
         offerer: '0xOfferer',
         filler: '0xFiller',
         chainId: 5,
+        pair: 'ETH-USDC-1',
       }
       expect(indexMapper.getIndexFieldsForUpdate(order)).toEqual({
         chainId_filler: '5_0xFiller',
@@ -120,6 +129,7 @@ describe('OffchainOrderIndexMapper', () => {
         filler_offerer_orderStatus: '0xFiller_0xOfferer_filled',
         filler_orderStatus: '0xFiller_filled',
         offerer_orderStatus: '0xOfferer_filled',
+        pair: 'ETH-USDC-1',
       })
     })
   })
@@ -132,6 +142,7 @@ describe('OffchainOrderIndexMapper', () => {
         offerer: '0xOfferer',
         filler: '0xFiller',
         chainId: 5,
+        pair: 'ETH-USDC-1',
       }
       expect(indexMapper.getIndexFieldsForStatusUpdate(order, ORDER_STATUS.INSUFFICIENT_FUNDS)).toEqual({
         chainId_orderStatus: '5_insufficient-funds',
@@ -140,6 +151,7 @@ describe('OffchainOrderIndexMapper', () => {
         filler_orderStatus: '0xFiller_insufficient-funds',
         offerer_orderStatus: '0xOfferer_insufficient-funds',
         orderStatus: 'insufficient-funds',
+        pair: 'ETH-USDC-1',
       })
     })
   })

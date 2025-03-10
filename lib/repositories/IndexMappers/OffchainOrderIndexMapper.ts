@@ -88,6 +88,12 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
           partitionKey: queryFilters['chainId'] as number,
           index: TABLE_KEY.CHAIN_ID,
         }
+
+      case this.areParamsRequested([GET_QUERY_PARAMS.PAIR], requestedParams):
+        return {
+          partitionKey: queryFilters['pair'] as string,
+          index: TABLE_KEY.PAIR,
+        }
     }
     return undefined
   }
@@ -101,6 +107,7 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
       chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
       chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
       filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
+      pair: `${order.pair}`,
     }
   }
 
@@ -115,6 +122,7 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
       filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${newStatus}`,
       chainId_orderStatus: `${order.chainId}_${newStatus}`,
       chainId_orderStatus_filler: `${order.chainId}_${newStatus}_${order.filler}`,
+      pair: `${order.pair}`,
     }
   }
 }

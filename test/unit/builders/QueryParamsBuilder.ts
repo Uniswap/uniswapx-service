@@ -24,6 +24,11 @@ export class QueryParamsBuilder {
     return this
   }
 
+  withPair(value?: string) {
+    this.params.pair = value || 'ETH-USDC-1'
+    return this
+  }
+
   withDesc(value?: boolean) {
     if (value === undefined) {
       this.params.desc = true
