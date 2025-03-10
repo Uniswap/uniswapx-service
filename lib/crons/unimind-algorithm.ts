@@ -80,7 +80,8 @@ async function getOrdersByTimeRange(ordersRepo: DutchOrdersRepository, timeRange
     {
       sortKey: SORT_FIELDS.CREATED_AT,
       sort: `gt(${cutoffTime})`,
-      desc: true
+      desc: true,
+      chainId: 42161,
     },
     [OrderType.Dutch_V3], // Only get Dutch V3 orders
     undefined // no cursor needed for this query
