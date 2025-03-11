@@ -7,8 +7,7 @@ import { UnimindParametersRepository } from '../repositories/unimind-parameters-
 import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_UPDATE_THRESHOLD } from '../util/constants'
 import { UNIMIND_ALGORITHM_CRON_INTERVAL } from '../../bin/constants'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
-import { UniswapXOrderEntity } from '../entities'
-import { SORT_FIELDS } from '../entities'
+import { SORT_FIELDS, UniswapXOrderEntity } from '../entities'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
@@ -102,12 +101,11 @@ function getOrderCountsByPair(
     if (!pair && order.input && order.outputs && order.outputs.length > 0) {
       const inputToken = order.input.token;
       const outputToken = order.outputs[0].token;
-      pair = [inputToken, outputToken].join('-');
+      pair = `${inputToken}-${outputToken}-${order.chainId}`;
     }
     
     if (!pair) continue;
 
-    pair = `${pair}-${order.chainId}`;
     pairCounts.set(pair, (pairCounts.get(pair) || 0) + 1);
   }
   
