@@ -43,6 +43,7 @@ export class RelayOrder extends Order {
       },
       reactor: decodedOrder.info.reactor.toLowerCase(),
       deadline: decodedOrder.info.deadline,
+      pair: `${input.token}-${decodedOrder.info.fee.token}-${decodedOrder.chainId}`,
     }
     return order
   }

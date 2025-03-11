@@ -6,7 +6,7 @@ describe('UnimindParametersRepository', () => {
   const mockDocumentClient = mock<DocumentClient>()
 
   const mockUnimindParameters: UnimindParameters = {
-    pair: 'ETH-USDC',
+    pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
     pi: 3.14,
     tau: 4.2,
     count: 42
@@ -42,7 +42,7 @@ describe('UnimindParametersRepository', () => {
       const repository = DynamoUnimindParametersRepository.create(mockDocumentClient)
       
       const incompleteValues = {
-        pair: 'ETH-USDC',
+        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
         // missing pi
         tau: 4.2,
         count: 42
@@ -78,7 +78,7 @@ describe('UnimindParametersRepository', () => {
         promise: () => Promise.resolve({ Item: mockUnimindParameters }),
       } as any)
 
-      const result = await repository.getByPair('ETH-USDC')
+      const result = await repository.getByPair('0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123')
 
       expect(result).toEqual(mockUnimindParameters)
       expect(mockDocumentClient.get).toHaveBeenCalledTimes(1)

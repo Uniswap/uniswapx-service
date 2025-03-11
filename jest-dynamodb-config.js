@@ -16,6 +16,7 @@ module.exports = {
         { AttributeName: 'filler_offerer', AttributeType: 'S' },
         { AttributeName: 'filler_offerer_orderStatus', AttributeType: 'S' },
         { AttributeName: 'chainId_orderStatus_filler', AttributeType: 'S' },
+        { AttributeName: 'pair', AttributeType: 'S' },
         { AttributeName: 'createdAt', AttributeType: 'N' },
       ],
       GlobalSecondaryIndexes: [
@@ -138,6 +139,15 @@ module.exports = {
           Projection: {
             ProjectionType: 'ALL',
           },
+          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+        },
+        {
+          IndexName: 'pair-createdAt-all',
+          KeySchema: [
+            { AttributeName: 'pair', KeyType: 'HASH' },
+            { AttributeName: 'createdAt', KeyType: 'RANGE' },
+          ],
+          Projection: { ProjectionType: 'ALL' },
           ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
         },
       ],

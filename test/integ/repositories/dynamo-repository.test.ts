@@ -410,7 +410,7 @@ describe('OrdersRepository getOrders test', () => {
 
   it('should return orders for limit', async () => {
     await expect(ordersRepository.getOrders(2, {})).rejects.toThrow(
-      'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler]'
+      'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]'
     )
   })
 

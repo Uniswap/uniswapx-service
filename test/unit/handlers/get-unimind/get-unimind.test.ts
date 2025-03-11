@@ -55,7 +55,7 @@ describe('Testing get unimind handler', () => {
   it('Testing valid request and response', async () => {
     const quoteMetadata = {
       quoteId: 'test-quote-id',
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       referencePrice: '4221.21',
       priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
@@ -66,7 +66,7 @@ describe('Testing get unimind handler', () => {
     }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       pi: 3.14,
       tau: 4.2,
       count: 0
@@ -92,7 +92,7 @@ describe('Testing get unimind handler', () => {
       ...quoteMetadata,
       route: SAMPLE_ROUTE // Should be parsed object when stored
     })
-    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('ETH-USDC')
+    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123')
   })
 
   it('Returns default parameters when not found in unimindParametersRepository', async () => {
@@ -181,7 +181,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'this-should-work',
       referencePrice: '100',
       priceImpact: 0.1,
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       route: STRINGIFIED_ROUTE,
     }
 
@@ -228,7 +228,7 @@ describe('Testing get unimind handler', () => {
           quoteId: 'this-should-work', 
           referencePrice: '100', 
           priceImpact: 0.1,
-          pair: 'ETH-USDC',
+          pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
           route: STRINGIFIED_ROUTE
         },
         requestContext: { requestId: 'test-request-id-cors' }
@@ -268,7 +268,7 @@ describe('Testing get unimind handler', () => {
   it('fails when repository throws error', async () => {
     const quoteMetadata = {
       quoteId: 'this-should-fail',
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       referencePrice: '666.56',
       priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
@@ -303,7 +303,7 @@ describe('Testing get unimind handler', () => {
   it('fails when route is invalid JSON', async () => {
     const getRequestParams = {
       quoteId: 'test-quote-id',
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       referencePrice: '4221.21',
       priceImpact: 0.01,
       route: '{invalid json'
@@ -329,7 +329,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       route: STRINGIFIED_ROUTE,
     }
 
@@ -360,7 +360,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       route: STRINGIFIED_ROUTE,
     }
 
@@ -391,7 +391,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       route: STRINGIFIED_ROUTE,
     }
     //mock the put as successful
@@ -422,7 +422,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       route: STRINGIFIED_ROUTE,
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS
     }
@@ -447,7 +447,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS,
       blockNumber: 1234,
       // missing route
@@ -471,7 +471,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ETH-USDC',
+      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS,
       // missing blockNumber
       route: STRINGIFIED_ROUTE,

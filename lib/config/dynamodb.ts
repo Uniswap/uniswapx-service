@@ -23,6 +23,7 @@ export enum TABLE_KEY {
   TX_HASH = 'txHash',
   CHAIN_ID = 'chainId',
   TYPE = 'type',
+  PAIR = 'pair',
 
   // compound table keys
   CHAIN_ID_FILLER = 'chainId_filler',

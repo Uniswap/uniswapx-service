@@ -261,7 +261,7 @@ describe('Testing get orders handler.', () => {
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
       [
         { sortKey: 'createdAt' },
-        '{"detail":"\\"value\\" must contain at least one of [orderHash, orderHashes, chainId, orderStatus, swapper, filler]","errorCode":"VALIDATION_ERROR"}',
+        '{"detail":"\\"value\\" must contain at least one of [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]","errorCode":"VALIDATION_ERROR"}',
       ],
       [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
       [{ cursor: 1 }, 'must be a string'],

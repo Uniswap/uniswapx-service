@@ -101,6 +101,14 @@ describe('OffchainOrderIndexMapper', () => {
       const queryParams = queryParamsBuilder.build()
       expect(indexMapper.getIndexFromParams(queryParams)).toBeUndefined()
     })
+
+    it('should give pair index', async () => {
+      const queryParams = queryParamsBuilder.withPair().build()
+      expect(indexMapper.getIndexFromParams(queryParams)).toEqual({
+        partitionKey: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+        index: `${TABLE_KEY.PAIR}`,
+      })
+    })
   })
 
   describe('getIndexFieldsForUpdate', () => {
@@ -111,6 +119,7 @@ describe('OffchainOrderIndexMapper', () => {
         offerer: '0xOfferer',
         filler: '0xFiller',
         chainId: 5,
+        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       }
       expect(indexMapper.getIndexFieldsForUpdate(order)).toEqual({
         chainId_filler: '5_0xFiller',
@@ -120,6 +129,7 @@ describe('OffchainOrderIndexMapper', () => {
         filler_offerer_orderStatus: '0xFiller_0xOfferer_filled',
         filler_orderStatus: '0xFiller_filled',
         offerer_orderStatus: '0xOfferer_filled',
+        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       })
     })
   })
@@ -132,6 +142,7 @@ describe('OffchainOrderIndexMapper', () => {
         offerer: '0xOfferer',
         filler: '0xFiller',
         chainId: 5,
+        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       }
       expect(indexMapper.getIndexFieldsForStatusUpdate(order, ORDER_STATUS.INSUFFICIENT_FUNDS)).toEqual({
         chainId_orderStatus: '5_insufficient-funds',
@@ -140,6 +151,7 @@ describe('OffchainOrderIndexMapper', () => {
         filler_orderStatus: '0xFiller_insufficient-funds',
         offerer_orderStatus: '0xOfferer_insufficient-funds',
         orderStatus: 'insufficient-funds',
+        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       })
     })
   })

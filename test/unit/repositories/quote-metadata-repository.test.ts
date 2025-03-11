@@ -22,7 +22,7 @@ describe('QuoteMetadataRepository', () => {
             to: "0abcdef"
         }
     },
-    pair: 'ETH-USDC',
+    pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
   }
 
   beforeEach(() => {

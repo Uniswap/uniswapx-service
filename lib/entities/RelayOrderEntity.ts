@@ -12,6 +12,7 @@ export type RelayOrderEntity = {
   chainId: number
   offerer: string
   reactor: string
+  pair: string
 
   deadline: number
   input: {

@@ -44,7 +44,6 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         priceImpact: { type: DYNAMODB_TYPES.NUMBER },
         blockNumber: { type: DYNAMODB_TYPES.NUMBER },
         route: { type: DYNAMODB_TYPES.MAP },
-        pair: { type: DYNAMODB_TYPES.STRING },
 
         //on chain data
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
@@ -71,6 +70,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         chainId_orderStatus: { type: DYNAMODB_TYPES.STRING },
         chainId_orderStatus_filler: { type: DYNAMODB_TYPES.STRING },
         filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
+        pair: { type: DYNAMODB_TYPES.STRING },
       },
       table: ordersTable,
     } as const)

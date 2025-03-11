@@ -13,6 +13,7 @@ export const PROD_INDEX_CAPACITY: IndexCapacityConfig = {
   chainIdFiller: { readCapacity: 2000, writeCapacity: 100 },
   chaindIdOrderStatus: { readCapacity: 2000, writeCapacity: 100 },
   chainIdFillerOrderStatus: { readCapacity: 2000, writeCapacity: 100 },
+  pair: { readCapacity: 2000, writeCapacity: 100 },
 }
 
 export const PROD_TABLE_CAPACITY: TableCapacityConfig = {

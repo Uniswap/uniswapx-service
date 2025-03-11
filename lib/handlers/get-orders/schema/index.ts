@@ -29,8 +29,9 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   desc: Joi.boolean(),
   orderType: FieldValidator.isValidGetQueryParamOrderType(),
   executeAddress: FieldValidator.isValidEthAddress(),
+  pair: Joi.string(),
 })
-  .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler')
+  .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler', 'pair')
   .when('.chainId', {
     is: Joi.exist(),
     then: Joi.object({
@@ -58,6 +59,7 @@ export type SharedGetOrdersQueryParams = {
   desc?: boolean
   orderType?: GetOrderTypeQueryParamEnum
   executeAddress?: string
+  pair?: string
 }
 export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
   swapper?: string
@@ -81,4 +83,5 @@ export enum GET_QUERY_PARAMS {
   DESC = 'desc',
   ORDER_TYPE = 'orderType',
   EXECUTE_ADDRESS = 'executeAddress',
+  PAIR = 'pair',
 }

@@ -53,6 +53,7 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
         txHash: { type: DYNAMODB_TYPES.STRING },
         fillBlock: { type: DYNAMODB_TYPES.NUMBER },
         settledAmounts: { type: DYNAMODB_TYPES.LIST },
+        pair: { type: DYNAMODB_TYPES.STRING },
       },
       table: limitOrdersTable,
     } as const)
