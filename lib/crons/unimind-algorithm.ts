@@ -56,6 +56,14 @@ export async function updateParameters(
         // Update the parameters
         // Query for the last totalCount instances of this pair in the orders table
 
+      } else {
+        // Update the count
+        await unimindParametersRepo.put({
+          pair,
+          pi: pairData.pi,
+          tau: pairData.tau,
+          count: totalCount
+        })
       }
     }
 
