@@ -60,6 +60,10 @@ export const getTableIndices = (tableName: TABLE_NAMES) => {
           partitionKey: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
           sortKey: TABLE_KEY.CREATED_AT,
         },
+        [`${TABLE_KEY.PAIR}-${TABLE_KEY.CREATED_AT}-all`]: {
+          partitionKey: TABLE_KEY.PAIR,
+          sortKey: TABLE_KEY.CREATED_AT,
+        },
         offererNonceIndex: { partitionKey: TABLE_KEY.OFFERER, sortKey: TABLE_KEY.NONCE },
       }
   }

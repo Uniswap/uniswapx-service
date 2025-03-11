@@ -193,7 +193,7 @@ export abstract class GenericOrdersRepository<
 
       default: {
         throw new Error(
-          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler]'
+          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]'
         )
       }
     }

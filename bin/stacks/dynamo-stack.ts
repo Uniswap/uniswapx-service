@@ -29,6 +29,7 @@ export type IndexCapacityConfig = {
   chainIdFiller?: CapacityOptions
   chaindIdOrderStatus?: CapacityOptions
   chainIdFillerOrderStatus?: CapacityOptions
+  pair?: CapacityOptions
 }
 
 export type TableCapacityConfig = {
@@ -411,5 +412,19 @@ const createCommonIndices = (table: aws_dynamo.Table, indexCapacityConfig: Index
     },
     projectionType: aws_dynamo.ProjectionType.ALL,
     ...indexCapacityConfig?.chainIdFillerOrderStatus,
+  })
+
+  table.addGlobalSecondaryIndex({
+    indexName: `${TABLE_KEY.PAIR}-${TABLE_KEY.CREATED_AT}-all`,
+    partitionKey: {
+      name: TABLE_KEY.PAIR,
+      type: aws_dynamo.AttributeType.STRING,
+    },
+    sortKey: {
+      name: TABLE_KEY.CREATED_AT,
+      type: aws_dynamo.AttributeType.NUMBER,
+    },
+    projectionType: aws_dynamo.ProjectionType.ALL,
+    ...indexCapacityConfig?.pair,
   })
 }
