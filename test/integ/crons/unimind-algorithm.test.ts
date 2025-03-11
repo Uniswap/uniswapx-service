@@ -31,9 +31,9 @@ describe('updateParameters Test', () => {
   it('should update unimind parameters', async () => {
     await updateParameters(unimindParametersRepository, log)
     
-    const updatedValues = await unimindParametersRepository.getByPair('ETH-USDC')
+    const updatedValues = await unimindParametersRepository.getByPair('0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123')
     expect(updatedValues).toBeDefined()
-    expect(updatedValues?.pair).toBe('ETH-USDC')
+    expect(updatedValues?.pair).toBe('0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123')
     expect(updatedValues?.pi).toBe(3.14)
     expect(typeof updatedValues?.tau).toBe('number')
   })
