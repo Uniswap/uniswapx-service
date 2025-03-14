@@ -38,14 +38,14 @@ export async function updateParameters(
   const beforeUpdateTime = Date.now()
   // Query Orders table for latest orders
   const recentOrders = await getOrdersByTimeRange(ordersRepo, UNIMIND_ALGORITHM_CRON_INTERVAL);
-  log.info(`Found ${recentOrders.length} orders in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
+  log.info(`Unimind updateParameters:Found ${recentOrders.length} orders in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
   const recentOrderCounts = getOrderCountsByPair(recentOrders);
-  log.info(`Found ${recentOrderCounts.size} unique pairs in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
+  log.info(`Unimind updateParameters: Found ${recentOrderCounts.size} unique pairs in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
   for (const [pairKey, count] of recentOrderCounts.entries()) {
     // Get the pair from the unimind parameters table
     const pairData = await unimindParametersRepo.getByPair(pairKey);
     if (!pairData) { // We haven't seen this pair before, so it must have received the default parameters
-      log.info(`No parameters found for pair ${pairKey}, updating with default parameters`)
+      log.info(`Unimind updateParameters: No parameters found for pair ${pairKey}, updating with default parameters`)
       await unimindParametersRepo.put({
         pair: pairKey,
         pi: DEFAULT_UNIMIND_PARAMETERS.pi,
@@ -55,7 +55,7 @@ export async function updateParameters(
     } else { // We have seen this pair before, check if we need to update the parameters
       const totalCount = pairData.count + count;
       if (totalCount >= UNIMIND_UPDATE_THRESHOLD) {
-        log.info(`Total count for pair ${pairKey} is greater than or equal to ${UNIMIND_UPDATE_THRESHOLD}, updating parameters`)
+        log.info(`Unimind updateParameters: Total count for pair ${pairKey} is greater than or equal to ${UNIMIND_UPDATE_THRESHOLD}, updating parameters`)
         // Update the parameters
         // Query for the last totalCount instances of this pair in the orders table
         const pairOrders = await ordersRepo.getOrdersFilteredByType(totalCount, {
@@ -67,10 +67,10 @@ export async function updateParameters(
           [OrderType.Dutch_V3], 
           undefined // no cursor needed
         ) as QueryResult<DutchV3OrderEntity>
-        log.info(`Found ${pairOrders.orders.length} orders for pair ${pairKey}`)
+        log.info(`Unimind updateParameters: Found ${pairOrders.orders.length} orders for pair ${pairKey}`)
         const statistics = getStatistics(pairOrders.orders)
         const updatedParameters = unimindAlgorithm(statistics, pairData)
-        log.info(`Updated parameters for pair ${pairKey} are ${updatedParameters}`)
+        log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${updatedParameters}`)
         await unimindParametersRepo.put({
           pair: pairKey,
           pi: updatedParameters.pi,
@@ -78,12 +78,12 @@ export async function updateParameters(
           count: 0
         })
         log.info(
-          `Unimind parameters for ${pairKey} updated from ${pairData.pi} and ${pairData.tau} 
+          `Unimind updateParameters: parameters for ${pairKey} updated from ${pairData.pi} and ${pairData.tau} 
           to ${updatedParameters.pi} and ${updatedParameters.tau} based on ${totalCount} recent orders`
         )
         metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)  
       } else {
-        log.info(`Total count for pair ${pairKey} is less than ${UNIMIND_UPDATE_THRESHOLD}, not updating parameters`)
+        log.info(`Unimind updateParameters: Total count for pair ${pairKey} is less than ${UNIMIND_UPDATE_THRESHOLD}, not updating parameters`)
         // Update the count
         await unimindParametersRepo.put({
           pair: pairKey,
