@@ -29,6 +29,24 @@ async function main(metrics: MetricsLogger) {
   await updateParameters(unimindParametersRepo, ordersRepo, log, metrics)
 }
 
+/**
+ * @notice Updates Unimind parameters for trading pairs based on recent order performance
+ * @dev Process flow:
+ * 1. Fetches orders from the previous interval period
+ * 2. Groups orders by trading pair
+ * 3. For each active pair:
+ *    a. If pair doesn't exist in parameters store, initializes with default values
+ *    b. If pair exists but order count < threshold, increments count only
+ *    c. If pair reaches threshold count, runs unimindAlgorithm to calculate new parameters
+ *       based on historical performance and resets count
+ * 
+ * This implements a batch learning approach where parameters are only updated after
+ * collecting sufficient data points
+ * @param unimindParametersRepo Repository for storing and retrieving pair parameters
+ * @param ordersRepo Repository for accessing the Orders table
+ * @param log Logger instance
+ * @param metrics Optional metrics logger for monitoring
+ */
 export async function updateParameters(
   unimindParametersRepo: UnimindParametersRepository,
   ordersRepo: DutchOrdersRepository,
@@ -165,6 +183,12 @@ function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
   };
 }
 
+/**
+ * @notice Adjusts Unimind parameters (pi and tau) based on historical order statistics
+ * @param statistics Aggregated order data containing arrays of wait times, fill statuses, and price impacts
+ * @param pairData Previous parameters (pi and tau) for the trading pair
+ * @return Updated pi and tau parameters
+ */
 function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters) {
   const objective_wait_time = 2;
   const objective_fill_rate = 0.95;
