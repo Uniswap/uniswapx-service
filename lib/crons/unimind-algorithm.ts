@@ -44,7 +44,8 @@ export async function updateParameters(
   for (const [pairKey, count] of recentOrderCounts.entries()) {
     // Get the pair from the unimind parameters table
     const pairData = await unimindParametersRepo.getByPair(pairKey);
-    if (!pairData) { // We haven't seen this pair before, so it must have received the default parameters
+    // We haven't seen this pair before, so it must have received the default parameters
+    if (!pairData) {
       log.info(`Unimind updateParameters: No parameters found for pair ${pairKey}, updating with default parameters`)
       await unimindParametersRepo.put({
         pair: pairKey,
