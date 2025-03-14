@@ -60,7 +60,7 @@ export async function updateParameters(
         // Query for the last totalCount instances of this pair in the orders table
         const pairOrders = await ordersRepo.getOrdersFilteredByType(totalCount, {
             sortKey: SORT_FIELDS.CREATED_AT,
-            sort: `lt(${Math.floor(Date.now()/1000)})`, // required field to get it to sort descending
+            sort: 'gt(0)', // required field to get it to sort descending
             desc: true,
             pair: pairKey
           },
