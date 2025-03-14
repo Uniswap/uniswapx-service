@@ -79,6 +79,7 @@ export const parseGetQueryParams = (
       ? requestQueryParams?.orderType
       : undefined
   const executeAddress = requestQueryParams?.executeAddress
+  const pair = requestQueryParams?.pair
 
   return {
     limit: limit,
@@ -94,6 +95,7 @@ export const parseGetQueryParams = (
       ...(chainId && { chainId: chainId }),
       ...(desc !== undefined && { desc: desc }),
       ...(orderHashes && { orderHashes: [...new Set(orderHashes)] }),
+      ...(pair && { pair: pair }),
     },
     ...(cursor && { cursor: cursor }),
   }

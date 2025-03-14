@@ -29,7 +29,7 @@ export async function updateParameters(
 ): Promise<void> {
   const beforeUpdateTime = Date.now()
 
-  const pair = 'ETH-USDC'
+  const pair = '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123'
   await repo.put({
     pair,
     pi: 3.14,

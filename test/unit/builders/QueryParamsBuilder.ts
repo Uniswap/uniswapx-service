@@ -24,6 +24,11 @@ export class QueryParamsBuilder {
     return this
   }
 
+  withPair(value?: string) {
+    this.params.pair = value || '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123'
+    return this
+  }
+
   withDesc(value?: boolean) {
     if (value === undefined) {
       this.params.desc = true
