@@ -2,13 +2,14 @@ import { EventBridgeEvent, ScheduledHandler } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
-import { DynamoUnimindParametersRepository } from '../repositories/unimind-parameters-repository'
+import { DynamoUnimindParametersRepository, UnimindParameters } from '../repositories/unimind-parameters-repository'
 import { UnimindParametersRepository } from '../repositories/unimind-parameters-repository'
 import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_UPDATE_THRESHOLD } from '../util/constants'
 import { UNIMIND_ALGORITHM_CRON_INTERVAL } from '../../bin/constants'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
-import { SORT_FIELDS, UniswapXOrderEntity } from '../entities'
+import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { QueryResult } from '../repositories/base'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -35,17 +36,18 @@ export async function updateParameters(
   metrics?: MetricsLogger
 ): Promise<void> {
   const beforeUpdateTime = Date.now()
-  //Query the table for last 15 minutes of data
+  // Query Orders table for latest orders
   const recentOrders = await getOrdersByTimeRange(ordersRepo, UNIMIND_ALGORITHM_CRON_INTERVAL);
-  const recentOrderCounts = getOrderCountsByPair(recentOrders);
-  // iterate over the map and update the parameters
-  for (const [pair, count] of recentOrderCounts.entries()) {
+  log.info(`Found ${recentOrders.length} orders in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
+  const recentOrderCounts = getOrderCountsByPair(recentOrders, log);
+  log.info(`Found ${recentOrderCounts.size} unique pairs in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
+  for (const [pairKey, count] of recentOrderCounts.entries()) {
     // Get the pair from the unimind parameters table
-    const pairData = await unimindParametersRepo.getByPair(pair);
-
+    const pairData = await unimindParametersRepo.getByPair(pairKey);
     if (!pairData) { // We haven't seen this pair before, so it must have received the default parameters
+      log.info(`No parameters found for pair ${pairKey}, updating with default parameters`)
       await unimindParametersRepo.put({
-        pair,
+        pair: pairKey,
         pi: DEFAULT_UNIMIND_PARAMETERS.pi,
         tau: DEFAULT_UNIMIND_PARAMETERS.tau,
         count
@@ -53,22 +55,44 @@ export async function updateParameters(
     } else { // We have seen this pair before, check if we need to update the parameters
       const totalCount = pairData.count + count;
       if (totalCount >= UNIMIND_UPDATE_THRESHOLD) {
+        log.info(`Total count for pair ${pairKey} is greater than or equal to ${UNIMIND_UPDATE_THRESHOLD}, updating parameters`)
         // Update the parameters
         // Query for the last totalCount instances of this pair in the orders table
-
+        const pairOrders = await ordersRepo.getOrdersFilteredByType(totalCount, {
+            sortKey: SORT_FIELDS.CREATED_AT,
+            sort: `lt(${Math.floor(Date.now()/1000)})`, // required field to get it to sort descending
+            desc: true,
+            pair: pairKey
+          },
+          [OrderType.Dutch_V3], 
+          undefined // no cursor needed
+        ) as QueryResult<DutchV3OrderEntity>
+        log.info(`Found ${pairOrders.orders.length} orders for pair ${pairKey}`)
+        const statistics = getStatistics(pairOrders.orders)
+        const updatedParameters = unimindAlgorithm(statistics, pairData)
+        log.info(`Updated parameters for pair ${pairKey} are ${updatedParameters}`)
+        await unimindParametersRepo.put({
+          pair: pairKey,
+          pi: updatedParameters.pi,
+          tau: updatedParameters.tau,
+          count: 0
+        })
+        log.info(
+          `Unimind parameters for ${pairKey} updated from ${pairData.pi} and ${pairData.tau} 
+          to ${updatedParameters.pi} and ${updatedParameters.tau} based on ${totalCount} recent orders`
+        )
+        metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)  
       } else {
+        log.info(`Total count for pair ${pairKey} is less than ${UNIMIND_UPDATE_THRESHOLD}, not updating parameters`)
         // Update the count
         await unimindParametersRepo.put({
-          pair,
+          pair: pairKey,
           pi: pairData.pi,
           tau: pairData.tau,
           count: totalCount
         })
       }
     }
-
-    log.info(`Unimind parameters for ${pair} updated with ${recentOrders.length} recent orders`)
-    metrics?.putMetric(`unimind-parameters-updated-${pair}`, 1, Unit.Count)  
   }
 
   const afterUpdateTime = Date.now()
@@ -90,7 +114,7 @@ export async function getOrdersByTimeRange(ordersRepo: DutchOrdersRepository, ti
       desc: true,
       chainId: 42161,
     },
-    [OrderType.Dutch_V3], // Only get Dutch V3 orders
+    [OrderType.Dutch_V3],
     undefined // no cursor needed for this query
   )
 
@@ -106,7 +130,7 @@ function getOrderCountsByPair(
   for (const order of orders) {
     let pair = order.pair;
     // If pair is not already set, create it from input and output tokens
-    if (!pair && order.input && order.outputs && order.outputs.length > 0) {
+    if (!pair && order.input && order.outputs) {
       const inputToken = order.input.token;
       const outputToken = order.outputs[0].token;
       pair = `${inputToken}-${outputToken}-${order.chainId}`;
@@ -118,4 +142,45 @@ function getOrderCountsByPair(
   }
   
   return pairCounts;
+}
+
+interface UnimindStatistics {
+  waitTime: number[];
+  fillStatus: number[];
+  priceImpact: number[];
+}
+
+function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
+  const waitTime = orders.map(order => {
+    if (!order.fillBlock || !order.cosignerData.decayStartBlock) return -1;
+    return order.fillBlock - order.cosignerData.decayStartBlock;
+  })
+  const fillStatus = orders.map(order => order.orderStatus === ORDER_STATUS.FILLED ? 1 : 0)
+  const priceImpact = orders.map(order => order.priceImpact ? order.priceImpact : -1)
+  return {
+    waitTime,
+    fillStatus,
+    priceImpact
+  };
+}
+
+function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters) {
+  const objective_wait_time = 2;
+  const objective_fill_rate = 0.95;
+  const learning_rate = 2;
+  const auction_duration = 32;
+  const previousParameters = pairData;
+  const average_wait_time = statistics.waitTime.reduce((a, b) => a + (b === -1 ? auction_duration : b), 0) / statistics.waitTime.length;
+  const average_fill_rate = statistics.fillStatus.reduce((a, b) => a + b, 0) / statistics.fillStatus.length;
+  
+  const wait_time_proportion = (objective_wait_time - average_wait_time) / objective_wait_time;
+  const fill_rate_proportion = (objective_fill_rate - average_fill_rate) / objective_fill_rate;
+
+  const pi = previousParameters.pi + learning_rate * wait_time_proportion;
+  const tau = previousParameters.tau + learning_rate * fill_rate_proportion;
+
+  return {
+    pi,
+    tau,
+  };
 }

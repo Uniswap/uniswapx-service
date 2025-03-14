@@ -5,7 +5,7 @@ import { DynamoUnimindParametersRepository } from '../../../lib/repositories/uni
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { DutchV3OrderEntity, ORDER_STATUS } from '../../../lib/entities'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { DEFAULT_UNIMIND_PARAMETERS } from '../../../lib/util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -116,5 +116,20 @@ describe('updateParameters Test', () => {
     expect(pairData?.pi).toEqual(22)
     expect(pairData?.tau).toEqual(33)
     expect(pairData?.count).toEqual(2) // successfully updated the count
+  })
+
+  it('should update unimind parameters for a pair with existing parameters after meeting threshold', async () => {
+    await unimindParametersRepository.put({
+      pair: mockOldPair,
+      pi: 22,
+      tau: 33,
+      count: UNIMIND_UPDATE_THRESHOLD - 1,
+    })
+    await ordersTable.putOrderAndUpdateNonceTransaction(mockOldPairOrder)
+    await updateParameters(unimindParametersRepository, ordersTable, log)
+    const pairData = await unimindParametersRepository.getByPair(mockOldPair)
+    expect(pairData?.pi).not.toEqual(22)
+    expect(pairData?.tau).not.toEqual(33)
+    expect(pairData?.count).toEqual(0)
   })
 }) 
