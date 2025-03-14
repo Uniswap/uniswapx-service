@@ -5,7 +5,7 @@ import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 import path from 'path'
 
-import { SERVICE_NAME } from '../constants'
+import { SERVICE_NAME, UNIMIND_ALGORITHM_CRON_INTERVAL } from '../constants'
 
 export interface CronStackProps extends cdk.NestedStackProps {
   lambdaRole: aws_iam.Role
@@ -37,7 +37,7 @@ export class CronStack extends cdk.NestedStack {
     })
 
     new aws_events.Rule(this, `${SERVICE_NAME}UnimindAlgorithmCron`, {
-      schedule: aws_events.Schedule.rate(cdk.Duration.minutes(15)),
+      schedule: aws_events.Schedule.rate(cdk.Duration.minutes(UNIMIND_ALGORITHM_CRON_INTERVAL)),
       targets: [new cdk.aws_events_targets.LambdaFunction(this.unimindAlgorithmCronLambda)],
     })
   }

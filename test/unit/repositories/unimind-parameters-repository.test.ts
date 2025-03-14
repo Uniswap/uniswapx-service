@@ -9,6 +9,7 @@ describe('UnimindParametersRepository', () => {
     pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
     pi: 3.14,
     tau: 4.2,
+    count: 42
   }
 
   beforeEach(() => {
@@ -44,10 +45,27 @@ describe('UnimindParametersRepository', () => {
         pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
         // missing pi
         tau: 4.2,
+        count: 42
       }
 
       await expect(repository.put(incompleteValues as any)).rejects.toThrow(
         "'pi' is a required field"
+      )
+      expect(mockDocumentClient.put).not.toHaveBeenCalled()
+    })
+
+    it('throws error when missing count field', async () => {
+      const repository = DynamoUnimindParametersRepository.create(mockDocumentClient)
+      
+      const incompleteValues = {
+        pair: 'ETH-USDC',
+        pi: 3.14,
+        tau: 4.2,
+        // missing count
+      }
+
+      await expect(repository.put(incompleteValues as any)).rejects.toThrow(
+        "'count' is a required field"
       )
       expect(mockDocumentClient.put).not.toHaveBeenCalled()
     })
