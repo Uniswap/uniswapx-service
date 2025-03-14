@@ -80,9 +80,6 @@ const mockOldPairOrder: DutchV3OrderEntity = {
   pair: mockOldPair,
 }
 
-beforeAll(async () => {
-})
-
 const log: Logger = bunyan.createLogger({
   name: 'test',
   serializers: bunyan.stdSerializers,

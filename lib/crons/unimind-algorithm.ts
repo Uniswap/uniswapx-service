@@ -39,7 +39,7 @@ export async function updateParameters(
   // Query Orders table for latest orders
   const recentOrders = await getOrdersByTimeRange(ordersRepo, UNIMIND_ALGORITHM_CRON_INTERVAL);
   log.info(`Found ${recentOrders.length} orders in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
-  const recentOrderCounts = getOrderCountsByPair(recentOrders, log);
+  const recentOrderCounts = getOrderCountsByPair(recentOrders);
   log.info(`Found ${recentOrderCounts.size} unique pairs in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
   for (const [pairKey, count] of recentOrderCounts.entries()) {
     // Get the pair from the unimind parameters table

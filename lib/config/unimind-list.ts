@@ -2,7 +2,6 @@ import { Token } from '@uniswap/sdk-core'
 
 const ARBITRUM_CHAIN_ID = 42161
 
-
 const USDC_ARBITRUM = new Token(ARBITRUM_CHAIN_ID, '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', 6, 'USDC', 'USD Coin')
 const USDT_ARBITRUM = new Token(ARBITRUM_CHAIN_ID, '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9', 6, 'USDT', 'Tether USD')
 const ZRO_ARBITRUM = new Token(ARBITRUM_CHAIN_ID, '0x6985884C4392D348587B19cb9eAAf157F13271cd', 18, 'ZRO', 'LayerZero')
