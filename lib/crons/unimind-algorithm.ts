@@ -10,6 +10,7 @@ import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
 import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { QueryResult } from '../repositories/base'
+import { ChainId } from '@uniswap/sdk-core'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -120,9 +121,10 @@ export async function updateParameters(
 }
 
 export async function getOrdersByTimeRange(ordersRepo: DutchOrdersRepository, timeRange: number): Promise<UniswapXOrderEntity[]> {
-  // Calculate the timestamp from timeRange minutes ago
-  const timeRangeMs = timeRange * 60 * 1000 // convert minutes to milliseconds
-  const cutoffTime = Math.floor((Date.now() - timeRangeMs) / 1000) // Convert to seconds for DDB
+  // Calculate the timestamp from timeRange minutes ago in seconds
+  const timeRangeSeconds = timeRange * 60 // convert minutes to seconds
+  const currentTimeSeconds = Math.floor(Date.now() / 1000) // current time in seconds
+  const cutoffTime = currentTimeSeconds - timeRangeSeconds
 
   // Query Dutch V3 orders created after the cutoff time
   const result = await ordersRepo.getOrdersFilteredByType(
@@ -131,7 +133,7 @@ export async function getOrdersByTimeRange(ordersRepo: DutchOrdersRepository, ti
       sortKey: SORT_FIELDS.CREATED_AT,
       sort: `gt(${cutoffTime})`,
       desc: true,
-      chainId: 42161,
+      chainId: ChainId.ARBITRUM_ONE
     },
     [OrderType.Dutch_V3],
     undefined // no cursor needed for this query
