@@ -29,7 +29,7 @@ const mockOrder: DutchV3OrderEntity = {
   nonce: "2345",
   orderHash: "0x678967896789",
   chainId: 42161,
-  orderStatus: ORDER_STATUS.OPEN,
+  orderStatus: ORDER_STATUS.EXPIRED,
   offerer: "0xasdf",
   startingBaseFee: "0",
   input: {
@@ -62,6 +62,7 @@ const mockOrder: DutchV3OrderEntity = {
     inputOverride: "0",
     outputOverrides: ["0"]
   },
+  fillBlock: 315641562,
   cosignature: "0xzxcv",
   quoteId: "12345678-1234-1234-1234-123456789012",
   referencePrice: "1234567890",

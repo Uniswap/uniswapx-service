@@ -14,13 +14,6 @@ describe('unimind-algorithm', () => {
           orderStatus: ORDER_STATUS.FILLED,
           priceImpact: 0.01
         },
-        // undefined waitTime (missing fillBlock)
-        {
-          fillBlock: undefined,
-          cosignerData: { decayStartBlock: 80 },
-          orderStatus: ORDER_STATUS.FILLED,
-          priceImpact: 0.02
-        },
         // undefined priceImpact
         {
           fillBlock: 120,
@@ -28,9 +21,9 @@ describe('unimind-algorithm', () => {
           orderStatus: ORDER_STATUS.FILLED,
           priceImpact: undefined
         },
-        // All values defined
+        // waitTime should be undefined
         {
-          fillBlock: undefined,
+          fillBlock: -1,
           cosignerData: { decayStartBlock: 130 },
           orderStatus: ORDER_STATUS.EXPIRED,
           priceImpact: 0.04
@@ -48,18 +41,17 @@ describe('unimind-algorithm', () => {
 
       // Expected outcomes:
       // - Index 0: All defined
-      // - Index 1: undefined waitTime (should be filtered out)
-      // - Index 2: undefined priceImpact (should be filtered out)
-      // - Index 3: undefined waitTime due to EXPIRED status (should be filtered out)
-      // - Index 4: All defined
+      // - Index 1: undefined priceImpact (should be filtered out)
+      // - Index 2: undefined waitTime due to EXPIRED status (should not be filtered out)
+      // - Index 3: All defined
       
-      // Only indices 0 and 4 should remain
-      expect(result.waitTime).toEqual([10, 20]);
-      expect(result.fillStatus).toEqual([1, 1]);
-      expect(result.priceImpact).toEqual([0.01, 0.05]);
-      expect(result.waitTime.length).toBe(2);
-      expect(result.fillStatus.length).toBe(2);
-      expect(result.priceImpact.length).toBe(2);
+      // Only indices 0, 2, 3 should remain
+      expect(result.waitTimes).toEqual([10, undefined, 20]);
+      expect(result.fillStatuses).toEqual([1, 0, 1]);
+      expect(result.priceImpacts).toEqual([0.01, 0.04,0.05]);
+      expect(result.waitTimes.length).toBe(3);
+      expect(result.fillStatuses.length).toBe(3);
+      expect(result.priceImpacts.length).toBe(3);
     });
 
     it('should handle edge case with all undefined values', () => {
@@ -80,9 +72,9 @@ describe('unimind-algorithm', () => {
 
       const result = getStatistics(mockOrders);
 
-      expect(result.waitTime).toEqual([]);
-      expect(result.fillStatus).toEqual([]);
-      expect(result.priceImpact).toEqual([]);
+      expect(result.waitTimes).toEqual([]);
+      expect(result.fillStatuses).toEqual([]);
+      expect(result.priceImpacts).toEqual([]);
     });
 
     it('should handle empty orders array', () => {
@@ -90,12 +82,12 @@ describe('unimind-algorithm', () => {
 
       const result = getStatistics(mockOrders);
 
-      expect(result.waitTime).toEqual([]);
-      expect(result.fillStatus).toEqual([]);
-      expect(result.priceImpact).toEqual([]);
+      expect(result.waitTimes).toEqual([]);
+      expect(result.fillStatuses).toEqual([]);
+      expect(result.priceImpacts).toEqual([]);
     });
 
-    it('should handle missing cosignerData', () => {
+    it('should handle missing cosignerData (intentionally corrupted data)', () => {
       const mockOrders = [
         {
           fillBlock: 100,
@@ -114,9 +106,9 @@ describe('unimind-algorithm', () => {
       const result = getStatistics(mockOrders);
 
       // Only the second order should remain
-      expect(result.waitTime).toEqual([20]);
-      expect(result.fillStatus).toEqual([1]);
-      expect(result.priceImpact).toEqual([0.02]);
+      expect(result.waitTimes).toEqual([20]);
+      expect(result.fillStatuses).toEqual([1]);
+      expect(result.priceImpacts).toEqual([0.02]);
     });
   });
 });

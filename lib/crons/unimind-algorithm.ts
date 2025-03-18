@@ -166,40 +166,35 @@ function getOrderCountsByPair(
 }
 
 interface UnimindStatistics {
-  waitTime: number[];
-  fillStatus: number[];
-  priceImpact: number[];
+  waitTimes: (number | undefined)[];
+  fillStatuses: number[];
+  priceImpacts: number[];
 }
 
 export function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
-  const waitTimes = orders.map((order) => {
-    if (!order.fillBlock || !order.cosignerData?.decayStartBlock || order.orderStatus === ORDER_STATUS.EXPIRED) {
-      return undefined;
+  const waitTimes: (number | undefined)[] = [];
+  const fillStatuses: number[] = [];
+  const priceImpacts: number[] = [];
+
+  for (const order of orders) {
+    if (order.fillBlock && order.cosignerData?.decayStartBlock && order.priceImpact && 
+      (order.orderStatus === ORDER_STATUS.FILLED || order.orderStatus === ORDER_STATUS.EXPIRED)
+    ) {
+      if (order.orderStatus === ORDER_STATUS.FILLED) {
+        waitTimes.push(order.fillBlock - order.cosignerData.decayStartBlock);
+        fillStatuses.push(1);
+      } else {
+        waitTimes.push(undefined);
+        fillStatuses.push(0);
+      }
+      priceImpacts.push(order.priceImpact);
     }
-    return order.fillBlock - order.cosignerData.decayStartBlock;
-  });
-  
-  const fillStatuses = orders.map((order) => order.orderStatus === ORDER_STATUS.FILLED ? 1 : 0);
-  const priceImpacts = orders.map((order) => order.priceImpact ? order.priceImpact : undefined);
-  
-  // Create arrays with only valid entries (where no array has undefined at that index)
-  const validIndices = waitTimes.map((_, index) => 
-    waitTimes[index] !== undefined && 
-    priceImpacts[index] !== undefined
-  );
-  
-  const filteredWaitTime = waitTimes.filter((value, index): value is number => 
-    validIndices[index] && value !== undefined
-  );
-  const filteredFillStatus = fillStatuses.filter((_, index) => validIndices[index]);
-  const filteredPriceImpact = priceImpacts.filter((value, index): value is number => 
-    validIndices[index] && value !== undefined
-  );
-  
+  }
+
   return {
-    waitTime: filteredWaitTime,
-    fillStatus: filteredFillStatus,
-    priceImpact: filteredPriceImpact
+    waitTimes,
+    fillStatuses,
+    priceImpacts
   };
 }
 
@@ -215,8 +210,11 @@ function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParame
   const learning_rate = 2;
   const auction_duration = 32;
   const previousParameters = pairData;
-  const average_wait_time = statistics.waitTime.reduce((a, b) => a + (b === -1 ? auction_duration : b), 0) / statistics.waitTime.length;
-  const average_fill_rate = statistics.fillStatus.reduce((a, b) => a + b, 0) / statistics.fillStatus.length;
+  if (statistics.waitTimes.length === 0 || statistics.fillStatuses.length === 0 || statistics.priceImpacts.length === 0) {
+    return previousParameters;
+  }
+  const average_wait_time = statistics.waitTimes.reduce((a: number, b) => a + (b === undefined ? auction_duration : b), 0) / statistics.waitTimes.length;
+  const average_fill_rate = statistics.fillStatuses.reduce((a: number, b) => a + b, 0) / statistics.fillStatuses.length;
   
   const wait_time_proportion = (objective_wait_time - average_wait_time) / objective_wait_time;
   const fill_rate_proportion = (objective_fill_rate - average_fill_rate) / objective_fill_rate;
