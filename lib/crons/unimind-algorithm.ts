@@ -171,17 +171,35 @@ interface UnimindStatistics {
   priceImpact: number[];
 }
 
-function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
-  const waitTime = orders.map(order => {
-    if (!order.fillBlock || !order.cosignerData.decayStartBlock) return -1;
+export function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
+  const waitTimes = orders.map((order) => {
+    if (!order.fillBlock || !order.cosignerData?.decayStartBlock || order.orderStatus === ORDER_STATUS.EXPIRED) {
+      return undefined;
+    }
     return order.fillBlock - order.cosignerData.decayStartBlock;
-  })
-  const fillStatus = orders.map(order => order.orderStatus === ORDER_STATUS.FILLED ? 1 : 0)
-  const priceImpact = orders.map(order => order.priceImpact ? order.priceImpact : -1)
+  });
+  
+  const fillStatuses = orders.map((order) => order.orderStatus === ORDER_STATUS.FILLED ? 1 : 0);
+  const priceImpacts = orders.map((order) => order.priceImpact ? order.priceImpact : undefined);
+  
+  // Create arrays with only valid entries (where no array has undefined at that index)
+  const validIndices = waitTimes.map((_, index) => 
+    waitTimes[index] !== undefined && 
+    priceImpacts[index] !== undefined
+  );
+  
+  const filteredWaitTime = waitTimes.filter((value, index): value is number => 
+    validIndices[index] && value !== undefined
+  );
+  const filteredFillStatus = fillStatuses.filter((_, index) => validIndices[index]);
+  const filteredPriceImpact = priceImpacts.filter((value, index): value is number => 
+    validIndices[index] && value !== undefined
+  );
+  
   return {
-    waitTime,
-    fillStatus,
-    priceImpact
+    waitTime: filteredWaitTime,
+    fillStatus: filteredFillStatus,
+    priceImpact: filteredPriceImpact
   };
 }
 
