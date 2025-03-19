@@ -68,7 +68,8 @@ describe('Testing get unimind handler', () => {
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
       pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       pi: 3.14,
-      tau: 4.2
+      tau: 4.2,
+      count: 0
     })
 
     const response = await getUnimindHandler.handler(
@@ -94,7 +95,7 @@ describe('Testing get unimind handler', () => {
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123')
   })
 
-  it('Returns default parameters when unimind parameters not found', async () => {
+  it('Returns default parameters when not found in unimindParametersRepository', async () => {
     const quoteMetadata = {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',

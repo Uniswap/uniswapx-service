@@ -54,7 +54,8 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         // Use default parameters and add to unimindParametersRepository
         const entry = {
             ...DEFAULT_UNIMIND_PARAMETERS,
-            pair: requestQueryParams.pair
+            pair: requestQueryParams.pair,
+            count: 0
         }
         await unimindParametersRepository.put(entry)
         unimindParameters = entry
