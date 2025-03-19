@@ -13,8 +13,10 @@ dotenv.config()
 export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
 
-const COSIGNER = checkDefined(process.env.LABS_COSIGNER, 'LABS_COSIGNER is not defined')
-const PRIORITY_COSIGNER = checkDefined(process.env.LABS_PRIORITY_COSIGNER, 'LABS_PRIORITY_COSIGNER is not defined')
+// Lazy load environment variables
+function getEnvVar(name: string): string {
+  return checkDefined(process.env[name], `${name} is not defined`)
+}
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(4000, true))
@@ -81,10 +83,6 @@ export default class FieldValidator {
     }
     return value
   })
-
-  private static readonly COSIGNER_JOI = Joi.string().valid(COSIGNER)
-
-  private static readonly PRIORITY_COSIGNER_JOI = Joi.string().valid(PRIORITY_COSIGNER)
 
   public static isValidOrderStatus(): StringSchema {
     return this.ORDER_STATUS_JOI
@@ -167,11 +165,13 @@ export default class FieldValidator {
   }
 
   public static isValidCosigner(): StringSchema {
-    return this.COSIGNER_JOI
+    const cosigner = getEnvVar('LABS_COSIGNER')
+    return Joi.string().valid(cosigner)
   }
 
   public static isValidPriorityCosigner(): StringSchema {
-    return this.PRIORITY_COSIGNER_JOI
+    const priorityCosigner = getEnvVar('LABS_PRIORITY_COSIGNER')
+    return Joi.string().valid(priorityCosigner)
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {
