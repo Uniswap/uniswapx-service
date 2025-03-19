@@ -5,7 +5,7 @@ import { DynamoUnimindParametersRepository } from '../../../lib/repositories/uni
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { DutchV3OrderEntity, ORDER_STATUS } from '../../../lib/entities'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -30,7 +30,7 @@ const mockOrder: DutchV3OrderEntity = {
   orderHash: "0x678967896789",
   chainId: 42161,
   orderStatus: ORDER_STATUS.EXPIRED,
-  offerer: "0xasdf",
+  offerer: UNIMIND_DEV_SWAPPER_ADDRESS,
   startingBaseFee: "0",
   input: {
     token: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
@@ -148,5 +148,17 @@ describe('updateParameters Test', () => {
     expect(pairData?.pi).not.toEqual(22)
     expect(pairData?.tau).not.toEqual(33)
     expect(pairData?.count).toEqual(0)
+  })
+
+  it('should not update parameters for pairs that do not pass the unimind address filter', async () => {
+    const failPair = '0x111-0x222-FAIL'
+    await ordersTable.putOrderAndUpdateNonceTransaction({
+      ...mockOrder,
+      pair: failPair,
+      offerer: '0x1234', // does not pass unimind address filter
+    })
+    await updateParameters(unimindParametersRepository, ordersTable, log)
+    const pairData = await unimindParametersRepository.getByPair(failPair)
+    expect(pairData).toBeUndefined()
   })
 }) 
