@@ -11,6 +11,7 @@ import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } fr
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { QueryResult } from '../repositories/base'
 import { ChainId } from '@uniswap/sdk-core'
+import { unimindAddressFilter } from '../util/unimind'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -57,8 +58,9 @@ export async function updateParameters(
   const beforeUpdateTime = Date.now()
   // Query Orders table for latest orders
   const recentOrders = await getOrdersByTimeRange(ordersRepo, UNIMIND_ALGORITHM_CRON_INTERVAL);
-  log.info(`Unimind updateParameters:Found ${recentOrders.length} orders in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
-  const recentOrderCounts = getOrderCountsByPair(recentOrders);
+  const unimindOrders = recentOrders.filter(order => unimindAddressFilter(order.offerer));
+  log.info(`Unimind updateParameters:Found ${unimindOrders.length} orders in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
+  const recentOrderCounts = getOrderCountsByPair(unimindOrders);
   log.info(`Unimind updateParameters: Found ${recentOrderCounts.size} unique pairs in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
   for (const [pairKey, count] of recentOrderCounts.entries()) {
     // Get the pair from the unimind parameters table
