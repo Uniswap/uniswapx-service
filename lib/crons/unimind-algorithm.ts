@@ -210,9 +210,13 @@ function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParame
   const learning_rate = 2;
   const auction_duration = 32;
   const previousParameters = pairData;
+
   if (statistics.waitTimes.length === 0 || statistics.fillStatuses.length === 0 || statistics.priceImpacts.length === 0) {
     return previousParameters;
   }
+  // Set negative wait times to 0
+  statistics.waitTimes = statistics.waitTimes.map((waitTime) => (waitTime && waitTime < 0) ? 0 : waitTime);
+
   const average_wait_time = statistics.waitTimes.reduce((a: number, b) => a + (b === undefined ? auction_duration : b), 0) / statistics.waitTimes.length;
   const average_fill_rate = statistics.fillStatuses.reduce((a: number, b) => a + b, 0) / statistics.fillStatuses.length;
   
