@@ -204,9 +204,9 @@ export function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
  * @param pairData Previous parameters (pi and tau) for the trading pair
  * @return Updated pi and tau parameters
  */
-function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters) {
+export function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters) {
   const objective_wait_time = 2;
-  const objective_fill_rate = 0.95;
+  const objective_fill_rate = 0.96;
   const learning_rate = 2;
   const auction_duration = 32;
   const previousParameters = pairData;
