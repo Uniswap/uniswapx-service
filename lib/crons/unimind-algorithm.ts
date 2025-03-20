@@ -90,9 +90,9 @@ export async function updateParameters(
           undefined // no cursor needed
         ) as QueryResult<DutchV3OrderEntity>
         log.info(`Unimind updateParameters: Found ${pairOrders.orders.length} orders for pair ${pairKey}`)
-        const statistics = getStatistics(pairOrders.orders)
-        const updatedParameters = unimindAlgorithm(statistics, pairData)
-        log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${updatedParameters}`)
+        const statistics = getStatistics(pairOrders.orders, log)
+        const updatedParameters = unimindAlgorithm(statistics, pairData, log)
+        log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
         await unimindParametersRepo.put({
           pair: pairKey,
           pi: updatedParameters.pi,
@@ -100,12 +100,12 @@ export async function updateParameters(
           count: 0
         })
         log.info(
-          `Unimind updateParameters: parameters for ${pairKey} updated from ${pairData.pi} and ${pairData.tau} 
-          to ${updatedParameters.pi} and ${updatedParameters.tau} based on ${totalCount} recent orders`
+          `Unimind updateParameters: parameters for ${pairKey} updated from ${pairData.pi} and ${pairData.tau}` +
+          ` to ${updatedParameters.pi} and ${updatedParameters.tau} based on ${totalCount} recent orders`
         )
         metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)  
       } else {
-        log.info(`Unimind updateParameters: Total count for pair ${pairKey} is less than ${UNIMIND_UPDATE_THRESHOLD}, not updating parameters`)
+        log.info(`Unimind updateParameters: Total count for pair ${pairKey} (${totalCount}) is less than ${UNIMIND_UPDATE_THRESHOLD}, not updating parameters`)
         // Update the count
         await unimindParametersRepo.put({
           pair: pairKey,
@@ -173,7 +173,7 @@ interface UnimindStatistics {
   priceImpacts: number[];
 }
 
-export function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
+export function getStatistics(orders: DutchV3OrderEntity[], log: Logger): UnimindStatistics {
   const waitTimes: (number | undefined)[] = [];
   const fillStatuses: number[] = [];
   const priceImpacts: number[] = [];
@@ -185,9 +185,11 @@ export function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
       if (order.orderStatus === ORDER_STATUS.FILLED) {
         waitTimes.push(order.fillBlock - order.cosignerData.decayStartBlock);
         fillStatuses.push(1);
+        log.info(`Unimind getStatistics: order ${order.orderHash} filled with wait time ${order.fillBlock - order.cosignerData.decayStartBlock}`)
       } else {
         waitTimes.push(undefined);
         fillStatuses.push(0);
+        log.info(`Unimind getStatistics: order ${order.orderHash} expired, resulting in an undefined wait time`)
       }
       priceImpacts.push(order.priceImpact);
     }
@@ -206,7 +208,7 @@ export function getStatistics(orders: DutchV3OrderEntity[]): UnimindStatistics {
  * @param pairData Previous parameters (pi and tau) for the trading pair
  * @return Updated pi and tau parameters
  */
-export function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters) {
+export function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger) {
   const objective_wait_time = 2;
   const objective_fill_rate = 0.96;
   const learning_rate = 2;
@@ -221,7 +223,8 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
 
   const average_wait_time = statistics.waitTimes.reduce((a: number, b) => a + (b === undefined ? auction_duration : b), 0) / statistics.waitTimes.length;
   const average_fill_rate = statistics.fillStatuses.reduce((a: number, b) => a + b, 0) / statistics.fillStatuses.length;
-  
+  log.info(`Unimind unimindAlgorithm: average_wait_time: ${average_wait_time}, average_fill_rate: ${average_fill_rate}`)
+
   const wait_time_proportion = (objective_wait_time - average_wait_time) / objective_wait_time;
   const fill_rate_proportion = (objective_fill_rate - average_fill_rate) / objective_fill_rate;
 
