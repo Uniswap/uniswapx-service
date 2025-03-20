@@ -26,6 +26,7 @@ export interface QuoteMetadata {
   blockNumber: number
   route: Route
   pair: string
+  usedUnimind: boolean
 }
 
 export interface QuoteMetadataRepository {
@@ -56,7 +57,8 @@ export class DynamoQuoteMetadataRepository implements QuoteMetadataRepository {
         priceImpact: { type: DYNAMODB_TYPES.NUMBER, required: true },
         pair: {type: DYNAMODB_TYPES.STRING, required: true},
         blockNumber: {type: DYNAMODB_TYPES.NUMBER, required: false},
-        route: {type: DYNAMODB_TYPES.MAP, required: false}
+        route: {type: DYNAMODB_TYPES.MAP, required: false},
+        usedUnimind: {type: DYNAMODB_TYPES.BOOLEAN, required: true}
       },
       table,
     } as const)
