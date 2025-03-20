@@ -1,8 +1,11 @@
+import Logger from 'bunyan';
 import { getStatistics, unimindAlgorithm } from '../../../lib/crons/unimind-algorithm';
 import { DutchV3OrderEntity } from '../../../lib/entities';
 import { ORDER_STATUS } from '../../../lib/entities/Order';
+import { mock } from 'jest-mock-extended';
 
 describe('unimind-algorithm', () => {
+  const log = mock<Logger>()
   describe('getStatistics', () => {
     it('should filter out indices with undefined values while preserving order', () => {
       // Mock data with some undefined values
@@ -37,7 +40,7 @@ describe('unimind-algorithm', () => {
         }
       ] as DutchV3OrderEntity[];
 
-      const result = getStatistics(mockOrders);
+      const result = getStatistics(mockOrders, log);
 
       // Expected outcomes:
       // - Index 0: All defined
@@ -70,7 +73,7 @@ describe('unimind-algorithm', () => {
         }
       ] as DutchV3OrderEntity[];
 
-      const result = getStatistics(mockOrders);
+      const result = getStatistics(mockOrders, log);
 
       expect(result.waitTimes).toEqual([]);
       expect(result.fillStatuses).toEqual([]);
@@ -80,7 +83,7 @@ describe('unimind-algorithm', () => {
     it('should handle empty orders array', () => {
       const mockOrders: DutchV3OrderEntity[] = [];
 
-      const result = getStatistics(mockOrders);
+      const result = getStatistics(mockOrders, log);
 
       expect(result.waitTimes).toEqual([]);
       expect(result.fillStatuses).toEqual([]);
@@ -103,7 +106,7 @@ describe('unimind-algorithm', () => {
         }
       ] as DutchV3OrderEntity[];
 
-      const result = getStatistics(mockOrders);
+      const result = getStatistics(mockOrders, log);
 
       // Only the second order should remain
       expect(result.waitTimes).toEqual([20]);
@@ -116,13 +119,13 @@ describe('unimind-algorithm', () => {
     it('should return the same parameters if the statistics are empty', () => {
       const previousParameters = { pi: 0.5, tau: 0.5, pair: '0x000-0x111-123', count: 25 };
       const statistics = { waitTimes: [], fillStatuses: [], priceImpacts: [] };
-      const result = unimindAlgorithm(statistics, previousParameters);
+      const result = unimindAlgorithm(statistics, previousParameters, log);
       expect(result).toEqual(previousParameters);
     });
     it('should treat negative wait times as 0', () => {
       const previousParameters = { pi: 0.5, tau: 0.5, pair: '0x000-0x111-123', count: 25 };
       const statistics = { waitTimes: [-1, 1, 2], fillStatuses: [1, 1, 1], priceImpacts: [0.01, 0.02, 0.03] };
-      unimindAlgorithm(statistics, previousParameters);
+      unimindAlgorithm(statistics, previousParameters, log);
       expect(statistics.waitTimes).toEqual([0, 1, 2]);
     });
     it('should treat undefined wait times as auction duration (32) for average calculation', () => {
@@ -135,7 +138,7 @@ describe('unimind-algorithm', () => {
         priceImpacts: [0.01, 0.01, 0.01, 0.01, 0.02] 
       };
       
-      const result = unimindAlgorithm(statistics, previousParameters);
+      const result = unimindAlgorithm(statistics, previousParameters, log);
       
       // Expected average: (2 + 2 + 2 + 2 + 32) / 5 = 40 / 5 = 8
       // With objective_wait_time = 2, wait_time_proportion = (2 - 8) / 2 = -3
