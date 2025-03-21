@@ -70,11 +70,18 @@ export async function updateParameters(
       log.info(`Unimind updateParameters: No parameters found for pair ${pairKey}, updating with default parameters`)
       await unimindParametersRepo.put({
         pair: pairKey,
-        pi: DEFAULT_UNIMIND_PARAMETERS.pi,
-        tau: DEFAULT_UNIMIND_PARAMETERS.tau,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
         count
       })
-    } else { // We have seen this pair before, check if we need to update the parameters
+    } else if(!validateParameters(pairData)) {
+      log.info(`Unimind updateParameters: Parameters for pair ${pairKey} are invalid, updating with default parameters`) 
+      await unimindParametersRepo.put({
+        pair: pairKey,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        count
+      })
+    } 
+    else { // We have seen this pair before, check if we need to update the parameters
       const totalCount = pairData.count + count;
       if (totalCount >= UNIMIND_UPDATE_THRESHOLD) {
         log.info(`Unimind updateParameters: Total count for pair ${pairKey} is greater than or equal to ${UNIMIND_UPDATE_THRESHOLD}, updating parameters`)
@@ -95,12 +102,11 @@ export async function updateParameters(
         log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
         await unimindParametersRepo.put({
           pair: pairKey,
-          pi: updatedParameters.pi,
-          tau: updatedParameters.tau,
+          intrinsicValues: updatedParameters,
           count: 0
         })
         log.info(
-          `Unimind updateParameters: parameters for ${pairKey} updated from ${pairData.pi} and ${pairData.tau}` +
+          `Unimind updateParameters: parameters for ${pairKey} updated from ${pairData.intrinsicValues.pi} and ${pairData.intrinsicValues.tau}` +
           ` to ${updatedParameters.pi} and ${updatedParameters.tau} based on ${totalCount} recent orders`
         )
         metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)  
@@ -109,8 +115,7 @@ export async function updateParameters(
         // Update the count
         await unimindParametersRepo.put({
           pair: pairKey,
-          pi: pairData.pi,
-          tau: pairData.tau,
+          intrinsicValues: pairData.intrinsicValues,
           count: totalCount
         })
       }
@@ -213,7 +218,7 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   const objective_fill_rate = 0.96;
   const learning_rate = 2;
   const auction_duration = 32;
-  const previousParameters = pairData;
+  const previousParameters = pairData.intrinsicValues;
 
   if (statistics.waitTimes.length === 0 || statistics.fillStatuses.length === 0 || statistics.priceImpacts.length === 0) {
     return previousParameters;
@@ -231,8 +236,19 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   const pi = previousParameters.pi + learning_rate * wait_time_proportion;
   const tau = previousParameters.tau + learning_rate * fill_rate_proportion;
 
+  //return a record of pi and tau
   return {
-    pi,
-    tau,
+    pi: pi,
+    tau: tau,
   };
+}
+
+export function validateParameters(parameters: UnimindParameters): boolean {
+  //check that the intrisic parameters are using the keys we're currently using in the algorithm
+  for (const key in parameters.intrinsicValues) {
+    if (!Object.keys(DEFAULT_UNIMIND_PARAMETERS).includes(key)) {
+      return false;
+    }
+  }
+  return true;
 }
