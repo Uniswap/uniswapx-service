@@ -244,7 +244,7 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
 }
 
 export function validateParameters(parameters: UnimindParameters): boolean {
-  //check that the intrisic parameters are using the keys we're currently using in the algorithm
+  //check that the intrinsic parameters are using the keys we're currently using in the algorithm
   for (const key in parameters.intrinsicValues) {
     if (!Object.keys(DEFAULT_UNIMIND_PARAMETERS).includes(key)) {
       return false;
