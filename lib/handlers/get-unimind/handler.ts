@@ -54,7 +54,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       if (!unimindParameters) {
         // Use default parameters and add to unimindParametersRepository
         const entry = {
-            ...DEFAULT_UNIMIND_PARAMETERS,
+            intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
             pair: requestQueryParams.pair,
             count: 0
         }
@@ -81,7 +81,8 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
     }
   }
 
-  calculateParameters(intrinsicValues: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
+  calculateParameters(unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
+    const intrinsicValues = unimindParameters.intrinsicValues
     // Keeping intrinsic extrinsic naming for consistency with algorithm
     const pi = intrinsicValues.pi * extrinsicValues.priceImpact
     const tau = intrinsicValues.tau * extrinsicValues.priceImpact
