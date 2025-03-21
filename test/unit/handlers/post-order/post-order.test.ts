@@ -88,6 +88,7 @@ const SAMPLE_QUOTE_METADATA = {
       to: '0abcdef',
     },
   },
+  usedUnimind: true
 }
 
 const mockSfnClient = mockClient(SFNClient)

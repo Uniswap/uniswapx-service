@@ -79,7 +79,8 @@ const mockOrder: DutchV3OrderEntity = {
       to: "0xghjk"
     }
   },
-  pair: "0x1-0x2-21"
+  pair: "0x1-0x2-21",
+  usedUnimind: false
 }
 
 const mockOldPair = '0x4444444444444444444444444444444444444444-0x2222222222222222222222222222222222222222-42161'

@@ -73,7 +73,8 @@ describe('Analytics Service', () => {
           tokenOut: '0xOutputToken',
           filler: '0xGetAddress',
           orderType: 'Limit',
-          route: JSON.stringify(mockedOrder.route)
+          route: JSON.stringify(mockedOrder.route),
+          usedUnimind: false,
         },
       })
     })
@@ -110,7 +111,8 @@ describe('Analytics Service', () => {
           tokenOut: '0xOutputToken',
           filler: '0xGetAddress',
           orderType: 'Limit',
-          route: JSON.stringify(mockedOrder.route)
+          route: JSON.stringify(mockedOrder.route),
+          usedUnimind: false,
         },
       })
     })

@@ -46,6 +46,9 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         }
       }
 
+      // If we made it through these filters, then we are using Unimind to provide parameters
+      quoteMetadata.usedUnimind = true
+
       let [, unimindParameters] = await Promise.all([
         quoteMetadataRepository.put(quoteMetadata),
         unimindParametersRepository.getByPair(requestQueryParams.pair)
@@ -64,6 +67,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
       const beforeCalculateTime = Date.now()
       const parameters = this.calculateParameters(unimindParameters, quoteMetadata)
+      // TODO: Add condition for not using Unimind with bad parameters
       const afterCalculateTime = Date.now()
       const calculateTime = afterCalculateTime - beforeCalculateTime
       metrics.putMetric(`final-parameters-calculation-time`, calculateTime)
