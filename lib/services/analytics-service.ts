@@ -37,7 +37,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       orderType: orderType,
       blockNumber: order?.blockNumber,
       route: JSON.stringify(order?.route),
-      usedUnimind: order?.usedUnimind,
+      usedUnimind: order?.usedUnimind ?? false,
     }
 
     if (isPriorityOrderEntity(order)) {
