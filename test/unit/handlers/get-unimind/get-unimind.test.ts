@@ -90,7 +90,8 @@ describe('Testing get unimind handler', () => {
     expect(response.statusCode).toBe(200)
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,
-      route: SAMPLE_ROUTE // Should be parsed object when stored
+      route: SAMPLE_ROUTE, // Should be parsed object when stored
+      usedUnimind: true
     })
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123')
   })
@@ -122,7 +123,8 @@ describe('Testing get unimind handler', () => {
     //Handler should have saved the quote metadata since we expect params in response
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,
-      route: JSON.parse(quoteMetadata.route)
+      route: JSON.parse(quoteMetadata.route),
+      usedUnimind: true
     })
 
     expect(response.statusCode).toBe(200)
@@ -296,7 +298,8 @@ describe('Testing get unimind handler', () => {
     expect(body.detail).toBe('DB Error')
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,
-      route: SAMPLE_ROUTE // Should be parsed object when stored
+      route: SAMPLE_ROUTE, // Should be parsed object when stored
+      usedUnimind: true
     })
   })
 

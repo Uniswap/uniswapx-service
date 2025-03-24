@@ -44,7 +44,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         priceImpact: { type: DYNAMODB_TYPES.NUMBER },
         blockNumber: { type: DYNAMODB_TYPES.NUMBER },
         route: { type: DYNAMODB_TYPES.MAP },
-
+        usedUnimind: {type: DYNAMODB_TYPES.BOOLEAN},
         //on chain data
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
         offerer: { type: DYNAMODB_TYPES.STRING, required: true },
