@@ -6,7 +6,7 @@ import { TABLE_NAMES } from './util'
 
 export interface UnimindParameters {
   pair: string
-  intrinsicValues: Record<string, number>
+  intrinsicValues: string
   count: number
 }
 
@@ -34,7 +34,7 @@ export class DynamoUnimindParametersRepository implements UnimindParametersRepos
       name: 'UnimindParameters',
       attributes: {
         pair: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
-        intrinsicValues: { type: DYNAMODB_TYPES.MAP, required: true },
+        intrinsicValues: { type: DYNAMODB_TYPES.STRING, required: true },
         count: { type: DYNAMODB_TYPES.NUMBER, required: true },
       },
       table,

@@ -102,11 +102,12 @@ export async function updateParameters(
         log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
         await unimindParametersRepo.put({
           pair: pairKey,
-          intrinsicValues: updatedParameters,
+          intrinsicValues: JSON.stringify(updatedParameters),
           count: 0
         })
+        const intrinsicValues = JSON.parse(pairData.intrinsicValues)
         log.info(
-          `Unimind updateParameters: parameters for ${pairKey} updated from ${pairData.intrinsicValues.pi} and ${pairData.intrinsicValues.tau}` +
+          `Unimind updateParameters: parameters for ${pairKey} updated from ${intrinsicValues.pi} and ${intrinsicValues.tau}` +
           ` to ${updatedParameters.pi} and ${updatedParameters.tau} based on ${totalCount} recent orders`
         )
         metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)  
@@ -218,7 +219,7 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   const objective_fill_rate = 0.96;
   const learning_rate = 2;
   const auction_duration = 32;
-  const previousParameters = pairData.intrinsicValues;
+  const previousParameters = JSON.parse(pairData.intrinsicValues);
 
   if (statistics.waitTimes.length === 0 || statistics.fillStatuses.length === 0 || statistics.priceImpacts.length === 0) {
     return previousParameters;
@@ -245,8 +246,8 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
 
 export function validateParameters(parameters: UnimindParameters): boolean {
   //check that the intrinsic parameters are using the keys we're currently using in the algorithm
-  for (const key in parameters.intrinsicValues) {
-    if (!Object.keys(DEFAULT_UNIMIND_PARAMETERS).includes(key)) {
+  for (const key in JSON.parse(parameters.intrinsicValues)) {
+    if (!Object.keys(JSON.parse(DEFAULT_UNIMIND_PARAMETERS)).includes(key)) {
       return false;
     }
   }

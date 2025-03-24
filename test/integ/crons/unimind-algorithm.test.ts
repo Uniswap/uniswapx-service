@@ -116,41 +116,44 @@ describe('updateParameters Test', () => {
     await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockNewPair)
     expect(pairData).toBeDefined()
-    expect(pairData?.intrinsicValues.pi).toEqual(DEFAULT_UNIMIND_PARAMETERS.pi)
-    expect(pairData?.intrinsicValues.tau).toEqual(DEFAULT_UNIMIND_PARAMETERS.tau)
+    const intrinsicValues = JSON.parse(pairData?.intrinsicValues ?? '{}')
+    expect(intrinsicValues.pi).toEqual(JSON.parse(DEFAULT_UNIMIND_PARAMETERS).pi)
+    expect(intrinsicValues.tau).toEqual(JSON.parse(DEFAULT_UNIMIND_PARAMETERS).tau)
   })
 
   it('should not update unimind parameters for a pair with existing parameters before meeting threshold', async () => {
     await unimindParametersRepository.put({
       pair: mockOldPair,
-      intrinsicValues: {
+      intrinsicValues: JSON.stringify({
         pi: 22,
         tau: 33,
-      },
+      }),
       count: 1,
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOldPairOrder)
     await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockOldPair)
-    expect(pairData?.intrinsicValues.pi).toEqual(22)
-    expect(pairData?.intrinsicValues.tau).toEqual(33)
+    const intrinsicValues = JSON.parse(pairData?.intrinsicValues ?? '{}')
+    expect(intrinsicValues.pi).toEqual(22)
+    expect(intrinsicValues.tau).toEqual(33)
     expect(pairData?.count).toEqual(2) // successfully updated the count
   })
 
   it('should update unimind parameters for a pair with existing parameters after meeting threshold', async () => {
     await unimindParametersRepository.put({
       pair: mockOrder.pair as string,
-      intrinsicValues: {
+      intrinsicValues: JSON.stringify({
         pi: 22,
         tau: 33,
-      },
+      }),
       count: UNIMIND_UPDATE_THRESHOLD - 1,
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOrder)
     await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockOrder.pair as string)
-    expect(pairData?.intrinsicValues.pi).not.toEqual(22)
-    expect(pairData?.intrinsicValues.tau).not.toEqual(33)
+    const intrinsicValues = JSON.parse(pairData?.intrinsicValues ?? '{}')
+    expect(intrinsicValues.pi).not.toEqual(22)
+    expect(intrinsicValues.tau).not.toEqual(33)
     expect(pairData?.count).toEqual(0)
   })
 
