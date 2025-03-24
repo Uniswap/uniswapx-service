@@ -91,6 +91,7 @@ export type SharedXOrderEntity = {
   blockNumber?: number
   route?: Route
   pair?: string
+  usedUnimind?: boolean
 }
 
 export type DutchV1OrderEntity = SharedXOrderEntity & {
