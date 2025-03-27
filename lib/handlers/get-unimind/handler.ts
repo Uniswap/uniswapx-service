@@ -29,7 +29,16 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       }
       // For requests that don't expect params, we only save the quote metadata and return
       if (logOnly) { 
-        await quoteMetadataRepository.put(quoteMetadata)
+        try {
+          quoteMetadata.usedUnimind = false
+          await quoteMetadataRepository.put(quoteMetadata)
+        } catch (error) {
+          return {
+            statusCode: 500,
+            errorCode: ErrorCode.InternalError,
+            detail: 'Failed to store quote metadata'
+          }
+        }
         return {
           statusCode: 200,
           body: {
