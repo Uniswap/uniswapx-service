@@ -117,19 +117,19 @@ describe('unimind-algorithm', () => {
 
   describe('unimindAlgorithm', () => {
     it('should return the same parameters if the statistics are empty', () => {
-      const previousParameters = { pi: 0.5, tau: 0.5, pair: '0x000-0x111-123', count: 25 };
+      const previousParameters = { intrinsicValues: JSON.stringify({ pi: 0.5, tau: 0.5 }), pair: '0x000-0x111-123', count: 25 };
       const statistics = { waitTimes: [], fillStatuses: [], priceImpacts: [] };
       const result = unimindAlgorithm(statistics, previousParameters, log);
-      expect(result).toEqual(previousParameters);
+      expect(result).toEqual(JSON.parse(previousParameters.intrinsicValues));
     });
     it('should treat negative wait times as 0', () => {
-      const previousParameters = { pi: 0.5, tau: 0.5, pair: '0x000-0x111-123', count: 25 };
+      const previousParameters = { intrinsicValues: JSON.stringify({ pi: 0.5, tau: 0.5 }), pair: '0x000-0x111-123', count: 25 };
       const statistics = { waitTimes: [-1, 1, 2], fillStatuses: [1, 1, 1], priceImpacts: [0.01, 0.02, 0.03] };
       unimindAlgorithm(statistics, previousParameters, log);
       expect(statistics.waitTimes).toEqual([0, 1, 2]);
     });
     it('should treat undefined wait times as auction duration (32) for average calculation', () => {
-      const previousParameters = { pi: 5, tau: 5, pair: '0x000-0x111-123', count: 25 };
+      const previousParameters = { intrinsicValues: JSON.stringify({ pi: 5, tau: 5 }), pair: '0x000-0x111-123', count: 25 };
       
       // Four defined wait times (all value 2) and one undefined wait time
       const statistics = { 

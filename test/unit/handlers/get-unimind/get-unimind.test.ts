@@ -67,8 +67,10 @@ describe('Testing get unimind handler', () => {
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
       pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-      pi: 3.14,
-      tau: 4.2,
+      intrinsicValues: JSON.stringify({
+        pi: 3.14,
+        tau: 4.2,
+      }),
       count: 0
     })
 

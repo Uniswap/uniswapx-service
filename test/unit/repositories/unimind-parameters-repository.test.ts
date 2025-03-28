@@ -7,8 +7,10 @@ describe('UnimindParametersRepository', () => {
 
   const mockUnimindParameters: UnimindParameters = {
     pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-    pi: 3.14,
-    tau: 4.2,
+    intrinsicValues: JSON.stringify({
+      pi: 3.14,
+      tau: 4.2,
+    }),
     count: 42
   }
 
@@ -43,13 +45,12 @@ describe('UnimindParametersRepository', () => {
       
       const incompleteValues = {
         pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-        // missing pi
-        tau: 4.2,
+        // missing intrinsicValues
         count: 42
       }
 
       await expect(repository.put(incompleteValues as any)).rejects.toThrow(
-        "'pi' is a required field"
+        "'intrinsicValues' is a required field"
       )
       expect(mockDocumentClient.put).not.toHaveBeenCalled()
     })
@@ -59,8 +60,10 @@ describe('UnimindParametersRepository', () => {
       
       const incompleteValues = {
         pair: 'ETH-USDC',
-        pi: 3.14,
-        tau: 4.2,
+        intrinsicValues: {
+          pi: 3.14,
+          tau: 4.2,
+        },
         // missing count
       }
 
