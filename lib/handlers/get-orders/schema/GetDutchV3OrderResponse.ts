@@ -79,7 +79,7 @@ export const GetDutchV3OrderResponseEntryJoi = Joi.object({
     startAmount: FieldValidator.isValidAmount().required(),
     curve: Joi.object({
       relativeBlocks: Joi.array().items(FieldValidator.isValidNumber()),
-      relativeAmounts: Joi.array().items(FieldValidator.isValidAmount()),
+      relativeAmounts: Joi.array().items(FieldValidator.isValidBigIntString()),
     }),
     maxAmount: FieldValidator.isValidAmount(),
     adjustmentPerGweiBaseFee: FieldValidator.isValidAmount(),
@@ -90,7 +90,7 @@ export const GetDutchV3OrderResponseEntryJoi = Joi.object({
       startAmount: FieldValidator.isValidAmount().required(),
       curve: Joi.object({
         relativeBlocks: Joi.array().items(FieldValidator.isValidNumber()),
-        relativeAmounts: Joi.array().items(FieldValidator.isValidAmount()),
+        relativeAmounts: Joi.array().items(FieldValidator.isValidBigIntString()),
       }),
       recipient: FieldValidator.isValidEthAddress().required(),
       minAmount: FieldValidator.isValidAmount(),
