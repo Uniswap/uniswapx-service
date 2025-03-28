@@ -73,7 +73,7 @@ export async function updateParameters(
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
         count
       })
-    } else if(!validateParameters(pairData)) {
+    } else if(!validateParameters(pairData, log)) {
       log.info(`Unimind updateParameters: Parameters for pair ${pairKey} are invalid, updating with default parameters`) 
       await unimindParametersRepo.put({
         pair: pairKey,
@@ -186,18 +186,19 @@ export function getStatistics(orders: DutchV3OrderEntity[], log: Logger): Unimin
 
   for (const order of orders) {
     if (order.fillBlock && order.cosignerData?.decayStartBlock && order.priceImpact && 
-      (order.orderStatus === ORDER_STATUS.FILLED || order.orderStatus === ORDER_STATUS.EXPIRED)
-    ) {
-      if (order.orderStatus === ORDER_STATUS.FILLED) {
-        waitTimes.push(order.fillBlock - order.cosignerData.decayStartBlock);
-        fillStatuses.push(1);
-        log.info(`Unimind getStatistics: order ${order.orderHash} filled with wait time ${order.fillBlock - order.cosignerData.decayStartBlock}`)
-      } else {
-        waitTimes.push(undefined);
-        fillStatuses.push(0);
-        log.info(`Unimind getStatistics: order ${order.orderHash} expired, resulting in an undefined wait time`)
-      }
+      order.orderStatus === ORDER_STATUS.FILLED) {
+      waitTimes.push(order.fillBlock - order.cosignerData.decayStartBlock);
+      fillStatuses.push(1);
       priceImpacts.push(order.priceImpact);
+      log.info(`Unimind getStatistics: order ${order.orderHash} filled with wait time ${order.fillBlock - order.cosignerData.decayStartBlock}`)
+    } else if (order.priceImpact && order.orderStatus === ORDER_STATUS.EXPIRED) {
+      waitTimes.push(undefined);
+      fillStatuses.push(0);
+      priceImpacts.push(order.priceImpact);
+      log.info(`Unimind getStatistics: order ${order.orderHash} expired, resulting in an undefined wait time`)
+    } else {
+      log.warn(`Unimind getStatistics: order ${order.orderHash} cannot be used for statistics, skipping`)
+      continue;
     }
   }
 
@@ -244,12 +245,18 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   };
 }
 
-export function validateParameters(parameters: UnimindParameters): boolean {
-  //check that the intrinsic parameters are using the keys we're currently using in the algorithm
-  for (const key in JSON.parse(parameters.intrinsicValues)) {
-    if (!Object.keys(JSON.parse(DEFAULT_UNIMIND_PARAMETERS)).includes(key)) {
-      return false;
+export function validateParameters(parameters: UnimindParameters, log: Logger): boolean {
+  try {
+    const intrinsicValues = JSON.parse(parameters.intrinsicValues);
+    // Check that the intrinsic parameters are using the keys we're currently using in the algorithm
+    for (const key in intrinsicValues) {
+      if (!Object.keys(JSON.parse(DEFAULT_UNIMIND_PARAMETERS)).includes(key)) {
+        return false;
+      }
     }
+  } catch (error) {
+    log.error(`Unimind validateParameters: Error parsing intrinsic values: ${error}`)
+    return false;
   }
   return true;
 }
