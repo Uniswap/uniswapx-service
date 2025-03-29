@@ -81,6 +81,25 @@ export class UniversalRouterCalldata {
     return this;
   }
 
+  public modifyUnwrapRecipient(recipient: string): UniversalRouterCalldata {
+    const unwrapIndex = this.commandArray.findIndex(command => command == CommandType.UNWRAP_WETH);
+    if (unwrapIndex !== -1) {
+      const unwrapInput = this.inputsArray[unwrapIndex];
+      // Decode unwrap parameters
+      const [, amountMin] = defaultAbiCoder.decode(
+        ['address', 'uint256'],
+        unwrapInput
+      );
+      // Encode the parameters with new recipient address
+      const modifiedUnwrapInput = defaultAbiCoder.encode(
+        ['address', 'uint256'],
+        [recipient, amountMin]
+      );
+      this.inputsArray[unwrapIndex] = modifiedUnwrapInput;
+    }
+    return this;
+  }
+  
   public encode(): string {
     try {
       let modifiedCalldata;
@@ -111,6 +130,7 @@ export function artemisModifyCalldata(calldata: string, log: Logger, executeAddr
     return router
       .removePayPortionCommand()
       .modifySweepRecipient(executeAddress)
+      .modifyUnwrapRecipient(executeAddress)
       .encode();
   } catch (e) {
     log.error('Error in artemisModifyCalldata', {
