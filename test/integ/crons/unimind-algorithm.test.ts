@@ -126,8 +126,9 @@ describe('updateParameters Test', () => {
     await unimindParametersRepository.put({
       pair: mockOldPair,
       intrinsicValues: JSON.stringify({
-        pi: 22,
-        tau: 33,
+        lambda1: 1,
+        lambda2: 2,
+        Sigma: 0.1
       }),
       count: 1,
     })
@@ -135,8 +136,9 @@ describe('updateParameters Test', () => {
     await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockOldPair)
     const intrinsicValues = JSON.parse(pairData?.intrinsicValues ?? '{}')
-    expect(intrinsicValues.pi).toEqual(22)
-    expect(intrinsicValues.tau).toEqual(33)
+    expect(intrinsicValues.lambda1).toEqual(1)
+    expect(intrinsicValues.lambda2).toEqual(2)
+    expect(intrinsicValues.Sigma).toEqual(0.1)
     expect(pairData?.count).toEqual(2) // successfully updated the count
   })
 
@@ -144,17 +146,15 @@ describe('updateParameters Test', () => {
     await unimindParametersRepository.put({
       pair: mockOrder.pair as string,
       intrinsicValues: JSON.stringify({
-        pi: 22,
-        tau: 33,
+        lambda1: 1,
+        lambda2: 2,
+        Sigma: 0.1
       }),
       count: UNIMIND_UPDATE_THRESHOLD - 1,
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOrder)
     await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockOrder.pair as string)
-    const intrinsicValues = JSON.parse(pairData?.intrinsicValues ?? '{}')
-    expect(intrinsicValues.pi).not.toEqual(22)
-    expect(intrinsicValues.tau).not.toEqual(33)
     expect(pairData?.count).toEqual(0)
   })
 

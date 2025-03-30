@@ -97,8 +97,8 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   calculateParameters(unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
     const intrinsicValues = JSON.parse(unimindParameters.intrinsicValues)
     // Keeping intrinsic extrinsic naming for consistency with algorithm
-    const pi = intrinsicValues.pi * extrinsicValues.priceImpact
-    const tau = intrinsicValues.tau * extrinsicValues.priceImpact
+    const pi = intrinsicValues.lambda1 + intrinsicValues.lambda2 // random placeholder
+    const tau = intrinsicValues.Sigma + extrinsicValues.priceImpact // random placeholder
     return {
       pi,
       tau

@@ -26,11 +26,13 @@ export const REAPER_RANGES_PER_RUN = 10
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
 export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
-  pi: 5,
-  tau: 5
+  lambda1: 0,
+  lambda2: 5,
+  Sigma: 0.0003
 })
-export const UNIMIND_UPDATE_THRESHOLD = 25
+export const UNIMIND_UPDATE_THRESHOLD = 10
 export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
+// Direct pi and tau to use for curve; Not intrinsicValues
 export const PUBLIC_UNIMIND_PARAMETERS = {
   pi: 15,
   tau: 15

@@ -11,7 +11,7 @@ import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } fr
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { QueryResult } from '../repositories/base'
 import { ChainId } from '@uniswap/sdk-core'
-import { unimindAddressFilter } from '../util/unimind'
+import { unimindAddressFilter, unimindAlgorithm } from '../util/unimind'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -107,8 +107,10 @@ export async function updateParameters(
         })
         const intrinsicValues = JSON.parse(pairData.intrinsicValues)
         log.info(
-          `Unimind updateParameters: parameters for ${pairKey} updated from ${intrinsicValues.pi} and ${intrinsicValues.tau}` +
-          ` to ${updatedParameters.pi} and ${updatedParameters.tau} based on ${totalCount} recent orders`
+          `Unimind updateParameters: parameters for ${pairKey} updated from ` +
+          `${Object.entries(intrinsicValues).map(([key, value]) => `${key}: ${value}`).join(', ')} ` +
+          `to ${Object.entries(updatedParameters).map(([key, value]) => `${key}: ${value}`).join(', ')} ` +
+          `based on ${totalCount} recent orders`
         )
         metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)  
       } else {
@@ -173,7 +175,7 @@ function getOrderCountsByPair(
   return pairCounts;
 }
 
-interface UnimindStatistics {
+export interface UnimindStatistics {
   waitTimes: (number | undefined)[];
   fillStatuses: number[];
   priceImpacts: number[];
@@ -206,42 +208,6 @@ export function getStatistics(orders: DutchV3OrderEntity[], log: Logger): Unimin
     waitTimes,
     fillStatuses,
     priceImpacts
-  };
-}
-
-/**
- * @notice Adjusts Unimind parameters (pi and tau) based on historical order statistics
- * @param statistics Aggregated order data containing arrays of wait times, fill statuses, and price impacts
- * @param pairData Previous parameters (pi and tau) for the trading pair
- * @return Updated pi and tau parameters
- */
-export function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger) {
-  const objective_wait_time = 2;
-  const objective_fill_rate = 0.96;
-  const learning_rate = 2;
-  const auction_duration = 32;
-  const previousParameters = JSON.parse(pairData.intrinsicValues);
-
-  if (statistics.waitTimes.length === 0 || statistics.fillStatuses.length === 0 || statistics.priceImpacts.length === 0) {
-    return previousParameters;
-  }
-  // Set negative wait times to 0
-  statistics.waitTimes = statistics.waitTimes.map((waitTime) => (waitTime && waitTime < 0) ? 0 : waitTime);
-
-  const average_wait_time = statistics.waitTimes.reduce((a: number, b) => a + (b === undefined ? auction_duration : b), 0) / statistics.waitTimes.length;
-  const average_fill_rate = statistics.fillStatuses.reduce((a: number, b) => a + b, 0) / statistics.fillStatuses.length;
-  log.info(`Unimind unimindAlgorithm: average_wait_time: ${average_wait_time}, average_fill_rate: ${average_fill_rate}`)
-
-  const wait_time_proportion = (objective_wait_time - average_wait_time) / objective_wait_time;
-  const fill_rate_proportion = (objective_fill_rate - average_fill_rate) / objective_fill_rate;
-
-  const pi = previousParameters.pi + learning_rate * wait_time_proportion;
-  const tau = previousParameters.tau + learning_rate * fill_rate_proportion;
-
-  //return a record of pi and tau
-  return {
-    pi: pi,
-    tau: tau,
   };
 }
 
