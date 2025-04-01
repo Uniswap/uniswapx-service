@@ -2,6 +2,9 @@ import { UNIMIND_DEV_SWAPPER_ADDRESS } from "./constants";
 import { UnimindParameters } from "../repositories/unimind-parameters-repository";
 import { UnimindStatistics } from "../crons/unimind-algorithm";
 import { default as Logger } from 'bunyan'
+import { QuoteMetadata } from "../repositories/quote-metadata-repository";
+
+const length_of_auction_in_blocks = 32;
 
 export function unimindAddressFilter(address: string) {
   return address.toLowerCase() === UNIMIND_DEV_SWAPPER_ADDRESS.toLowerCase()
@@ -22,7 +25,6 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   const lambda1_learning_rate = 1;
   const lambda2_learning_rate = 1;
   const Sigma_learning_rate = 1;
-  // const length_of_auction_in_blocks = 32;
   // const decay_granularity_in_blocks = 1;
 
   const previousParameters = JSON.parse(pairData.intrinsicValues);
@@ -137,6 +139,29 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
     lambda2: lambda2_updated,
     Sigma: Sigma_updated
   };
+}
+
+export function computePi(intrinsicValues: any, extrinsicValues: QuoteMetadata) {
+  const price_impact_of_amm = extrinsicValues.priceImpact
+  const price_impact_filler = compute_price_impact_filler(price_impact_of_amm, intrinsicValues)
+  return (price_impact_of_amm- price_impact_filler) / (1 - price_impact_of_amm)
+}
+
+function compute_price_impact_filler(price_impact_of_amm: number, intrinsicValues: any) {
+  const lambda1 = intrinsicValues.lambda1
+  const lambda2 = intrinsicValues.lambda2
+
+  const Lambda2 = (2 / (1 + Math.exp(-lambda2))) - 1
+  const numerator = (1 - lambda1) * price_impact_of_amm * (1 - Lambda2)
+  const denominator = 1 + Lambda2 - 2 * Lambda2 * price_impact_of_amm
+
+  return lambda1 + (numerator / denominator)
+}
+
+export function computeTau(intrinsicValues: any, extrinsicValues: QuoteMetadata) {
+  const exp_Sigma = Math.exp(intrinsicValues.Sigma)
+  const tau = length_of_auction_in_blocks * exp_Sigma - computePi(intrinsicValues, extrinsicValues)
+  return tau
 }
 
 function J(wait_time: number, target_wait_time: number) {
