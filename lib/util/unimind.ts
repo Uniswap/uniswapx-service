@@ -18,10 +18,10 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   const target_fill_rate = 0.96;
   const target_wait_time = 2;
   // const alpha = 1;
-  // const beta = 1;
+  const beta = 1;
   const lambda1_learning_rate = 1;
   const lambda2_learning_rate = 1;
-  // const Sigma_learning_rate = 1;
+  const Sigma_learning_rate = 1;
   // const length_of_auction_in_blocks = 32;
   // const decay_granularity_in_blocks = 1;
 
@@ -73,13 +73,13 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
     const d_pi_d_PriceImpactFiller_value = d_pi_d_PriceImpactFiller(priceImpact);
     
     // Calculate lambda1 gradient
-    const d_filler_price_impact_d_lambda1_value = d_filler_price_impact_d_lambda1(priceImpact, lambda1);
-    const d_J_d_lambda1_value = d_J_d_WT_value * d_WT_d_pi_value * d_pi_d_PriceImpactFiller_value * d_filler_price_impact_d_lambda1_value;
+    const d_PriceImpactFiller_d_lambda1_value = d_PriceImpactFiller_d_lambda1(priceImpact, lambda2);
+    const d_J_d_lambda1_value = d_J_d_WT_value * d_WT_d_pi_value * d_pi_d_PriceImpactFiller_value * d_PriceImpactFiller_d_lambda1_value;
     
     // Calculate lambda2 gradient
-    const d_filler_price_impact_d_Lambda2_value = d_filler_price_impact_d_lambda2(lambda1, lambda2, priceImpact);
+    const d_PriceImpactFiller_d_Lambda2_value = d_PriceImpactFiller_d_Lambda2(lambda1, lambda2, priceImpact);
     const d_Lambda2_d_lambda2_value = d_Lambda2_d_lambda2(lambda2);
-    const d_J_d_lambda2_value = d_J_d_WT_value * d_WT_d_pi_value * d_pi_d_PriceImpactFiller_value * d_filler_price_impact_d_Lambda2_value * d_Lambda2_d_lambda2_value;
+    const d_J_d_lambda2_value = d_J_d_WT_value * d_WT_d_pi_value * d_pi_d_PriceImpactFiller_value * d_PriceImpactFiller_d_Lambda2_value * d_Lambda2_d_lambda2_value;
     
     return {
       costFunction,
@@ -102,6 +102,16 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   // Update parameters using gradient descent
   const lambda1_updated = lambda1 - lambda1_learning_rate * d_J_d_lambda1_avg;
   const lambda2_updated = lambda2 - lambda2_learning_rate * d_J_d_lambda2_avg;
+
+  // Update Sigma with fill rate
+  // Calculate average fill rate for the batch
+  const fill_rate = statistics.fillStatuses.reduce((sum, status) => sum + status, 0) / statistics.fillStatuses.length;
+
+  const d_J_d_FR = 2 * beta * (fill_rate - target_fill_rate);
+  const d_FR_d_Sigma = Math.log(0.00001); // Assume constant for now
+  const d_J_d_Sigma = d_J_d_FR * d_FR_d_Sigma;
+
+  const Sigma_updated = Sigma + Sigma_learning_rate * d_J_d_Sigma;
   
   // Log the updates with important context
   log.info({
@@ -112,6 +122,8 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
     lambda2_old: lambda2,
     lambda2_new: lambda2_updated,
     lambda2_gradient: d_J_d_lambda2_avg,
+    sigma_old: Sigma,
+    sigma_new: Sigma_updated,
     samples: gradients.length,
     targetFillRate: target_fill_rate,
     actualFillRate: statistics.fillStatuses.reduce((sum, status) => sum + status, 0) / statistics.fillStatuses.length,
@@ -123,7 +135,7 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   return {
     lambda1: lambda1_updated,
     lambda2: lambda2_updated,
-    Sigma: Sigma, // Keep Sigma fixed as per algorithm design
+    Sigma: Sigma_updated
   };
 }
 
@@ -131,14 +143,14 @@ function J(wait_time: number, target_wait_time: number) {
   return Math.pow(wait_time - target_wait_time, 2)
 }
 
-function d_filler_price_impact_d_lambda1(PriceImpactAmm: number, lambda1: number) {
-  const Lambda1 = remapLambda(lambda1);
-  const numerator = (1 + Lambda1) * (-1 + PriceImpactAmm)
-  const denominator = (-1 + Lambda1 * (-1 + 2 * PriceImpactAmm))
+function d_PriceImpactFiller_d_lambda1(PriceImpactAmm: number, lambda2: number) {
+  const Lambda2 = remapLambda(lambda2);
+  const numerator = (1 + Lambda2) * (-1 + PriceImpactAmm)
+  const denominator = (-1 + Lambda2 * (-1 + 2 * PriceImpactAmm))
   return numerator/denominator
 }
 
-function d_filler_price_impact_d_lambda2(lambda1: number, lambda2: number, PriceImpactAmm: number) {
+function d_PriceImpactFiller_d_Lambda2(lambda1: number, lambda2: number, PriceImpactAmm: number) {
   const Lambda2 = remapLambda(lambda2);
   const numerator = -2 * (-1 + lambda1) * (-1 + PriceImpactAmm) * PriceImpactAmm
   const denominator = (1 + Lambda2 - 2 * Lambda2 * PriceImpactAmm)**2
@@ -154,7 +166,8 @@ function d_Lambda2_d_lambda2(lambda2: number) {
 }
 
 function d_WT_d_pi(Sigma: number) {
-  return 1 / Sigma;
+  const exp_Sigma = Math.exp(Sigma)
+  return 1 / exp_Sigma;
 }
 
 function d_J_d_WT(WT: number, target_WT: number) {
