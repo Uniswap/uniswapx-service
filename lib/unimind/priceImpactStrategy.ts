@@ -135,8 +135,15 @@ export class PriceImpactStrategy implements IUnimindAlgorithm {
 
     public computePi(intrinsicValues: any, extrinsicValues: QuoteMetadata) {
         const price_impact_of_amm = extrinsicValues.priceImpact
-        const price_impact_filler = compute_price_impact_filler(price_impact_of_amm, intrinsicValues)
-        return (price_impact_of_amm- price_impact_filler) / (1 - price_impact_of_amm)
+        if (price_impact_of_amm == 1) { // Prevent division by 0
+            return 0;
+        }
+        try {
+            const price_impact_filler = compute_price_impact_filler(price_impact_of_amm, intrinsicValues)
+            return (price_impact_of_amm- price_impact_filler) / (1 - price_impact_of_amm)
+        } catch (error) {
+            return 0;
+        }
     }
 
     public computeTau(intrinsicValues: any, extrinsicValues: QuoteMetadata) {
@@ -155,6 +162,9 @@ function compute_price_impact_filler(price_impact_of_amm: number, intrinsicValue
 
     const numerator = (1 - lambda1) * price_impact_of_amm * (1 - Lambda2)
     const denominator = 1 + Lambda2 - 2 * Lambda2 * price_impact_of_amm
+    if (denominator == 0) {
+        throw new Error('Denominator is 0') // Will be handled by try/catch
+    }
   
     return lambda1 + (numerator / denominator)
 }
