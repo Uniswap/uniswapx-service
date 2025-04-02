@@ -11,7 +11,8 @@ import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } fr
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { QueryResult } from '../repositories/base'
 import { ChainId } from '@uniswap/sdk-core'
-import { unimindAddressFilter, unimindAlgorithm } from '../util/unimind'
+import { IUnimindAlgorithm, unimindAddressFilter } from '../util/unimind'
+import { PriceImpactStrategy } from '../unimind/priceImpactStrategy'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -26,9 +27,11 @@ async function main(metrics: MetricsLogger) {
     level: 'info',
   })
 
+  const strategy = new PriceImpactStrategy()
+
   const unimindParametersRepo = DynamoUnimindParametersRepository.create(new DynamoDB.DocumentClient())
   const ordersRepo = DutchOrdersRepository.create(new DynamoDB.DocumentClient()) as DutchOrdersRepository
-  await updateParameters(unimindParametersRepo, ordersRepo, log, metrics)
+  await updateParameters(strategy, unimindParametersRepo, ordersRepo, log, metrics)
 }
 
 /**
@@ -50,6 +53,7 @@ async function main(metrics: MetricsLogger) {
  * @param metrics Optional metrics logger for monitoring
  */
 export async function updateParameters(
+  strategy: IUnimindAlgorithm,
   unimindParametersRepo: UnimindParametersRepository,
   ordersRepo: DutchOrdersRepository,
   log: Logger, 
@@ -98,7 +102,7 @@ export async function updateParameters(
         ) as QueryResult<DutchV3OrderEntity>
         log.info(`Unimind updateParameters: Found ${pairOrders.orders.length} orders for pair ${pairKey}`)
         const statistics = getStatistics(pairOrders.orders, log)
-        const updatedParameters = unimindAlgorithm(statistics, pairData, log)
+        const updatedParameters = strategy.unimindAlgorithm(statistics, pairData, log)
         log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
         await unimindParametersRepo.put({
           pair: pairKey,

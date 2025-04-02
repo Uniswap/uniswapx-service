@@ -8,7 +8,8 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
 import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS } from '../../util/constants'
-import { computePi, computeTau, unimindAddressFilter } from '../../util/unimind'
+import { IUnimindAlgorithm, unimindAddressFilter } from '../../util/unimind'
+import { PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 
 type UnimindResponse = {
   pi: number
@@ -75,7 +76,8 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       }
 
       const beforeCalculateTime = Date.now()
-      const parameters = this.calculateParameters(unimindParameters, quoteMetadata)
+      const strategy = new PriceImpactStrategy()
+      const parameters = this.calculateParameters(strategy, unimindParameters, quoteMetadata)
       // TODO: Add condition for not using Unimind with bad parameters
       const afterCalculateTime = Date.now()
       const calculateTime = afterCalculateTime - beforeCalculateTime
@@ -94,11 +96,11 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
     }
   }
 
-  calculateParameters(unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
+  calculateParameters(strategy: IUnimindAlgorithm, unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
     const intrinsicValues = JSON.parse(unimindParameters.intrinsicValues)
     // Keeping intrinsic extrinsic naming for consistency with algorithm
-    const pi = computePi(intrinsicValues, extrinsicValues)
-    const tau = computeTau(intrinsicValues, extrinsicValues)
+    const pi = strategy.computePi(intrinsicValues, extrinsicValues)
+    const tau = strategy.computeTau(intrinsicValues, extrinsicValues)
     return {
       pi,
       tau

@@ -1,10 +1,10 @@
 import Logger from 'bunyan';
 import { getStatistics } from '../../../lib/crons/unimind-algorithm';
-import { unimindAlgorithm } from '../../../lib/util/unimind';
 import { DutchV3OrderEntity } from '../../../lib/entities';
 import { ORDER_STATUS } from '../../../lib/entities/Order';
 import { mock } from 'jest-mock-extended';
 import { UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
+import { PriceImpactStrategy } from '../../../lib/unimind/priceImpactStrategy';
 
 describe('unimind-algorithm', () => {
   const log = mock<Logger>()
@@ -118,16 +118,17 @@ describe('unimind-algorithm', () => {
   });
 
   describe('unimindAlgorithm', () => {
+    const strategy = new PriceImpactStrategy()
     it('should return the same parameters if the statistics are empty', () => {
       const previousParameters = { intrinsicValues: JSON.stringify({ pi: 0.5, tau: 0.5 }), pair: '0x000-0x111-123', count: 25 };
       const statistics = { waitTimes: [], fillStatuses: [], priceImpacts: [] };
-      const result = unimindAlgorithm(statistics, previousParameters, log);
+      const result = strategy.unimindAlgorithm(statistics, previousParameters, log);
       expect(result).toEqual(JSON.parse(previousParameters.intrinsicValues));
     });
     it('should treat negative wait times as 0', () => {
       const previousParameters = { intrinsicValues: JSON.stringify({ pi: 0.5, tau: 0.5 }), pair: '0x000-0x111-123', count: 25 };
       const statistics = { waitTimes: [-1, 1, 2], fillStatuses: [1, 1, 1], priceImpacts: [0.01, 0.02, 0.03] };
-      unimindAlgorithm(statistics, previousParameters, log);
+      strategy.unimindAlgorithm(statistics, previousParameters, log);
       expect(statistics.waitTimes).toEqual([0, 1, 2]);
     });
     // TODO: Get test case to confirm
@@ -150,35 +151,34 @@ describe('unimind-algorithm', () => {
       expect(result.pi).toBeCloseTo(-1);
     });
     */
-  });
-
-  it('small price impact strategy test', () => {
-    const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: -9.210340371976182}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
-    const statistics = {
-      priceImpacts: [0.337679, 0.656096, 0.722515, 0.586959, 0.618894, 0.691221, 0.339553, 0.075393, 0.455130, 0.371522],
-      waitTimes: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      fillStatuses: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    }
-    const result = unimindAlgorithm(statistics, intrinsicValues, log);
-    // Test that they match to 5 decimal places
-    expect(result.lambda1).toBeCloseTo(-0.8926286443665061, 5)
-    expect(result.lambda2).toBeCloseTo(8.455536567148847, 5)
-    expect(result.Sigma).toBeCloseTo(-10.131374409173803, 5)
-  });
-  
-  it('price impact strategy test', () => {
-    const priceImpacts = [0.71326195, 0.37776453, 0.65712047, 0.36153418, 0.44643393, 0.65690826, 0.47046204, 0.60366931, 0.5534904, 0.53127909, 0.54423512, 0.6519417, 0.62022089, 0.28424546, 0.49078837, 0.60291282, 0.31713279, 0.31788921, 0.70893846, 0.56324037, 0.53515316, 0.3600114, 0.69551742, 0.5028837, 0.06034174, 0.42604586, 0.51818982, 0.40301666, 0.67997543, 0.54954659, 0.63586809, 0.62746431, 0.44801485, 0.6205618, 0.70626297, 0.56774624, 0.37786426, 0.61479227, 0.42824314, 0.61774944, 0.70264211, 0.69505023, 0.45516844, 0.64302736, 0.23470843, 0.2429946, 0.39499266, 0.44837317, 0.59333055, 0.35663519, 0.65081785, 0.7032589, 0.2596255, 0.41386369, 0.21869225, 0.64201201, 0.7104847, 0.71655709, 0.32122751, 0.43039179, 0.65179817, 0.06391489, 0.66003474, 0.02740532, 0.59078206, 0.51044364, 0.7225811, 0.49290612, 0.11821516, 0.63689742]
-    const fillStatuses = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
-    const waitTimes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, undefined, undefined, undefined, undefined, undefined, 0, 0, 0, 0, 0, 0, 0, 8, 0, 6, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 3, 0, 2, 0, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0];
-    const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: -9.210340371976182}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
-    const statistics = {
-      priceImpacts,
-      waitTimes,
-      fillStatuses
-    }
-    const result = unimindAlgorithm(statistics, intrinsicValues, log);
-    expect(result.lambda1).toBeCloseTo(-0.7343412540547882, 5)
-    expect(result.lambda2).toBeCloseTo(8.413365316358917, 5)
-    expect(result.Sigma).toBeCloseTo(-8.486670771320908, 5)
+    it('small price impact strategy test', () => {
+      const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: -9.210340371976182}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
+      const statistics = {
+        priceImpacts: [0.337679, 0.656096, 0.722515, 0.586959, 0.618894, 0.691221, 0.339553, 0.075393, 0.455130, 0.371522],
+        waitTimes: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        fillStatuses: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+      }
+      const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
+      // Test that they match to 5 decimal places
+      expect(result.lambda1).toBeCloseTo(-0.8926286443665061, 5)
+      expect(result.lambda2).toBeCloseTo(8.455536567148847, 5)
+      expect(result.Sigma).toBeCloseTo(-10.131374409173803, 5)
+    });
+    
+    it('price impact strategy test', () => {
+      const priceImpacts = [0.71326195, 0.37776453, 0.65712047, 0.36153418, 0.44643393, 0.65690826, 0.47046204, 0.60366931, 0.5534904, 0.53127909, 0.54423512, 0.6519417, 0.62022089, 0.28424546, 0.49078837, 0.60291282, 0.31713279, 0.31788921, 0.70893846, 0.56324037, 0.53515316, 0.3600114, 0.69551742, 0.5028837, 0.06034174, 0.42604586, 0.51818982, 0.40301666, 0.67997543, 0.54954659, 0.63586809, 0.62746431, 0.44801485, 0.6205618, 0.70626297, 0.56774624, 0.37786426, 0.61479227, 0.42824314, 0.61774944, 0.70264211, 0.69505023, 0.45516844, 0.64302736, 0.23470843, 0.2429946, 0.39499266, 0.44837317, 0.59333055, 0.35663519, 0.65081785, 0.7032589, 0.2596255, 0.41386369, 0.21869225, 0.64201201, 0.7104847, 0.71655709, 0.32122751, 0.43039179, 0.65179817, 0.06391489, 0.66003474, 0.02740532, 0.59078206, 0.51044364, 0.7225811, 0.49290612, 0.11821516, 0.63689742]
+      const fillStatuses = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+      const waitTimes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, undefined, undefined, undefined, undefined, undefined, 0, 0, 0, 0, 0, 0, 0, 8, 0, 6, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 3, 0, 2, 0, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0];
+      const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: -9.210340371976182}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
+      const statistics = {
+        priceImpacts,
+        waitTimes,
+        fillStatuses
+      }
+      const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
+      expect(result.lambda1).toBeCloseTo(-0.7343412540547882, 5)
+      expect(result.lambda2).toBeCloseTo(8.413365316358917, 5)
+      expect(result.Sigma).toBeCloseTo(-8.486670771320908, 5)
+    });
   });
 });
