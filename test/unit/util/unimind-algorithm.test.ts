@@ -4,6 +4,7 @@ import { unimindAlgorithm } from '../../../lib/util/unimind';
 import { DutchV3OrderEntity } from '../../../lib/entities';
 import { ORDER_STATUS } from '../../../lib/entities/Order';
 import { mock } from 'jest-mock-extended';
+import { UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
 
 describe('unimind-algorithm', () => {
   const log = mock<Logger>()
@@ -149,5 +150,18 @@ describe('unimind-algorithm', () => {
       expect(result.pi).toBeCloseTo(-1);
     });
     */
+  });
+  
+  it('price impact strategy test', () => {
+    const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: -9.210340371976182}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
+    const statistics = {
+      priceImpacts: [0.713262, 0.377765, 0.657120, 0.361534, 0.446434, 0.656908, 0.470462, 0.603669, 0.553490, 0.531279, 0.544235, 0.651942, 0.620221, 0.284245, 0.490788, 0.602913, 0.317133, 0.317889, 0.708938, 0.563240, 0.535153, 0.360011, 0.695517, 0.502884, 0.060342, 0.426046, 0.518190, 0.403017, 0.679975, 0.549547, 0.635868, 0.627464, 0.448015, 0.620562, 0.706263, 0.567746, 0.377864, 0.614792, 0.428243, 0.617749, 0.702642, 0.695050, 0.455168, 0.643027, 0.234708, 0.242995, 0.394993, 0.448373, 0.593331, 0.356635, 0.650818, 0.703259, 0.259625, 0.413864, 0.218692, 0.642012, 0.710485, 0.716557, 0.321228, 0.430392, 0.651798, 0.063915, 0.660035, 0.027405, 0.590782, 0.510444, 0.722581, 0.492906, 0.118215, 0.636897],
+      waitTimes: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, undefined, undefined, undefined, undefined, undefined, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 8.0, 0.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 3.0, 0.0, 2.0, 0.0, 2.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+      fillStatuses: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    }
+    const result = unimindAlgorithm(statistics, intrinsicValues, log);
+    expect(result.lambda1).toEqual(-2.5599464604107958)
+    expect(result.lambda2).toEqual(9.337889150589335)
+    expect(result.Sigma).toEqual(-9.868221827117335)
   });
 });
