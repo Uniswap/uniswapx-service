@@ -5,6 +5,9 @@ import { IUnimindAlgorithm } from "../util/unimind";
 import { QuoteMetadata } from '../repositories/quote-metadata-repository';
 
 export class PriceImpactStrategy implements IUnimindAlgorithm {
+    private length_of_auction_in_blocks = 32;
+    private D_FR_D_SIGMA = Math.log(0.00001);
+
     public unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger): any {
         // Algorithm constants
         const target_fill_rate = 0.96;
@@ -99,7 +102,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm {
         const fill_rate = statistics.fillStatuses.reduce((sum, status) => sum + status, 0) / statistics.fillStatuses.length;
 
         const d_J_d_FR = 2 * beta * (fill_rate - target_fill_rate);
-        const d_FR_d_Sigma = Math.log(0.00001); // Assume constant for now
+        const d_FR_d_Sigma = this.D_FR_D_SIGMA;
         const d_J_d_Sigma = d_J_d_FR * d_FR_d_Sigma;
 
         const Sigma_updated = Sigma + Sigma_learning_rate * d_J_d_Sigma;
@@ -138,18 +141,18 @@ export class PriceImpactStrategy implements IUnimindAlgorithm {
 
     public computeTau(intrinsicValues: any, extrinsicValues: QuoteMetadata) {
         const exp_Sigma = Math.exp(intrinsicValues.Sigma)
-        const tau = length_of_auction_in_blocks * exp_Sigma - this.computePi(intrinsicValues, extrinsicValues)
+        const tau = this.length_of_auction_in_blocks * exp_Sigma - this.computePi(intrinsicValues, extrinsicValues)
         return tau
     }
 }
-
-const length_of_auction_in_blocks = 32;
 
 function compute_price_impact_filler(price_impact_of_amm: number, intrinsicValues: any) {
     const lambda1 = intrinsicValues.lambda1
     const lambda2 = intrinsicValues.lambda2
   
+    // Map lambda2 to a range between -1 and 1
     const Lambda2 = (2 / (1 + Math.exp(-lambda2))) - 1
+
     const numerator = (1 - lambda1) * price_impact_of_amm * (1 - Lambda2)
     const denominator = 1 + Lambda2 - 2 * Lambda2 * price_impact_of_amm
   
