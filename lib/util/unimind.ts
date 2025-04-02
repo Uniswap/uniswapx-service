@@ -22,8 +22,8 @@ export function unimindAlgorithm(statistics: UnimindStatistics, pairData: Unimin
   const target_wait_time = 2;
   // const alpha = 1;
   const beta = 1;
-  const lambda1_learning_rate = 1;
-  const lambda2_learning_rate = 1;
+  const lambda1_learning_rate = 1e-5;
+  const lambda2_learning_rate = 1e-2;
   const Sigma_learning_rate = 1;
   // const decay_granularity_in_blocks = 1;
 
