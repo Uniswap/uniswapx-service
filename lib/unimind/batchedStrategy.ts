@@ -2,9 +2,16 @@ import { UnimindStatistics } from "../crons/unimind-algorithm";
 import { QuoteMetadata } from "../repositories/quote-metadata-repository";
 import { UnimindParameters } from "../repositories/unimind-parameters-repository";
 import { IUnimindAlgorithm } from "../util/unimind";
+import { default as Logger } from 'bunyan'
 
-export class BatchedStrategy implements IUnimindAlgorithm {
-    public unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: import("bunyan")) {
+export type BatchedIntrinsicParameters = {
+    pi: number;
+    tau: number;
+}
+
+export class BatchedStrategy implements IUnimindAlgorithm<BatchedIntrinsicParameters> {
+  
+    public unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger): BatchedIntrinsicParameters {
         const objective_wait_time = 2;
         const objective_fill_rate = 0.96;
         const learning_rate = 2;
@@ -34,11 +41,11 @@ export class BatchedStrategy implements IUnimindAlgorithm {
         };
     }
 
-    public computePi(intrinsicValues: any, extrinsicValues: QuoteMetadata): number {
+    public computePi(intrinsicValues: BatchedIntrinsicParameters, extrinsicValues: QuoteMetadata): number {
         return intrinsicValues.pi * extrinsicValues.priceImpact
     }
 
-    public computeTau(intrinsicValues: any, extrinsicValues: QuoteMetadata): number {
+    public computeTau(intrinsicValues: BatchedIntrinsicParameters, extrinsicValues: QuoteMetadata): number {
         return intrinsicValues.tau * extrinsicValues.priceImpact
     }
 }

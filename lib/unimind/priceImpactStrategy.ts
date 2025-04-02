@@ -4,11 +4,17 @@ import { UnimindParameters } from "../repositories/unimind-parameters-repository
 import { IUnimindAlgorithm } from "../util/unimind";
 import { QuoteMetadata } from '../repositories/quote-metadata-repository';
 
-export class PriceImpactStrategy implements IUnimindAlgorithm {
+export type PriceImpactIntrinsicParameters = {
+    lambda1: number;
+    lambda2: number;
+    Sigma: number;
+}
+
+export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrinsicParameters> {
     private length_of_auction_in_blocks = 32;
     private D_FR_D_SIGMA = Math.log(0.00001);
 
-    public unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger): any {
+    public unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger): PriceImpactIntrinsicParameters {
         // Algorithm constants
         const target_fill_rate = 0.96;
         const target_wait_time_in_blocks = 2;
@@ -133,7 +139,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm {
         };
     }
 
-    public computePi(intrinsicValues: any, extrinsicValues: QuoteMetadata) {
+    public computePi(intrinsicValues: PriceImpactIntrinsicParameters, extrinsicValues: QuoteMetadata): number {
         const price_impact_of_amm = extrinsicValues.priceImpact
         if (price_impact_of_amm == 1) { // Prevent division by 0
             return 0;
@@ -146,14 +152,14 @@ export class PriceImpactStrategy implements IUnimindAlgorithm {
         }
     }
 
-    public computeTau(intrinsicValues: any, extrinsicValues: QuoteMetadata) {
+    public computeTau(intrinsicValues: PriceImpactIntrinsicParameters, extrinsicValues: QuoteMetadata): number {
         const exp_Sigma = Math.exp(intrinsicValues.Sigma)
         const tau = this.length_of_auction_in_blocks * exp_Sigma - this.computePi(intrinsicValues, extrinsicValues)
         return tau
     }
 }
 
-function compute_price_impact_filler(price_impact_of_amm: number, intrinsicValues: any) {
+function compute_price_impact_filler(price_impact_of_amm: number, intrinsicValues: PriceImpactIntrinsicParameters) {
     const lambda1 = intrinsicValues.lambda1
     const lambda2 = intrinsicValues.lambda2
   
