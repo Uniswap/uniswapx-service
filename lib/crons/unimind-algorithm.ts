@@ -11,8 +11,8 @@ import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } fr
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { QueryResult } from '../repositories/base'
 import { ChainId } from '@uniswap/sdk-core'
-import { IUnimindAlgorithm, unimindAddressFilter } from '../util/unimind'
-import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../unimind/priceImpactStrategy'
+import { unimindAddressFilter } from '../util/unimind'
+import { PriceImpactStrategy } from '../unimind/priceImpactStrategy'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -101,7 +101,7 @@ export async function updateParameters(
         log.info(`Unimind updateParameters: Found ${pairOrders.orders.length} orders for pair ${pairKey}`)
         const statistics = getStatistics(pairOrders.orders, log)
         const strategy = new PriceImpactStrategy()
-        const updatedParameters = strategy.unimindAlgorithm<PriceImpactIntrinsicParameters>(statistics, pairData, log)
+        const updatedParameters = strategy.unimindAlgorithm(statistics, pairData, log)
         log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
         await unimindParametersRepo.put({
           pair: pairKey,

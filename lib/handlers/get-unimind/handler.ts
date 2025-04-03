@@ -9,7 +9,7 @@ import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
 import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS } from '../../util/constants'
 import { IUnimindAlgorithm, unimindAddressFilter } from '../../util/unimind'
-import { PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
+import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 
 type UnimindResponse = {
   pi: number
@@ -96,7 +96,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
     }
   }
 
-  calculateParameters(strategy: IUnimindAlgorithm, unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
+  calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntrinsicParameters>, unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
     const intrinsicValues = JSON.parse(unimindParameters.intrinsicValues)
     // Keeping intrinsic extrinsic naming for consistency with algorithm
     const pi = strategy.computePi(intrinsicValues, extrinsicValues)

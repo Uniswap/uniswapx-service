@@ -6,7 +6,6 @@ import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-re
 import { DutchV3OrderEntity, ORDER_STATUS } from '../../../lib/entities'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants'
-import { PriceImpactStrategy } from '../../../lib/unimind/priceImpactStrategy'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -19,7 +18,6 @@ const dynamoConfig = {
   },
 }
 
-const strategy = new PriceImpactStrategy()
 const documentClient = new DocumentClient(dynamoConfig)
 const unimindParametersRepository = DynamoUnimindParametersRepository.create(documentClient)
 const ordersTable = DutchOrdersRepository.create(documentClient) as DutchOrdersRepository
@@ -116,7 +114,7 @@ describe('updateParameters Test', () => {
 
   it('should update unimind parameters for a new pair with default parameters', async () => {
     await ordersTable.putOrderAndUpdateNonceTransaction(mockNewPairOrder)
-    await updateParameters(strategy, unimindParametersRepository, ordersTable, log)
+    await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockNewPair)
     expect(pairData).toBeDefined()
     const intrinsicValues = JSON.parse(pairData?.intrinsicValues ?? '{}')
@@ -135,7 +133,7 @@ describe('updateParameters Test', () => {
       count: 1,
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOldPairOrder)
-    await updateParameters(strategy,unimindParametersRepository, ordersTable, log)
+    await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockOldPair)
     const intrinsicValues = JSON.parse(pairData?.intrinsicValues ?? '{}')
     expect(intrinsicValues.lambda1).toEqual(1)
@@ -155,7 +153,7 @@ describe('updateParameters Test', () => {
       count: UNIMIND_UPDATE_THRESHOLD - 1,
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOrder)
-    await updateParameters(strategy, unimindParametersRepository, ordersTable, log)
+    await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockOrder.pair as string)
     expect(pairData?.count).toEqual(0)
   })
@@ -167,7 +165,7 @@ describe('updateParameters Test', () => {
       pair: failPair,
       offerer: '0x1234', // does not pass unimind address filter
     })
-    await updateParameters(strategy, unimindParametersRepository, ordersTable, log)
+    await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(failPair)
     expect(pairData).toBeUndefined()
   })
