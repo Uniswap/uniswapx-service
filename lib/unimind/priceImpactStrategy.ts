@@ -36,6 +36,16 @@ export class PriceImpactStrategy implements IUnimindAlgorithm {
         const lambda1 = previousParameters.lambda1;
         const lambda2 = previousParameters.lambda2;
         const Sigma = previousParameters.Sigma;
+
+        // Update Sigma with fill rate
+        // Calculate average fill rate for the batch
+        const fill_rate = statistics.fillStatuses.reduce((sum, status) => sum + status, 0) / statistics.fillStatuses.length;
+
+        const d_J_d_FR = 2 * beta * (fill_rate - target_fill_rate);
+        const d_FR_d_Sigma = this.D_FR_D_SIGMA;
+        const d_J_d_Sigma = d_J_d_FR * d_FR_d_Sigma;
+
+        const Sigma_updated = Sigma + Sigma_learning_rate * d_J_d_Sigma;
         
         // Create array of valid data points (the calculation is based on filled orders)
         const validDataPoints: { waitTime: number, priceImpact: number, fillStatus: number }[] = [];
@@ -82,30 +92,24 @@ export class PriceImpactStrategy implements IUnimindAlgorithm {
             };
         });
         
-        // If we have no valid data points, return previous parameters
+        let avgCostFunction;
+        let d_J_d_lambda1_avg;
+        let d_J_d_lambda2_avg;
+        let lambda1_updated;
+        let lambda2_updated;
         if (gradients.length === 0) {
-            log.warn('No valid data points for Unimind algorithm, keeping previous parameters');
-            return previousParameters;
+            lambda1_updated = lambda1;
+            lambda2_updated = lambda2;
+        } else {
+            // Calculate average cost function and gradients
+            avgCostFunction = gradients.reduce((sum, g) => sum + g.costFunction, 0) / gradients.length;
+            d_J_d_lambda1_avg = gradients.reduce((sum, g) => sum + g.d_J_d_lambda1, 0) / gradients.length;
+            d_J_d_lambda2_avg = gradients.reduce((sum, g) => sum + g.d_J_d_lambda2, 0) / gradients.length;
+            
+            // Update parameters using gradient descent
+            lambda1_updated = lambda1 - lambda1_learning_rate * d_J_d_lambda1_avg;
+            lambda2_updated = lambda2 - lambda2_learning_rate * d_J_d_lambda2_avg;
         }
-        
-        // Calculate average cost function and gradients
-        const avgCostFunction = gradients.reduce((sum, g) => sum + g.costFunction, 0) / gradients.length;
-        const d_J_d_lambda1_avg = gradients.reduce((sum, g) => sum + g.d_J_d_lambda1, 0) / gradients.length;
-        const d_J_d_lambda2_avg = gradients.reduce((sum, g) => sum + g.d_J_d_lambda2, 0) / gradients.length;
-        
-        // Update parameters using gradient descent
-        const lambda1_updated = lambda1 - lambda1_learning_rate * d_J_d_lambda1_avg;
-        const lambda2_updated = lambda2 - lambda2_learning_rate * d_J_d_lambda2_avg;
-
-        // Update Sigma with fill rate
-        // Calculate average fill rate for the batch
-        const fill_rate = statistics.fillStatuses.reduce((sum, status) => sum + status, 0) / statistics.fillStatuses.length;
-
-        const d_J_d_FR = 2 * beta * (fill_rate - target_fill_rate);
-        const d_FR_d_Sigma = this.D_FR_D_SIGMA;
-        const d_J_d_Sigma = d_J_d_FR * d_FR_d_Sigma;
-
-        const Sigma_updated = Sigma + Sigma_learning_rate * d_J_d_Sigma;
         
         // Log the updates with important context
         log.info({
