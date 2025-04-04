@@ -13,11 +13,11 @@ export type PriceImpactIntrinsicParameters = {
 export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrinsicParameters> {
     // Algorithm constants
     private TARGET_FILL_RATE = 0.96;
-    private TARGET_WAIT_TIME_IN_BLOCKS = 2;
+    private TARGET_WAIT_TIME_IN_BLOCKS = 4;
     private BETA = 1;
-    private LAMBDA1_LEARNING_RATE = 1e-5;
-    private LAMBDA2_LEARNING_RATE = 1e-2;
-    private SIGMA_LEARNING_RATE = 1;
+    private LAMBDA1_LEARNING_RATE = 1e-10;
+    private LAMBDA2_LEARNING_RATE = 1e-1;
+    private SIGMA_LEARNING_RATE = 1e-1;
 
     private LENGTH_OF_AUCTION_IN_BLOCKS = 32;
     private D_FR_D_SIGMA = Math.log(0.00001);
