@@ -195,7 +195,8 @@ export function getStatistics(orders: DutchV3OrderEntity[], log: Logger): Unimin
       waitTimes.push(order.fillBlock - order.cosignerData.decayStartBlock);
       fillStatuses.push(1);
       priceImpacts.push(order.priceImpact);
-      log.info(`Unimind getStatistics: order ${order.orderHash} filled with wait time ${order.fillBlock - order.cosignerData.decayStartBlock}`)
+      log.info(`Unimind getStatistics: order ${order.orderHash} filled with wait time ${order.fillBlock - order.cosignerData.decayStartBlock}.` + 
+               ` Its price impact was ${order.priceImpact}`)
     } else if (order.priceImpact && order.orderStatus === ORDER_STATUS.EXPIRED) {
       waitTimes.push(undefined);
       fillStatuses.push(0);
