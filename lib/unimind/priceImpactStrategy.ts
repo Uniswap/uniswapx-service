@@ -56,7 +56,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         
         // Calculate and apply gradients to update lambda parameters
         const { lambda1_updated, lambda2_updated, avgCostFunction, gradientInfo } = 
-            this.updateLambdaParameters(validDataPoints, lambda1, lambda2, Sigma);
+            this.updateLambdaParameters(validDataPoints, lambda1, lambda2, Sigma, log);
         
         // Log the updates with important context
         log.info({
@@ -130,7 +130,8 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         validDataPoints: { waitTime: number, priceImpact: number, fillStatus: number }[],
         lambda1: number,
         lambda2: number,
-        Sigma: number
+        Sigma: number,
+        log: Logger
     ): { 
         lambda1_updated: number, 
         lambda2_updated: number, 
@@ -151,7 +152,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
 
         // Calculate gradients for each filled order
         const gradients = validDataPoints.map(({ waitTime, priceImpact }) => {
-            return this.calculateGradients(waitTime, priceImpact, lambda1, lambda2, Sigma);
+            return this.calculateGradients(waitTime, priceImpact, lambda1, lambda2, Sigma, log);
         });
         
         // Calculate average cost function and gradients
@@ -179,12 +180,27 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         priceImpact: number, 
         lambda1: number, 
         lambda2: number, 
-        Sigma: number
+        Sigma: number,
+        log: Logger
     ): { 
         costFunction: number, 
         d_J_d_lambda1: number, 
         d_J_d_lambda2: number 
     } {
+        // Log input values to help debug
+        log.info({
+            waitTime,
+            priceImpact,
+            lambda1,
+            lambda2,
+            Sigma,
+            isWaitTimeValid: !isNaN(waitTime) && waitTime !== undefined,
+            isPriceImpactValid: !isNaN(priceImpact) && priceImpact !== undefined,
+            isLambda1Valid: !isNaN(lambda1) && lambda1 !== undefined,
+            isLambda2Valid: !isNaN(lambda2) && lambda2 !== undefined,
+            isSigmaValid: !isNaN(Sigma) && Sigma !== undefined
+        }, 'calculateGradients - Input values');
+
         // Calculate cost function for this data point
         const costFunction = this.calculateCostFunction(waitTime);
         
@@ -193,16 +209,39 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         const d_WT_d_pi_value = this.calculateD_WT_D_Pi(Sigma);
         const d_pi_d_PriceImpactFiller_value = this.calculateD_Pi_D_PriceImpactFiller(priceImpact);
         
+        // Log intermediate derivative values
+        log.info({
+            costFunction,
+            d_J_d_WT_value,
+            d_WT_d_pi_value,
+            d_pi_d_PriceImpactFiller_value,
+            isCostFunctionValid: !isNaN(costFunction) && costFunction !== undefined,
+            isD_J_D_WT_Valid: !isNaN(d_J_d_WT_value) && d_J_d_WT_value !== undefined,
+            isD_WT_D_Pi_Valid: !isNaN(d_WT_d_pi_value) && d_WT_d_pi_value !== undefined,
+            isD_Pi_D_PriceImpactFiller_Valid: !isNaN(d_pi_d_PriceImpactFiller_value) && d_pi_d_PriceImpactFiller_value !== undefined
+        }, 'calculateGradients - Intermediate values');
+        
         // Calculate lambda1 gradient
         const d_PriceImpactFiller_d_lambda1_value = this.calculateD_PriceImpactFiller_D_Lambda1(priceImpact, lambda2);
         const d_J_d_lambda1_value = d_J_d_WT_value * d_WT_d_pi_value * 
             d_pi_d_PriceImpactFiller_value * d_PriceImpactFiller_d_lambda1_value;
         
+        log.info({
+            d_PriceImpactFiller_d_lambda1_value,
+            d_J_d_lambda1_value
+        }, 'calculateGradients - Intermediate values (lambda1)');
+
         // Calculate lambda2 gradient
         const d_PriceImpactFiller_d_Lambda2_value = this.calculateD_PriceImpactFiller_D_Lambda2(lambda1, lambda2, priceImpact);
         const d_Lambda2_d_lambda2_value = this.calculateD_Lambda2_D_Lambda2(lambda2);
         const d_J_d_lambda2_value = d_J_d_WT_value * d_WT_d_pi_value * 
             d_pi_d_PriceImpactFiller_value * d_PriceImpactFiller_d_Lambda2_value * d_Lambda2_d_lambda2_value;
+        
+        log.info({
+            d_PriceImpactFiller_d_Lambda2_value,
+            d_Lambda2_d_lambda2_value,
+            d_J_d_lambda2_value
+        }, 'calculateGradients - Intermediate values (lambda2)');
         
         return {
             costFunction,
