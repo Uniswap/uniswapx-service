@@ -194,11 +194,11 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
             lambda1,
             lambda2,
             Sigma,
-            isWaitTimeValid: !isNaN(waitTime) && waitTime !== undefined,
-            isPriceImpactValid: !isNaN(priceImpact) && priceImpact !== undefined,
-            isLambda1Valid: !isNaN(lambda1) && lambda1 !== undefined,
-            isLambda2Valid: !isNaN(lambda2) && lambda2 !== undefined,
-            isSigmaValid: !isNaN(Sigma) && Sigma !== undefined
+            isWaitTimeValid: !isNaN(waitTime),
+            isPriceImpactValid: !isNaN(priceImpact),
+            isLambda1Valid: !isNaN(lambda1),
+            isLambda2Valid: !isNaN(lambda2),
+            isSigmaValid: !isNaN(Sigma)
         }, 'calculateGradients - Input values');
 
         // Calculate cost function for this data point
@@ -215,10 +215,10 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
             d_J_d_WT_value,
             d_WT_d_pi_value,
             d_pi_d_PriceImpactFiller_value,
-            isCostFunctionValid: !isNaN(costFunction) && costFunction !== undefined,
-            isD_J_D_WT_Valid: !isNaN(d_J_d_WT_value) && d_J_d_WT_value !== undefined,
-            isD_WT_D_Pi_Valid: !isNaN(d_WT_d_pi_value) && d_WT_d_pi_value !== undefined,
-            isD_Pi_D_PriceImpactFiller_Valid: !isNaN(d_pi_d_PriceImpactFiller_value) && d_pi_d_PriceImpactFiller_value !== undefined
+            isCostFunctionValid: !isNaN(costFunction),
+            isD_J_D_WT_Valid: !isNaN(d_J_d_WT_value),
+            isD_WT_D_Pi_Valid: !isNaN(d_WT_d_pi_value),
+            isD_Pi_D_PriceImpactFiller_Valid: !isNaN(d_pi_d_PriceImpactFiller_value)
         }, 'calculateGradients - Intermediate values');
         
         // Calculate lambda1 gradient
