@@ -37,7 +37,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         const { waitTimes, fillStatuses, priceImpacts } = statistics;
 
         // This strategy uses price impact as a fraction, not a percentage, so we need to remap it
-        const priceImpactsAbsolute = priceImpacts.map(pi => pi / 100);
+        const priceImpactFractions = priceImpacts.map(pi => pi / 100);
         
         // Extract current parameters
         const lambda1 = previousParameters.lambda1;
@@ -48,7 +48,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         const Sigma_updated = this.updateSigma(fillStatuses, Sigma);
         
         // Create array of valid data points
-        const validDataPoints = this.collectValidDataPoints(waitTimes, fillStatuses, priceImpactsAbsolute);
+        const validDataPoints = this.collectValidDataPoints(waitTimes, fillStatuses, priceImpactFractions);
         
         // Log stats about what data we're using
         log.info({
