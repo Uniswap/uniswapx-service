@@ -23,3 +23,5 @@ export const UR_FUNCTION_SIGNATURES: Record<string, string> = {
   [UR_EXECUTE_WITH_DEADLINE_SELECTOR]: "function execute(bytes commands, bytes[] inputs, uint256 deadline)"
 };
 export const UR_EXECUTE_DEADLINE_BUFFER = 60; // Seconds to extend calldata deadline
+export const UR_UNWRAP_WETH_PARAMETERS = ['address', 'uint256']
+export const UR_SWEEP_PARAMETERS = ['address', 'address', 'uint256']

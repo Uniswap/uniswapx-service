@@ -1,7 +1,15 @@
 import { CommandType } from "@uniswap/universal-router-sdk";
 import { Logger } from '@aws-lambda-powertools/logger'
 import { defaultAbiCoder, Interface } from "ethers/lib/utils";
-import { UR_EXECUTE_DEADLINE_BUFFER, UR_EXECUTE_FUNCTION, UR_EXECUTE_SELECTOR, UR_EXECUTE_WITH_DEADLINE_SELECTOR, UR_FUNCTION_SIGNATURES } from "../handlers/constants";
+import { 
+  UR_EXECUTE_DEADLINE_BUFFER,
+  UR_EXECUTE_FUNCTION,
+  UR_EXECUTE_SELECTOR,
+  UR_EXECUTE_WITH_DEADLINE_SELECTOR,
+  UR_FUNCTION_SIGNATURES,
+  UR_SWEEP_PARAMETERS,
+  UR_UNWRAP_WETH_PARAMETERS
+} from "../handlers/constants";
 
 export class UniversalRouterCalldata {
   private iface: Interface;
@@ -68,12 +76,12 @@ export class UniversalRouterCalldata {
       const sweepInput = this.inputsArray[sweepIndex];
       // Decode sweep parameters
       const [token, , amountMinimum] = defaultAbiCoder.decode(
-        ['address', 'address', 'uint256'],
+        UR_SWEEP_PARAMETERS,
         sweepInput
       );
       // Encode the parameters with new recipient address
       const modifiedSweepInput = defaultAbiCoder.encode(
-        ['address', 'address', 'uint256'],
+        UR_SWEEP_PARAMETERS,
         [token, recipient, amountMinimum]
       );
       this.inputsArray[sweepIndex] = modifiedSweepInput;
@@ -81,6 +89,25 @@ export class UniversalRouterCalldata {
     return this;
   }
 
+  public modifyUnwrapRecipient(recipient: string): UniversalRouterCalldata {
+    const unwrapIndex = this.commandArray.findIndex(command => command == CommandType.UNWRAP_WETH);
+    if (unwrapIndex !== -1) {
+      const unwrapInput = this.inputsArray[unwrapIndex];
+      // Decode unwrap parameters
+      const [, amountMin] = defaultAbiCoder.decode(
+        UR_UNWRAP_WETH_PARAMETERS,
+        unwrapInput
+      );
+      // Encode the parameters with new recipient address
+      const modifiedUnwrapInput = defaultAbiCoder.encode(
+        UR_UNWRAP_WETH_PARAMETERS,
+        [recipient, amountMin]
+      );
+      this.inputsArray[unwrapIndex] = modifiedUnwrapInput;
+    }
+    return this;
+  }
+  
   public encode(): string {
     try {
       let modifiedCalldata;
@@ -111,6 +138,7 @@ export function artemisModifyCalldata(calldata: string, log: Logger, executeAddr
     return router
       .removePayPortionCommand()
       .modifySweepRecipient(executeAddress)
+      .modifyUnwrapRecipient(executeAddress)
       .encode();
   } catch (e) {
     log.error('Error in artemisModifyCalldata', {
