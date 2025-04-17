@@ -38,6 +38,8 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       blockNumber: order?.blockNumber,
       route: JSON.stringify(order?.route),
       usedUnimind: order?.usedUnimind ?? false,
+      priceImpact: order?.priceImpact,
+      referencePrice: order?.referencePrice,
     }
 
     if (isPriorityOrderEntity(order)) {

@@ -52,12 +52,12 @@ describe('Testing get unimind handler', () => {
     jest.clearAllMocks()
   })
 
-  it('Testing valid request and response', async () => {
+  it('Testing correct request and response', async () => {
     const quoteMetadata = {
       quoteId: 'test-quote-id',
       pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       referencePrice: '4221.21',
-      priceImpact: 0.01,
+      priceImpact: 0.713262,
       route: STRINGIFIED_ROUTE,
     }
     const quoteQueryParams = {
@@ -67,8 +67,11 @@ describe('Testing get unimind handler', () => {
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
       pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-      pi: 3.14,
-      tau: 4.2,
+      intrinsicValues: JSON.stringify({
+        lambda1: -1,
+        lambda2: 8,
+        Sigma: -9.210340371976182
+      }),
       count: 0
     })
 
@@ -83,10 +86,8 @@ describe('Testing get unimind handler', () => {
     )
 
     const body = JSON.parse(response.body)
-    expect(body).toEqual({
-      pi: 3.14 * 0.01,
-      tau: 4.2 * 0.01
-    })
+    expect(body.pi).toBeCloseTo(5.9691917235023, 5)
+    expect(body.tau).toBeCloseTo(-5.965991723502305, 5)
     expect(response.statusCode).toBe(200)
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,

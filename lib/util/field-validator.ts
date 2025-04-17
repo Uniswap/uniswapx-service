@@ -41,6 +41,19 @@ export default class FieldValidator {
       }
       return value
     })
+  private static readonly BIG_INT_STRING_JOI = Joi.string()
+    .min(1)
+    .max(78) // Same max length as BigNumber
+    .regex(/^-?[0-9]+$/) // Allow negative sign followed by digits
+    .custom((value: string, helpers: CustomHelpers<any>) => {
+      try {
+        // Verify it can be parsed as a BigInt
+        BigInt(value);
+        return value;
+      } catch (error) {
+        return helpers.error('VALIDATION ERROR: Value cannot be parsed as a BigInt')
+      }
+    })
   private static readonly NUMBER_JOI = Joi.number()
   private static readonly BASE_64_STRING = Joi.string().max(500).base64()
   private static readonly CHAIN_ID_JOI = Joi.number().valid(...SUPPORTED_CHAINS)
@@ -158,6 +171,10 @@ export default class FieldValidator {
 
   public static isValidNumber(): NumberSchema {
     return this.NUMBER_JOI
+  }
+
+  public static isValidBigIntString(): StringSchema {
+    return this.BIG_INT_STRING_JOI
   }
 
   public static isValidOrderHashes(): StringSchema {

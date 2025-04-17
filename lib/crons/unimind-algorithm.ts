@@ -12,6 +12,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { QueryResult } from '../repositories/base'
 import { ChainId } from '@uniswap/sdk-core'
 import { unimindAddressFilter } from '../util/unimind'
+import { PriceImpactStrategy } from '../unimind/priceImpactStrategy'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -25,6 +26,7 @@ async function main(metrics: MetricsLogger) {
     serializers: bunyan.stdSerializers,
     level: 'info',
   })
+
 
   const unimindParametersRepo = DynamoUnimindParametersRepository.create(new DynamoDB.DocumentClient())
   const ordersRepo = DutchOrdersRepository.create(new DynamoDB.DocumentClient()) as DutchOrdersRepository
@@ -70,11 +72,18 @@ export async function updateParameters(
       log.info(`Unimind updateParameters: No parameters found for pair ${pairKey}, updating with default parameters`)
       await unimindParametersRepo.put({
         pair: pairKey,
-        pi: DEFAULT_UNIMIND_PARAMETERS.pi,
-        tau: DEFAULT_UNIMIND_PARAMETERS.tau,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
         count
       })
-    } else { // We have seen this pair before, check if we need to update the parameters
+    } else if(!validateParameters(pairData, log)) {
+      log.info(`Unimind updateParameters: Parameters for pair ${pairKey} are invalid, updating with default parameters`) 
+      await unimindParametersRepo.put({
+        pair: pairKey,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        count
+      })
+    } 
+    else { // We have seen this pair before, check if we need to update the parameters
       const totalCount = pairData.count + count;
       if (totalCount >= UNIMIND_UPDATE_THRESHOLD) {
         log.info(`Unimind updateParameters: Total count for pair ${pairKey} is greater than or equal to ${UNIMIND_UPDATE_THRESHOLD}, updating parameters`)
@@ -91,17 +100,20 @@ export async function updateParameters(
         ) as QueryResult<DutchV3OrderEntity>
         log.info(`Unimind updateParameters: Found ${pairOrders.orders.length} orders for pair ${pairKey}`)
         const statistics = getStatistics(pairOrders.orders, log)
-        const updatedParameters = unimindAlgorithm(statistics, pairData, log)
+        const strategy = new PriceImpactStrategy()
+        const updatedParameters = strategy.unimindAlgorithm(statistics, pairData, log)
         log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
         await unimindParametersRepo.put({
           pair: pairKey,
-          pi: updatedParameters.pi,
-          tau: updatedParameters.tau,
+          intrinsicValues: JSON.stringify(updatedParameters),
           count: 0
         })
+        const intrinsicValues = JSON.parse(pairData.intrinsicValues)
         log.info(
-          `Unimind updateParameters: parameters for ${pairKey} updated from ${pairData.pi} and ${pairData.tau}` +
-          ` to ${updatedParameters.pi} and ${updatedParameters.tau} based on ${totalCount} recent orders`
+          `Unimind updateParameters: parameters for ${pairKey} updated from ` +
+          `${Object.entries(intrinsicValues).map(([key, value]) => `${key}: ${value}`).join(', ')} ` +
+          `to ${Object.entries(updatedParameters).map(([key, value]) => `${key}: ${value}`).join(', ')} ` +
+          `based on ${totalCount} recent orders`
         )
         metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)  
       } else {
@@ -109,8 +121,7 @@ export async function updateParameters(
         // Update the count
         await unimindParametersRepo.put({
           pair: pairKey,
-          pi: pairData.pi,
-          tau: pairData.tau,
+          intrinsicValues: pairData.intrinsicValues,
           count: totalCount
         })
       }
@@ -167,7 +178,7 @@ function getOrderCountsByPair(
   return pairCounts;
 }
 
-interface UnimindStatistics {
+export interface UnimindStatistics {
   waitTimes: (number | undefined)[];
   fillStatuses: number[];
   priceImpacts: number[];
@@ -180,18 +191,20 @@ export function getStatistics(orders: DutchV3OrderEntity[], log: Logger): Unimin
 
   for (const order of orders) {
     if (order.fillBlock && order.cosignerData?.decayStartBlock && order.priceImpact && 
-      (order.orderStatus === ORDER_STATUS.FILLED || order.orderStatus === ORDER_STATUS.EXPIRED)
-    ) {
-      if (order.orderStatus === ORDER_STATUS.FILLED) {
-        waitTimes.push(order.fillBlock - order.cosignerData.decayStartBlock);
-        fillStatuses.push(1);
-        log.info(`Unimind getStatistics: order ${order.orderHash} filled with wait time ${order.fillBlock - order.cosignerData.decayStartBlock}`)
-      } else {
-        waitTimes.push(undefined);
-        fillStatuses.push(0);
-        log.info(`Unimind getStatistics: order ${order.orderHash} expired, resulting in an undefined wait time`)
-      }
+      order.orderStatus === ORDER_STATUS.FILLED) {
+      waitTimes.push(order.fillBlock - order.cosignerData.decayStartBlock);
+      fillStatuses.push(1);
       priceImpacts.push(order.priceImpact);
+      log.info(`Unimind getStatistics: order ${order.orderHash} filled with wait time ${order.fillBlock - order.cosignerData.decayStartBlock}.` + 
+               ` Its price impact was ${order.priceImpact}`)
+    } else if (order.priceImpact && order.orderStatus === ORDER_STATUS.EXPIRED) {
+      waitTimes.push(undefined);
+      fillStatuses.push(0);
+      priceImpacts.push(order.priceImpact);
+      log.info(`Unimind getStatistics: order ${order.orderHash} expired, resulting in an undefined wait time`)
+    } else {
+      log.warn(`Unimind getStatistics: order ${order.orderHash} cannot be used for statistics, skipping`)
+      continue;
     }
   }
 
@@ -202,37 +215,18 @@ export function getStatistics(orders: DutchV3OrderEntity[], log: Logger): Unimin
   };
 }
 
-/**
- * @notice Adjusts Unimind parameters (pi and tau) based on historical order statistics
- * @param statistics Aggregated order data containing arrays of wait times, fill statuses, and price impacts
- * @param pairData Previous parameters (pi and tau) for the trading pair
- * @return Updated pi and tau parameters
- */
-export function unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger) {
-  const objective_wait_time = 2;
-  const objective_fill_rate = 0.96;
-  const learning_rate = 2;
-  const auction_duration = 32;
-  const previousParameters = pairData;
-
-  if (statistics.waitTimes.length === 0 || statistics.fillStatuses.length === 0 || statistics.priceImpacts.length === 0) {
-    return previousParameters;
+export function validateParameters(parameters: UnimindParameters, log: Logger): boolean {
+  try {
+    const intrinsicValues = JSON.parse(parameters.intrinsicValues);
+    // Check that the intrinsic parameters are using the keys we're currently using in the algorithm
+    for (const key in intrinsicValues) {
+      if (!Object.keys(JSON.parse(DEFAULT_UNIMIND_PARAMETERS)).includes(key)) {
+        return false;
+      }
+    }
+  } catch (error) {
+    log.error(`Unimind validateParameters: Error parsing intrinsic values: ${error}`)
+    return false;
   }
-  // Set negative wait times to 0
-  statistics.waitTimes = statistics.waitTimes.map((waitTime) => (waitTime && waitTime < 0) ? 0 : waitTime);
-
-  const average_wait_time = statistics.waitTimes.reduce((a: number, b) => a + (b === undefined ? auction_duration : b), 0) / statistics.waitTimes.length;
-  const average_fill_rate = statistics.fillStatuses.reduce((a: number, b) => a + b, 0) / statistics.fillStatuses.length;
-  log.info(`Unimind unimindAlgorithm: average_wait_time: ${average_wait_time}, average_fill_rate: ${average_fill_rate}`)
-
-  const wait_time_proportion = (objective_wait_time - average_wait_time) / objective_wait_time;
-  const fill_rate_proportion = (objective_fill_rate - average_fill_rate) / objective_fill_rate;
-
-  const pi = previousParameters.pi + learning_rate * wait_time_proportion;
-  const tau = previousParameters.tau + learning_rate * fill_rate_proportion;
-
-  return {
-    pi,
-    tau,
-  };
+  return true;
 }
