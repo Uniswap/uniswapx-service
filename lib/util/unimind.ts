@@ -6,7 +6,7 @@ import { QuoteMetadata } from "../repositories/quote-metadata-repository";
 import { UNIMIND_LIST } from "../config/unimind-list";
 import { keccak256 } from "ethers/lib/utils";
 
-export const UNIMIND_SAMPLE_PERCENT = 1;
+export const UNIMIND_SAMPLE_PERCENT = 100;
 
 export function unimindAddressFilter(address: string) {
   // Always include the dev swapper address
