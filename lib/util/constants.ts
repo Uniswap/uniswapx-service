@@ -30,7 +30,7 @@ export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
   lambda2: 5,
   Sigma: 0.0003
 })
-export const UNIMIND_UPDATE_THRESHOLD = 50
+export const UNIMIND_UPDATE_THRESHOLD = 25
 export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
 // Direct pi and tau to use for curve; Not intrinsicValues
 export const PUBLIC_UNIMIND_PARAMETERS = {
