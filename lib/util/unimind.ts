@@ -4,6 +4,9 @@ import { UnimindStatistics } from "../crons/unimind-algorithm";
 import { default as Logger } from 'bunyan'
 import { QuoteMetadata } from "../repositories/quote-metadata-repository";
 import { UNIMIND_LIST } from "../config/unimind-list";
+import { keccak256 } from "ethers/lib/utils";
+
+export const UNIMIND_SAMPLE_PERCENT = 1;
 
 export function unimindAddressFilter(address: string) {
   // Always include the dev swapper address
@@ -11,10 +14,15 @@ export function unimindAddressFilter(address: string) {
     return true;
   }
   
-  // Sample 1% of other addresses by using the last 4 hex characters
-  const lastFourChars = address.slice(-4);
+  // Hash address to avoid bias from vanity addresses
+  const hash = keccak256(Buffer.from(address.toLowerCase()));
+  
+  // Take the last 2 bytes (4 hex chars) and convert to number
+  const lastFourChars = hash.slice(-4);
   const value = parseInt(lastFourChars, 16);
-  return value % 100 === 0; // 1% chance
+  
+  // Check if in sample range (1-100)
+  return (value % 100) + 1 <= UNIMIND_SAMPLE_PERCENT;
 }
 
 export function supportedUnimindTokens(pair: string) {
