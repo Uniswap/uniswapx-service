@@ -158,7 +158,8 @@ describe('updateParameters Test', () => {
     expect(pairData?.count).toEqual(0)
   })
 
-  it('should not update parameters for pairs that do not pass the unimind address filter', async () => {
+  // Skipping because we are currently sampling 100% of addresses
+  it.skip('should not update parameters for pairs that do not pass the unimind address filter', async () => {
     const failPair = '0x111-0x222-FAIL'
     await ordersTable.putOrderAndUpdateNonceTransaction({
       ...mockOrder,
