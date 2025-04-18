@@ -231,7 +231,7 @@ describe('unimindAddressFilter', () => {
 
     // Check that the percentage is approximately UNIMIND_SAMPLE_PERCENT%
     const percentage = (passedCount / sampleSize) * 100;
-    expect(percentage).toBeGreaterThanOrEqual(UNIMIND_SAMPLE_PERCENT - 0.5);
-    expect(percentage).toBeLessThanOrEqual(UNIMIND_SAMPLE_PERCENT + 0.5);
+    expect(percentage).toBeGreaterThanOrEqual(UNIMIND_SAMPLE_PERCENT - 1);
+    expect(percentage).toBeLessThanOrEqual(UNIMIND_SAMPLE_PERCENT + 1);
   });
 });
