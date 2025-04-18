@@ -9,6 +9,8 @@ import { UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
 import { CommandParser, CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
 import { artemisModifyCalldata } from '../../../../lib/util/UniversalRouterCalldata'
+import { UNIMIND_LIST } from '../../../../lib/config/unimind-list'
+import { ChainId } from '@uniswap/sdk-core'
 
 const SAMPLE_ROUTE = {
   quote: "1234",
@@ -26,6 +28,7 @@ const SAMPLE_ROUTE = {
   }
 } as const
 
+const SAMPLE_SUPPORTED_UNIMIND_PAIR = `${UNIMIND_LIST[0].address}-${UNIMIND_LIST[1].address}-${ChainId.ARBITRUM_ONE}`
 const STRINGIFIED_ROUTE = JSON.stringify(SAMPLE_ROUTE)
 
 describe('Testing get unimind handler', () => {
@@ -55,7 +58,7 @@ describe('Testing get unimind handler', () => {
   it('Testing correct request and response', async () => {
     const quoteMetadata = {
       quoteId: 'test-quote-id',
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       referencePrice: '4221.21',
       priceImpact: 0.713262,
       route: STRINGIFIED_ROUTE,
@@ -66,7 +69,7 @@ describe('Testing get unimind handler', () => {
     }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       intrinsicValues: JSON.stringify({
         lambda1: -1,
         lambda2: 8,
@@ -94,7 +97,7 @@ describe('Testing get unimind handler', () => {
       route: SAMPLE_ROUTE, // Should be parsed object when stored
       usedUnimind: true
     })
-    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123')
+    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith(SAMPLE_SUPPORTED_UNIMIND_PAIR)
   })
 
   it('Returns default parameters when not found in unimindParametersRepository', async () => {
@@ -102,7 +105,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ALAN-LEN',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       route: STRINGIFIED_ROUTE,
     }
     const quoteQueryParams = {
@@ -271,7 +274,7 @@ describe('Testing get unimind handler', () => {
   it('fails when repository throws error', async () => {
     const quoteMetadata = {
       quoteId: 'this-should-fail',
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       referencePrice: '666.56',
       priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
@@ -426,7 +429,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       route: STRINGIFIED_ROUTE,
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS
     }
@@ -451,7 +454,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS,
       blockNumber: 1234,
       // missing route
@@ -475,7 +478,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS,
       // missing blockNumber
       route: STRINGIFIED_ROUTE,

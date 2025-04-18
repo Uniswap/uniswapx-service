@@ -7,8 +7,8 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS } from '../../util/constants'
-import { IUnimindAlgorithm, unimindAddressFilter } from '../../util/unimind'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
+import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 
 type UnimindResponse = {
@@ -20,8 +20,9 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, UnimindQueryParams>
   ): Promise<Response<UnimindResponse> | ErrorResponse> {
-    const { containerInjected, requestQueryParams } = params
+    const { containerInjected, requestQueryParams, requestInjected } = params
     const { quoteMetadataRepository, unimindParametersRepository } = containerInjected
+    const { log } = requestInjected
     try {
       const { logOnly, swapper, ...quoteMetadataFields } = requestQueryParams
       const quoteMetadata = {
@@ -49,7 +50,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         }
       }
 
-      if (!swapper || !unimindAddressFilter(swapper)) {
+      if (!swapper || !unimindAddressFilter(swapper) || !supportedUnimindTokens(quoteMetadata.pair)) {
         return {
             statusCode: 200,
             body: PUBLIC_UNIMIND_PARAMETERS
@@ -58,6 +59,11 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
       // If we made it through these filters, then we are using Unimind to provide parameters
       quoteMetadata.usedUnimind = true
+
+      if (swapper !== UNIMIND_DEV_SWAPPER_ADDRESS) {
+        metrics.putMetric(`public-address-used-unimind`, 1)
+        log.info(`Public address ${swapper} received Unimind parameters for pair: ${requestQueryParams.pair} on quoteId: ${quoteMetadata.quoteId}`)
+      }
 
       let [, unimindParameters] = await Promise.all([
         quoteMetadataRepository.put(quoteMetadata),
