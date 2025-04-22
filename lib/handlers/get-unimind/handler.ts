@@ -89,6 +89,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       const calculateTime = afterCalculateTime - beforeCalculateTime
       metrics.putMetric(`final-parameters-calculation-time`, calculateTime)
 
+      log.info(`For the pair ${requestQueryParams.pair} with price impact of ${quoteMetadata.priceImpact}, pi is ${parameters.pi} and tau is ${parameters.tau}`)
       return {
         statusCode: 200,
         body: parameters
