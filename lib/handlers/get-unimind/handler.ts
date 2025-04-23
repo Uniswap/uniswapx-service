@@ -7,7 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS } from '../../util/constants'
 import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 
@@ -83,7 +83,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
       const beforeCalculateTime = Date.now()
       const strategy = new PriceImpactStrategy()
-      const parameters = this.calculateParameters(strategy, unimindParameters, quoteMetadata)
+      const parameters = calculateParameters(strategy, unimindParameters, quoteMetadata)
       // TODO: Add condition for not using Unimind with bad parameters
       const afterCalculateTime = Date.now()
       const calculateTime = afterCalculateTime - beforeCalculateTime
@@ -100,17 +100,6 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         errorCode: ErrorCode.InternalError,
         detail: (e as Error)?.message ?? 'Unknown error occurred'
       }
-    }
-  }
-
-  calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntrinsicParameters>, unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
-    const intrinsicValues = JSON.parse(unimindParameters.intrinsicValues)
-    // Keeping intrinsic extrinsic naming for consistency with algorithm
-    const pi = strategy.computePi(intrinsicValues, extrinsicValues)
-    const tau = strategy.computeTau(intrinsicValues, extrinsicValues)
-    return {
-      pi,
-      tau
     }
   }
 
@@ -154,5 +143,17 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
     const getUnimindRequestByPairMetricName = `GetUnimindRequestPair${pair}`
     metrics.putMetric(getUnimindRequestByPairMetricName, 1, Unit.Count)
+  }
+}
+
+export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntrinsicParameters>, unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
+  const intrinsicValues = JSON.parse(unimindParameters.intrinsicValues)
+  // Keeping intrinsic extrinsic naming for consistency with algorithm
+  const pi = strategy.computePi(intrinsicValues, extrinsicValues)
+  // Ceiling tau at UNIMIND_MAX_TAU_BPS for safety
+  const tau = Math.min(strategy.computeTau(intrinsicValues, extrinsicValues), UNIMIND_MAX_TAU_BPS)
+  return {
+    pi,
+    tau
   }
 }

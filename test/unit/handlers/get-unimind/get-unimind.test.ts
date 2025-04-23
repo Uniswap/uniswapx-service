@@ -60,7 +60,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       referencePrice: '4221.21',
-      priceImpact: 0.713262,
+      priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
     }
     const quoteQueryParams = {
@@ -71,9 +71,9 @@ describe('Testing get unimind handler', () => {
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
       pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       intrinsicValues: JSON.stringify({
-        lambda1: -1,
+        lambda1: 0,
         lambda2: 8,
-        Sigma: -9.210340371976182
+        Sigma: Math.log(0.00005)
       }),
       count: 0
     })
@@ -89,8 +89,8 @@ describe('Testing get unimind handler', () => {
     )
 
     const body = JSON.parse(response.body)
-    expect(body.pi).toBeCloseTo(5.9691917235023, 5)
-    expect(body.tau).toBeCloseTo(-5.965991723502305, 5)
+    expect(body.pi).toBeCloseTo(0.999764, 5)
+    expect(body.tau).toBeCloseTo(15.000235519, 5)
     expect(response.statusCode).toBe(200)
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,

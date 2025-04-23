@@ -3,6 +3,7 @@ import { UnimindStatistics } from "../crons/unimind-algorithm";
 import { UnimindParameters } from "../repositories/unimind-parameters-repository";
 import { IUnimindAlgorithm } from "../util/unimind";
 import { QuoteMetadata } from '../repositories/quote-metadata-repository';
+import { BPS } from '@uniswap/uniswapx-sdk';
 
 export type PriceImpactIntrinsicParameters = {
     lambda1: number;
@@ -13,11 +14,11 @@ export type PriceImpactIntrinsicParameters = {
 export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrinsicParameters> {
     // Algorithm constants
     private TARGET_FILL_RATE = 0.96;
-    private TARGET_WAIT_TIME_IN_BLOCKS = 4;
+    private TARGET_WAIT_TIME_IN_BLOCKS = 8;
     private BETA = 1;
-    private LAMBDA1_LEARNING_RATE = 1e-10;
-    private LAMBDA2_LEARNING_RATE = 1e-1;
-    private SIGMA_LEARNING_RATE = 1e-1;
+    private LAMBDA1_LEARNING_RATE = 1.5e-10;
+    private LAMBDA2_LEARNING_RATE = 1.5e-1;
+    private SIGMA_LEARNING_RATE = 1.5e-1;
 
     private LENGTH_OF_AUCTION_IN_BLOCKS = 32;
     private D_FR_D_SIGMA = Math.log(0.00001);
@@ -336,13 +337,14 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
     }
 
     public computePi(intrinsicValues: PriceImpactIntrinsicParameters, extrinsicValues: QuoteMetadata): number {
-        const priceImpactOfAmm = extrinsicValues.priceImpact;
+        const priceImpactOfAmm = extrinsicValues.priceImpact / 100;
         if (priceImpactOfAmm === 1) { // Prevent division by 0
             return 0;
         }
         try {
             const priceImpactFiller = this.computePriceImpactFiller(priceImpactOfAmm, intrinsicValues);
-            return (priceImpactOfAmm - priceImpactFiller) / (1 - priceImpactOfAmm);
+            const pi = (priceImpactOfAmm - priceImpactFiller) / (1 - priceImpactOfAmm);
+            return pi * BPS; // Convert from pure to bps
         } catch (error) {
             return 0;
         }
@@ -350,8 +352,10 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
 
     public computeTau(intrinsicValues: PriceImpactIntrinsicParameters, extrinsicValues: QuoteMetadata): number {
         const expSigma = Math.exp(intrinsicValues.Sigma);
-        const tau = this.LENGTH_OF_AUCTION_IN_BLOCKS * expSigma - this.computePi(intrinsicValues, extrinsicValues);
-        return tau;
+        const auctionDecayAmount = this.LENGTH_OF_AUCTION_IN_BLOCKS * expSigma;
+        const auctionDecayAmountBps = auctionDecayAmount * BPS;
+        const tau = auctionDecayAmountBps - this.computePi(intrinsicValues, extrinsicValues);
+        return tau; // In units of bps
     }
 }
 
