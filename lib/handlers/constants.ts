@@ -1,3 +1,5 @@
+import { ChainId } from '../util/chain'
+
 export const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
   // canaries
   '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
@@ -12,7 +14,17 @@ export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const DEFAULT_MAX_OPEN_LIMIT_ORDERS = 100
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER = 3
+export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
+  [ChainId.MAINNET]: 3,
+  [ChainId.UNICHAIN]: 5,
+  [ChainId.BASE]: 3,
+  [ChainId.OPTIMISM]: 3,
+  [ChainId.ARBITRUM_ONE]: 3,
+  [ChainId.POLYGON]: 3,
+  [ChainId.SEPOLIA]: 3,
+  [ChainId.GÖRLI]: 3,
+}
+
 export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20;
 
 export const UR_EXECUTE_SELECTOR = "24856bc3"
