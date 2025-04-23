@@ -9,6 +9,7 @@ import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
 import { Logger } from '@aws-lambda-powertools/logger'
+import { ChainId } from '../util/chain'
 
 export class PriorityOrder extends Order {
   constructor(
@@ -110,7 +111,7 @@ export class PriorityOrder extends Order {
   public async reparameterizeAndCosign(provider: StaticJsonRpcProvider, cosigner: KmsSigner): Promise<this> {
     const currentBlock = await provider.getBlockNumber()
     this.inner.info.cosignerData = {
-      auctionTargetBlock: BigNumber.from(currentBlock).add(PRIORITY_ORDER_TARGET_BLOCK_BUFFER),
+      auctionTargetBlock: BigNumber.from(currentBlock).add(PRIORITY_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId]),
     }
 
     this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash(this.inner.info.cosignerData))
