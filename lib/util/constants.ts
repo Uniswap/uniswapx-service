@@ -37,3 +37,4 @@ export const PUBLIC_UNIMIND_PARAMETERS = {
   pi: 15,
   tau: 15
 }
+export const UNIMIND_MAX_TAU_BPS = 25

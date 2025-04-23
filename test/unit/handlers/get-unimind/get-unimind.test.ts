@@ -73,7 +73,7 @@ describe('Testing get unimind handler', () => {
       intrinsicValues: JSON.stringify({
         lambda1: 0,
         lambda2: 8,
-        Sigma: Math.log(0.0001)
+        Sigma: Math.log(0.00005)
       }),
       count: 0
     })
@@ -90,7 +90,7 @@ describe('Testing get unimind handler', () => {
 
     const body = JSON.parse(response.body)
     expect(body.pi).toBeCloseTo(0.999764, 5)
-    expect(body.tau).toBeCloseTo(31.000235519, 5)
+    expect(body.tau).toBeCloseTo(15.000235519, 5)
     expect(response.statusCode).toBe(200)
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,

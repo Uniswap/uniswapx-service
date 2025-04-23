@@ -3,7 +3,7 @@ import { getStatistics } from '../../../lib/crons/unimind-algorithm';
 import { DutchV3OrderEntity } from '../../../lib/entities';
 import { ORDER_STATUS } from '../../../lib/entities/Order';
 import { mock } from 'jest-mock-extended';
-import { UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
+import { UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
 import { PriceImpactStrategy } from '../../../lib/unimind/priceImpactStrategy';
 import { BatchedStrategy } from '../../../lib/unimind/batchedStrategy';
 import { unimindAddressFilter, UNIMIND_SAMPLE_PERCENT } from '../../../lib/util/unimind';
@@ -204,12 +204,22 @@ describe('unimind-algorithm', () => {
 
     it('price impact strategy test on extrinsic values', () => {
       const strategy = new PriceImpactStrategy()
-      const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: Math.log(0.0001)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
+      const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: Math.log(0.00005)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
       const extrinsicValues: QuoteMetadata = { priceImpact: 0.01, quoteId: '0x000-0x111-123', referencePrice: '100', blockNumber: 100, route: { quote: '100', quoteGasAdjusted: '100', gasPriceWei: '100', gasUseEstimateQuote: '100', gasUseEstimate: '100', methodParameters: {calldata: '0x', value: '0', to: '0x0000000000000000000000000000000000000000'}}, pair: '0x000-0x111-123', usedUnimind: true }
       const result = calculateParameters(strategy, intrinsicValues, extrinsicValues)
 
       expect(result.pi).toBeCloseTo(0.999764, 5)
-      expect(result.tau).toBeCloseTo(31.000235519, 5)
+      expect(result.tau).toBeCloseTo(15.000235519, 5)
+    })
+
+    it('ceiling on tau for price impact strategy', () => {
+      const strategy = new PriceImpactStrategy()
+      const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: Math.log(0.0002)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
+      const extrinsicValues: QuoteMetadata = { priceImpact: 0.01, quoteId: '0x000-0x111-123', referencePrice: '100', blockNumber: 100, route: { quote: '100', quoteGasAdjusted: '100', gasPriceWei: '100', gasUseEstimateQuote: '100', gasUseEstimate: '100', methodParameters: {calldata: '0x', value: '0', to: '0x0000000000000000000000000000000000000000'}}, pair: '0x000-0x111-123', usedUnimind: true }
+      const result = calculateParameters(strategy, intrinsicValues, extrinsicValues)
+
+      expect(result.pi).toBeCloseTo(0.999764, 5)
+      expect(result.tau).toBe(UNIMIND_MAX_TAU_BPS)
     })
   });
 });
