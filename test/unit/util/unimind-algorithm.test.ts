@@ -7,6 +7,8 @@ import { UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_UPDATE_THRESHOLD } from '../../../
 import { PriceImpactStrategy } from '../../../lib/unimind/priceImpactStrategy';
 import { BatchedStrategy } from '../../../lib/unimind/batchedStrategy';
 import { unimindAddressFilter, UNIMIND_SAMPLE_PERCENT } from '../../../lib/util/unimind';
+import { calculateParameters } from '../../../lib/handlers/get-unimind/handler';
+import { QuoteMetadata } from '../../../lib/repositories/quote-metadata-repository';
 
 describe('unimind-algorithm', () => {
   const log = mock<Logger>()
@@ -199,6 +201,16 @@ describe('unimind-algorithm', () => {
       expect(result.lambda2).toBeCloseTo(4.237034026847578, 5)
       expect(result.Sigma).toBeCloseTo(-0.41228565543852524, 5)
     });
+
+    it('price impact strategy test on extrinsic values', () => {
+      const strategy = new PriceImpactStrategy()
+      const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: Math.log(0.0001)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123',  };
+      const extrinsicValues: QuoteMetadata = { priceImpact: 0.01, quoteId: '0x000-0x111-123', referencePrice: '100', blockNumber: 100, route: { quote: '100', quoteGasAdjusted: '100', gasPriceWei: '100', gasUseEstimateQuote: '100', gasUseEstimate: '100', methodParameters: {calldata: '0x', value: '0', to: '0x0000000000000000000000000000000000000000'}}, pair: '0x000-0x111-123', usedUnimind: true }
+      const result = calculateParameters(strategy, intrinsicValues, extrinsicValues)
+
+      expect(result.pi).toBeCloseTo(0.999764, 5)
+      expect(result.tau).toBeCloseTo(31.000235519, 5)
+    })
   });
 });
 

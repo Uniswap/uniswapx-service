@@ -336,13 +336,14 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
     }
 
     public computePi(intrinsicValues: PriceImpactIntrinsicParameters, extrinsicValues: QuoteMetadata): number {
-        const priceImpactOfAmm = extrinsicValues.priceImpact;
+        const priceImpactOfAmm = extrinsicValues.priceImpact / 100;
         if (priceImpactOfAmm === 1) { // Prevent division by 0
             return 0;
         }
         try {
             const priceImpactFiller = this.computePriceImpactFiller(priceImpactOfAmm, intrinsicValues);
-            return (priceImpactOfAmm - priceImpactFiller) / (1 - priceImpactOfAmm);
+            const pi = (priceImpactOfAmm - priceImpactFiller) / (1 - priceImpactOfAmm);
+            return pi * 10000; // Convert from pure to bps
         } catch (error) {
             return 0;
         }
@@ -350,8 +351,10 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
 
     public computeTau(intrinsicValues: PriceImpactIntrinsicParameters, extrinsicValues: QuoteMetadata): number {
         const expSigma = Math.exp(intrinsicValues.Sigma);
-        const tau = this.LENGTH_OF_AUCTION_IN_BLOCKS * expSigma - this.computePi(intrinsicValues, extrinsicValues);
-        return tau;
+        const auctionDecayAmount = this.LENGTH_OF_AUCTION_IN_BLOCKS * expSigma;
+        const auctionDecayAmountBps = auctionDecayAmount * 10000;
+        const tau = auctionDecayAmountBps - this.computePi(intrinsicValues, extrinsicValues);
+        return tau; // In units of bps
     }
 }
 
