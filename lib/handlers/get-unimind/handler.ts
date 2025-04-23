@@ -7,7 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS } from '../../util/constants'
 import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 
@@ -150,7 +150,8 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
   const intrinsicValues = JSON.parse(unimindParameters.intrinsicValues)
   // Keeping intrinsic extrinsic naming for consistency with algorithm
   const pi = strategy.computePi(intrinsicValues, extrinsicValues)
-  const tau = strategy.computeTau(intrinsicValues, extrinsicValues)
+  // Ceiling tau at UNIMIND_MAX_TAU_BPS for safety
+  const tau = Math.min(strategy.computeTau(intrinsicValues, extrinsicValues), UNIMIND_MAX_TAU_BPS)
   return {
     pi,
     tau
