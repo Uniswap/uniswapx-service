@@ -107,6 +107,14 @@ export class UniversalRouterCalldata {
     }
     return this;
   }
+
+  public modifyTakeRecipient(recipient: string): UniversalRouterCalldata {
+    const takeIndex = this.commandArray.findIndex(command => command == CommandType.TAKE);
+    if (takeIndex !== -1) {
+      this.inputsArray[takeIndex] = recipient;
+    }
+    return this;
+  }
   
   public encode(): string {
     try {
