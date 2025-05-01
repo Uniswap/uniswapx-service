@@ -1,6 +1,7 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { mock } from 'jest-mock-extended'
 import { DynamoUnimindParametersRepository, UnimindParameters } from '../../../lib/repositories/unimind-parameters-repository'
+import { UNIMIND_ALGORITHM_VERSION } from '../../../lib/util/constants'
 
 describe('UnimindParametersRepository', () => {
   const mockDocumentClient = mock<DocumentClient>()
@@ -11,6 +12,7 @@ describe('UnimindParametersRepository', () => {
       pi: 3.14,
       tau: 4.2,
     }),
+    version: UNIMIND_ALGORITHM_VERSION,
     count: 42
   }
 

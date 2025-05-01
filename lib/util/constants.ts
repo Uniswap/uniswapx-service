@@ -25,6 +25,7 @@ export const REAPER_RANGES_PER_RUN = 10
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
+export const UNIMIND_ALGORITHM_VERSION = 1;
 export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
   lambda1: 0,
   lambda2: 5,

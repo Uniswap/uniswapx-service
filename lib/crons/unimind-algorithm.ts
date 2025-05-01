@@ -4,7 +4,7 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
 import { DynamoUnimindParametersRepository, UnimindParameters } from '../repositories/unimind-parameters-repository'
 import { UnimindParametersRepository } from '../repositories/unimind-parameters-repository'
-import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_UPDATE_THRESHOLD } from '../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_UPDATE_THRESHOLD } from '../util/constants'
 import { UNIMIND_ALGORITHM_CRON_INTERVAL } from '../../bin/constants'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
 import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
@@ -73,14 +73,16 @@ export async function updateParameters(
       await unimindParametersRepo.put({
         pair: pairKey,
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
-        count
+        count,
+        version: UNIMIND_ALGORITHM_VERSION
       })
     } else if(!validateParameters(pairData, log)) {
       log.info(`Unimind updateParameters: Parameters for pair ${pairKey} are invalid, updating with default parameters`) 
       await unimindParametersRepo.put({
         pair: pairKey,
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
-        count
+        count,
+        version: UNIMIND_ALGORITHM_VERSION
       })
     } 
     else { // We have seen this pair before, check if we need to update the parameters
@@ -106,7 +108,8 @@ export async function updateParameters(
         await unimindParametersRepo.put({
           pair: pairKey,
           intrinsicValues: JSON.stringify(updatedParameters),
-          count: 0
+          count: 0,
+          version: UNIMIND_ALGORITHM_VERSION
         })
         const intrinsicValues = JSON.parse(pairData.intrinsicValues)
         log.info(
@@ -122,7 +125,8 @@ export async function updateParameters(
         await unimindParametersRepo.put({
           pair: pairKey,
           intrinsicValues: pairData.intrinsicValues,
-          count: totalCount
+          count: totalCount,
+          version: UNIMIND_ALGORITHM_VERSION
         })
       }
     }
@@ -218,11 +222,15 @@ export function getStatistics(orders: DutchV3OrderEntity[], log: Logger): Unimin
 export function validateParameters(parameters: UnimindParameters, log: Logger): boolean {
   try {
     const intrinsicValues = JSON.parse(parameters.intrinsicValues);
+    const version = parameters.version;
     // Check that the intrinsic parameters are using the keys we're currently using in the algorithm
     for (const key in intrinsicValues) {
       if (!Object.keys(JSON.parse(DEFAULT_UNIMIND_PARAMETERS)).includes(key)) {
         return false;
       }
+    }
+    if (version !== UNIMIND_ALGORITHM_VERSION) {
+      return false;
     }
   } catch (error) {
     log.error(`Unimind validateParameters: Error parsing intrinsic values: ${error}`)

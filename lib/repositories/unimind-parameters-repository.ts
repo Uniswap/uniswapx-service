@@ -8,6 +8,7 @@ export interface UnimindParameters {
   pair: string
   intrinsicValues: string
   count: number
+  version: number
 }
 
 export interface UnimindParametersRepository {
@@ -36,6 +37,7 @@ export class DynamoUnimindParametersRepository implements UnimindParametersRepos
         pair: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         intrinsicValues: { type: DYNAMODB_TYPES.STRING, required: true },
         count: { type: DYNAMODB_TYPES.NUMBER, required: true },
+        version: { type: DYNAMODB_TYPES.NUMBER, required: true },
       },
       table,
     } as const)
