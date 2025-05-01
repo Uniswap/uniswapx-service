@@ -10,6 +10,7 @@ import {
   UR_SWEEP_PARAMETERS,
   UR_UNWRAP_WETH_PARAMETERS
 } from "../handlers/constants";
+import { Actions } from '@uniswap/v4-sdk'
 
 export class UniversalRouterCalldata {
   private iface: Interface;
@@ -108,12 +109,54 @@ export class UniversalRouterCalldata {
     return this;
   }
 
-  public modifyTakeRecipient(recipient: string): UniversalRouterCalldata {
-    const takeIndex = this.commandArray.findIndex(command => command == CommandType.TAKE);
-    if (takeIndex !== -1) {
-      this.inputsArray[takeIndex] = recipient;
+  public modifyV4SwapRecipient(recipient: string): UniversalRouterCalldata {
+    const v4SwapIndex = this.commandArray.findIndex(
+      (command) => command === CommandType.V4_SWAP
+    )
+
+    if (v4SwapIndex === -1) return this
+
+    const v4Input = this.inputsArray[v4SwapIndex] as string
+
+    // Decode wrapper structure to (actionsHex, params[])
+    const [actionsHex, paramsArray]: [string, string[]] = defaultAbiCoder.decode(
+      ['bytes', 'bytes[]'],
+      v4Input
+    ) as [string, string[]]
+
+    const bytesWithout0x = actionsHex.startsWith('0x') ? actionsHex.slice(2) : actionsHex
+    const updatedParams = [...paramsArray]
+
+    // Go through actions to rewrite recipient
+    for (let i = 0; i < bytesWithout0x.length; i += 2) {
+      const actionByte = parseInt(bytesWithout0x.slice(i, i + 2), 16) as Actions
+
+      if (actionByte === Actions.TAKE) {
+        const paramIndex = i / 2
+        const encodedInput = paramsArray[paramIndex]
+
+        // Decode existing TAKE parameters
+        const [currency, , amount] = defaultAbiCoder.decode(
+          ['address', 'address', 'uint256'],
+          encodedInput
+        )
+
+        // Re-encode with the new recipient
+        updatedParams[paramIndex] = defaultAbiCoder.encode(
+          ['address', 'address', 'uint256'],
+          [currency, recipient, amount]
+        )
+      } // We can add more cases here if we want to modify other V4 actions
     }
-    return this;
+
+    // Re-encode wrapper structure and put it back
+    const modifiedV4Input = defaultAbiCoder.encode(
+      ['bytes', 'bytes[]'],
+      [actionsHex, updatedParams]
+    )
+    this.inputsArray[v4SwapIndex] = modifiedV4Input
+
+    return this
   }
   
   public encode(): string {
@@ -147,6 +190,7 @@ export function artemisModifyCalldata(calldata: string, log: Logger, executeAddr
       .removePayPortionCommand()
       .modifySweepRecipient(executeAddress)
       .modifyUnwrapRecipient(executeAddress)
+      .modifyV4SwapRecipient(executeAddress)
       .encode();
   } catch (e) {
     log.error('Error in artemisModifyCalldata', {
