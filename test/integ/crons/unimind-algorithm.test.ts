@@ -5,7 +5,7 @@ import { DynamoUnimindParametersRepository } from '../../../lib/repositories/uni
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { DutchV3OrderEntity, ORDER_STATUS } from '../../../lib/entities'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -130,6 +130,7 @@ describe('updateParameters Test', () => {
         lambda2: 2,
         Sigma: 0.1
       }),
+      version: UNIMIND_ALGORITHM_VERSION,
       count: 1,
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOldPairOrder)
@@ -151,11 +152,35 @@ describe('updateParameters Test', () => {
         Sigma: 0.1
       }),
       count: UNIMIND_UPDATE_THRESHOLD - 1,
+      version: UNIMIND_ALGORITHM_VERSION,
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOrder)
     await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(mockOrder.pair as string)
     expect(pairData?.count).toEqual(0)
+  })
+
+  it('should reset parameters if the version of saved parameters is not the same as the current version', async () => {
+    await unimindParametersRepository.put({
+      pair: mockOrder.pair as string,
+      intrinsicValues: JSON.stringify({
+        lambda1: 1,
+        lambda2: 2,
+        Sigma: 0.1
+      }),
+      count: UNIMIND_UPDATE_THRESHOLD - 1,
+      version: UNIMIND_ALGORITHM_VERSION - 1,
+    })
+    await ordersTable.putOrderAndUpdateNonceTransaction(mockOrder)
+    await updateParameters(unimindParametersRepository, ordersTable, log)
+    const pairData = await unimindParametersRepository.getByPair(mockOrder.pair as string)
+    expect(pairData?.count).toEqual(1)
+    expect(pairData?.version).toEqual(UNIMIND_ALGORITHM_VERSION)
+    // Check that the intrinsic values are the default parameters
+    const intrinsicValues = JSON.parse(pairData?.intrinsicValues ?? '{}')
+    expect(intrinsicValues.lambda1).toEqual(JSON.parse(DEFAULT_UNIMIND_PARAMETERS).lambda1)
+    expect(intrinsicValues.lambda2).toEqual(JSON.parse(DEFAULT_UNIMIND_PARAMETERS).lambda2)
+    expect(intrinsicValues.Sigma).toEqual(JSON.parse(DEFAULT_UNIMIND_PARAMETERS).Sigma)
   })
 
   // Skipping because we are currently sampling 100% of addresses

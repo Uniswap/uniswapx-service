@@ -1,11 +1,11 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { mock } from 'jest-mock-extended'
 import { EVENT_CONTEXT } from '../../fixtures'
-import { GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
+import { calculateParameters, GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
 import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
 import { CommandParser, CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
 import { artemisModifyCalldata } from '../../../../lib/util/UniversalRouterCalldata'
@@ -13,6 +13,7 @@ import { UNIMIND_LIST } from '../../../../lib/config/unimind-list'
 import { ChainId } from '@uniswap/sdk-core'
 import { V4BaseActionsParser } from '@uniswap/v4-sdk'
 import { UR_EXECUTE_WITH_DEADLINE_SELECTOR, UR_FUNCTION_SIGNATURES } from '../../../../lib/handlers/constants'
+import { PriceImpactStrategy } from '../../../../lib/unimind/priceImpactStrategy'
 
 const SAMPLE_ROUTE = {
   quote: "1234",
@@ -77,6 +78,7 @@ describe('Testing get unimind handler', () => {
         lambda2: 8,
         Sigma: Math.log(0.00005)
       }),
+      version: UNIMIND_ALGORITHM_VERSION,
       count: 0
     })
 
@@ -139,6 +141,61 @@ describe('Testing get unimind handler', () => {
       pi: expect.any(Number),
       tau: expect.any(Number)
     })
+  })
+
+  it('Returns based on default parameters when version is not the same', async () => {
+    const quoteMetadata = {
+      quoteId: 'test-quote-id',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS  
+    }
+
+    mockUnimindParametersRepo.getByPair.mockResolvedValue({
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+      intrinsicValues: JSON.stringify({
+        lambda1: 1,
+        lambda2: 8,
+        Sigma: Math.log(0.00005)
+      }),
+      version: UNIMIND_ALGORITHM_VERSION - 1,
+      count: 0
+    })
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: quoteQueryParams,
+        requestContext: {
+          requestId: 'test-request-id'
+        }
+      } as any,
+      EVENT_CONTEXT
+    )
+
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    const expectedUnimindParameters = {
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+      intrinsicValues: DEFAULT_UNIMIND_PARAMETERS, // Should return based on calculations with default parameters
+      count: 0,
+      version: UNIMIND_ALGORITHM_VERSION
+    }
+    const expectedBody = calculateParameters(new PriceImpactStrategy(), expectedUnimindParameters, {
+      quoteId: quoteMetadata.quoteId,
+      referencePrice: quoteMetadata.referencePrice,
+      priceImpact: quoteMetadata.priceImpact,
+      pair: quoteMetadata.pair,
+      route: SAMPLE_ROUTE,
+      blockNumber: 1,
+      usedUnimind: true
+    })
+    expect(body).toEqual(expectedBody)
   })
 
   it('Returns empty parameters when logOnly is true', async () => {

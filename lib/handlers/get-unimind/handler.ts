@@ -7,9 +7,10 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS } from '../../util/constants'
 import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
+import { validateParameters } from '../../crons/unimind-algorithm'
 
 type UnimindResponse = {
   pi: number
@@ -70,12 +71,13 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         unimindParametersRepository.getByPair(requestQueryParams.pair)
       ])
 
-      if (!unimindParameters) {
+      if (!unimindParameters || !validateParameters(unimindParameters, log)) { // This includes version check
         // Use default parameters and add to unimindParametersRepository
         const entry = {
             intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
             pair: requestQueryParams.pair,
-            count: 0
+            count: 0,
+            version: UNIMIND_ALGORITHM_VERSION
         }
         await unimindParametersRepository.put(entry)
         unimindParameters = entry
@@ -89,7 +91,9 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       const calculateTime = afterCalculateTime - beforeCalculateTime
       metrics.putMetric(`final-parameters-calculation-time`, calculateTime)
 
-      log.info(`For the pair ${requestQueryParams.pair} with price impact of ${quoteMetadata.priceImpact}, pi is ${parameters.pi} and tau is ${parameters.tau}`)
+      log.info(
+        `For the pair ${requestQueryParams.pair} with price impact of ${quoteMetadata.priceImpact}, pi is ${parameters.pi} and tau is ${parameters.tau}. The quoteId is ${quoteMetadata.quoteId}`
+      )
       return {
         statusCode: 200,
         body: parameters
