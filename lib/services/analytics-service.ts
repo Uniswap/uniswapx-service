@@ -118,6 +118,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
     gasPriceWei: string,
     gasUsed: string,
     effectivePriorityFee: string,
+    fillTimeBlocks: number,
     userAmount: SettledAmount
   ): void {
     log.info('Fill Info', {
@@ -144,6 +145,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         gasUsed: gasUsed,
         gasCostInETH: gasCostInETH,
         effectivePriorityFee: effectivePriorityFee,
+        fillTimeBlocks: fillTimeBlocks,
         logTime: Math.floor(Date.now() / 1000).toString(),
       },
     })
