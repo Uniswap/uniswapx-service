@@ -90,10 +90,6 @@ export class CheckOrderStatusService {
     )
 
     const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
-    let fillTimeBlocks = startingBlockNumber ? curBlockNumber - startingBlockNumber : undefined // Approximate for non-DutchV3 orders
-    if (order.type === OrderType.Dutch_V3) { // For DutchV3 orders, we can calculate the exact fill time in blocks
-      fillTimeBlocks = curBlockNumber - order.cosignerData.decayStartBlock; 
-    }
     const commonUpdateInfo = {
       orderHash,
       quoteId,
@@ -122,6 +118,12 @@ export class CheckOrderStatusService {
             provider.getTransaction(fillEvent.txHash),
             provider.getBlock(fillEvent.blockNumber),
           ])
+
+          let fillTimeBlocks = startingBlockNumber ? block.number - startingBlockNumber : undefined // Approximate for non-DutchV3 orders
+          if (order.type === OrderType.Dutch_V3) { // For DutchV3 orders, we can calculate the exact fill time in blocks
+            fillTimeBlocks = block.number - order.cosignerData.decayStartBlock; 
+          }
+
           const settledAmounts = getSettledAmounts(
             fillEvent,
             {
