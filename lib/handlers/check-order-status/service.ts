@@ -124,7 +124,7 @@ export class CheckOrderStatusService {
           let fillTimeBlocks: number | undefined = undefined;
           const fillBlock = block.number;
           switch (order.type) {
-            case OrderType.Dutch: // Approximatation
+            case OrderType.Dutch: // Approximation
               if (order.decayStartTime) {
                 fillTimeBlocks = fillBlock - timestampToBlockNumber(block, order.decayStartTime, chainId);
               }
@@ -135,10 +135,11 @@ export class CheckOrderStatusService {
             case OrderType.Dutch_V3: // Exact
               fillTimeBlocks = fillBlock - order.cosignerData.decayStartBlock;
               break;
-            case OrderType.Priority: // Approximation
+            case OrderType.Priority: { // Approximation
               const orderCreationBlock = order.cosignerData.auctionTargetBlock - PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId];
               fillTimeBlocks = fillBlock - orderCreationBlock;
               break;
+            }
           }
 
           const settledAmounts = getSettledAmounts(

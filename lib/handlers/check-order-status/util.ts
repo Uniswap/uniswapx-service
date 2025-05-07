@@ -271,7 +271,7 @@ export function timestampToBlockNumber(
   const blockTimeSec = AVERAGE_BLOCK_TIME(chainId);
   const blockDifference = Math.floor(secondsDifference / blockTimeSec);
   return referenceBlock.number + blockDifference;
-};
+}
 
 export const IS_TERMINAL_STATE = (state: ORDER_STATUS): boolean => {
   return [ORDER_STATUS.CANCELLED, ORDER_STATUS.FILLED, ORDER_STATUS.EXPIRED, ORDER_STATUS.ERROR].includes(state)
