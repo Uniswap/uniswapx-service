@@ -90,6 +90,7 @@ export class CheckOrderStatusService {
     )
 
     const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
+
     const commonUpdateInfo = {
       orderHash,
       quoteId,
