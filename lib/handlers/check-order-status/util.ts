@@ -261,6 +261,18 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
   }
 }
 
+// Approximate block number from timestamp
+export function timestampToBlockNumber(
+  referenceBlock: ethers.providers.Block,
+  targetTimestamp: number,
+  chainId: ChainId
+): number {
+  const secondsDifference = targetTimestamp - referenceBlock.timestamp;
+  const blockTimeSec = AVERAGE_BLOCK_TIME(chainId);
+  const blockDifference = Math.floor(secondsDifference / blockTimeSec);
+  return referenceBlock.number + blockDifference;
+};
+
 export const IS_TERMINAL_STATE = (state: ORDER_STATUS): boolean => {
   return [ORDER_STATUS.CANCELLED, ORDER_STATUS.FILLED, ORDER_STATUS.EXPIRED, ORDER_STATUS.ERROR].includes(state)
 }

@@ -20,8 +20,9 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import { getSettledAmounts, IS_TERMINAL_STATE } from './util'
+import { getSettledAmounts, IS_TERMINAL_STATE, timestampToBlockNumber } from './util'
 import { parseOrder } from '../OrderParser'
+import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../constants'
 
 const FILL_CHECK_OVERLAP_BLOCK = 20
 
@@ -120,9 +121,24 @@ export class CheckOrderStatusService {
             provider.getBlock(fillEvent.blockNumber),
           ])
 
-          let fillTimeBlocks = startingBlockNumber ? block.number - startingBlockNumber : undefined // Approximate for non-DutchV3 orders
-          if (order.type === OrderType.Dutch_V3) { // For DutchV3 orders, we can calculate the exact fill time in blocks
-            fillTimeBlocks = block.number - order.cosignerData.decayStartBlock; 
+          let fillTimeBlocks: number | undefined = undefined;
+          const fillBlock = block.number;
+          switch (order.type) {
+            case OrderType.Dutch: // Approximatation
+              if (order.decayStartTime) {
+                fillTimeBlocks = fillBlock - timestampToBlockNumber(block, order.decayStartTime, chainId);
+              }
+              break;
+            case OrderType.Dutch_V2: // Approximation
+              fillTimeBlocks = fillBlock - timestampToBlockNumber(block, order.cosignerData.decayStartTime, chainId);
+              break;
+            case OrderType.Dutch_V3: // Exact
+              fillTimeBlocks = fillBlock - order.cosignerData.decayStartBlock;
+              break;
+            case OrderType.Priority: // Approximation
+              const orderCreationBlock = order.cosignerData.auctionTargetBlock - PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId];
+              fillTimeBlocks = fillBlock - orderCreationBlock;
+              break;
           }
 
           const settledAmounts = getSettledAmounts(
