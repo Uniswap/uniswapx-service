@@ -22,6 +22,7 @@ export type ProcessFillEventRequest = {
   quoteId?: string
   tx?: ethers.providers.TransactionResponse
   block?: ethers.providers.Block
+  fillTimeBlocks?: number
   timestamp: number
 }
 export class FillEventLogger {
@@ -39,6 +40,7 @@ export class FillEventLogger {
     settledAmounts,
     tx,
     block,
+    fillTimeBlocks,
     timestamp,
   }: ProcessFillEventRequest): Promise<SettledAmount[]> {
     if (tx && block) {
@@ -59,6 +61,7 @@ export class FillEventLogger {
           receipt.effectiveGasPrice.toString(),
           receipt.gasUsed.toString(),
           receipt.effectiveGasPrice.sub(block.baseFeePerGas ?? 0).toString(),
+          fillTimeBlocks ?? -1, // -1 means we don't have a fill time in blocks
           filteredOutputs.reduce((prev, cur) => (prev && BigNumber.from(prev.amountOut).gt(cur.amountOut) ? prev : cur))
         )
       } else {
