@@ -166,7 +166,7 @@ function getOrderCountsByPair(
   const pairCounts = new Map<string, number>();
 
   for (const order of orders) {
-    let pair = order.pair;
+    const pair = order.pair;
     // If pair doesn't exist, it means there was no quote metadata, indicating that Unimind was not used
     if (pair) {
       pairCounts.set(pair, (pairCounts.get(pair) || 0) + 1);
