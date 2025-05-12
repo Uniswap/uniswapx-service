@@ -166,17 +166,11 @@ function getOrderCountsByPair(
   const pairCounts = new Map<string, number>();
 
   for (const order of orders) {
-    let pair = order.pair;
-    // If pair is not already set, create it from input and output tokens
-    if (!pair && order.input && order.outputs) {
-      const inputToken = order.input.token;
-      const outputToken = order.outputs[0].token;
-      pair = `${inputToken}-${outputToken}-${order.chainId}`;
+    const pair = order.pair;
+    // If pair doesn't exist, it means there was no quote metadata, indicating that Unimind was not used
+    if (pair) {
+      pairCounts.set(pair, (pairCounts.get(pair) || 0) + 1);
     }
-    
-    if (!pair) continue;
-
-    pairCounts.set(pair, (pairCounts.get(pair) || 0) + 1);
   }
   
   return pairCounts;
