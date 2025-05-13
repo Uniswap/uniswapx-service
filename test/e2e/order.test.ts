@@ -91,7 +91,12 @@ describe('/dutch-auction/order', () => {
     PARAM_URL = process.env.GPA_SERVICE_URL
     COSIGNER_ADDRESS = process.env.COSIGNER_ADDRESS
 
-    provider = new ethers.providers.StaticJsonRpcProvider(process.env.RPC_1)
+    provider = new ethers.providers.StaticJsonRpcProvider({
+      url: process.env.RPC_1,
+      headers: {
+        'x-uni-service-id': 'x_order_service'
+      }
+    })
     alice = new ethers.Wallet(process.env.TEST_WALLET_PK).connect(provider)
     filler = new ethers.Wallet(process.env.TEST_FILLER_PK).connect(provider)
     aliceAddress = (await alice.getAddress()).toLowerCase()

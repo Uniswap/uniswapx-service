@@ -2,6 +2,7 @@ import { OrderType, REACTOR_ADDRESS_MAPPING, RelayEventWatcher, UniswapXEventWat
 import { ethers } from 'ethers'
 import { CONFIG } from '../Config'
 import { ChainId, SUPPORTED_CHAINS } from '../util/chain'
+import { RPC_HEADERS } from '../util/constants'
 
 export class EventWatcherMap<T extends UniswapXEventWatcher | RelayEventWatcher> {
   private chainIdToEventWatcher: Map<ChainId, T> = new Map()
@@ -34,7 +35,10 @@ export class EventWatcherMap<T extends UniswapXEventWatcher | RelayEventWatcher>
       }
       map.set(
         chainId,
-        new RelayEventWatcher(new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)), address)
+        new RelayEventWatcher(new ethers.providers.StaticJsonRpcProvider({
+          url: CONFIG.rpcUrls.get(chainId),
+          headers: RPC_HEADERS
+        }), address)
       )
     }
     return map
