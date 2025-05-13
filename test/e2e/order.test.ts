@@ -13,6 +13,7 @@ import { ChainId } from '../../lib/util/chain'
 import * as ERC20_ABI from './abis/erc20.json'
 import { stringValue } from 'aws-sdk/clients/iot'
 import { ExclusiveDutchOrderReactor__factory } from '@uniswap/uniswapx-sdk/dist/cjs/src/contracts/factories'
+import { RPC_HEADERS } from '../../lib/util/constants'
 const { abi } = ERC20_ABI
 
 dotenv.config()
@@ -93,9 +94,7 @@ describe('/dutch-auction/order', () => {
 
     provider = new ethers.providers.StaticJsonRpcProvider({
       url: process.env.RPC_1,
-      headers: {
-        'x-uni-service-id': 'x_order_service'
-      }
+      headers: RPC_HEADERS
     })
     alice = new ethers.Wallet(process.env.TEST_WALLET_PK).connect(provider)
     filler = new ethers.Wallet(process.env.TEST_FILLER_PK).connect(provider)
