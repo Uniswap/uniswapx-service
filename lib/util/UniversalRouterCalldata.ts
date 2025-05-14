@@ -1,4 +1,4 @@
-import { CommandType } from "@uniswap/universal-router-sdk";
+import { CommandParser, CommandType } from "@uniswap/universal-router-sdk";
 import { Logger } from '@aws-lambda-powertools/logger'
 import { defaultAbiCoder, Interface } from "ethers/lib/utils";
 import { 
@@ -186,17 +186,42 @@ export class UniversalRouterCalldata {
       throw e;
     }
   }
+
+  public getOriginalRecipient(): string | null {
+    const sweepIndex = this.commandArray.findIndex(command => command == CommandType.SWEEP);
+    if (sweepIndex !== -1) {
+      const sweepInput = this.inputsArray[sweepIndex];
+      // Decode sweep parameters to get the original recipient
+      const [, recipient] = defaultAbiCoder.decode(
+        UR_SWEEP_PARAMETERS,
+        sweepInput
+      );
+      return recipient;
+    }
+    return null;
+  }
 }
 
 export function artemisModifyCalldata(calldata: string, log: Logger, executeAddress: string): string {
   try {
     const router = new UniversalRouterCalldata(calldata, log);
-    return router
+    const originalRecipient = router.getOriginalRecipient();
+    const modifiedCalldata = router
       .removePayPortionCommand()
       .modifySweepRecipient(executeAddress)
       .modifyUnwrapRecipient(executeAddress)
       .modifyV4SwapRecipient(executeAddress)
       .encode();
+
+    // detect if the original recipient is still present in the calldata
+    if (originalRecipient) {
+      const decoded = CommandParser.parseCalldata(modifiedCalldata);
+      const originalRecipientIndex = JSON.stringify(decoded).indexOf(originalRecipient.slice(HEX_PREFIX.length));
+      if (originalRecipientIndex !== -1) {
+        throw new Error(`Original recipient still present in calldata. originalRecipient: ${originalRecipient}, modifiedCalldata: ${modifiedCalldata}`);
+      }
+    }
+    return modifiedCalldata;
   } catch (e) {
     log.error('Error in artemisModifyCalldata', {
       error: (e as Error)?.message ?? 'Unknown error',
