@@ -117,7 +117,9 @@ export class UniversalRouterCalldata {
       (command) => command === CommandType.V4_SWAP
     )
 
-    if (v4SwapIndex === -1) return this
+    if (v4SwapIndex === -1) {
+      return this;
+    }
 
     const v4Input = this.inputsArray[v4SwapIndex] as string
 
