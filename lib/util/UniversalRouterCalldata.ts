@@ -10,16 +10,14 @@ import {
   UR_FUNCTION_SIGNATURES,
   UR_SWEEP_PARAMETERS,
   UR_TAKE_PARAMETERS,
-  UR_UNWRAP_WETH_PARAMETERS
+  UR_UNWRAP_WETH_PARAMETERS,
+  HEX_PREFIX,
+  UR_SELECTOR_BYTES,
+  UR_BYTES_PER_ACTION,
+  HEX_BASE,
+  CHARS_PER_BYTE
 } from "../handlers/constants";
 import { Actions } from '@uniswap/v4-sdk'
-
-// Constants for hex string manipulation
-const HEX_PREFIX = "0x";
-const SELECTOR_BYTES = 4;
-const CHARS_PER_BYTE = 2;
-const BYTES_PER_ACTION = 2;
-const HEX_BASE = 16;
 
 export class UniversalRouterCalldata {
   private iface: Interface;
@@ -52,7 +50,7 @@ export class UniversalRouterCalldata {
   private parseCalldata(calldata: string): void {
     this.functionSelector = calldata.slice(
       HEX_PREFIX.length,
-      HEX_PREFIX.length + SELECTOR_BYTES * CHARS_PER_BYTE
+      HEX_PREFIX.length + UR_SELECTOR_BYTES * CHARS_PER_BYTE
     );
 
     this.signature = UR_FUNCTION_SIGNATURES[this.functionSelector];
@@ -133,13 +131,13 @@ export class UniversalRouterCalldata {
     const updatedParams = [...paramsArray]
 
     // Go through actions to rewrite recipient
-    for (let i = 0; i < bytesWithout0x.length; i += BYTES_PER_ACTION) {
-      const actionByte = parseInt(bytesWithout0x.slice(i, i + BYTES_PER_ACTION), HEX_BASE) as Actions
+    for (let i = 0; i < bytesWithout0x.length; i += UR_BYTES_PER_ACTION) {
+      const actionByte = parseInt(bytesWithout0x.slice(i, i + UR_BYTES_PER_ACTION), HEX_BASE) as Actions
 
       if (actionByte === Actions.TAKE) {
         // paramIndex is half the index of the action byte since each 
         // action takes 2 chars in the byte string
-        const paramIndex = i / BYTES_PER_ACTION
+        const paramIndex = i / UR_BYTES_PER_ACTION
         const encodedInput = paramsArray[paramIndex]
 
         // Decode existing TAKE parameters
