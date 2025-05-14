@@ -2,15 +2,24 @@ import { CommandType } from "@uniswap/universal-router-sdk";
 import { Logger } from '@aws-lambda-powertools/logger'
 import { defaultAbiCoder, Interface } from "ethers/lib/utils";
 import { 
+  UR_ACTIONS_PARAMETERS,
   UR_EXECUTE_DEADLINE_BUFFER,
   UR_EXECUTE_FUNCTION,
   UR_EXECUTE_SELECTOR,
   UR_EXECUTE_WITH_DEADLINE_SELECTOR,
   UR_FUNCTION_SIGNATURES,
   UR_SWEEP_PARAMETERS,
+  UR_TAKE_PARAMETERS,
   UR_UNWRAP_WETH_PARAMETERS
 } from "../handlers/constants";
 import { Actions } from '@uniswap/v4-sdk'
+
+// Constants for hex string manipulation
+const HEX_PREFIX = "0x";
+const SELECTOR_BYTES = 4;
+const CHARS_PER_BYTE = 2;
+const BYTES_PER_ACTION = 2;
+const HEX_BASE = 16;
 
 export class UniversalRouterCalldata {
   private iface: Interface;
@@ -41,10 +50,6 @@ export class UniversalRouterCalldata {
   }
 
   private parseCalldata(calldata: string): void {
-    const HEX_PREFIX = "0x";
-    const SELECTOR_BYTES = 4;
-    const CHARS_PER_BYTE = 2;
-
     this.functionSelector = calldata.slice(
       HEX_PREFIX.length,
       HEX_PREFIX.length + SELECTOR_BYTES * CHARS_PER_BYTE
@@ -120,30 +125,32 @@ export class UniversalRouterCalldata {
 
     // Decode wrapper structure to (actionsHex, params[])
     const [actionsHex, paramsArray]: [string, string[]] = defaultAbiCoder.decode(
-      ['bytes', 'bytes[]'],
+      UR_ACTIONS_PARAMETERS,
       v4Input
     ) as [string, string[]]
 
-    const bytesWithout0x = actionsHex.startsWith('0x') ? actionsHex.slice(2) : actionsHex
+    const bytesWithout0x = actionsHex.startsWith(HEX_PREFIX) ? actionsHex.slice(HEX_PREFIX.length) : actionsHex
     const updatedParams = [...paramsArray]
 
     // Go through actions to rewrite recipient
-    for (let i = 0; i < bytesWithout0x.length; i += 2) {
-      const actionByte = parseInt(bytesWithout0x.slice(i, i + 2), 16) as Actions
+    for (let i = 0; i < bytesWithout0x.length; i += BYTES_PER_ACTION) {
+      const actionByte = parseInt(bytesWithout0x.slice(i, i + BYTES_PER_ACTION), HEX_BASE) as Actions
 
       if (actionByte === Actions.TAKE) {
-        const paramIndex = i / 2
+        // paramIndex is half the index of the action byte since each 
+        // action takes 2 chars in the byte string
+        const paramIndex = i / BYTES_PER_ACTION
         const encodedInput = paramsArray[paramIndex]
 
         // Decode existing TAKE parameters
         const [currency, , amount] = defaultAbiCoder.decode(
-          ['address', 'address', 'uint256'],
+          UR_TAKE_PARAMETERS,
           encodedInput
         )
 
         // Re-encode with the new recipient
         updatedParams[paramIndex] = defaultAbiCoder.encode(
-          ['address', 'address', 'uint256'],
+          UR_TAKE_PARAMETERS,
           [currency, recipient, amount]
         )
       } // We can add more cases here if we want to modify other V4 actions
@@ -151,7 +158,7 @@ export class UniversalRouterCalldata {
 
     // Re-encode wrapper structure and put it back
     const modifiedV4Input = defaultAbiCoder.encode(
-      ['bytes', 'bytes[]'],
+      UR_ACTIONS_PARAMETERS,
       [actionsHex, updatedParams]
     )
     this.inputsArray[v4SwapIndex] = modifiedV4Input
@@ -211,9 +218,9 @@ function getCommands(commands: string): CommandType[] {
   }
   
   const commandTypes: CommandType[] = [];
-  for (let i = 0; i < hexString.length; i += 2) {
-    const byte = hexString.substring(i, i + 2);
-    commandTypes.push(parseInt(byte, 16) as CommandType);
+  for (let i = 0; i < hexString.length; i += CHARS_PER_BYTE) {
+    const byte = hexString.substring(i, i + CHARS_PER_BYTE);
+    commandTypes.push(parseInt(byte, HEX_BASE) as CommandType);
   }
   
   return commandTypes;
