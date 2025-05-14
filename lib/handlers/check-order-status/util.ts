@@ -14,7 +14,7 @@ import {
 import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { ChainId } from '../../util/chain'
-import { NATIVE_ADDRESS } from '../../util/constants'
+import { NATIVE_ADDRESS, RPC_HEADERS } from '../../util/constants'
 
 export interface FillMetadata {
   timestamp: number
@@ -315,7 +315,10 @@ export function getProvider(chainId: number): ethers.providers.StaticJsonRpcProv
     throw new Error(`rpcURL not defined for ${chainId}`)
   }
   if (!providersMap.get(chainId)) {
-    providersMap.set(chainId, new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId))
+    providersMap.set(chainId, new ethers.providers.StaticJsonRpcProvider({
+      url: rpcURL,
+      headers: RPC_HEADERS
+    }, chainId))
   }
   return providersMap.get(chainId) as ethers.providers.StaticJsonRpcProvider
 }

@@ -39,3 +39,7 @@ export const PUBLIC_UNIMIND_PARAMETERS = {
   tau: 15
 }
 export const UNIMIND_MAX_TAU_BPS = 25
+
+export const RPC_HEADERS = {
+  'x-uni-service-id': 'x_order_service'
+} as const
