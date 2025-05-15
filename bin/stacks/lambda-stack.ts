@@ -122,7 +122,7 @@ export class LambdaStack extends cdk.NestedStack {
       ...props.envVars,
       stage: props.stage as STAGE,
       KMS_KEY_ID: kmsKey.keyId,
-      VERSION: '5',
+      VERSION: '6',
       NODE_OPTIONS: '--enable-source-maps',
     }
 
@@ -157,7 +157,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...props.envVars,
         stage: props.stage as STAGE,
         KMS_KEY_ID: kmsKey.keyId,
-        VERSION: '4',
+        VERSION: '5',
         NODE_OPTIONS: '--enable-source-maps',
       },
       vpc,
@@ -197,7 +197,7 @@ export class LambdaStack extends cdk.NestedStack {
       ...props.envVars,
       stage: props.stage as STAGE,
       KMS_KEY_ID: kmsKey.keyId,
-      VERSION: '5',
+      VERSION: '6',
       NODE_OPTIONS: '--enable-source-maps',
       REGION: this.region,
     }
@@ -265,7 +265,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...props.envVars,
         stage: props.stage as STAGE,
         KMS_KEY_ID: kmsKey.keyId,
-        VERSION: '4',
+        VERSION: '5',
         NODE_OPTIONS: '--enable-source-maps',
       },
       tracing: aws_lambda.Tracing.ACTIVE,
@@ -285,7 +285,7 @@ export class LambdaStack extends cdk.NestedStack {
         stage: props.stage as STAGE,
         ...props.envVars,
         KMS_KEY_ID: kmsKey.keyId,
-        VERSION: '4',
+        VERSION: '5',
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
@@ -304,7 +304,7 @@ export class LambdaStack extends cdk.NestedStack {
         stage: props.stage as STAGE,
         KMS_KEY_ID: kmsKey.keyId,
         ...props.envVars,
-        VERSION: '4',
+        VERSION: '5',
         NODE_OPTIONS: '--enable-source-maps',
       },
     })
