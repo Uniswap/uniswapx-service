@@ -1,15 +1,23 @@
-import { CommandType } from "@uniswap/universal-router-sdk";
+import { CommandParser, CommandType } from "@uniswap/universal-router-sdk";
 import { Logger } from '@aws-lambda-powertools/logger'
 import { defaultAbiCoder, Interface } from "ethers/lib/utils";
 import { 
+  UR_ACTIONS_PARAMETERS,
   UR_EXECUTE_DEADLINE_BUFFER,
   UR_EXECUTE_FUNCTION,
   UR_EXECUTE_SELECTOR,
   UR_EXECUTE_WITH_DEADLINE_SELECTOR,
   UR_FUNCTION_SIGNATURES,
   UR_SWEEP_PARAMETERS,
-  UR_UNWRAP_WETH_PARAMETERS
+  UR_TAKE_PARAMETERS,
+  UR_UNWRAP_WETH_PARAMETERS,
+  HEX_PREFIX,
+  UR_SELECTOR_BYTES,
+  UR_BYTES_PER_ACTION,
+  HEX_BASE,
+  CHARS_PER_BYTE
 } from "../handlers/constants";
+import { Actions } from '@uniswap/v4-sdk'
 
 export class UniversalRouterCalldata {
   private iface: Interface;
@@ -40,13 +48,9 @@ export class UniversalRouterCalldata {
   }
 
   private parseCalldata(calldata: string): void {
-    const HEX_PREFIX = "0x";
-    const SELECTOR_BYTES = 4;
-    const CHARS_PER_BYTE = 2;
-
     this.functionSelector = calldata.slice(
       HEX_PREFIX.length,
-      HEX_PREFIX.length + SELECTOR_BYTES * CHARS_PER_BYTE
+      HEX_PREFIX.length + UR_SELECTOR_BYTES * CHARS_PER_BYTE
     );
 
     this.signature = UR_FUNCTION_SIGNATURES[this.functionSelector];
@@ -107,6 +111,60 @@ export class UniversalRouterCalldata {
     }
     return this;
   }
+
+  public modifyV4SwapRecipient(recipient: string): UniversalRouterCalldata {
+    const v4SwapIndex = this.commandArray.findIndex(
+      (command) => command === CommandType.V4_SWAP
+    )
+
+    if (v4SwapIndex === -1) {
+      return this;
+    }
+
+    const v4Input = this.inputsArray[v4SwapIndex] as string
+
+    // Decode wrapper structure to (actionsHex, params[])
+    const [actionsHex, paramsArray]: [string, string[]] = defaultAbiCoder.decode(
+      UR_ACTIONS_PARAMETERS,
+      v4Input
+    ) as [string, string[]]
+
+    const bytesWithout0x = actionsHex.startsWith(HEX_PREFIX) ? actionsHex.slice(HEX_PREFIX.length) : actionsHex
+    const updatedParams = [...paramsArray]
+
+    // Go through actions to rewrite recipient
+    for (let i = 0; i < bytesWithout0x.length; i += UR_BYTES_PER_ACTION) {
+      const actionByte = parseInt(bytesWithout0x.slice(i, i + UR_BYTES_PER_ACTION), HEX_BASE) as Actions
+
+      if (actionByte === Actions.TAKE) {
+        // paramIndex is half the index of the action byte since each 
+        // action takes 2 chars in the byte string
+        const paramIndex = i / UR_BYTES_PER_ACTION
+        const encodedInput = paramsArray[paramIndex]
+
+        // Decode existing TAKE parameters
+        const [currency, , amount] = defaultAbiCoder.decode(
+          UR_TAKE_PARAMETERS,
+          encodedInput
+        )
+
+        // Re-encode with the new recipient
+        updatedParams[paramIndex] = defaultAbiCoder.encode(
+          UR_TAKE_PARAMETERS,
+          [currency, recipient, amount]
+        )
+      } // We can add more cases here if we want to modify other V4 actions
+    }
+
+    // Re-encode wrapper structure and put it back
+    const modifiedV4Input = defaultAbiCoder.encode(
+      UR_ACTIONS_PARAMETERS,
+      [actionsHex, updatedParams]
+    )
+    this.inputsArray[v4SwapIndex] = modifiedV4Input
+
+    return this
+  }
   
   public encode(): string {
     try {
@@ -130,16 +188,42 @@ export class UniversalRouterCalldata {
       throw e;
     }
   }
+
+  public getOriginalRecipient(): string | null {
+    const sweepIndex = this.commandArray.findIndex(command => command == CommandType.SWEEP);
+    if (sweepIndex !== -1) {
+      const sweepInput = this.inputsArray[sweepIndex];
+      // Decode sweep parameters to get the original recipient
+      const [, recipient] = defaultAbiCoder.decode(
+        UR_SWEEP_PARAMETERS,
+        sweepInput
+      );
+      return recipient;
+    }
+    return null;
+  }
 }
 
 export function artemisModifyCalldata(calldata: string, log: Logger, executeAddress: string): string {
   try {
     const router = new UniversalRouterCalldata(calldata, log);
-    return router
+    const originalRecipient = router.getOriginalRecipient();
+    const modifiedCalldata = router
       .removePayPortionCommand()
       .modifySweepRecipient(executeAddress)
       .modifyUnwrapRecipient(executeAddress)
+      .modifyV4SwapRecipient(executeAddress)
       .encode();
+
+    // detect if the original recipient is still present in the calldata
+    if (originalRecipient) {
+      const decoded = CommandParser.parseCalldata(modifiedCalldata);
+      const originalRecipientIndex = JSON.stringify(decoded).indexOf(originalRecipient.slice(HEX_PREFIX.length));
+      if (originalRecipientIndex !== -1) {
+        throw new Error(`Original recipient still present in calldata. originalRecipient: ${originalRecipient}, modifiedCalldata: ${modifiedCalldata}`);
+      }
+    }
+    return modifiedCalldata;
   } catch (e) {
     log.error('Error in artemisModifyCalldata', {
       error: (e as Error)?.message ?? 'Unknown error',
@@ -159,9 +243,9 @@ function getCommands(commands: string): CommandType[] {
   }
   
   const commandTypes: CommandType[] = [];
-  for (let i = 0; i < hexString.length; i += 2) {
-    const byte = hexString.substring(i, i + 2);
-    commandTypes.push(parseInt(byte, 16) as CommandType);
+  for (let i = 0; i < hexString.length; i += CHARS_PER_BYTE) {
+    const byte = hexString.substring(i, i + CHARS_PER_BYTE);
+    commandTypes.push(parseInt(byte, HEX_BASE) as CommandType);
   }
   
   return commandTypes;

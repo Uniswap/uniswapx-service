@@ -37,3 +37,12 @@ export const UR_FUNCTION_SIGNATURES: Record<string, string> = {
 export const UR_EXECUTE_DEADLINE_BUFFER = 60; // Seconds to extend calldata deadline
 export const UR_UNWRAP_WETH_PARAMETERS = ['address', 'uint256']
 export const UR_SWEEP_PARAMETERS = ['address', 'address', 'uint256']
+export const UR_ACTIONS_PARAMETERS = ['bytes', 'bytes[]']
+export const UR_TAKE_PARAMETERS = ['address', 'address', 'uint256']
+
+// Constants for hex string manipulation
+export const HEX_PREFIX = "0x";
+export const HEX_BASE = 16;
+export const CHARS_PER_BYTE = 2;
+export const UR_SELECTOR_BYTES = 4;
+export const UR_BYTES_PER_ACTION = 2;
