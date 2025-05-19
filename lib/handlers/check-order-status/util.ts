@@ -14,7 +14,7 @@ import {
 import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { ChainId } from '../../util/chain'
-import { NATIVE_ADDRESS } from '../../util/constants'
+import { NATIVE_ADDRESS, RPC_HEADERS } from '../../util/constants'
 
 export interface FillMetadata {
   timestamp: number
@@ -261,6 +261,18 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
   }
 }
 
+// Approximate block number from timestamp
+export function timestampToBlockNumber(
+  referenceBlock: ethers.providers.Block,
+  targetTimestamp: number,
+  chainId: ChainId
+): number {
+  const secondsDifference = targetTimestamp - referenceBlock.timestamp;
+  const blockTimeSec = AVERAGE_BLOCK_TIME(chainId);
+  const blockDifference = Math.floor(secondsDifference / blockTimeSec);
+  return referenceBlock.number + blockDifference;
+}
+
 export const IS_TERMINAL_STATE = (state: ORDER_STATUS): boolean => {
   return [ORDER_STATUS.CANCELLED, ORDER_STATUS.FILLED, ORDER_STATUS.EXPIRED, ORDER_STATUS.ERROR].includes(state)
 }
@@ -303,7 +315,10 @@ export function getProvider(chainId: number): ethers.providers.StaticJsonRpcProv
     throw new Error(`rpcURL not defined for ${chainId}`)
   }
   if (!providersMap.get(chainId)) {
-    providersMap.set(chainId, new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId))
+    providersMap.set(chainId, new ethers.providers.StaticJsonRpcProvider({
+      url: rpcURL,
+      headers: RPC_HEADERS
+    }, chainId))
   }
   return providersMap.get(chainId) as ethers.providers.StaticJsonRpcProvider
 }

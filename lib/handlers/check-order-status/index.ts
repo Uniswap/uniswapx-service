@@ -19,13 +19,17 @@ import { getMaxOpenOrders } from '../post-order/injector'
 import { CheckOrderStatusHandler } from './handler'
 import { CheckOrderStatusInjector } from './injector'
 import { CheckOrderStatusService, CheckOrderStatusUtils } from './service'
+import { RPC_HEADERS } from '../../util/constants'
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
 for (const chainId of SUPPORTED_CHAINS) {
   relayOrderValidatorMap.set(
     chainId,
-    new OnChainRelayOrderValidator(new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)), chainId)
+    new OnChainRelayOrderValidator(new ethers.providers.StaticJsonRpcProvider({
+      url: CONFIG.rpcUrls.get(chainId),
+      headers: RPC_HEADERS
+    }), chainId)
   )
 }
 

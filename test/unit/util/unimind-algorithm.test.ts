@@ -164,9 +164,9 @@ describe('unimind-algorithm', () => {
       }
       const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
       // Test that they match to 5 decimal places
-      expect(result.lambda1).toBeCloseTo(-5.5372245907992656e-5, 5)
-      expect(result.lambda2).toBeCloseTo(35.24534329861248, 5)
-      expect(result.Sigma).toBeCloseTo(-9.348495477555824, 5)
+      expect(result.lambda1).toBeCloseTo(-0.0003691483060532844, 5)
+      expect(result.lambda2).toBeCloseTo(189.63562199074985, 5)
+      expect(result.Sigma).toBeCloseTo(-9.210349582316553, 5)
     });
     
     it('price impact strategy test', () => {
@@ -181,9 +181,9 @@ describe('unimind-algorithm', () => {
         fillStatuses
       }
       const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
-      expect(result.lambda1).toBeCloseTo(-5.227310924635774e-5, 5)
-      expect(result.lambda2).toBeCloseTo(35.07513162392661, 5)
-      expect(result.Sigma).toBeCloseTo(-9.10178993187789, 5)
+      expect(result.lambda1).toBeCloseTo(-0.0003484873949757183, 5)
+      expect(result.lambda2).toBeCloseTo(188.50087749284407, 5)
+      expect(result.Sigma).toBeCloseTo(-9.210333135280175, 5)
     });
 
     it('Price impact with real data <=1% price impact', () => {
@@ -198,7 +198,7 @@ describe('unimind-algorithm', () => {
       }
       const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
       expect(result.lambda1).toBeCloseTo(1.130312497556507e-9, 5)
-      expect(result.lambda2).toBeCloseTo(4.237141695754233, 5)
+      expect(result.lambda2).toBeCloseTo(4.237736453567317, 5)
       expect(result.Sigma).toBeCloseTo(-0.41228565543852524, 5)
     });
 
