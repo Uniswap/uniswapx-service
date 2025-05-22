@@ -11,7 +11,6 @@ import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } fr
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { QueryResult } from '../repositories/base'
 import { ChainId } from '@uniswap/sdk-core'
-import { unimindAddressFilter } from '../util/unimind'
 import { PriceImpactStrategy } from '../unimind/priceImpactStrategy'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
@@ -59,9 +58,12 @@ export async function updateParameters(
 ): Promise<void> {
   const beforeUpdateTime = Date.now()
   // Query Orders table for latest orders
-  const recentOrders = await getOrdersByTimeRange(ordersRepo, UNIMIND_ALGORITHM_CRON_INTERVAL);
-  const unimindOrders = recentOrders.filter(order => unimindAddressFilter(order.offerer));
-  log.info(`Unimind updateParameters:Found ${unimindOrders.length} orders in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
+  const unimindOrders = await getUnimindOrdersByTimeRange(ordersRepo, UNIMIND_ALGORITHM_CRON_INTERVAL, log);
+  const unimindOrderHashes = unimindOrders.map(order => order.orderHash);
+  log.info(`Unimind updateParameters: Found ${unimindOrders.length} orders in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes.`);
+  if (unimindOrderHashes.length > 0) {
+    log.info(`Unimind updateParameters: Unimind order hashes: ${unimindOrderHashes.join(', ')}`)
+  }
   const recentOrderCounts = getOrderCountsByPair(unimindOrders);
   log.info(`Unimind updateParameters: Found ${recentOrderCounts.size} unique pairs in the last ${UNIMIND_ALGORITHM_CRON_INTERVAL} minutes`)
   for (const [pairKey, count] of recentOrderCounts.entries()) {
@@ -137,7 +139,7 @@ export async function updateParameters(
   metrics?.putMetric(`unimind-parameters-update-time`, updateTime)
 }
 
-export async function getOrdersByTimeRange(ordersRepo: DutchOrdersRepository, timeRange: number): Promise<UniswapXOrderEntity[]> {
+export async function getUnimindOrdersByTimeRange(ordersRepo: DutchOrdersRepository, timeRange: number, log: Logger): Promise<UniswapXOrderEntity[]> {
   // Calculate the timestamp from timeRange minutes ago in seconds
   const timeRangeSeconds = timeRange * 60 // convert minutes to seconds
   const currentTimeSeconds = Math.floor(Date.now() / 1000) // current time in seconds
@@ -156,7 +158,11 @@ export async function getOrdersByTimeRange(ordersRepo: DutchOrdersRepository, ti
     undefined // no cursor needed for this query
   )
 
-  return result.orders
+  // Filter out the orders that did not use Unimind
+  const unimindOrders = result.orders.filter(order => order.usedUnimind)
+  log.info(`Unimind getOrdersByTimeRange: Found ${result.orders.length} orders. ${unimindOrders.length} of them used Unimind.`)
+
+  return unimindOrders
 }
 
 // Aggregates orders by trading pair and returns a map of pair to count
@@ -167,7 +173,6 @@ function getOrderCountsByPair(
 
   for (const order of orders) {
     const pair = order.pair;
-    // If pair doesn't exist, it means there was no quote metadata, indicating that Unimind was not used
     if (pair) {
       pairCounts.set(pair, (pairCounts.get(pair) || 0) + 1);
     }

@@ -80,7 +80,7 @@ const mockOrder: DutchV3OrderEntity = {
     }
   },
   pair: "0x1-0x2-21",
-  usedUnimind: false
+  usedUnimind: true,
 }
 
 const mockOldPair = '0x4444444444444444444444444444444444444444-0x2222222222222222222222222222222222222222-42161'
@@ -88,6 +88,7 @@ const mockOldPairOrder: DutchV3OrderEntity = {
   ...mockOrder,
   orderHash: '0x1',
   pair: mockOldPair,
+  usedUnimind: true,
 }
 
 const mockNewPair = '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-42161'
@@ -95,6 +96,7 @@ const mockNewPairOrder : DutchV3OrderEntity = {
   ...mockOrder,
   orderHash: '0x0',
   pair: mockNewPair,
+  usedUnimind: true,
 }
 
 afterAll(async () => {
