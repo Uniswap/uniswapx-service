@@ -245,7 +245,7 @@ async function processBlockRange(
           if (orderHashSet.has(e.orderHash)) {
             log.info(`Fill event found for order ${e.orderHash}`)
             try {
-              const order = await getOrderByHash(repo, e.orderHash)
+              const { order } = await getOrderByHash(repo, e.orderHash)
               const fillInfo = await watcher.getFillInfo(toBlock, fromBlock)
               const fillEvent = fillInfo.find((f) => f.orderHash === e.orderHash)
               
@@ -313,10 +313,10 @@ async function checkCancelledOrders(
   for (const orderHash of orderHashes) {
     if (!orderUpdates[orderHash]) {
       try {
-        const order = await getOrderByHash(repo, orderHash)
+        const { order, signature } = await getOrderByHash(repo, orderHash)
         const validation = await quoter.validate({
           order: order,
-          signature: order.signature,
+          signature: signature,
         })
         if (validation === OrderValidation.NonceUsed) {
           orderUpdates[orderHash] = {
@@ -372,7 +372,7 @@ async function getOpenOrderHashes(
   let orderHashes: string[] = []
   
   do {
-    const openOrders = await repo.getOrders(
+    const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
       DYNAMO_BATCH_WRITE_MAX,
       {
         orderStatus: ORDER_STATUS.OPEN,
@@ -392,10 +392,19 @@ async function getOpenOrderHashes(
   return orderHashes
 }
 
-async function getOrderByHash(repo: BaseOrdersRepository<UniswapXOrderEntity>, orderHash: string) {
+type OrderWithSignature = 
+{
+  order: UniswapXOrder,
+  signature: string
+}
+
+async function getOrderByHash(repo: BaseOrdersRepository<UniswapXOrderEntity>, orderHash: string): Promise<OrderWithSignature> {
   const order = await repo.getByHash(orderHash)
   if (!order) {
     throw new Error(`Order ${orderHash} not found`)
   }
-  return parseOrder(order, order.chainId)
+  return {
+    order: parseOrder(order, order.chainId),
+    signature: order.signature,
+  }
 }
