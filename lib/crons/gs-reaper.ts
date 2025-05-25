@@ -5,7 +5,7 @@ import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../entities'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
-import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN } from '../util/constants'
+import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS } from '../util/constants'
 import { ethers } from 'ethers'
 import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../handlers/OrderParser'
@@ -73,7 +73,13 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
   for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
     const chainId = Number(chainIdKey) as keyof typeof OLDEST_BLOCK_BY_CHAIN
     const rpcURL = process.env[`RPC_${chainId}`]
-    const provider = new ethers.providers.StaticJsonRpcProvider(rpcURL, chainId)
+    if (!rpcURL) {
+      throw new Error(`RPC_${chainId} not set`)
+    }
+    const provider = new ethers.providers.StaticJsonRpcProvider({
+      url: rpcURL,
+      headers: RPC_HEADERS
+    }, chainId)
     providers.set(chainId, provider)
   }
 

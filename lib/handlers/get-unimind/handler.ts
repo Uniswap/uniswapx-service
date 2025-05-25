@@ -7,7 +7,10 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS } from '../../util/constants'
+import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
+import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
+import { validateParameters } from '../../crons/unimind-algorithm'
 
 type UnimindResponse = {
   pi: number
@@ -18,8 +21,9 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, UnimindQueryParams>
   ): Promise<Response<UnimindResponse> | ErrorResponse> {
-    const { containerInjected, requestQueryParams } = params
+    const { containerInjected, requestQueryParams, requestInjected } = params
     const { quoteMetadataRepository, unimindParametersRepository } = containerInjected
+    const { log } = requestInjected
     try {
       const { logOnly, swapper, ...quoteMetadataFields } = requestQueryParams
       const quoteMetadata = {
@@ -28,7 +32,16 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       }
       // For requests that don't expect params, we only save the quote metadata and return
       if (logOnly) { 
-        await quoteMetadataRepository.put(quoteMetadata)
+        try {
+          quoteMetadata.usedUnimind = false
+          await quoteMetadataRepository.put(quoteMetadata)
+        } catch (error) {
+          return {
+            statusCode: 500,
+            errorCode: ErrorCode.InternalError,
+            detail: 'Failed to store quote metadata'
+          }
+        }
         return {
           statusCode: 200,
           body: {
@@ -38,11 +51,19 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         }
       }
 
-      if (!swapper || swapper != UNIMIND_DEV_SWAPPER_ADDRESS) {
+      if (!swapper || !unimindAddressFilter(swapper) || !supportedUnimindTokens(quoteMetadata.pair)) {
         return {
             statusCode: 200,
             body: PUBLIC_UNIMIND_PARAMETERS
         }
+      }
+
+      // If we made it through these filters, then we are using Unimind to provide parameters
+      quoteMetadata.usedUnimind = true
+
+      if (swapper !== UNIMIND_DEV_SWAPPER_ADDRESS) {
+        metrics.putMetric(`public-address-used-unimind`, 1)
+        log.info(`Public address ${swapper} received Unimind parameters for pair: ${requestQueryParams.pair} on quoteId: ${quoteMetadata.quoteId}`)
       }
 
       let [, unimindParameters] = await Promise.all([
@@ -50,22 +71,29 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         unimindParametersRepository.getByPair(requestQueryParams.pair)
       ])
 
-      if (!unimindParameters) {
+      if (!unimindParameters || !validateParameters(unimindParameters, log)) { // This includes version check
         // Use default parameters and add to unimindParametersRepository
         const entry = {
-            ...DEFAULT_UNIMIND_PARAMETERS,
-            pair: requestQueryParams.pair
+            intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+            pair: requestQueryParams.pair,
+            count: 0,
+            version: UNIMIND_ALGORITHM_VERSION
         }
         await unimindParametersRepository.put(entry)
         unimindParameters = entry
       }
 
       const beforeCalculateTime = Date.now()
-      const parameters = this.calculateParameters(unimindParameters, quoteMetadata)
+      const strategy = new PriceImpactStrategy()
+      const parameters = calculateParameters(strategy, unimindParameters, quoteMetadata)
+      // TODO: Add condition for not using Unimind with bad parameters
       const afterCalculateTime = Date.now()
       const calculateTime = afterCalculateTime - beforeCalculateTime
       metrics.putMetric(`final-parameters-calculation-time`, calculateTime)
 
+      log.info(
+        `For the pair ${requestQueryParams.pair} with price impact of ${quoteMetadata.priceImpact}, pi is ${parameters.pi} and tau is ${parameters.tau}. The quoteId is ${quoteMetadata.quoteId}`
+      )
       return {
         statusCode: 200,
         body: parameters
@@ -76,16 +104,6 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         errorCode: ErrorCode.InternalError,
         detail: (e as Error)?.message ?? 'Unknown error occurred'
       }
-    }
-  }
-
-  calculateParameters(intrinsicValues: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
-    // Keeping intrinsic extrinsic naming for consistency with algorithm
-    const pi = intrinsicValues.pi * extrinsicValues.priceImpact
-    const tau = intrinsicValues.tau * extrinsicValues.priceImpact
-    return {
-      pi,
-      tau
     }
   }
 
@@ -129,5 +147,17 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
     const getUnimindRequestByPairMetricName = `GetUnimindRequestPair${pair}`
     metrics.putMetric(getUnimindRequestByPairMetricName, 1, Unit.Count)
+  }
+}
+
+export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntrinsicParameters>, unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
+  const intrinsicValues = JSON.parse(unimindParameters.intrinsicValues)
+  // Keeping intrinsic extrinsic naming for consistency with algorithm
+  const pi = strategy.computePi(intrinsicValues, extrinsicValues)
+  // Ceiling tau at UNIMIND_MAX_TAU_BPS for safety
+  const tau = Math.min(strategy.computeTau(intrinsicValues, extrinsicValues), UNIMIND_MAX_TAU_BPS)
+  return {
+    pi,
+    tau
   }
 }

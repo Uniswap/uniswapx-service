@@ -13,8 +13,10 @@ dotenv.config()
 export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
 
-const COSIGNER = checkDefined(process.env.LABS_COSIGNER, 'LABS_COSIGNER is not defined')
-const PRIORITY_COSIGNER = checkDefined(process.env.LABS_PRIORITY_COSIGNER, 'LABS_PRIORITY_COSIGNER is not defined')
+// Lazy load environment variables
+function getEnvVar(name: string): string {
+  return checkDefined(process.env[name], `${name} is not defined`)
+}
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(4000, true))
@@ -38,6 +40,19 @@ export default class FieldValidator {
         return helpers.error('VALIDATION ERROR: Nonce is larger than max uint256 integer')
       }
       return value
+    })
+  private static readonly BIG_INT_STRING_JOI = Joi.string()
+    .min(1)
+    .max(78) // Same max length as BigNumber
+    .regex(/^-?[0-9]+$/) // Allow negative sign followed by digits
+    .custom((value: string, helpers: CustomHelpers<any>) => {
+      try {
+        // Verify it can be parsed as a BigInt
+        BigInt(value);
+        return value;
+      } catch (error) {
+        return helpers.error('VALIDATION ERROR: Value cannot be parsed as a BigInt')
+      }
     })
   private static readonly NUMBER_JOI = Joi.number()
   private static readonly BASE_64_STRING = Joi.string().max(500).base64()
@@ -81,10 +96,6 @@ export default class FieldValidator {
     }
     return value
   })
-
-  private static readonly COSIGNER_JOI = Joi.string().valid(COSIGNER)
-
-  private static readonly PRIORITY_COSIGNER_JOI = Joi.string().valid(PRIORITY_COSIGNER)
 
   public static isValidOrderStatus(): StringSchema {
     return this.ORDER_STATUS_JOI
@@ -162,16 +173,22 @@ export default class FieldValidator {
     return this.NUMBER_JOI
   }
 
+  public static isValidBigIntString(): StringSchema {
+    return this.BIG_INT_STRING_JOI
+  }
+
   public static isValidOrderHashes(): StringSchema {
     return this.ORDER_HASHES_JOI
   }
 
   public static isValidCosigner(): StringSchema {
-    return this.COSIGNER_JOI
+    const cosigner = getEnvVar('LABS_COSIGNER')
+    return Joi.string().valid(cosigner)
   }
 
   public static isValidPriorityCosigner(): StringSchema {
-    return this.PRIORITY_COSIGNER_JOI
+    const priorityCosigner = getEnvVar('LABS_PRIORITY_COSIGNER')
+    return Joi.string().valid(priorityCosigner)
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {

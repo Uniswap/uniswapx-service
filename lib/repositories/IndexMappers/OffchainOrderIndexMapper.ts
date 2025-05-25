@@ -107,7 +107,6 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
       chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
       chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
       filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
-      pair: `${order.pair}`,
     }
   }
 
@@ -122,7 +121,6 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
       filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${newStatus}`,
       chainId_orderStatus: `${order.chainId}_${newStatus}`,
       chainId_orderStatus_filler: `${order.chainId}_${newStatus}_${order.filler}`,
-      pair: `${order.pair}`,
     }
   }
 }

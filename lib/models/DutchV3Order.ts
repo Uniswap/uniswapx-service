@@ -81,10 +81,13 @@ export class DutchV3Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      referencePrice: quoteMetadata?.referencePrice,
-      priceImpact: quoteMetadata?.priceImpact,
-      route: quoteMetadata?.route,
-      pair: quoteMetadata?.pair
+      usedUnimind: quoteMetadata?.usedUnimind ?? false,
+      ...(quoteMetadata && {
+        referencePrice: quoteMetadata.referencePrice,
+        priceImpact: quoteMetadata.priceImpact,
+        route: quoteMetadata.route,
+        pair: quoteMetadata.pair
+      })
     }
 
     return order

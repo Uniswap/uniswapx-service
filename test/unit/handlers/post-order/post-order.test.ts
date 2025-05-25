@@ -88,6 +88,7 @@ const SAMPLE_QUOTE_METADATA = {
       to: '0abcdef',
     },
   },
+  usedUnimind: true
 }
 
 const mockSfnClient = mockClient(SFNClient)
@@ -332,7 +333,7 @@ describe('Testing post order handler.', () => {
       // cosignature and cosignerData gets overwritten within the handler
       order.inner.info.cosignature = COSIGNATURE
       order.inner.info.cosignerData = {
-        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER),
+        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]),
       }
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)

@@ -1,14 +1,19 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { mock } from 'jest-mock-extended'
 import { DynamoUnimindParametersRepository, UnimindParameters } from '../../../lib/repositories/unimind-parameters-repository'
+import { UNIMIND_ALGORITHM_VERSION } from '../../../lib/util/constants'
 
 describe('UnimindParametersRepository', () => {
   const mockDocumentClient = mock<DocumentClient>()
 
   const mockUnimindParameters: UnimindParameters = {
     pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-    pi: 3.14,
-    tau: 4.2,
+    intrinsicValues: JSON.stringify({
+      pi: 3.14,
+      tau: 4.2,
+    }),
+    version: UNIMIND_ALGORITHM_VERSION,
+    count: 42
   }
 
   beforeEach(() => {
@@ -42,12 +47,30 @@ describe('UnimindParametersRepository', () => {
       
       const incompleteValues = {
         pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-        // missing pi
-        tau: 4.2,
+        // missing intrinsicValues
+        count: 42
       }
 
       await expect(repository.put(incompleteValues as any)).rejects.toThrow(
-        "'pi' is a required field"
+        "'intrinsicValues' is a required field"
+      )
+      expect(mockDocumentClient.put).not.toHaveBeenCalled()
+    })
+
+    it('throws error when missing count field', async () => {
+      const repository = DynamoUnimindParametersRepository.create(mockDocumentClient)
+      
+      const incompleteValues = {
+        pair: 'ETH-USDC',
+        intrinsicValues: {
+          pi: 3.14,
+          tau: 4.2,
+        },
+        // missing count
+      }
+
+      await expect(repository.put(incompleteValues as any)).rejects.toThrow(
+        "'count' is a required field"
       )
       expect(mockDocumentClient.put).not.toHaveBeenCalled()
     })

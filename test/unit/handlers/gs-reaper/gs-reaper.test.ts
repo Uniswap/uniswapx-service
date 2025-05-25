@@ -195,6 +195,11 @@ describe('gs-reaper handler', () => {
       }
     })
 
+    // Set up RPC URLs for each chain
+    Object.keys(OLDEST_BLOCK_BY_CHAIN).forEach(chainId => {
+      process.env[`RPC_${chainId}`] = `https://dummy-rpc-${chainId}.example.com`
+    })
+
     // Add test order to repository
     await mockOrdersRepository.addOrder(MOCK_ORDER_ENTITY)
     mockWatcher.getFillEvents.mockResolvedValue([{ orderHash: MOCK_V2_ORDER_ENTITY.orderHash }, { orderHash: MOCK_ORDER_ENTITY.orderHash }])

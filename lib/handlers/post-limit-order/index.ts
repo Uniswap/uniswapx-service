@@ -13,7 +13,7 @@ import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { SUPPORTED_CHAINS } from '../../util/chain'
-import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
+import { ONE_YEAR_IN_SECONDS, RPC_HEADERS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
@@ -31,14 +31,20 @@ const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
 for (const chainId of SUPPORTED_CHAINS) {
   onChainValidatorMap.set(
     chainId,
-    new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)), chainId)
+    new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider({
+      url: CONFIG.rpcUrls.get(chainId),
+      headers: RPC_HEADERS
+    }), chainId)
   )
 }
 
 const providerMap: ProviderMap = new Map()
 
 for (const chainId of SUPPORTED_CHAINS) {
-  providerMap.set(chainId, new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)))
+  providerMap.set(chainId, new ethers.providers.StaticJsonRpcProvider({
+    url: CONFIG.rpcUrls.get(chainId),
+    headers: RPC_HEADERS
+  }))
 }
 
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_YEAR_IN_SECONDS, {
@@ -67,7 +73,10 @@ const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidato
 for (const chainId of SUPPORTED_CHAINS) {
   onChainValidatorMap.set(
     chainId,
-    new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider(CONFIG.rpcUrls.get(chainId)), chainId)
+    new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider({
+      url: CONFIG.rpcUrls.get(chainId),
+      headers: RPC_HEADERS
+    }), chainId)
   )
 }
 const relayOrderService = new RelayOrderService(

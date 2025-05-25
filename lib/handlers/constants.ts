@@ -1,3 +1,5 @@
+import { ChainId } from '../util/chain'
+
 export const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
   // canaries
   '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
@@ -12,7 +14,17 @@ export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const DEFAULT_MAX_OPEN_LIMIT_ORDERS = 100
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER = 3
+export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
+  [ChainId.MAINNET]: 3,
+  [ChainId.UNICHAIN]: 5,
+  [ChainId.BASE]: 3,
+  [ChainId.OPTIMISM]: 3,
+  [ChainId.ARBITRUM_ONE]: 3,
+  [ChainId.POLYGON]: 3,
+  [ChainId.SEPOLIA]: 3,
+  [ChainId.GÖRLI]: 3,
+}
+
 export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20;
 
 export const UR_EXECUTE_SELECTOR = "24856bc3"
@@ -23,3 +35,14 @@ export const UR_FUNCTION_SIGNATURES: Record<string, string> = {
   [UR_EXECUTE_WITH_DEADLINE_SELECTOR]: "function execute(bytes commands, bytes[] inputs, uint256 deadline)"
 };
 export const UR_EXECUTE_DEADLINE_BUFFER = 60; // Seconds to extend calldata deadline
+export const UR_UNWRAP_WETH_PARAMETERS = ['address', 'uint256']
+export const UR_SWEEP_PARAMETERS = ['address', 'address', 'uint256']
+export const UR_ACTIONS_PARAMETERS = ['bytes', 'bytes[]']
+export const UR_TAKE_PARAMETERS = ['address', 'address', 'uint256']
+
+// Constants for hex string manipulation
+export const HEX_PREFIX = "0x";
+export const HEX_BASE = 16;
+export const CHARS_PER_BYTE = 2;
+export const UR_SELECTOR_BYTES = 4;
+export const UR_BYTES_PER_ACTION = 2;

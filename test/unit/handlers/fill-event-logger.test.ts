@@ -114,6 +114,7 @@ describe('processFillEvent', () => {
       '1',
       '100',
       '0',
+      -1,
       settledAmounts  // Expect settleAmounts since it matches the output token
     )
   })

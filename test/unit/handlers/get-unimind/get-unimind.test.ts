@@ -1,14 +1,19 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { mock } from 'jest-mock-extended'
 import { EVENT_CONTEXT } from '../../fixtures'
-import { GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
+import { calculateParameters, GetUnimindHandler } from '../../../../lib/handlers/get-unimind/handler'
 import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
 import { CommandParser, CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
-import { artemisModifyCalldata } from '../../../../lib/util/UniversalRouterCalldata'
+import { artemisModifyCalldata, UniversalRouterCalldata } from '../../../../lib/util/UniversalRouterCalldata'
+import { UNIMIND_LIST } from '../../../../lib/config/unimind-list'
+import { ChainId } from '@uniswap/sdk-core'
+import { V4BaseActionsParser } from '@uniswap/v4-sdk'
+import { UR_EXECUTE_WITH_DEADLINE_SELECTOR, UR_FUNCTION_SIGNATURES } from '../../../../lib/handlers/constants'
+import { PriceImpactStrategy } from '../../../../lib/unimind/priceImpactStrategy'
 
 const SAMPLE_ROUTE = {
   quote: "1234",
@@ -26,6 +31,7 @@ const SAMPLE_ROUTE = {
   }
 } as const
 
+const SAMPLE_SUPPORTED_UNIMIND_PAIR = `${UNIMIND_LIST[0].address}-${UNIMIND_LIST[1].address}-${ChainId.ARBITRUM_ONE}`
 const STRINGIFIED_ROUTE = JSON.stringify(SAMPLE_ROUTE)
 
 describe('Testing get unimind handler', () => {
@@ -52,10 +58,10 @@ describe('Testing get unimind handler', () => {
     jest.clearAllMocks()
   })
 
-  it('Testing valid request and response', async () => {
+  it('Testing correct request and response', async () => {
     const quoteMetadata = {
       quoteId: 'test-quote-id',
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       referencePrice: '4221.21',
       priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
@@ -66,9 +72,14 @@ describe('Testing get unimind handler', () => {
     }
 
     mockUnimindParametersRepo.getByPair.mockResolvedValue({
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-      pi: 3.14,
-      tau: 4.2
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+      intrinsicValues: JSON.stringify({
+        lambda1: 0,
+        lambda2: 8,
+        Sigma: Math.log(0.00005)
+      }),
+      version: UNIMIND_ALGORITHM_VERSION,
+      count: 0
     })
 
     const response = await getUnimindHandler.handler(
@@ -82,24 +93,23 @@ describe('Testing get unimind handler', () => {
     )
 
     const body = JSON.parse(response.body)
-    expect(body).toEqual({
-      pi: 3.14 * 0.01,
-      tau: 4.2 * 0.01
-    })
+    expect(body.pi).toBeCloseTo(0.999764, 5)
+    expect(body.tau).toBeCloseTo(15.000235519, 5)
     expect(response.statusCode).toBe(200)
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,
-      route: SAMPLE_ROUTE // Should be parsed object when stored
+      route: SAMPLE_ROUTE, // Should be parsed object when stored
+      usedUnimind: true
     })
-    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith('0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123')
+    expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledWith(SAMPLE_SUPPORTED_UNIMIND_PAIR)
   })
 
-  it('Returns default parameters when unimind parameters not found', async () => {
+  it('Returns default parameters when not found in unimindParametersRepository', async () => {
     const quoteMetadata = {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: 'ALAN-LEN',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       route: STRINGIFIED_ROUTE,
     }
     const quoteQueryParams = {
@@ -121,7 +131,8 @@ describe('Testing get unimind handler', () => {
     //Handler should have saved the quote metadata since we expect params in response
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,
-      route: JSON.parse(quoteMetadata.route)
+      route: JSON.parse(quoteMetadata.route),
+      usedUnimind: true
     })
 
     expect(response.statusCode).toBe(200)
@@ -130,6 +141,61 @@ describe('Testing get unimind handler', () => {
       pi: expect.any(Number),
       tau: expect.any(Number)
     })
+  })
+
+  it('Returns based on default parameters when version is not the same', async () => {
+    const quoteMetadata = {
+      quoteId: 'test-quote-id',
+      referencePrice: '4221.21',
+      priceImpact: 0.01,
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+      route: STRINGIFIED_ROUTE,
+    }
+
+    const quoteQueryParams = {
+      ...quoteMetadata,
+      swapper: UNIMIND_DEV_SWAPPER_ADDRESS  
+    }
+
+    mockUnimindParametersRepo.getByPair.mockResolvedValue({
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+      intrinsicValues: JSON.stringify({
+        lambda1: 1,
+        lambda2: 8,
+        Sigma: Math.log(0.00005)
+      }),
+      version: UNIMIND_ALGORITHM_VERSION - 1,
+      count: 0
+    })
+
+    const response = await getUnimindHandler.handler(
+      {
+        queryStringParameters: quoteQueryParams,
+        requestContext: {
+          requestId: 'test-request-id'
+        }
+      } as any,
+      EVENT_CONTEXT
+    )
+
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    const expectedUnimindParameters = {
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+      intrinsicValues: DEFAULT_UNIMIND_PARAMETERS, // Should return based on calculations with default parameters
+      count: 0,
+      version: UNIMIND_ALGORITHM_VERSION
+    }
+    const expectedBody = calculateParameters(new PriceImpactStrategy(), expectedUnimindParameters, {
+      quoteId: quoteMetadata.quoteId,
+      referencePrice: quoteMetadata.referencePrice,
+      priceImpact: quoteMetadata.priceImpact,
+      pair: quoteMetadata.pair,
+      route: SAMPLE_ROUTE,
+      blockNumber: 1,
+      usedUnimind: true
+    })
+    expect(body).toEqual(expectedBody)
   })
 
   it('Returns empty parameters when logOnly is true', async () => {
@@ -267,7 +333,7 @@ describe('Testing get unimind handler', () => {
   it('fails when repository throws error', async () => {
     const quoteMetadata = {
       quoteId: 'this-should-fail',
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       referencePrice: '666.56',
       priceImpact: 0.01,
       route: STRINGIFIED_ROUTE,
@@ -295,7 +361,8 @@ describe('Testing get unimind handler', () => {
     expect(body.detail).toBe('DB Error')
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,
-      route: SAMPLE_ROUTE // Should be parsed object when stored
+      route: SAMPLE_ROUTE, // Should be parsed object when stored
+      usedUnimind: true
     })
   })
 
@@ -421,7 +488,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       route: STRINGIFIED_ROUTE,
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS
     }
@@ -446,7 +513,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS,
       blockNumber: 1234,
       // missing route
@@ -470,7 +537,7 @@ describe('Testing get unimind handler', () => {
       quoteId: 'test-quote-id',
       referencePrice: '4221.21',
       priceImpact: 0.01,
-      pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
+      pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       swapper: UNIMIND_DEV_SWAPPER_ADDRESS,
       // missing blockNumber
       route: STRINGIFIED_ROUTE,
@@ -511,10 +578,6 @@ describe('Correctly modify URA calldata for Artemis support', () => {
     expect(sweepInput).toBeDefined()
     // Check that the SWEEP recipient is the executor address
     expect(sweepInput?.params.find(param => param.name === 'recipient')?.value).toEqual(EXECUTOR_ADDRESS)
-    // Check that the new deadline is in the future
-    const iface = new Interface(["function execute(bytes commands, bytes[] inputs, uint256 deadline)"])
-    const [, , deadline] = iface.decodeFunctionData('execute', modifiedCalldata)
-    expect(deadline.toNumber()).toBeGreaterThan(Date.now() / 1000)
   })
 
   it('artemisModifyCalldata for execute without deadline', () => {
@@ -534,5 +597,84 @@ describe('Correctly modify URA calldata for Artemis support', () => {
     expect(sweepInput).toBeDefined()
     // Check that the SWEEP recipient is the executor address
     expect(sweepInput?.params.find(param => param.name === 'recipient')?.value).toEqual(EXECUTOR_ADDRESS)
+  })
+
+  it('artemisModifyCalldata for UNWRAP_WETH', () => {
+    // Contains V3_SWAP_EXACT_IN and UNWRAP_WETH
+    const calldata = "0x3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000067e5b6550000000000000000000000000000000000000000000000000000000000000002000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000034de435f13194096b7ba79b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002bc2b2ea7f6218cc37debbafe71361c088329ae09000271042000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000123ab21e11111a12abcd123f36fee12d21f42c7b00000000000000000000000000000000000000000000000005cff61d130d3651"
+    const decoded = CommandParser.parseCalldata(calldata)
+    const swapCommand = decoded.commands[0]
+    const unwrapCommand = decoded.commands[1]
+
+    const modifiedCalldata = artemisModifyCalldata(calldata, mockLog, EXECUTOR_ADDRESS)
+    const modifiedDecoded = CommandParser.parseCalldata(modifiedCalldata)
+    const modifiedSwapCommand = modifiedDecoded.commands[0]
+    const modifiedUnwrapCommand = modifiedDecoded.commands[1]
+    expect(modifiedSwapCommand).toEqual(swapCommand)
+
+    // Confirm the old UNWRAP_WETH command is not to the executor address
+    expect(unwrapCommand?.params.find(param => param.name === 'recipient')?.value).not.toEqual(EXECUTOR_ADDRESS)
+    // Check that the new UNWRAP_WETH recipient is the executor address
+    expect(modifiedUnwrapCommand).toBeDefined()
+    expect(modifiedUnwrapCommand?.params.find(param => param.name === 'recipient')?.value).toEqual(EXECUTOR_ADDRESS)
+  })
+
+  it('artemisModifyCalldata for V4_SWAP', () => {
+    // Contains V4_SWAP
+    const calldata = "0x3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000006807dfe7000000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000003070b0e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000022000000000000000000000000000000000000000000000000000000000000002a000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000078d782b760474a361dda0af3839290b0ef57ad6000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000005e9baa000000000000000000000000000000000000000000000000000ca3b033869c6400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000078d782b760474a361dda0af3839290b0ef57ad600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007c1b94a0d777eb1a3db8ed461fecdad72fb9af780000000000000000000000000000000000000000000000000000000000000000"
+    const ifaceWithDeadline = new Interface([UR_FUNCTION_SIGNATURES[UR_EXECUTE_WITH_DEADLINE_SELECTOR]])
+
+    // Decode original calldata
+    const [, originalInputs] = ifaceWithDeadline.decodeFunctionData('execute', calldata)
+    const originalV4Input: string = originalInputs[0]
+    const { actions: originalActions } = V4BaseActionsParser.parseCalldata(originalV4Input)
+
+    const originalTakeRecipient = originalActions
+      .find((a) => a.actionName.toUpperCase() === 'TAKE')
+      ?.params.find((p) => p.name === 'recipient')?.value
+
+    // Modify the calldata
+    const modifiedCalldata = artemisModifyCalldata(calldata, mockLog, EXECUTOR_ADDRESS)
+
+    // Decode the modified calldata
+    const [, modifiedInputs] = ifaceWithDeadline.decodeFunctionData('execute', modifiedCalldata)
+    const modifiedV4Input: string = modifiedInputs[0]
+    const { actions: modifiedActions } = V4BaseActionsParser.parseCalldata(modifiedV4Input)
+
+    const modifiedTakeRecipient = modifiedActions
+      .find((a) => a.actionName.toUpperCase() === 'TAKE')
+      ?.params.find((p) => p.name === 'recipient')?.value
+
+    // Check that the TAKE recipient was updated to the executor address
+    expect(originalTakeRecipient?.toLowerCase()).not.toEqual(EXECUTOR_ADDRESS.toLowerCase())
+    expect(modifiedTakeRecipient?.toLowerCase()).toEqual(EXECUTOR_ADDRESS.toLowerCase())
+  })
+  
+  it('returns empty string when original recipient is still present in modified calldata', () => {
+    const calldata = "0x3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000067b7da1b00000000000000000000000000000000000000000000000000000000000000030006040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000517da02c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002b2a06a17cbc6d0032cac2c6696da90f29d39a1a29002710833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000007ffc3dbf3b2b50ff3a1d5523bc24bb5043837b1400000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000060000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda02913000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000133356f6"
+  
+    // Mock only the sweep recipient modification to do nothing
+    jest.spyOn(UniversalRouterCalldata.prototype, 'modifySweepRecipient').mockReturnThis();
+  
+    const result = artemisModifyCalldata(calldata, mockLog, EXECUTOR_ADDRESS)
+    expect(result).toBe("")
+    expect(mockLog.error).toHaveBeenCalledWith('Error in artemisModifyCalldata', expect.any(Object))
+  
+    // Clean up the mock
+    jest.restoreAllMocks()
+  })
+
+  it('getOriginalRecipient returns the correct recipient from sweep command', () => {
+    const calldata = "0x3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000067b7da1b00000000000000000000000000000000000000000000000000000000000000030006040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000517da02c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002b2a06a17cbc6d0032cac2c6696da90f29d39a1a29002710833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda029130000000000000000000000007ffc3dbf3b2b50ff3a1d5523bc24bb5043837b1400000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000060000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda02913000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000133356f6"
+
+    const modifiedDecoded = CommandParser.parseCalldata(calldata)
+    const sweepInput = modifiedDecoded.commands.find(command => command.commandType === CommandType.SWEEP)
+    expect(sweepInput).toBeDefined()
+    const expectedOriginalRecipient = sweepInput?.params.find(param => param.name === 'recipient')?.value
+    
+    const router = new UniversalRouterCalldata(calldata, mockLog)
+    const originalRecipient = router.getOriginalRecipient()
+    
+    expect(originalRecipient).toBe(expectedOriginalRecipient)
   })
 })

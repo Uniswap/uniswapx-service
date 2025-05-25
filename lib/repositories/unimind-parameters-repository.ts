@@ -6,8 +6,9 @@ import { TABLE_NAMES } from './util'
 
 export interface UnimindParameters {
   pair: string
-  pi: number
-  tau: number
+  intrinsicValues: string
+  count: number
+  version: number
 }
 
 export interface UnimindParametersRepository {
@@ -34,8 +35,9 @@ export class DynamoUnimindParametersRepository implements UnimindParametersRepos
       name: 'UnimindParameters',
       attributes: {
         pair: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
-        pi: { type: DYNAMODB_TYPES.NUMBER, required: true },
-        tau: { type: DYNAMODB_TYPES.NUMBER, required: true },
+        intrinsicValues: { type: DYNAMODB_TYPES.STRING, required: true },
+        count: { type: DYNAMODB_TYPES.NUMBER, required: true },
+        version: { type: DYNAMODB_TYPES.NUMBER, required: true },
       },
       table,
     } as const)

@@ -129,7 +129,6 @@ describe('OffchainOrderIndexMapper', () => {
         filler_offerer_orderStatus: '0xFiller_0xOfferer_filled',
         filler_orderStatus: '0xFiller_filled',
         offerer_orderStatus: '0xOfferer_filled',
-        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       })
     })
   })
@@ -151,7 +150,6 @@ describe('OffchainOrderIndexMapper', () => {
         filler_orderStatus: '0xFiller_insufficient-funds',
         offerer_orderStatus: '0xOfferer_insufficient-funds',
         orderStatus: 'insufficient-funds',
-        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
       })
     })
   })
