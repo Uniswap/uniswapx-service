@@ -24,7 +24,7 @@ type StepFunctionState = {
   currentBlock: number
   earliestBlock: number
   orderUpdates: Record<string, OrderUpdate>
-  parsedOrders: Record<string, { order: UniswapXOrder; signature: string; deadline: number }>
+  orderHashes: string[]
   stage: 'GET_OPEN_ORDERS' | 'PROCESS_BLOCKS' | 'CHECK_CANCELLED' | 'UPDATE_DB'
 }
 
@@ -98,7 +98,7 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
       // TODO: After first run, use 1 day ago as earliest block
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[firstChainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
       orderUpdates: {},
-      parsedOrders: {},
+      orderHashes: [],
       stage: 'GET_OPEN_ORDERS'
     }
   }
@@ -109,10 +109,10 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
   switch (state.stage) {
     case 'GET_OPEN_ORDERS': {
       log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
-      const parsedOrdersMap = await getParsedOrders(repo, state.chainId, MAX_ORDERS_PER_CHAIN)
+      const orderHashes = await getOpenOrderHashes(repo, state.chainId, MAX_ORDERS_PER_CHAIN)
       return {
         ...state,
-        parsedOrders: Object.fromEntries(parsedOrdersMap),
+        orderHashes,
         stage: 'PROCESS_BLOCKS'
       }
     }
@@ -124,20 +124,25 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
       // Process multiple block ranges before returning
       let currentBlock = state.currentBlock
       let orderUpdates = state.orderUpdates
+      const orderHashSet = new Set(state.orderHashes)
+      
       for (let i = 0; i < REAPER_RANGES_PER_RUN; i++) {
         const nextBlock = currentBlock - BLOCK_RANGE
         log.info(`PROCESS_BLOCKS for chainId ${state.chainId} blocks ${currentBlock} to ${nextBlock}`)
-        orderUpdates = await processBlockRange(
+        const { updates, remainingHashes } = await processBlockRange(
           currentBlock,
           nextBlock,
           state.chainId,
-          state.parsedOrders,
+          orderHashSet,
+          repo,
           provider,
           orderUpdates,
           log,
           metrics
         )
-
+        
+        orderUpdates = updates
+        state.orderHashes = Array.from(remainingHashes)
         currentBlock = nextBlock
         if (currentBlock <= state.earliestBlock) {
           return {
@@ -163,10 +168,12 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
         throw new Error(`No provider found for chainId ${state.chainId}`)
       }
       const orderUpdates = await checkCancelledOrders(
-        state.parsedOrders,
+        state.orderHashes,
         state.orderUpdates,
+        repo,
         provider,
-        state.chainId
+        state.chainId,
+        log
       )
       
       return {
@@ -200,25 +207,26 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
         currentBlock,
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[nextChainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
         orderUpdates: {},
-        parsedOrders: {},
+        orderHashes: [],
         stage: 'GET_OPEN_ORDERS'
       }
     }
   }
 })
 
+// TODO: Refactor and break out into smaller functions
 async function processBlockRange(
   fromBlock: number,
   toBlock: number,
   chainId: number,
-  parsedOrders: Record<string, { order: UniswapXOrder; signature: string; deadline: number }>,
+  orderHashSet: Set<string>,
+  repo: BaseOrdersRepository<UniswapXOrderEntity>,
   provider: ethers.providers.StaticJsonRpcProvider,
   existingUpdates: Record<string, OrderUpdate>,
   log: Logger,
   metrics?: MetricsLogger
-): Promise<Record<string, OrderUpdate>> {
+): Promise<{ updates: Record<string, OrderUpdate>, remainingHashes: Set<string> }> {
   const orderUpdates = { ...existingUpdates }
-  const parsedOrdersMap = new Map(Object.entries(parsedOrders))
   
   for (const orderType of Object.keys(REACTOR_ADDRESS_MAPPING[chainId])) {
     const reactorAddress = REACTOR_ADDRESS_MAPPING[chainId][orderType as OrderType]
@@ -235,37 +243,42 @@ async function processBlockRange(
         recentErrors = Math.max(0, recentErrors - 1)
         
         await Promise.all(fillEvents.map(async (e) => {
-          if (parsedOrdersMap.has(e.orderHash)) {
+          if (orderHashSet.has(e.orderHash)) {
             log.info(`Fill event found for order ${e.orderHash}`)
-            const fillInfo = await watcher.getFillInfo(toBlock, fromBlock)
-            const fillEvent = fillInfo.find((f) => f.orderHash === e.orderHash)
-            if (fillEvent) {
-              const [tx, block] = await Promise.all([
-                provider.getTransaction(fillEvent.txHash),
-                provider.getBlock(fillEvent.blockNumber),
-              ])
-              const settledAmounts = getSettledAmounts(
-                fillEvent,
-                {
-                  timestamp: block.timestamp,
-                  gasPrice: tx.gasPrice,
-                  maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
-                  maxFeePerGas: tx.maxFeePerGas,
-                },
-                parsedOrdersMap.get(e.orderHash)?.order as DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
-              )
-              orderUpdates[e.orderHash] = {
-                status: ORDER_STATUS.FILLED,
-                txHash: fillEvent.txHash,
-                fillBlock: fillEvent.blockNumber,
-                settledAmounts: settledAmounts,
+            try {
+              const { order } = await getOrderByHash(repo, e.orderHash)
+              const fillInfo = await watcher.getFillInfo(toBlock, fromBlock)
+              const fillEvent = fillInfo.find((f) => f.orderHash === e.orderHash)
+              
+              if (fillEvent) {
+                const [tx, block] = await Promise.all([
+                  provider.getTransaction(fillEvent.txHash),
+                  provider.getBlock(fillEvent.blockNumber),
+                ])
+                const settledAmounts = getSettledAmounts(
+                  fillEvent,
+                  {
+                    timestamp: block.timestamp,
+                    gasPrice: tx.gasPrice,
+                    maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+                    maxFeePerGas: tx.maxFeePerGas,
+                  },
+                  order as DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
+                )
+                orderUpdates[e.orderHash] = {
+                  status: ORDER_STATUS.FILLED,
+                  txHash: fillEvent.txHash,
+                  fillBlock: fillEvent.blockNumber,
+                  settledAmounts: settledAmounts,
+                }
+              } else {
+                orderUpdates[e.orderHash] = {
+                  status: ORDER_STATUS.FILLED,
+                }
               }
-              delete parsedOrders[e.orderHash]
-            } else {
-              orderUpdates[e.orderHash] = {
-                status: ORDER_STATUS.FILLED,
-              }
-              delete parsedOrders[e.orderHash]
+              orderHashSet.delete(e.orderHash)
+            } catch (error) {
+              log.error({ error }, `Failed to process fill event for order ${e.orderHash}`)
             }
           }
         }))
@@ -277,45 +290,47 @@ async function processBlockRange(
         if (attempts === REAPER_MAX_ATTEMPTS) {
           log.error({ error }, `Failed to get fill events after ${attempts} attempts for blocks ${toBlock} to ${fromBlock}`)
           metrics?.putMetric(`GetFillEventsError`, 1, Unit.Count)
-          break
+          // Return the updates and remaining hashes so we can continue processing
+          return { updates: orderUpdates, remainingHashes: orderHashSet }
         }
-        await new Promise(resolve => setTimeout(resolve, 1000 * recentErrors))
       }
     }
   }
-
-  return orderUpdates
+  
+  return { updates: orderUpdates, remainingHashes: orderHashSet }
 }
 
 async function checkCancelledOrders(
-  parsedOrders: Record<string, { order: UniswapXOrder; signature: string; deadline: number }>,
+  orderHashes: string[],
   existingUpdates: Record<string, OrderUpdate>,
+  repo: BaseOrdersRepository<UniswapXOrderEntity>,
   provider: ethers.providers.StaticJsonRpcProvider,
-  chainId: number
+  chainId: number,
+  log: Logger,
 ): Promise<Record<string, OrderUpdate>> {
   const orderUpdates = { ...existingUpdates }
   const quoter = new OrderValidator(provider, chainId)
   
-  // Create array of entries first to avoid modification during iteration
-  const entries = Object.entries(parsedOrders)
-  
-  for (const [orderHash, orderData] of entries) {
+  for (const orderHash of orderHashes) {
     if (!orderUpdates[orderHash]) {
-      const validation = await quoter.validate({
-        order: orderData.order,
-        signature: orderData.signature,
-      })
-      if (validation === OrderValidation.NonceUsed) {
-        orderUpdates[orderHash] = {
-          status: ORDER_STATUS.CANCELLED,
+      try {
+        const { order, signature } = await getOrderByHash(repo, orderHash)
+        const validation = await quoter.validate({
+          order: order,
+          signature: signature,
+        })
+        if (validation === OrderValidation.NonceUsed) {
+          orderUpdates[orderHash] = {
+            status: ORDER_STATUS.CANCELLED,
+          }
         }
-        delete parsedOrders[orderHash]
-      }
-      if (validation === OrderValidation.Expired) {
-        orderUpdates[orderHash] = {
-          status: ORDER_STATUS.EXPIRED,
+        if (validation === OrderValidation.Expired) {
+          orderUpdates[orderHash] = {
+            status: ORDER_STATUS.EXPIRED,
+          }
         }
-        delete parsedOrders[orderHash]
+      } catch (error) {
+        log.error({ error }, `Failed to get or validate order ${orderHash}`)
       }
     }
   }
@@ -347,34 +362,50 @@ async function updateOrders(
 }
 
 /**
- * Get all open orders from the database and parse them
- * @param repo - The orders repository
- * @param chainId - The chain ID
- * @param maxOrders - Maximum number of orders to return
- * @returns A map of order hashes to their parsed order data
+ * Get hashes of all open orders from the database
  */
-async function getParsedOrders(repo: BaseOrdersRepository<UniswapXOrderEntity>, chainId: ChainId, maxOrders: number) {
-    let cursor: string | undefined = undefined
-    let allOrders: UniswapXOrderEntity[] = []
-    do {
-      const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
-        DYNAMO_BATCH_WRITE_MAX,
-        {
-          orderStatus: ORDER_STATUS.OPEN,
-          chainId: chainId,
-        },
-        cursor
-      )
-      cursor = openOrders.cursor
-      allOrders = allOrders.concat(openOrders.orders)
-      
-      // Break if we've reached the maximum number of orders
-      if (allOrders.length >= maxOrders) {
-        allOrders = allOrders.slice(0, maxOrders)
-        break
-      }
-    } while (cursor)
-    const parsedOrders = new Map<string, {order: UniswapXOrder, signature: string, deadline: number}>()
-    allOrders.forEach((o) => parsedOrders.set(o.orderHash, {order: parseOrder(o, chainId), signature: o.signature, deadline: o.deadline}))
-    return parsedOrders
+async function getOpenOrderHashes(
+  repo: BaseOrdersRepository<UniswapXOrderEntity>, 
+  chainId: ChainId, 
+  maxOrders: number
+): Promise<string[]> {
+  let cursor: string | undefined = undefined
+  let orderHashes: string[] = []
+  
+  do {
+    const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
+      DYNAMO_BATCH_WRITE_MAX,
+      {
+        orderStatus: ORDER_STATUS.OPEN,
+        chainId: chainId,
+      },
+      cursor
+    )
+    cursor = openOrders.cursor
+    orderHashes = orderHashes.concat(openOrders.orders.map(o => o.orderHash))
+    
+    if (orderHashes.length >= maxOrders) {
+      orderHashes = orderHashes.slice(0, maxOrders)
+      break
+    }
+  } while (cursor)
+
+  return orderHashes
+}
+
+type OrderWithSignature = 
+{
+  order: UniswapXOrder,
+  signature: string
+}
+
+async function getOrderByHash(repo: BaseOrdersRepository<UniswapXOrderEntity>, orderHash: string): Promise<OrderWithSignature> {
+  const order = await repo.getByHash(orderHash)
+  if (!order) {
+    throw new Error(`Order ${orderHash} not found`)
+  }
+  return {
+    order: parseOrder(order, order.chainId),
+    signature: order.signature,
+  }
 }
