@@ -207,6 +207,7 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
   }
 })
 
+// TODO: Refactor and break out into smaller functions
 async function processBlockRange(
   fromBlock: number,
   toBlock: number,
