@@ -5,7 +5,7 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { deleteStaleOrders } from '../../../../lib/crons/gs-reaper'
 import { ORDER_STATUS } from '../../../../lib/entities'
 import { DutchOrdersRepository } from '../../../../lib/repositories/dutch-orders-repository'
-import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN } from '../../../../lib/util/constants'
+import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN, REAPER_MAX_ATTEMPTS } from '../../../../lib/util/constants'
 import { ChainId } from '../../../../lib/util/chain'
 import { cleanupOrphanedOrders } from '../../../../lib/crons/gs-reaper'
 import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY } from '../../../test-data'
@@ -27,6 +27,10 @@ const mockOrdersRepository = {
   }),
 
   getOrder: jest.fn(async (orderHash) => {
+    return mockOrdersRepository.orders.get(orderHash) || null
+  }),
+
+  getByHash: jest.fn(async (orderHash) => {
     return mockOrdersRepository.orders.get(orderHash) || null
   }),
 
@@ -220,7 +224,7 @@ describe('gs-reaper handler', () => {
       currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
       orderUpdates: {},
-      parsedOrders: {},
+      orderHashes: [],
       stage: 'GET_OPEN_ORDERS'
     })
   })
@@ -231,16 +235,16 @@ describe('gs-reaper handler', () => {
       currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
       orderUpdates: {},
-      parsedOrders: {},
+      orderHashes: [],
       stage: 'GET_OPEN_ORDERS' as const
     }
 
     const result = await handler(initialState)
 
     expect(result.stage).toBe('PROCESS_BLOCKS')
-    expect(result.parsedOrders).toBeDefined()
-    // parsedOrders should contain our mock order
-    expect(Object.keys(result.parsedOrders)).toContain(MOCK_ORDER_ENTITY.orderHash)
+    expect(result.orderHashes).toBeDefined()
+    // orderHashes should contain our mock order
+    expect(result.orderHashes.includes(MOCK_ORDER_ENTITY.orderHash)).toBe(true)
   })
 
   it('processes PROCESS_BLOCKS stage correctly', async () => {
@@ -249,13 +253,7 @@ describe('gs-reaper handler', () => {
       currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
       orderUpdates: {},
-      parsedOrders: {
-        [MOCK_ORDER_ENTITY.orderHash]: {
-          order: parseOrder(MOCK_ORDER_ENTITY, ChainId.MAINNET),
-          signature: MOCK_ORDER_ENTITY.signature,
-          deadline: MOCK_ORDER_ENTITY.deadline
-        }
-      },
+      orderHashes: [MOCK_ORDER_ENTITY.orderHash],
       stage: 'PROCESS_BLOCKS' as const
     }
 
@@ -266,7 +264,7 @@ describe('gs-reaper handler', () => {
     expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
     expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.FILLED)
     // Verify order was removed from parsedOrders
-    expect(result.parsedOrders[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
+    expect(result.orderHashes.includes(MOCK_ORDER_ENTITY.orderHash)).toBe(false)
   })
 
   it('processes CHECK_CANCELLED stage correctly', async () => {
@@ -275,13 +273,7 @@ describe('gs-reaper handler', () => {
       currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
       orderUpdates: {},
-      parsedOrders: {
-        [MOCK_ORDER_ENTITY.orderHash]: {
-          order: parseOrder(MOCK_ORDER_ENTITY, ChainId.MAINNET),
-          signature: MOCK_ORDER_ENTITY.signature,
-          deadline: MOCK_ORDER_ENTITY.deadline
-        }
-      },
+      orderHashes: [MOCK_ORDER_ENTITY.orderHash],
       stage: 'CHECK_CANCELLED' as const
     }
 
@@ -297,8 +289,6 @@ describe('gs-reaper handler', () => {
     expect(result.stage).toBe('UPDATE_DB')
     expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
     expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.CANCELLED)
-    // Verify order was removed from parsedOrders
-    expect(result.parsedOrders[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
   })
 
   it('processes UPDATE_DB stage correctly and moves to next chain', async () => {
@@ -313,7 +303,7 @@ describe('gs-reaper handler', () => {
           fillBlock: mockFillBlockNumber
         }
       },
-      parsedOrders: {},
+      orderHashes: [],
       stage: 'UPDATE_DB' as const
     }
 
@@ -340,11 +330,103 @@ describe('gs-reaper handler', () => {
       currentBlock: OLDEST_BLOCK_BY_CHAIN[lastChainId],
       earliestBlock: OLDEST_BLOCK_BY_CHAIN[lastChainId],
       orderUpdates: {},
-      parsedOrders: {},
+      orderHashes: [],
       stage: 'UPDATE_DB' as const
     }
 
     const result = await handler(state)
     expect(result).toBeUndefined()
+  })
+
+  describe('error handling', () => {
+    it('handles provider errors with retry logic', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        stage: 'PROCESS_BLOCKS' as const
+      }
+
+      // Simulate provider errors with eventual success
+      mockWatcher.getFillEvents
+        .mockRejectedValueOnce(new Error('Rate limit'))
+        .mockRejectedValueOnce(new Error('Rate limit'))
+        .mockResolvedValueOnce([{ orderHash: MOCK_ORDER_ENTITY.orderHash }])
+
+      const result = await handler(state)
+      const reactorCount = Object.keys(REACTOR_ADDRESS_MAPPING[ChainId.MAINNET])
+        .filter(orderType => REACTOR_ADDRESS_MAPPING[ChainId.MAINNET][orderType as OrderType] !== "0x0000000000000000000000000000000000000000")
+        .length
+      // 2 failures
+      expect(mockWatcher.getFillEvents).toHaveBeenCalledTimes(REAPER_RANGES_PER_RUN * reactorCount + 2)
+      expect(mockMetrics.putMetric).not.toHaveBeenCalledWith('GetFillEventsError', 1)
+      expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
+    })
+
+    it('handles max retries exceeded', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN + 1,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        stage: 'PROCESS_BLOCKS' as const
+      }
+
+      // Simulate persistent provider errors
+      mockWatcher.getFillEvents.mockRejectedValue(new Error('Rate limit'))
+
+      const result = await handler(state)
+
+      expect(mockWatcher.getFillEvents).toHaveBeenCalledTimes(REAPER_RANGES_PER_RUN * REAPER_MAX_ATTEMPTS)
+      expect(mockMetrics.putMetric).toHaveBeenCalledWith('GetFillEventsError', 1, 'Count')
+      // Should continue processing despite errors
+      expect(result.stage).toBe('PROCESS_BLOCKS')
+    })
+  })
+
+  describe('block range processing', () => {
+    it('processes multiple ranges before returning', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + (BLOCK_RANGE * REAPER_RANGES_PER_RUN),
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        stage: 'PROCESS_BLOCKS' as const
+      }
+
+      const result = await handler(state)
+
+      const reactorCount = Object.keys(REACTOR_ADDRESS_MAPPING[ChainId.MAINNET])
+        .filter(orderType => REACTOR_ADDRESS_MAPPING[ChainId.MAINNET][orderType as OrderType] !== "0x0000000000000000000000000000000000000000")
+        .length
+      expect(mockWatcher.getFillEvents).toHaveBeenCalledTimes(REAPER_RANGES_PER_RUN * reactorCount)
+      expect(result.currentBlock).toBe(state.currentBlock - (BLOCK_RANGE * REAPER_RANGES_PER_RUN))
+    })
+  })
+
+  describe('order processing', () => {
+    it('handles failed order fetches gracefully', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        stage: 'CHECK_CANCELLED' as const
+      }
+
+      // Simulate order not found in DB
+      mockOrdersRepository.getByHash.mockResolvedValueOnce(null)
+
+      const result = await handler(state)
+
+      expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
+      // Should continue processing despite errors
+      expect(result.stage).toBe('UPDATE_DB')
+    })
   })
 })
