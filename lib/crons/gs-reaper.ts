@@ -214,7 +214,6 @@ export const handler = metricScope((metrics) => async (event: StepFunctionState 
   }
 })
 
-// TODO: Refactor and break out into smaller functions
 async function processBlockRange(
   fromBlock: number,
   toBlock: number,
@@ -242,7 +241,7 @@ async function processBlockRange(
         const fillEvents = await watcher.getFillEvents(toBlock, fromBlock)
         recentErrors = Math.max(0, recentErrors - 1)
         
-        await Promise.all(fillEvents.map(async (e) => {
+        for (const e of fillEvents) {
           if (orderHashSet.has(e.orderHash)) {
             log.info(`Fill event found for order ${e.orderHash}`)
             try {
@@ -251,26 +250,14 @@ async function processBlockRange(
               const fillEvent = fillInfo.find((f) => f.orderHash === e.orderHash)
               
               if (fillEvent) {
-                const [tx, block] = await Promise.all([
-                  provider.getTransaction(fillEvent.txHash),
-                  provider.getBlock(fillEvent.blockNumber),
-                ])
-                const settledAmounts = getSettledAmounts(
-                  fillEvent,
-                  {
-                    timestamp: block.timestamp,
-                    gasPrice: tx.gasPrice,
-                    maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
-                    maxFeePerGas: tx.maxFeePerGas,
-                  },
-                  order as DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
-                )
+                const fillInfo = await getOrderFillInfo(provider, fillEvent, order)
                 orderUpdates[e.orderHash] = {
                   status: ORDER_STATUS.FILLED,
-                  txHash: fillEvent.txHash,
-                  fillBlock: fillEvent.blockNumber,
-                  settledAmounts: settledAmounts,
+                  txHash: fillInfo.txHash,
+                  fillBlock: fillInfo.fillBlock,
+                  settledAmounts: fillInfo.settledAmounts,
                 }
+                orderHashSet.delete(e.orderHash)
               } else {
                 orderUpdates[e.orderHash] = {
                   status: ORDER_STATUS.FILLED,
@@ -281,7 +268,7 @@ async function processBlockRange(
               log.error({ error }, `Failed to process fill event for order ${e.orderHash}`)
             }
           }
-        }))
+        }
         break
       } catch (error) {
         log.error({ error }, `Attempt ${attempts}/${REAPER_MAX_ATTEMPTS} failed to get fill events for blocks ${toBlock} to ${fromBlock}`)
@@ -407,5 +394,31 @@ async function getOrderByHash(repo: BaseOrdersRepository<UniswapXOrderEntity>, o
   return {
     order: parseOrder(order, order.chainId),
     signature: order.signature,
+  }
+}
+
+async function getOrderFillInfo(
+  provider: ethers.providers.StaticJsonRpcProvider,
+  fillEvent: any,
+  order: UniswapXOrder
+): Promise<{ txHash: string; fillBlock: number; settledAmounts: SettledAmount[] }> {
+  const [tx, block] = await Promise.all([
+    provider.getTransaction(fillEvent.txHash),
+    provider.getBlock(fillEvent.blockNumber),
+  ])
+  const settledAmounts = getSettledAmounts(
+    fillEvent,
+    {
+      timestamp: block.timestamp,
+      gasPrice: tx.gasPrice,
+      maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+      maxFeePerGas: tx.maxFeePerGas,
+    },
+    order as DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
+  )
+  return {
+    txHash: fillEvent.txHash,
+    fillBlock: fillEvent.blockNumber,
+    settledAmounts,
   }
 }
