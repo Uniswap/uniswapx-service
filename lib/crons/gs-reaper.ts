@@ -7,7 +7,7 @@ import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
 import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS } from '../util/constants'
 import { ethers } from 'ethers'
-import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
+import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../handlers/OrderParser'
 import { getSettledAmounts } from '../handlers/check-order-status/util'
 import { ChainId } from '../util/chain'
@@ -250,12 +250,12 @@ async function processBlockRange(
               const fillEvent = fillInfo.find((f) => f.orderHash === e.orderHash)
               
               if (fillEvent) {
-                const fillInfo = await getOrderFillInfo(provider, fillEvent, order)
+                const orderFillInfo = await getOrderFillInfo(provider, fillEvent, order)
                 orderUpdates[e.orderHash] = {
                   status: ORDER_STATUS.FILLED,
-                  txHash: fillInfo.txHash,
-                  fillBlock: fillInfo.fillBlock,
-                  settledAmounts: fillInfo.settledAmounts,
+                  txHash: orderFillInfo.txHash,
+                  fillBlock: orderFillInfo.fillBlock,
+                  settledAmounts: orderFillInfo.settledAmounts,
                 }
                 orderHashSet.delete(e.orderHash)
               } else {
@@ -399,7 +399,7 @@ async function getOrderByHash(repo: BaseOrdersRepository<UniswapXOrderEntity>, o
 
 async function getOrderFillInfo(
   provider: ethers.providers.StaticJsonRpcProvider,
-  fillEvent: any,
+  fillEvent: FillInfo,
   order: UniswapXOrder
 ): Promise<{ txHash: string; fillBlock: number; settledAmounts: SettledAmount[] }> {
   const [tx, block] = await Promise.all([
