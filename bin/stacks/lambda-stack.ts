@@ -547,7 +547,7 @@ export class LambdaStack extends cdk.NestedStack {
       metric: postOrder4xxRateMetric,
       threshold: 60,
       evaluationPeriods: 2,
-      datapointsToAlarm: 1,
+      datapointsToAlarm: 2,
       treatMissingData: TreatMissingData.IGNORE,
       comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
     })
@@ -557,7 +557,7 @@ export class LambdaStack extends cdk.NestedStack {
       metric: postOrder4xxRateMetric,
       threshold: 30,
       evaluationPeriods: 2,
-      datapointsToAlarm: 1,
+      datapointsToAlarm: 2,
     })
 
     if (chatBotTopic) {
