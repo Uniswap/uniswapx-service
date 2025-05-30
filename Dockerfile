@@ -13,5 +13,4 @@ COPY . .
 RUN yarn build
 
 # Run the service
-USER non-root
 CMD ["node", "dist/lib/crons/gs-reaper/gs-reaper.js"] 
