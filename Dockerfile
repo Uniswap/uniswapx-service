@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:18-alpine@sha256:ef0861618e36d8e5339583a63e2b1082b7ad9cb59a53529bf7d742afa3e2f06b
 
 WORKDIR /app
 
@@ -13,4 +13,5 @@ COPY . .
 RUN yarn build
 
 # Run the service
+USER non-root
 CMD ["node", "dist/lib/crons/gs-reaper/gs-reaper.js"] 

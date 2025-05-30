@@ -49,7 +49,7 @@ export class ReaperStack extends Stack {
       directory: ".",
       platform: Platform.LINUX_AMD64,
       buildArgs: {
-        DOCKER_BULIDKIT: "1",
+        DOCKER_BUILDKIT: "1",
       },
     });
 

@@ -217,6 +217,7 @@ export class GSReaper {
     const firstChainId = Number(Object.keys(OLDEST_BLOCK_BY_CHAIN)[0])
     let currentState: ChainState | null = null
     
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
         if (!currentState) {
