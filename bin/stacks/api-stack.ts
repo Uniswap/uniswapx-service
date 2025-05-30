@@ -4,6 +4,7 @@ import * as aws_apigateway from 'aws-cdk-lib/aws-apigateway'
 import { MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
 import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions'
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 import * as aws_logs from 'aws-cdk-lib/aws-logs'
 import * as aws_sns from 'aws-cdk-lib/aws-sns'
 import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
@@ -14,7 +15,6 @@ import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
-import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 
 export class APIStack extends cdk.Stack {
   public readonly url: CfnOutput
@@ -518,14 +518,11 @@ export class APIStack extends cdk.Stack {
     }
 
     const dynamoPolicy = new PolicyStatement({
-      actions: [
-        'dynamodb:PutItem',
-        'dynamodb:GetItem'
-      ],
+      actions: ['dynamodb:PutItem', 'dynamodb:GetItem'],
       resources: [
         `arn:aws:dynamodb:${this.region}:${this.account}:table/QuoteMetadata`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/UnimindParameters`
-      ]
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/UnimindParameters`,
+      ],
     })
 
     getUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)

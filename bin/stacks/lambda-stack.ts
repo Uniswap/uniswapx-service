@@ -521,6 +521,50 @@ export class LambdaStack extends cdk.NestedStack {
       chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
     }
 
+    const postOrder4xxRateMetric = new MathExpression({
+      expression: '(por4xx/por) * 100',
+      period: Duration.minutes(5),
+      usingMetrics: {
+        por: new Metric({
+          namespace: 'Uniswap',
+          metricName: 'PostOrderRequest',
+          dimensionsMap: { Service: 'UniswapXService' },
+          unit: cdk.aws_cloudwatch.Unit.COUNT,
+          statistic: 'sum',
+        }),
+        por4xx: new Metric({
+          namespace: 'Uniswap',
+          metricName: 'PostOrderStatus4XX',
+          dimensionsMap: { Service: 'UniswapXService' },
+          unit: cdk.aws_cloudwatch.Unit.COUNT,
+          statistic: 'sum',
+        }),
+      },
+    })
+
+    const sev2PostOrder4xxRate = new Alarm(this, `${SERVICE_NAME}-SEV2-4XX-PostOrder`, {
+      alarmName: `${SERVICE_NAME}-SEV2-4XX-PostOrder`,
+      metric: postOrder4xxRateMetric,
+      threshold: 60,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+      treatMissingData: TreatMissingData.IGNORE,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    })
+
+    const sev3PostOrder4xxRate = new Alarm(this, `${SERVICE_NAME}-SEV3-4XX-PostOrder`, {
+      alarmName: `${SERVICE_NAME}-SEV3-4XX-PostOrder`,
+      metric: postOrder4xxRateMetric,
+      threshold: 30,
+      evaluationPeriods: 1,
+      datapointsToAlarm: 1,
+    })
+
+    if (chatBotTopic) {
+      sev2PostOrder4xxRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      sev3PostOrder4xxRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+    }
+
     for (const chainId of SUPPORTED_CHAINS) {
       const orderNotificationErrorRateMetric = new MathExpression({
         expression: '100*(errors/attempts)',
@@ -570,7 +614,7 @@ export class LambdaStack extends cdk.NestedStack {
     }
 
     /* cron stack */
-    new CronStack(this, `${SERVICE_NAME}CronStack`, { 
+    new CronStack(this, `${SERVICE_NAME}CronStack`, {
       lambdaRole,
       envVars: props.envVars,
       chatbotSNSArn: props.chatbotSNSArn,
