@@ -546,7 +546,7 @@ export class LambdaStack extends cdk.NestedStack {
       alarmName: `${SERVICE_NAME}-SEV2-4XX-PostOrder`,
       metric: postOrder4xxRateMetric,
       threshold: 60,
-      evaluationPeriods: 1,
+      evaluationPeriods: 2,
       datapointsToAlarm: 1,
       treatMissingData: TreatMissingData.IGNORE,
       comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
@@ -556,7 +556,7 @@ export class LambdaStack extends cdk.NestedStack {
       alarmName: `${SERVICE_NAME}-SEV3-4XX-PostOrder`,
       metric: postOrder4xxRateMetric,
       threshold: 30,
-      evaluationPeriods: 1,
+      evaluationPeriods: 2,
       datapointsToAlarm: 1,
     })
 
