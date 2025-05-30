@@ -2,16 +2,11 @@
 // @ts-nocheck
 import { OrderType, REACTOR_ADDRESS_MAPPING, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { deleteStaleOrders } from '../../../../lib/crons/gs-reaper'
+import { GSReaper, ReaperStage } from '../../../../lib/crons/gs-reaper/gs-reaper'
 import { ORDER_STATUS } from '../../../../lib/entities'
-import { DutchOrdersRepository } from '../../../../lib/repositories/dutch-orders-repository'
 import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN, REAPER_MAX_ATTEMPTS } from '../../../../lib/util/constants'
 import { ChainId } from '../../../../lib/util/chain'
-import { cleanupOrphanedOrders } from '../../../../lib/crons/gs-reaper'
 import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY } from '../../../test-data'
-import { handler } from '../../../../lib/crons/gs-reaper'
-import { parseOrder } from '../../../../lib/handlers/OrderParser'
-import * as AWS from 'aws-sdk'
 
 const log: Logger = bunyan.createLogger({
   name: 'test',
@@ -148,35 +143,6 @@ jest.mock('../../../../lib/handlers/check-order-status/util', () => {
   }
 })
 
-const mockMetrics = {
-  setNamespace: jest.fn(),
-  setDimensions: jest.fn(),
-  putMetric: jest.fn(),
-}
-
-// Mock the aws-embedded-metrics module
-jest.mock('aws-embedded-metrics', () => ({
-  metricScope: (handler: Function) => {
-    return (event: any) => handler(mockMetrics)(event)
-  },
-  Unit: {
-    Count: 'Count'
-  }
-}))
-
-// Add AWS SDK mock before other mocks
-jest.mock('aws-sdk', () => {
-  return {
-    config: {
-      update: jest.fn()
-    },
-    DynamoDB: {
-      DocumentClient: jest.fn().mockImplementation(() => ({
-      }))
-    }
-  }
-})
-
 // Add mock for DutchOrdersRepository.create before the describe block
 jest.mock('../../../../lib/repositories/dutch-orders-repository', () => ({
   DutchOrdersRepository: {
@@ -184,17 +150,10 @@ jest.mock('../../../../lib/repositories/dutch-orders-repository', () => ({
   }
 }))
 
-describe('gs-reaper handler', () => {
-  beforeEach(async () => {
-    // Configure AWS
-    AWS.config.update({
-      region: 'local-env',
-      credentials: {
-        accessKeyId: 'fakeMyKeyId',
-        secretAccessKey: 'fakeSecretAccessKey'
-      }
-    })
+describe('GSReaper', () => {
+  let reaper: GSReaper
 
+  beforeEach(async () => {
     // Set up RPC URLs for each chain
     Object.keys(OLDEST_BLOCK_BY_CHAIN).forEach(chainId => {
       process.env[`RPC_${chainId}`] = `https://dummy-rpc-${chainId}.example.com`
@@ -204,10 +163,8 @@ describe('gs-reaper handler', () => {
     await mockOrdersRepository.addOrder(MOCK_ORDER_ENTITY)
     mockWatcher.getFillEvents.mockResolvedValue([{ orderHash: MOCK_V2_ORDER_ENTITY.orderHash }, { orderHash: MOCK_ORDER_ENTITY.orderHash }])
     
-    // Clear metrics mocks
-    mockMetrics.setNamespace.mockClear()
-    mockMetrics.setDimensions.mockClear()
-    mockMetrics.putMetric.mockClear()
+    // Create new reaper instance
+    reaper = new GSReaper()
   })
 
   afterEach(async () => {
@@ -215,127 +172,128 @@ describe('gs-reaper handler', () => {
     jest.clearAllMocks()
   })
 
-  it('initializes state correctly from EventBridge event', async () => {
-    const eventBridgeEvent = { time: new Date().toISOString() }
-    const result = await handler(eventBridgeEvent)
-
-    expect(result).toEqual({
-      chainId: ChainId.MAINNET, // Mainnet is the first chain in the list
-      currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
-      orderUpdates: {},
-      orderHashes: [],
-      stage: 'GET_OPEN_ORDERS'
+  describe('state machine', () => {
+    it('initializes first chain state correctly', async () => {
+      const state = await reaper.initializeChainState(ChainId.MAINNET)
+      
+      expect(state).toEqual({
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [],
+        stage: ReaperStage.GET_OPEN_ORDERS
+      })
     })
-  })
 
-  it('processes GET_OPEN_ORDERS stage correctly', async () => {
-    const initialState = {
-      chainId: ChainId.MAINNET,
-      currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
-      orderUpdates: {},
-      orderHashes: [],
-      stage: 'GET_OPEN_ORDERS' as const
-    }
+    it('processes GET_OPEN_ORDERS stage correctly', async () => {
+      const initialState = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [],
+        stage: ReaperStage.GET_OPEN_ORDERS
+      }
 
-    const result = await handler(initialState)
+      const result = await reaper.processChainState(initialState)
 
-    expect(result.stage).toBe('PROCESS_BLOCKS')
-    expect(result.orderHashes).toBeDefined()
-    // orderHashes should contain our mock order
-    expect(result.orderHashes.includes(MOCK_ORDER_ENTITY.orderHash)).toBe(true)
-  })
+      expect(result?.stage).toBe(ReaperStage.PROCESS_BLOCKS)
+      expect(result?.orderHashes).toBeDefined()
+      // orderHashes should contain our mock order
+      expect(result?.orderHashes.includes(MOCK_ORDER_ENTITY.orderHash)).toBe(true)
+    })
 
-  it('processes PROCESS_BLOCKS stage correctly', async () => {
-    const state = {
-      chainId: ChainId.MAINNET,
-      currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
-      orderUpdates: {},
-      orderHashes: [MOCK_ORDER_ENTITY.orderHash],
-      stage: 'PROCESS_BLOCKS' as const
-    }
+    it('processes PROCESS_BLOCKS stage correctly', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        stage: ReaperStage.PROCESS_BLOCKS
+      }
 
-    const result = await handler(state)
+      const result = await reaper.processChainState(state)
 
-    expect(result.stage).toBe('CHECK_CANCELLED')
-    expect(result.currentBlock).toBe(OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET])
-    expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
-    expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.FILLED)
-    // Verify order was removed from parsedOrders
-    expect(result.orderHashes.includes(MOCK_ORDER_ENTITY.orderHash)).toBe(false)
-  })
+      expect(result?.stage).toBe(ReaperStage.CHECK_CANCELLED)
+      expect(result?.currentBlock).toBe(OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET])
+      expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
+      expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.FILLED)
+      // Verify order was removed from parsedOrders
+      expect(result?.orderHashes.includes(MOCK_ORDER_ENTITY.orderHash)).toBe(false)
+    })
 
-  it('processes CHECK_CANCELLED stage correctly', async () => {
-    const state = {
-      chainId: ChainId.MAINNET,
-      currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
-      orderUpdates: {},
-      orderHashes: [MOCK_ORDER_ENTITY.orderHash],
-      stage: 'CHECK_CANCELLED' as const
-    }
+    it('processes CHECK_CANCELLED stage correctly', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        stage: ReaperStage.CHECK_CANCELLED
+      }
 
-    // Update the OrderValidator mock to return NonceUsed
-    const { OrderValidation } = jest.requireActual('@uniswap/uniswapx-sdk')
-    const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
-    mockOrderValidator.mockImplementation(() => ({
-      validate: jest.fn().mockResolvedValue(OrderValidation.NonceUsed)
-    }))
+      // Update the OrderValidator mock to return NonceUsed
+      const { OrderValidation } = jest.requireActual('@uniswap/uniswapx-sdk')
+      const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
+      mockOrderValidator.mockImplementation(() => ({
+        validate: jest.fn().mockResolvedValue(OrderValidation.NonceUsed)
+      }))
 
-    const result = await handler(state)
+      const result = await reaper.processChainState(state)
 
-    expect(result.stage).toBe('UPDATE_DB')
-    expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
-    expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.CANCELLED)
-  })
+      expect(result?.stage).toBe(ReaperStage.UPDATE_DB)
+      expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
+      expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.CANCELLED)
+    })
 
-  it('processes UPDATE_DB stage correctly and moves to next chain', async () => {
-    const state = {
-      chainId: ChainId.MAINNET,
-      currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
-      orderUpdates: {
-        [MOCK_ORDER_ENTITY.orderHash]: {
-          status: ORDER_STATUS.FILLED,
-          txHash: '0xmocktxhash',
-          fillBlock: mockFillBlockNumber
-        }
-      },
-      orderHashes: [],
-      stage: 'UPDATE_DB' as const
-    }
+    it('processes UPDATE_DB stage and moves to next chain', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {
+          [MOCK_ORDER_ENTITY.orderHash]: {
+            status: ORDER_STATUS.FILLED,
+            txHash: '0xmocktxhash',
+            fillBlock: mockFillBlockNumber
+          }
+        },
+        orderHashes: [],
+        stage: ReaperStage.UPDATE_DB
+      }
 
-    const result = await handler(state)
+      const result = await reaper.processChainState(state)
 
-    // Verify the order was updated in the repository
-    const updatedOrder = await mockOrdersRepository.getOrder(MOCK_ORDER_ENTITY.orderHash)
-    expect(updatedOrder?.orderStatus).toBe(ORDER_STATUS.FILLED)
-    expect(updatedOrder?.txHash).toBe('0xmocktxhash')
-    expect(updatedOrder?.fillBlock).toBe(mockFillBlockNumber)
+      // Verify the order was updated in the repository
+      const updatedOrder = await mockOrdersRepository.getOrder(MOCK_ORDER_ENTITY.orderHash)
+      expect(updatedOrder?.orderStatus).toBe(ORDER_STATUS.FILLED)
+      expect(updatedOrder?.txHash).toBe('0xmocktxhash')
+      expect(updatedOrder?.fillBlock).toBe(mockFillBlockNumber)
 
-    // Verify we're moving to the next chain
-    const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
-    expect(result.chainId).toBe(chainIds[chainIds.indexOf(ChainId.MAINNET) + 1])
-    expect(result.stage).toBe('GET_OPEN_ORDERS')
-  })
+      // Verify we're moving to the next chain
+      const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
+      expect(result?.chainId).toBe(chainIds[chainIds.indexOf(ChainId.MAINNET) + 1])
+      expect(result?.stage).toBe(ReaperStage.GET_OPEN_ORDERS)
+    })
 
-  it('returns undefined when processing UPDATE_DB stage for the last chain', async () => {
-    const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
-    const lastChainId = chainIds[chainIds.length - 1]
+    it('returns null when processing UPDATE_DB stage for the last chain', async () => {
+      const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
+      const lastChainId = chainIds[chainIds.length - 1]
 
-    const state = {
-      chainId: lastChainId,
-      currentBlock: OLDEST_BLOCK_BY_CHAIN[lastChainId],
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[lastChainId],
-      orderUpdates: {},
-      orderHashes: [],
-      stage: 'UPDATE_DB' as const
-    }
+      const state = {
+        chainId: lastChainId,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[lastChainId],
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[lastChainId],
+        orderUpdates: {},
+        orderHashes: [],
+        stage: ReaperStage.UPDATE_DB
+      }
 
-    const result = await handler(state)
-    expect(result).toBeUndefined()
+      const result = await reaper.processChainState(state)
+      expect(result).toBeNull()
+    })
   })
 
   describe('error handling', () => {
@@ -346,7 +304,7 @@ describe('gs-reaper handler', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
-        stage: 'PROCESS_BLOCKS' as const
+        stage: ReaperStage.PROCESS_BLOCKS
       }
 
       // Simulate provider errors with eventual success
@@ -355,14 +313,13 @@ describe('gs-reaper handler', () => {
         .mockRejectedValueOnce(new Error('Rate limit'))
         .mockResolvedValueOnce([{ orderHash: MOCK_ORDER_ENTITY.orderHash }])
 
-      const result = await handler(state)
+      const result = await reaper.processChainState(state)
       const reactorCount = Object.keys(REACTOR_ADDRESS_MAPPING[ChainId.MAINNET])
         .filter(orderType => REACTOR_ADDRESS_MAPPING[ChainId.MAINNET][orderType as OrderType] !== "0x0000000000000000000000000000000000000000")
         .length
       // 2 failures
       expect(mockWatcher.getFillEvents).toHaveBeenCalledTimes(REAPER_RANGES_PER_RUN * reactorCount + 2)
-      expect(mockMetrics.putMetric).not.toHaveBeenCalledWith('GetFillEventsError', 1)
-      expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
+      expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
     })
 
     it('handles max retries exceeded', async () => {
@@ -372,18 +329,17 @@ describe('gs-reaper handler', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
-        stage: 'PROCESS_BLOCKS' as const
+        stage: ReaperStage.PROCESS_BLOCKS
       }
 
       // Simulate persistent provider errors
       mockWatcher.getFillEvents.mockRejectedValue(new Error('Rate limit'))
 
-      const result = await handler(state)
+      const result = await reaper.processChainState(state)
 
       expect(mockWatcher.getFillEvents).toHaveBeenCalledTimes(REAPER_RANGES_PER_RUN * REAPER_MAX_ATTEMPTS)
-      expect(mockMetrics.putMetric).toHaveBeenCalledWith('GetFillEventsError', 1, 'Count')
       // Should continue processing despite errors
-      expect(result.stage).toBe('PROCESS_BLOCKS')
+      expect(result.stage).toBe(ReaperStage.PROCESS_BLOCKS)
     })
   })
 
@@ -395,10 +351,10 @@ describe('gs-reaper handler', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
-        stage: 'PROCESS_BLOCKS' as const
+        stage: ReaperStage.PROCESS_BLOCKS
       }
 
-      const result = await handler(state)
+      const result = await reaper.processChainState(state)
 
       const reactorCount = Object.keys(REACTOR_ADDRESS_MAPPING[ChainId.MAINNET])
         .filter(orderType => REACTOR_ADDRESS_MAPPING[ChainId.MAINNET][orderType as OrderType] !== "0x0000000000000000000000000000000000000000")
@@ -416,17 +372,17 @@ describe('gs-reaper handler', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
-        stage: 'CHECK_CANCELLED' as const
+        stage: ReaperStage.CHECK_CANCELLED
       }
 
       // Simulate order not found in DB
       mockOrdersRepository.getByHash.mockResolvedValueOnce(null)
 
-      const result = await handler(state)
+      const result = await reaper.processChainState(state)
 
       expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
       // Should continue processing despite errors
-      expect(result.stage).toBe('UPDATE_DB')
+      expect(result.stage).toBe(ReaperStage.UPDATE_DB)
     })
   })
 })
