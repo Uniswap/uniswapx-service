@@ -17,6 +17,7 @@ import { SERVICE_NAME } from '../constants'
 import { CronStack } from './cron-stack'
 import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { StepFunctionStack } from './step-function-stack'
+import { ReaperStack } from './reaper-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
@@ -106,6 +107,12 @@ export class LambdaStack extends cdk.NestedStack {
     const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {
       tableCapacityConfig,
       indexCapacityConfig,
+    })
+
+    new ReaperStack(this, `${SERVICE_NAME}ReaperStack`, {
+      environmentVariables: {
+        ...props.envVars,
+      },
     })
 
     const sfnStack = new StepFunctionStack(this, `${SERVICE_NAME}SfnStack`, {
