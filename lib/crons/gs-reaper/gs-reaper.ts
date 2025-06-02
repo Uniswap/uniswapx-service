@@ -1,16 +1,14 @@
-import { EventBridgeEvent } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
-import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../entities'
-import { BaseOrdersRepository, QueryResult } from '../repositories/base'
-import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
-import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS } from '../util/constants'
+import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
+import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
+import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS } from '../../util/constants'
 import { ethers } from 'ethers'
 import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
-import { parseOrder } from '../handlers/OrderParser'
-import { getSettledAmounts } from '../handlers/check-order-status/util'
-import { ChainId } from '../util/chain'
+import { parseOrder } from '../../handlers/OrderParser'
+import { getSettledAmounts } from '../../handlers/check-order-status/util'
+import { ChainId } from '../../util/chain'
 
 type OrderUpdate = {
   status: ORDER_STATUS,
@@ -19,22 +17,28 @@ type OrderUpdate = {
   settledAmounts?: SettledAmount[]
 }
 
-type StepFunctionState = {
+export enum ReaperStage {
+  GET_OPEN_ORDERS = 'GET_OPEN_ORDERS',
+  PROCESS_BLOCKS = 'PROCESS_BLOCKS',
+  CHECK_CANCELLED = 'CHECK_CANCELLED',
+  UPDATE_DB = 'UPDATE_DB'
+}
+
+type ChainState = {
   chainId: number
   currentBlock: number
   earliestBlock: number
   orderUpdates: Record<string, OrderUpdate>
   orderHashes: string[]
-  stage: 'GET_OPEN_ORDERS' | 'PROCESS_BLOCKS' | 'CHECK_CANCELLED' | 'UPDATE_DB'
+  stage: ReaperStage
 }
 
 // Step functions have a max payload size of 256KB
 // Avg parsed order size is 2KB so 50 orders ensures we stay well under the limit
 const MAX_ORDERS_PER_CHAIN = 50
+const SLEEP_TIME_MS = 1000 // 1 second between iterations
 
 /**
- * Step Function Handler for the GS (Get Status) Reaper
- * 
  * This handler processes orphaned orders across multiple chains to update their statuses in the database.
  * It operates in the following stages:
  * 
@@ -58,161 +62,181 @@ const MAX_ORDERS_PER_CHAIN = 50
  *    - If there are more chains to process, initializes the next chain
  *    - Otherwise, completes the step function
  */
-export const handler = metricScope((metrics) => async (event: StepFunctionState | EventBridgeEvent<string, void>): Promise<StepFunctionState | void> => {
-  metrics.setNamespace('Uniswap')
-  metrics.setDimensions({ Service: 'UniswapXServiceCron' })
-  
-  const log: Logger = bunyan.createLogger({
-    name: 'DynamoReaperCron',
-    serializers: bunyan.stdSerializers,
-    level: 'info',
-  })
-  
-  const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
-  const providers = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
-  for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
-    const chainId = Number(chainIdKey) as keyof typeof OLDEST_BLOCK_BY_CHAIN
-    const rpcURL = process.env[`RPC_${chainId}`]
-    if (!rpcURL) {
-      throw new Error(`RPC_${chainId} not set`)
-    }
-    const provider = new ethers.providers.StaticJsonRpcProvider({
-      url: rpcURL,
-      headers: RPC_HEADERS
-    }, chainId)
-    providers.set(chainId, provider)
+export class GSReaper {
+  private log: Logger
+  private repo: BaseOrdersRepository<UniswapXOrderEntity>
+  private providers: Map<ChainId, ethers.providers.StaticJsonRpcProvider>
+
+  constructor() {
+    this.log = bunyan.createLogger({
+      name: 'GSReaper',
+      serializers: bunyan.stdSerializers,
+      level: 'info',
+    })
+    
+    this.repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
+    this.providers = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
+    this.initializeProviders()
   }
 
-  // Initialize if this is the first run (is EventBridgeEvent)
-  if ('time' in event) {
-    const firstChainId = Number(Object.keys(OLDEST_BLOCK_BY_CHAIN)[0])
-    const provider = providers.get(firstChainId)
+  private initializeProviders() {
+    for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
+      const chainId = Number(chainIdKey) as keyof typeof OLDEST_BLOCK_BY_CHAIN
+      const rpcURL = process.env[`RPC_${chainId}`]
+      if (!rpcURL) {
+        throw new Error(`RPC_${chainId} not set`)
+      }
+      const provider = new ethers.providers.StaticJsonRpcProvider({
+        url: rpcURL,
+        headers: RPC_HEADERS
+      }, chainId)
+      this.providers.set(chainId, provider)
+    }
+  }
+
+  protected async initializeChainState(chainId: ChainId): Promise<ChainState> {
+    const provider = this.providers.get(chainId)
     if (!provider) {
-      throw new Error(`No provider found for chainId ${firstChainId}`)
+      throw new Error(`No provider found for chainId ${chainId}`)
     }
     const currentBlock = await provider.getBlockNumber()
-    log.info(`Initializing GS Reaper for chainId ${firstChainId} with current block ${currentBlock} and earliest block ${OLDEST_BLOCK_BY_CHAIN[firstChainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]}`)
+    this.log.info(`Initializing GS Reaper for chainId ${chainId} with current block ${currentBlock} and earliest block ${OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]}`)
     return {
-      chainId: firstChainId,
+      chainId,
       currentBlock,
-      // TODO: After first run, use 1 day ago as earliest block
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[firstChainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
+      earliestBlock: OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
       orderUpdates: {},
       orderHashes: [],
-      stage: 'GET_OPEN_ORDERS'
+      stage: ReaperStage.GET_OPEN_ORDERS
     }
   }
-
-  const state = event as StepFunctionState
-  const provider = providers.get(state.chainId)
-
-  switch (state.stage) {
-    case 'GET_OPEN_ORDERS': {
-      log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
-      const orderHashes = await getOpenOrderHashes(repo, state.chainId, MAX_ORDERS_PER_CHAIN)
-      return {
-        ...state,
-        orderHashes,
-        stage: 'PROCESS_BLOCKS'
-      }
+  
+  /**
+   * Manages the state machine for the GS Reaper
+   * @param state - The current chain state
+   * @returns The next chain state or null if there are no more chains to process
+   */
+  protected async processChainState(state: ChainState): Promise<ChainState | null> {
+    const provider = this.providers.get(state.chainId)
+    if (!provider) {
+      throw new Error(`No provider found for chainId ${state.chainId}`)
     }
 
-    case 'PROCESS_BLOCKS': {
-      if (!provider) {
-        throw new Error(`No provider found for chainId ${state.chainId}`)
-      }
-      // Process multiple block ranges before returning
-      let currentBlock = state.currentBlock
-      let orderUpdates = state.orderUpdates
-      const orderHashSet = new Set(state.orderHashes)
-      
-      for (let i = 0; i < REAPER_RANGES_PER_RUN; i++) {
-        const nextBlock = currentBlock - BLOCK_RANGE
-        log.info(`PROCESS_BLOCKS for chainId ${state.chainId} blocks ${currentBlock} to ${nextBlock}`)
-        const { updates, remainingHashes } = await processBlockRange(
-          currentBlock,
-          nextBlock,
-          state.chainId,
-          orderHashSet,
-          repo,
-          provider,
-          orderUpdates,
-          log,
-          metrics
-        )
-        
-        orderUpdates = updates
-        state.orderHashes = Array.from(remainingHashes)
-        currentBlock = nextBlock
-        if (currentBlock <= state.earliestBlock) {
-          return {
-            ...state,
-            currentBlock,
-            orderUpdates,
-            stage: 'CHECK_CANCELLED'
-          }
+    switch (state.stage) {
+      case ReaperStage.GET_OPEN_ORDERS: {
+        this.log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
+        const orderHashes = await getOpenOrderHashes(this.repo, state.chainId, MAX_ORDERS_PER_CHAIN)
+        return {
+          ...state,
+          orderHashes,
+          stage: ReaperStage.PROCESS_BLOCKS
         }
       }
 
-      return {
-        ...state,
-        currentBlock,
-        orderUpdates,
-        stage: 'PROCESS_BLOCKS'
-      }
-    }
+      case ReaperStage.PROCESS_BLOCKS: {
+        let currentBlock = state.currentBlock
+        let orderUpdates = state.orderUpdates
+        const orderHashSet = new Set(state.orderHashes)
+        
+        for (let i = 0; i < REAPER_RANGES_PER_RUN; i++) {
+          const nextBlock = currentBlock - BLOCK_RANGE
+          this.log.info(`PROCESS_BLOCKS for chainId ${state.chainId} blocks ${currentBlock} to ${nextBlock}`)
+          const { updates, remainingHashes } = await processBlockRange(
+            currentBlock,
+            nextBlock,
+            state.chainId,
+            orderHashSet,
+            this.repo,
+            provider,
+            orderUpdates,
+            this.log
+          )
+          
+          orderUpdates = updates
+          state.orderHashes = Array.from(remainingHashes)
+          currentBlock = nextBlock
+          if (currentBlock <= state.earliestBlock) {
+            return {
+              ...state,
+              currentBlock,
+              orderUpdates,
+              stage: ReaperStage.CHECK_CANCELLED
+            }
+          }
+        }
 
-    case 'CHECK_CANCELLED': {
-      log.info(`CHECK_CANCELLED for chainId ${state.chainId}`)
-      if (!provider) {
-        throw new Error(`No provider found for chainId ${state.chainId}`)
-      }
-      const orderUpdates = await checkCancelledOrders(
-        state.orderHashes,
-        state.orderUpdates,
-        repo,
-        provider,
-        state.chainId,
-        log
-      )
-      
-      return {
-        ...state,
-        orderUpdates,
-        stage: 'UPDATE_DB'
-      }
-    }
-
-    case 'UPDATE_DB': {
-      log.info(`UPDATE_DB for chainId ${state.chainId}`)
-      await updateOrders(repo, state.orderUpdates, log, metrics)
-      
-      const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
-      const currentChainIndex = chainIds.indexOf(state.chainId)
-      
-      // We're done
-      if (currentChainIndex === chainIds.length - 1) {
-        log.info(`Done`)
-        return
+        return {
+          ...state,
+          currentBlock,
+          orderUpdates,
+          stage: ReaperStage.PROCESS_BLOCKS
+        }
       }
 
-      const nextChainId = chainIds[currentChainIndex + 1]
-      const nextProvider = providers.get(nextChainId)
-      if (!nextProvider) {
-        throw new Error(`No provider found for chainId ${nextChainId}`)
+      case ReaperStage.CHECK_CANCELLED: {
+        this.log.info(`CHECK_CANCELLED for chainId ${state.chainId}`)
+        const orderUpdates = await checkCancelledOrders(
+          state.orderHashes,
+          state.orderUpdates,
+          this.repo,
+          provider,
+          state.chainId,
+          this.log
+        )
+        
+        return {
+          ...state,
+          orderUpdates,
+          stage: ReaperStage.UPDATE_DB
+        }
       }
-      const currentBlock = await nextProvider.getBlockNumber()
-      return {
-        chainId: nextChainId,
-        currentBlock,
-        earliestBlock: OLDEST_BLOCK_BY_CHAIN[nextChainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
-        orderUpdates: {},
-        orderHashes: [],
-        stage: 'GET_OPEN_ORDERS'
+
+      case ReaperStage.UPDATE_DB: {
+        this.log.info(`UPDATE_DB for chainId ${state.chainId}`)
+        await updateOrders(this.repo, state.orderUpdates, this.log)
+        
+        const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
+        const currentChainIndex = chainIds.indexOf(state.chainId)
+        
+        // We're done with all chains
+        if (currentChainIndex === chainIds.length - 1) {
+          this.log.info(`Done with chain ${state.chainId}`)
+          return null
+        }
+
+        const nextChainId = chainIds[currentChainIndex + 1]
+        return this.initializeChainState(nextChainId)
       }
     }
   }
-})
+
+  public async start() {
+    this.log.info('Starting GS Reaper service')
+    
+    // Initialize first chain
+    const firstChainId = Number(Object.keys(OLDEST_BLOCK_BY_CHAIN)[0])
+    let currentState: ChainState | null = null
+    
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        if (!currentState) {
+          // Start over with the first chain
+          currentState = await this.initializeChainState(firstChainId)
+        }
+
+        currentState = await this.processChainState(currentState)
+        
+        // Sleep to prevent overwhelming the system
+        await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS))
+      } catch (error) {
+        this.log.error({ error }, 'Error in GS Reaper main loop')
+        // Sleep longer on error
+        await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS * 5))
+      }
+    }
+  }
+}
 
 async function processBlockRange(
   fromBlock: number,
@@ -222,8 +246,7 @@ async function processBlockRange(
   repo: BaseOrdersRepository<UniswapXOrderEntity>,
   provider: ethers.providers.StaticJsonRpcProvider,
   existingUpdates: Record<string, OrderUpdate>,
-  log: Logger,
-  metrics?: MetricsLogger
+  log: Logger
 ): Promise<{ updates: Record<string, OrderUpdate>, remainingHashes: Set<string> }> {
   const orderUpdates = { ...existingUpdates }
   
@@ -276,7 +299,6 @@ async function processBlockRange(
         recentErrors++
         if (attempts === REAPER_MAX_ATTEMPTS) {
           log.error({ error }, `Failed to get fill events after ${attempts} attempts for blocks ${toBlock} to ${fromBlock}`)
-          metrics?.putMetric(`GetFillEventsError`, 1, Unit.Count)
           // Return the updates and remaining hashes so we can continue processing
           return { updates: orderUpdates, remainingHashes: orderHashSet }
         }
@@ -328,8 +350,7 @@ async function checkCancelledOrders(
 async function updateOrders(
   repo: BaseOrdersRepository<UniswapXOrderEntity>,
   orderUpdates: Record<string, OrderUpdate>,
-  log: Logger,
-  metrics?: MetricsLogger
+  log: Logger
 ): Promise<void> {
   log.info(`Updating ${Object.keys(orderUpdates).length} incorrect orders`)
   
@@ -341,8 +362,6 @@ async function updateOrders(
       orderUpdate.fillBlock,
       orderUpdate.settledAmounts
     )
-
-    metrics?.putMetric(`UpdateOrderStatus_${orderUpdate.status}`, 1, Unit.Count)
   }
   
   log.info(`Update complete`)
@@ -421,4 +440,13 @@ async function getOrderFillInfo(
     fillBlock: fillEvent.blockNumber,
     settledAmounts,
   }
+}
+
+// Start the service
+if (require.main === module) {
+  const reaper = new GSReaper()
+  reaper.start().catch(error => {
+    console.error('Fatal error in GS Reaper:', error)
+    process.exit(1)
+  })
 }
