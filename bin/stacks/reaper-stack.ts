@@ -2,7 +2,7 @@ import { aws_ecs, aws_iam, Stack, StackProps } from "aws-cdk-lib";
 import { DockerImageAsset, Platform } from "aws-cdk-lib/aws-ecr-assets";
 import { Cluster, ContainerImage } from "aws-cdk-lib/aws-ecs";
 import { Construct } from "constructs";
-import { SERVICE_NAME, HEALTH_CHECK_PORT } from "../constants";
+import { SERVICE_NAME } from "../constants";
 
 // Expect RPC_[chainId] to be set in environmentVariables
 export interface ReaperStackProps extends StackProps {
@@ -65,10 +65,6 @@ export class ReaperStack extends Stack {
         },
         logging: this.logDriver,
       })
-      .addPortMappings({
-        containerPort: HEALTH_CHECK_PORT,
-        protocol: aws_ecs.Protocol.TCP,
-      });
 
     new aws_ecs.FargateService(this, `ReaperService`, {
       cluster,
