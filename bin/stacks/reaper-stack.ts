@@ -61,7 +61,7 @@ export class ReaperStack extends Stack {
           ...environmentVariables,
           AWS_EMF_ENVIRONMENT: "Local",
           // update to trigger deployment
-          VERSION: "1",
+          VERSION: "2",
         },
         logging: this.logDriver,
       })
