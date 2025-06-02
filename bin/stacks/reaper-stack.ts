@@ -70,7 +70,7 @@ export class ReaperStack extends Stack {
       cluster,
       taskDefinition,
       desiredCount: 1,
-      assignPublicIp: true,
+      assignPublicIp: false,
     });
   }
 }
