@@ -333,11 +333,13 @@ async function checkCancelledOrders(
           signature: signature,
         })
         if (validation === OrderValidation.NonceUsed) {
+          log.info(`Order ${orderHash} has been cancelled`)
           orderUpdates[orderHash] = {
             status: ORDER_STATUS.CANCELLED,
           }
         }
         if (validation === OrderValidation.Expired) {
+          log.info(`Order ${orderHash} has expired`)
           orderUpdates[orderHash] = {
             status: ORDER_STATUS.EXPIRED,
           }
