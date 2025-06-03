@@ -9,6 +9,7 @@ import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, Dutc
 import { parseOrder } from '../../handlers/OrderParser'
 import { getSettledAmounts } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
+import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 
 type OrderUpdate = {
   status: ORDER_STATUS,
@@ -65,6 +66,7 @@ const SLEEP_TIME_MS = 1000 // 1 second between iterations
 export class GSReaper {
   private log: Logger
   private repo: BaseOrdersRepository<UniswapXOrderEntity>
+  private limitOrdersRepo: BaseOrdersRepository<UniswapXOrderEntity>
   private providers: Map<ChainId, ethers.providers.StaticJsonRpcProvider>
 
   constructor() {
@@ -74,6 +76,7 @@ export class GSReaper {
       level: 'info',
     })
     
+    this.limitOrdersRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
     this.repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
     this.providers = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
     this.initializeProviders()
@@ -125,10 +128,11 @@ export class GSReaper {
     switch (state.stage) {
       case ReaperStage.GET_OPEN_ORDERS: {
         this.log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
-        const orderHashes = await getOpenOrderHashes(this.repo, state.chainId, MAX_ORDERS_PER_CHAIN)
+        const orderHashes = await getOpenOrderHashes(this.repo, state.chainId, MAX_ORDERS_PER_CHAIN, this.log)
+        const limitOrderHashes = await getOpenOrderHashes(this.limitOrdersRepo, state.chainId, MAX_ORDERS_PER_CHAIN, this.log)
         return {
           ...state,
-          orderHashes,
+          orderHashes: orderHashes.concat(limitOrderHashes),
           stage: ReaperStage.PROCESS_BLOCKS
         }
       }
@@ -355,6 +359,7 @@ async function updateOrders(
   log.info(`Updating ${Object.keys(orderUpdates).length} incorrect orders`)
   
   for (const [orderHash, orderUpdate] of Object.entries(orderUpdates)) {
+    log.info(`Updating order ${orderHash} to ${orderUpdate.status}`)
     await repo.updateOrderStatus(
       orderHash,
       orderUpdate.status,
@@ -373,11 +378,12 @@ async function updateOrders(
 async function getOpenOrderHashes(
   repo: BaseOrdersRepository<UniswapXOrderEntity>, 
   chainId: ChainId, 
-  maxOrders: number
+  maxOrders: number,
+  log: Logger
 ): Promise<string[]> {
   let cursor: string | undefined = undefined
   let orderHashes: string[] = []
-  
+  let orderCountByType = new Map<string, number>()
   do {
     const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
       DYNAMO_BATCH_WRITE_MAX,
@@ -389,12 +395,18 @@ async function getOpenOrderHashes(
     )
     cursor = openOrders.cursor
     orderHashes = orderHashes.concat(openOrders.orders.map(o => o.orderHash))
-    
+    for (const order of openOrders.orders) {
+      orderCountByType.set(order.type, (orderCountByType.get(order.type) ?? 0) + 1)
+    }
     if (orderHashes.length >= maxOrders) {
       orderHashes = orderHashes.slice(0, maxOrders)
       break
     }
   } while (cursor)
+
+  for (const [orderType, count] of orderCountByType) {
+    log.info(`Found ${count} ${orderType} open orders for chainId ${chainId}`)
+  }
 
   return orderHashes
 }
