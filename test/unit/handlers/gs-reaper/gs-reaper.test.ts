@@ -6,7 +6,7 @@ import { GSReaper, ReaperStage } from '../../../../lib/crons/gs-reaper/gs-reaper
 import { ORDER_STATUS } from '../../../../lib/entities'
 import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN, REAPER_MAX_ATTEMPTS } from '../../../../lib/util/constants'
 import { ChainId } from '../../../../lib/util/chain'
-import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY, MOCK_LIMIT_ORDER_ENTITY } from '../../../test-data'
+import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY } from '../../../test-data'
 
 const log: Logger = bunyan.createLogger({
   name: 'test',
@@ -14,27 +14,23 @@ const log: Logger = bunyan.createLogger({
   level: 'fatal',
 })
 
-class MockOrdersRepository {
-  private orders: Map<string, any>;
+const mockOrdersRepository = {
+  orders: new Map(),
 
-  constructor() {
-    this.orders = new Map();
-  }
+  addOrder: jest.fn(async (order) => {
+    mockOrdersRepository.orders.set(order.orderHash, { ...order })
+  }),
 
-  addOrder = jest.fn(async (order: any): Promise<void> => {
-    this.orders.set(order.orderHash, { ...order });
-  });
+  getOrder: jest.fn(async (orderHash) => {
+    return mockOrdersRepository.orders.get(orderHash) || null
+  }),
 
-  getOrder = jest.fn(async (orderHash: string): Promise<any> => {
-    return this.orders.get(orderHash) || null;
-  });
+  getByHash: jest.fn(async (orderHash) => {
+    return mockOrdersRepository.orders.get(orderHash) || null
+  }),
 
-  getByHash = jest.fn(async (orderHash: string): Promise<any> => {
-    return this.orders.get(orderHash) || null;
-  });
-
-  getOrders = jest.fn(async (limit: number, { orderStatus, chainId, cursor }: { orderStatus: string, chainId: number, cursor?: string }): Promise<{ orders: any[], cursor: string | undefined }> => {
-    const matchingOrders = Array.from(this.orders.values())
+  getOrders: jest.fn(async (limit, { orderStatus, chainId, cursor }) => {
+    const matchingOrders = Array.from(mockOrdersRepository.orders.values())
       .filter(order => 
         order.orderStatus === orderStatus && 
         order.chainId === chainId
@@ -45,28 +41,21 @@ class MockOrdersRepository {
       orders: matchingOrders,
       cursor: undefined // Simplified cursor implementation for testing
     }
-  });
+  }),
 
-  updateOrderStatus = jest.fn(async (orderHash: string, status: string, txHash?: string, fillBlock?: number, settledAmounts?: any[]): Promise<void> => {
-    const order = this.orders.get(orderHash);
+  updateOrderStatus: jest.fn(async (orderHash, status, txHash, fillBlock, settledAmounts) => {
+    const order = mockOrdersRepository.orders.get(orderHash)
     if (order) {
-      this.orders.set(orderHash, {
+      mockOrdersRepository.orders.set(orderHash, {
         ...order,
         orderStatus: status,
         txHash,
         fillBlock,
         settledAmounts
-      });
+      })
     }
-  });
-
-  clear(): void {
-    this.orders.clear();
-  }
+  })
 }
-
-const mockOrdersRepository = new MockOrdersRepository();
-const mockLimitOrdersRepository = new MockOrdersRepository();
 
 // Setup mock provider
 const mockProviders = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
@@ -154,16 +143,10 @@ jest.mock('../../../../lib/handlers/check-order-status/util', () => {
   }
 })
 
-// Add mock for OrdersRepositories.create before the describe block
+// Add mock for DutchOrdersRepository.create before the describe block
 jest.mock('../../../../lib/repositories/dutch-orders-repository', () => ({
   DutchOrdersRepository: {
     create: jest.fn().mockImplementation(() => mockOrdersRepository)
-  },
-}))
-
-jest.mock('../../../../lib/repositories/limit-orders-repository', () => ({
-  LimitOrdersRepository: {
-    create: jest.fn().mockImplementation(() => mockLimitOrdersRepository)
   }
 }))
 
@@ -178,16 +161,14 @@ describe('GSReaper', () => {
 
     // Add test order to repository
     await mockOrdersRepository.addOrder(MOCK_ORDER_ENTITY)
-    await mockLimitOrdersRepository.addOrder(MOCK_LIMIT_ORDER_ENTITY)
     mockWatcher.getFillEvents.mockResolvedValue([{ orderHash: MOCK_V2_ORDER_ENTITY.orderHash }, { orderHash: MOCK_ORDER_ENTITY.orderHash }])
     
     // Create new reaper instance
-    reaper = new GSReaper()
+    reaper = new GSReaper(mockOrdersRepository)
   })
 
   afterEach(async () => {
-    mockOrdersRepository.clear()
-    mockLimitOrdersRepository.clear()
+    mockOrdersRepository.orders.clear()
     jest.clearAllMocks()
   })
 
@@ -221,7 +202,6 @@ describe('GSReaper', () => {
       expect(result?.orderHashes).toBeDefined()
       // orderHashes should contain our mock order
       expect(result?.orderHashes.includes(MOCK_ORDER_ENTITY.orderHash)).toBe(true)
-      expect(result?.orderHashes.includes(MOCK_LIMIT_ORDER_ENTITY.orderHash)).toBe(true)
     })
 
     it('processes PROCESS_BLOCKS stage correctly', async () => {

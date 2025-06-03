@@ -66,18 +66,15 @@ const SLEEP_TIME_MS = 1000 // 1 second between iterations
 export class GSReaper {
   private log: Logger
   private repo: BaseOrdersRepository<UniswapXOrderEntity>
-  private limitOrdersRepo: BaseOrdersRepository<UniswapXOrderEntity>
   private providers: Map<ChainId, ethers.providers.StaticJsonRpcProvider>
 
-  constructor() {
+  constructor(repo: BaseOrdersRepository<UniswapXOrderEntity>) {
     this.log = bunyan.createLogger({
       name: 'GSReaper',
       serializers: bunyan.stdSerializers,
       level: 'info',
     })
-    
-    this.limitOrdersRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
-    this.repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
+    this.repo = repo
     this.providers = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
     this.initializeProviders()
   }
@@ -129,10 +126,9 @@ export class GSReaper {
       case ReaperStage.GET_OPEN_ORDERS: {
         this.log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
         const orderHashes = await getOpenOrderHashes(this.repo, state.chainId, MAX_ORDERS_PER_CHAIN, this.log)
-        const limitOrderHashes = await getOpenOrderHashes(this.limitOrdersRepo, state.chainId, MAX_ORDERS_PER_CHAIN, this.log)
         return {
           ...state,
-          orderHashes: orderHashes.concat(limitOrderHashes),
+          orderHashes: orderHashes,
           stage: ReaperStage.PROCESS_BLOCKS
         }
       }
@@ -219,25 +215,21 @@ export class GSReaper {
     
     // Initialize first chain
     const firstChainId = Number(Object.keys(OLDEST_BLOCK_BY_CHAIN)[0])
-    let currentState: ChainState | null = null
+    let currentState: ChainState | null = await this.initializeChainState(firstChainId)
     
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      try {
-        if (!currentState) {
-          // Start over with the first chain
-          currentState = await this.initializeChainState(firstChainId)
-        }
-
-        currentState = await this.processChainState(currentState)
-        
-        // Sleep to prevent overwhelming the system
-        await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS))
-      } catch (error) {
-        this.log.error({ error }, 'Error in GS Reaper main loop')
-        // Sleep longer on error
-        await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS * 5))
+    try {
+      // return once we've processed all chains
+      if (!currentState) {
+        return
       }
+
+      currentState = await this.processChainState(currentState)
+      
+      await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS))
+    } catch (error) {
+      this.log.error({ error }, 'Error in GS Reaper main loop')
+      // Sleep longer on error
+      await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS * 5))
     }
   }
 }
@@ -456,11 +448,22 @@ async function getOrderFillInfo(
   }
 }
 
+async function startReapers() {
+  const dutchReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()))
+  const limitReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()))
+  while (true) {
+    await dutchReaper.start().catch(error => {
+      console.error('Fatal error in GS Reaper:', error)
+      process.exit(1)
+    })
+    await limitReaper.start().catch(error => {
+      console.error('Fatal error in GS Reaper:', error)
+      process.exit(1)
+    })
+  }
+}
+
 // Start the service
 if (require.main === module) {
-  const reaper = new GSReaper()
-  reaper.start().catch(error => {
-    console.error('Fatal error in GS Reaper:', error)
-    process.exit(1)
-  })
+  startReapers()
 }
