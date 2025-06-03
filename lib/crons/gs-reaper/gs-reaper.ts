@@ -3,7 +3,7 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
-import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS } from '../../util/constants'
+import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS, BLOCKS_IN_24_HOURS } from '../../util/constants'
 import { ethers } from 'ethers'
 import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../../handlers/OrderParser'
@@ -37,6 +37,7 @@ type ChainState = {
 // Avg parsed order size is 2KB so 50 orders ensures we stay well under the limit
 const MAX_ORDERS_PER_CHAIN = 50
 const SLEEP_TIME_MS = 1000 // 1 second between iterations
+const SLEEP_TIME_BETWEEN_RUNS_MS = 10 * 60 * 1000 // 10 minutes between runs
 
 /**
  * This handler processes orphaned orders across multiple chains to update their statuses in the database.
@@ -100,11 +101,19 @@ export class GSReaper {
       throw new Error(`No provider found for chainId ${chainId}`)
     }
     const currentBlock = await provider.getBlockNumber()
-    this.log.info(`Initializing GS Reaper for chainId ${chainId} with current block ${currentBlock} and earliest block ${OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]}`)
+    
+    // Look back 24 hours from current block
+    const blocksIn24Hours = BLOCKS_IN_24_HOURS(chainId)
+    const earliestBlock = Math.max(
+      currentBlock - blocksIn24Hours,
+      OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]
+    )
+    
+    this.log.info(`Initializing GS Reaper for chainId ${chainId} with current block ${currentBlock} and earliest block ${earliestBlock}`)
     return {
       chainId,
       currentBlock,
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
+      earliestBlock,
       orderUpdates: {},
       orderHashes: [],
       stage: ReaperStage.GET_OPEN_ORDERS
@@ -221,13 +230,14 @@ export class GSReaper {
     while (true) {
       try {
         if (!currentState) {
+          // Longer delays between runs
+          await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_BETWEEN_RUNS_MS))
           // Start over with the first chain
           currentState = await this.initializeChainState(firstChainId)
         }
 
         currentState = await this.processChainState(currentState)
         
-        // Sleep to prevent overwhelming the system
         await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS))
       } catch (error) {
         this.log.error({ error }, 'Error in GS Reaper main loop')

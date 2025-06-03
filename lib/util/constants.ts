@@ -19,6 +19,10 @@ export const BLOCK_TIME_MS_BY_CHAIN = {
   [ChainId.BASE]: 2000,
   [ChainId.UNICHAIN]: 1000,
 }
+export const BLOCKS_IN_24_HOURS = (chainId: ChainId) => {
+  const dayInMs = 24 * 60 * 60 * 1000
+  return Math.floor(dayInMs / (BLOCK_TIME_MS_BY_CHAIN[chainId as keyof typeof BLOCK_TIME_MS_BY_CHAIN] ?? 12000))
+}
 export const BLOCK_RANGE = 10000
 export const REAPER_MAX_ATTEMPTS = 10
 export const REAPER_RANGES_PER_RUN = 10
