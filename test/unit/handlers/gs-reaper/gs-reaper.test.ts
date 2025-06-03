@@ -4,7 +4,7 @@ import { OrderType, REACTOR_ADDRESS_MAPPING, OrderValidation } from '@uniswap/un
 import { default as bunyan, default as Logger } from 'bunyan'
 import { GSReaper, ReaperStage } from '../../../../lib/crons/gs-reaper/gs-reaper'
 import { ORDER_STATUS } from '../../../../lib/entities'
-import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN, REAPER_MAX_ATTEMPTS } from '../../../../lib/util/constants'
+import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN, REAPER_MAX_ATTEMPTS, BLOCK_TIME_MS_BY_CHAIN, BLOCKS_IN_24_HOURS } from '../../../../lib/util/constants'
 import { ChainId } from '../../../../lib/util/chain'
 import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY } from '../../../test-data'
 
@@ -57,12 +57,19 @@ const mockOrdersRepository = {
   })
 }
 
+// 48 hours from oldest block to test the 24 hour lookback
+const getCurrentBlock = (chainId: ChainId) => {
+  const blocksIn48Hours = BLOCKS_IN_24_HOURS(chainId) * 2
+  return OLDEST_BLOCK_BY_CHAIN[chainId] + blocksIn48Hours
+}
+
 // Setup mock provider
 const mockProviders = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
 for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
   const chainId = Number(chainIdKey)
+  const currentBlock = getCurrentBlock(chainId)
   const mockProvider = {
-    getBlockNumber: jest.fn().mockResolvedValue(OLDEST_BLOCK_BY_CHAIN[chainId] + BLOCK_RANGE * REAPER_RANGES_PER_RUN),
+    getBlockNumber: jest.fn().mockResolvedValue(currentBlock),
     getTransaction: jest.fn().mockResolvedValue({
       gasPrice: '1000000000',
       maxPriorityFeePerGas: null,
@@ -175,11 +182,12 @@ describe('GSReaper', () => {
   describe('state machine', () => {
     it('initializes first chain state correctly', async () => {
       const state = await reaper.initializeChainState(ChainId.MAINNET)
+      const currentBlock = getCurrentBlock(ChainId.MAINNET)
       
       expect(state).toEqual({
         chainId: ChainId.MAINNET,
-        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
-        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        currentBlock,
+        earliestBlock: currentBlock - BLOCKS_IN_24_HOURS(ChainId.MAINNET),
         orderUpdates: {},
         orderHashes: [],
         stage: ReaperStage.GET_OPEN_ORDERS
@@ -187,10 +195,12 @@ describe('GSReaper', () => {
     })
 
     it('processes GET_OPEN_ORDERS stage correctly', async () => {
+      const currentBlock = getCurrentBlock(ChainId.MAINNET)
+
       const initialState = {
         chainId: ChainId.MAINNET,
-        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
-        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        currentBlock,
+        earliestBlock: currentBlock - BLOCKS_IN_24_HOURS(ChainId.MAINNET),
         orderUpdates: {},
         orderHashes: [],
         stage: ReaperStage.GET_OPEN_ORDERS
@@ -205,10 +215,13 @@ describe('GSReaper', () => {
     })
 
     it('processes PROCESS_BLOCKS stage correctly', async () => {
+      const currentBlock = getCurrentBlock(ChainId.MAINNET)
+      const earliestBlock = currentBlock - BLOCKS_IN_24_HOURS(ChainId.MAINNET)
+      const runRange = REAPER_RANGES_PER_RUN * BLOCK_RANGE
       const state = {
         chainId: ChainId.MAINNET,
-        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
-        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        currentBlock: earliestBlock + runRange,
+        earliestBlock,
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
         stage: ReaperStage.PROCESS_BLOCKS
@@ -217,7 +230,7 @@ describe('GSReaper', () => {
       const result = await reaper.processChainState(state)
 
       expect(result?.stage).toBe(ReaperStage.CHECK_CANCELLED)
-      expect(result?.currentBlock).toBe(OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET])
+      expect(result?.currentBlock).toBe(earliestBlock)
       expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeDefined()
       expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.FILLED)
       // Verify order was removed from parsedOrders
