@@ -3,12 +3,13 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
-import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS, BLOCKS_IN_24_HOURS } from '../../util/constants'
+import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS } from '../../util/constants'
 import { ethers } from 'ethers'
 import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../../handlers/OrderParser'
 import { getSettledAmounts } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
+import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 
 type OrderUpdate = {
   status: ORDER_STATUS,
@@ -37,7 +38,6 @@ type ChainState = {
 // Avg parsed order size is 2KB so 50 orders ensures we stay well under the limit
 const MAX_ORDERS_PER_CHAIN = 50
 const SLEEP_TIME_MS = 1000 // 1 second between iterations
-const SLEEP_TIME_BETWEEN_RUNS_MS = 10 * 60 * 1000 // 10 minutes between runs
 
 /**
  * This handler processes orphaned orders across multiple chains to update their statuses in the database.
@@ -68,14 +68,13 @@ export class GSReaper {
   private repo: BaseOrdersRepository<UniswapXOrderEntity>
   private providers: Map<ChainId, ethers.providers.StaticJsonRpcProvider>
 
-  constructor() {
+  constructor(repo: BaseOrdersRepository<UniswapXOrderEntity>) {
     this.log = bunyan.createLogger({
       name: 'GSReaper',
       serializers: bunyan.stdSerializers,
       level: 'info',
     })
-    
-    this.repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
+    this.repo = repo
     this.providers = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
     this.initializeProviders()
   }
@@ -101,19 +100,11 @@ export class GSReaper {
       throw new Error(`No provider found for chainId ${chainId}`)
     }
     const currentBlock = await provider.getBlockNumber()
-    
-    // Look back 24 hours from current block
-    const blocksIn24Hours = BLOCKS_IN_24_HOURS(chainId)
-    const earliestBlock = Math.max(
-      currentBlock - blocksIn24Hours,
-      OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]
-    )
-    
-    this.log.info(`Initializing GS Reaper for chainId ${chainId} with current block ${currentBlock} and earliest block ${earliestBlock}`)
+    this.log.info(`Initializing GS Reaper for chainId ${chainId} with current block ${currentBlock} and earliest block ${OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]}`)
     return {
       chainId,
       currentBlock,
-      earliestBlock,
+      earliestBlock: OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
       orderUpdates: {},
       orderHashes: [],
       stage: ReaperStage.GET_OPEN_ORDERS
@@ -134,10 +125,10 @@ export class GSReaper {
     switch (state.stage) {
       case ReaperStage.GET_OPEN_ORDERS: {
         this.log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
-        const orderHashes = await getOpenOrderHashes(this.repo, state.chainId, MAX_ORDERS_PER_CHAIN)
+        const orderHashes = await getOpenOrderHashes(this.repo, state.chainId, MAX_ORDERS_PER_CHAIN, this.log)
         return {
           ...state,
-          orderHashes,
+          orderHashes: orderHashes,
           stage: ReaperStage.PROCESS_BLOCKS
         }
       }
@@ -224,16 +215,14 @@ export class GSReaper {
     
     // Initialize first chain
     const firstChainId = Number(Object.keys(OLDEST_BLOCK_BY_CHAIN)[0])
-    let currentState: ChainState | null = null
+    let currentState: ChainState | null = await this.initializeChainState(firstChainId)
     
     // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
+        // return once we've processed all chains
         if (!currentState) {
-          // Longer delays between runs
-          await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_BETWEEN_RUNS_MS))
-          // Start over with the first chain
-          currentState = await this.initializeChainState(firstChainId)
+          return
         }
 
         currentState = await this.processChainState(currentState)
@@ -339,11 +328,13 @@ async function checkCancelledOrders(
           signature: signature,
         })
         if (validation === OrderValidation.NonceUsed) {
+          log.info(`Order ${orderHash} has been cancelled`)
           orderUpdates[orderHash] = {
             status: ORDER_STATUS.CANCELLED,
           }
         }
         if (validation === OrderValidation.Expired) {
+          log.info(`Order ${orderHash} has expired`)
           orderUpdates[orderHash] = {
             status: ORDER_STATUS.EXPIRED,
           }
@@ -365,6 +356,7 @@ async function updateOrders(
   log.info(`Updating ${Object.keys(orderUpdates).length} incorrect orders`)
   
   for (const [orderHash, orderUpdate] of Object.entries(orderUpdates)) {
+    log.info(`Updating order ${orderHash} to ${orderUpdate.status}`)
     await repo.updateOrderStatus(
       orderHash,
       orderUpdate.status,
@@ -383,11 +375,12 @@ async function updateOrders(
 async function getOpenOrderHashes(
   repo: BaseOrdersRepository<UniswapXOrderEntity>, 
   chainId: ChainId, 
-  maxOrders: number
+  maxOrders: number,
+  log: Logger
 ): Promise<string[]> {
   let cursor: string | undefined = undefined
   let orderHashes: string[] = []
-  
+  const orderCountByType = new Map<string, number>()
   do {
     const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
       DYNAMO_BATCH_WRITE_MAX,
@@ -399,12 +392,18 @@ async function getOpenOrderHashes(
     )
     cursor = openOrders.cursor
     orderHashes = orderHashes.concat(openOrders.orders.map(o => o.orderHash))
-    
+    for (const order of openOrders.orders) {
+      orderCountByType.set(order.type, (orderCountByType.get(order.type) ?? 0) + 1)
+    }
     if (orderHashes.length >= maxOrders) {
       orderHashes = orderHashes.slice(0, maxOrders)
       break
     }
   } while (cursor)
+
+  for (const [orderType, count] of orderCountByType) {
+    log.info(`Found ${count} ${orderType} open orders for chainId ${chainId}`)
+  }
 
   return orderHashes
 }
@@ -452,11 +451,23 @@ async function getOrderFillInfo(
   }
 }
 
+async function startReapers() {
+  const dutchReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()))
+  const limitReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()))
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    await dutchReaper.start().catch(error => {
+      console.error('Fatal error in GS Reaper:', error)
+      process.exit(1)
+    })
+    await limitReaper.start().catch(error => {
+      console.error('Fatal error in GS Reaper:', error)
+      process.exit(1)
+    })
+  }
+}
+
 // Start the service
 if (require.main === module) {
-  const reaper = new GSReaper()
-  reaper.start().catch(error => {
-    console.error('Fatal error in GS Reaper:', error)
-    process.exit(1)
-  })
+  startReapers()
 }
