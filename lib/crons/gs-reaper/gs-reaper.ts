@@ -217,19 +217,22 @@ export class GSReaper {
     const firstChainId = Number(Object.keys(OLDEST_BLOCK_BY_CHAIN)[0])
     let currentState: ChainState | null = await this.initializeChainState(firstChainId)
     
-    try {
-      // return once we've processed all chains
-      if (!currentState) {
-        return
-      }
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        // return once we've processed all chains
+        if (!currentState) {
+          return
+        }
 
-      currentState = await this.processChainState(currentState)
-      
-      await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS))
-    } catch (error) {
-      this.log.error({ error }, 'Error in GS Reaper main loop')
-      // Sleep longer on error
-      await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS * 5))
+        currentState = await this.processChainState(currentState)
+        
+        await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS))
+      } catch (error) {
+        this.log.error({ error }, 'Error in GS Reaper main loop')
+        // Sleep longer on error
+        await new Promise(resolve => setTimeout(resolve, SLEEP_TIME_MS * 5))
+      }
     }
   }
 }
@@ -377,7 +380,7 @@ async function getOpenOrderHashes(
 ): Promise<string[]> {
   let cursor: string | undefined = undefined
   let orderHashes: string[] = []
-  let orderCountByType = new Map<string, number>()
+  const orderCountByType = new Map<string, number>()
   do {
     const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
       DYNAMO_BATCH_WRITE_MAX,
@@ -451,6 +454,7 @@ async function getOrderFillInfo(
 async function startReapers() {
   const dutchReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()))
   const limitReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()))
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     await dutchReaper.start().catch(error => {
       console.error('Fatal error in GS Reaper:', error)
