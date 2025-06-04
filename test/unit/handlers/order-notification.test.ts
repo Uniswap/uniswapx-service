@@ -124,14 +124,14 @@ describe('Testing new order Notification handler.', () => {
     })
     expect(logErrorMock).toBeCalledWith(
       {
-        failedRequests: [
-          { status: 'rejected', reason: failedResponse },
-          { status: 'rejected', reason: failedResponse },
+        failedWebhooks: [
+          "webhook.com/1",
+          "webhook.com/2",
         ],
       },
       'Error: Failed to notify registered webhooks.'
     )
-    expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
+    expect(response).toMatchObject({ batchItemFailures: [] })
   })
 
   it('Testing failed webhook notification 4xx.', async () => {
@@ -145,14 +145,14 @@ describe('Testing new order Notification handler.', () => {
     })
     expect(logErrorMock).toBeCalledWith(
       {
-        failedRequests: [
-          { status: 'rejected', reason: failedResponse },
-          { status: 'rejected', reason: failedResponse },
+        failedWebhooks: [
+          "webhook.com/1",
+          "webhook.com/2",
         ],
       },
       'Error: Failed to notify registered webhooks.'
     )
-    expect(response).toMatchObject({ batchItemFailures: [{ itemIdentifier: 1 }] })
+    expect(response).toMatchObject({ batchItemFailures: [] })
   })
 
   it('Testing no new order check.', async () => {
