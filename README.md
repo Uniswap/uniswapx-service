@@ -26,7 +26,7 @@ UniswapX Service is an API to propagate signed, executable UniswapX orders. Swap
 
 ## End-to-end Tests
 
-1. Deploy your API using the intructions above.
+1. Deploy your API using the instructions above.
 
 1. Add your API url to your `.env` file as `UNISWAP_API`
 
