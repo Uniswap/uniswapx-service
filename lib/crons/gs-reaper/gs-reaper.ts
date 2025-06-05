@@ -2,7 +2,7 @@ import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
-import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+// import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS } from '../../util/constants'
 import { ethers } from 'ethers'
 import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
@@ -34,9 +34,7 @@ type ChainState = {
   stage: ReaperStage
 }
 
-// Step functions have a max payload size of 256KB
-// Avg parsed order size is 2KB so 50 orders ensures we stay well under the limit
-const MAX_ORDERS_PER_CHAIN = 50
+const MAX_ORDERS_PER_CHAIN = 1000
 const SLEEP_TIME_MS = 1000 // 1 second between iterations
 
 /**
@@ -452,14 +450,14 @@ async function getOrderFillInfo(
 }
 
 async function startReapers() {
-  const dutchReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()))
+  // const dutchReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()))
   const limitReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()))
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    await dutchReaper.start().catch(error => {
-      console.error('Fatal error in GS Reaper:', error)
-      process.exit(1)
-    })
+    // await dutchReaper.start().catch(error => {
+    //   console.error('Fatal error in GS Reaper:', error)
+    //   process.exit(1)
+    // })
     await limitReaper.start().catch(error => {
       console.error('Fatal error in GS Reaper:', error)
       process.exit(1)
