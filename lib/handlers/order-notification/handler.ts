@@ -27,33 +27,17 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
       try {
         const newOrder = eventRecordToOrder(record)
 
-        // Log the decay start time difference for debugging
-        if (newOrder.orderType == OrderType.Dutch_V2) {
-          const order = CosignedV2DutchOrder.parse(newOrder.encodedOrder, newOrder.chainId)
-          const decayStartTime = order.info.cosignerData.decayStartTime
-          const currentTime = Math.floor(Date.now() / 1000) // Convert to seconds
-          const decayTimeDifference = Number(decayStartTime) - currentTime
-          if (record.dynamodb && record.dynamodb.ApproximateCreationDateTime) {
-            const recordTimeDifference = record.dynamodb.ApproximateCreationDateTime - currentTime
-            const staleRecordMetricName = `NotificationRecordStaleness-chain-${newOrder.chainId.toString()}`
-            metrics.putMetric(staleRecordMetricName, recordTimeDifference)
-          }
+        this.recordOrderTimingMetrics(newOrder, record)
 
-          // GPA currently sets mainnet decay start to 24 secs into the future
-          if (newOrder.chainId == ChainId.MAINNET && decayTimeDifference > DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC) {
-            const staleOrderMetricName = `NotificationStaleOrder-chain-${newOrder.chainId.toString()}`
-            metrics.putMetric(staleOrderMetricName, 1, Unit.Count)
-          }
-          const orderStalenessMetricName = `NotificationOrderStaleness-chain-${newOrder.chainId.toString()}`
-          metrics.putMetric(orderStalenessMetricName, decayTimeDifference)
-        }
-
+        const getEndpointsStartTime = Date.now()
         const registeredEndpoints = await webhookProvider.getEndpoints({
           offerer: newOrder.swapper,
           orderStatus: newOrder.orderStatus,
           filler: newOrder.filler,
           orderType: newOrder.orderType,
         })
+        const getEndpointsDuration = Date.now() - getEndpointsStartTime
+        metrics.putMetric('OrderNotificationGetEndpointsDuration', getEndpointsDuration, Unit.Milliseconds)
 
         log.info({ order: newOrder, registeredEndpoints }, 'Sending order to registered webhooks.')
 
@@ -73,6 +57,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
               ...(newOrder.orderType && { type: newOrder.orderType }),
               ...(newOrder.quoteId && { quoteId: newOrder.quoteId }),
               ...(newOrder.filler && { filler: newOrder.filler }),
+              notifiedAt: Math.floor(Date.now() / 1000), // Fillers can deduce notification latency
             },
             {
               timeout: WEBHOOK_TIMEOUT_MS,
@@ -81,10 +66,9 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
           )
         )
 
-        // send all notifications and track the failed requests
-        // note we try each webhook once and only once, so guarantee to MM is _at most once_
-        const failedRequests: PromiseSettledResult<AxiosResponse>[] = []
+        // we send to each webhook only once but log which ones failed
         const results = await Promise.allSettled(requests)
+        const failedWebhooks: string[] = []
 
         results.forEach((result, index) => {
           metrics.putMetric(`OrderNotificationAttempt-chain-${newOrder.chainId}`, 1)
@@ -96,14 +80,14 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
             )
             metrics.putMetric(`OrderNotificationSendSuccess-chain-${newOrder.chainId}`, 1)
           } else {
-            failedRequests.push(result)
+            failedWebhooks.push(registeredEndpoints[index].url)
             metrics.putMetric(`OrderNotificationSendFailure-chain-${newOrder.chainId}`, 1)
           }
         })
 
-        if (failedRequests.length > 0) {
-          log.error({ failedRequests: failedRequests }, 'Error: Failed to notify registered webhooks.')
-          failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
+        if (failedWebhooks.length > 0) {
+          log.error({ failedWebhooks }, 'Error: Failed to notify registered webhooks.')
+          // No longer retry webhook delivery failures
         }
       } catch (e: unknown) {
         log.error(e instanceof Error ? e.message : e, 'Unexpected failure in handler.')
@@ -112,11 +96,68 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
       }
     }
 
-    // this lambda will be invoked again with the failed records
+    // Only unexpected handler failures will cause record retries
     return { batchItemFailures: failedRecords }
   }
 
   protected inputSchema(): Joi.ObjectSchema | null {
     return OrderNotificationInputJoi
+  }
+
+  private recordOrderTimingMetrics(newOrder: any, record: any): void {
+    switch (newOrder.orderType) {
+      case OrderType.Dutch_V2:
+        this.recordDutchV2TimingMetrics(newOrder, record)
+        break
+      case OrderType.Dutch_V3:
+        this.recordDutchV3TimingMetrics(newOrder, record)
+        break
+      case OrderType.Priority:
+        this.recordPriorityTimingMetrics(newOrder, record)
+        break
+      default:
+        break
+    }
+  }
+
+  private recordDutchV2TimingMetrics(newOrder: any, record: any): void {
+    const order = CosignedV2DutchOrder.parse(newOrder.encodedOrder, newOrder.chainId)
+    const decayStartTime = order.info.cosignerData.decayStartTime
+    const currentTime = Math.floor(Date.now() / 1000) // Convert to seconds
+    const decayTimeDifference = Number(decayStartTime) - currentTime
+
+    if (record.dynamodb && record.dynamodb.ApproximateCreationDateTime) {
+      const recordTimeDifference = record.dynamodb.ApproximateCreationDateTime - currentTime
+      const staleRecordMetricName = `NotificationRecordStaleness-chain-${newOrder.chainId.toString()}`
+      metrics.putMetric(staleRecordMetricName, recordTimeDifference)
+    }
+
+    // GPA currently sets mainnet decay start to 24 secs into the future
+    if (newOrder.chainId == ChainId.MAINNET && decayTimeDifference > DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC) {
+      const staleOrderMetricName = `NotificationStaleOrder-chain-${newOrder.chainId.toString()}`
+      metrics.putMetric(staleOrderMetricName, 1, Unit.Count)
+    }
+
+    const orderStalenessMetricName = `NotificationOrderStaleness-chain-${newOrder.chainId.toString()}`
+    metrics.putMetric(orderStalenessMetricName, decayTimeDifference)
+  }
+
+  private recordDutchV3TimingMetrics(newOrder: any, record: any): void {
+    // Can't get decay delay without incurring the cost of fetching current block number
+    if (record.dynamodb && record.dynamodb.ApproximateCreationDateTime) {
+      const currentTime = Math.floor(Date.now() / 1000)
+      const recordTimeDifference = record.dynamodb.ApproximateCreationDateTime - currentTime
+      const staleRecordMetricName = `NotificationRecordStaleness-chain-${newOrder.chainId.toString()}`
+      metrics.putMetric(staleRecordMetricName, recordTimeDifference)
+    }
+  }
+
+  private recordPriorityTimingMetrics(newOrder: any, record: any): void {
+    if (record.dynamodb && record.dynamodb.ApproximateCreationDateTime) {
+      const currentTime = Math.floor(Date.now() / 1000)
+      const recordTimeDifference = record.dynamodb.ApproximateCreationDateTime - currentTime
+      const staleRecordMetricName = `NotificationRecordStaleness-chain-${newOrder.chainId.toString()}`
+      metrics.putMetric(staleRecordMetricName, recordTimeDifference)
+    }
   }
 }
