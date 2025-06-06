@@ -115,22 +115,6 @@ export class APIPipeline extends Stack {
       pipelineName: `${SERVICE_NAME}`,
       crossAccountKeys: true,
       synth: synthStep,
-      codeBuildDefaults: {
-        buildEnvironment: {
-          buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
-        },
-        partialBuildSpec: BuildSpec.fromObject({
-          // v0.2 runs all commands in the same context
-          version: '0.2',
-          phases: {
-            install: {
-              'runtime-versions': {
-                nodejs: '18',
-              },
-            },
-          },
-        }),
-      },
     })
 
     // Secrets are stored in secrets manager in the pipeline account. Accounts we deploy to
