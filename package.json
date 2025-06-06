@@ -85,5 +85,8 @@
     "printWidth": 120,
     "semi": false,
     "singleQuote": true
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
