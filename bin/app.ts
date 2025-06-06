@@ -98,6 +98,8 @@ export class APIPipeline extends Stack {
         'npx cdk synth',
       ],
       partialBuildSpec: BuildSpec.fromObject({
+        // v0.2 runs all commands in the same context
+        version: '0.2',
         phases: {
           install: {
             'runtime-versions': {
@@ -118,6 +120,8 @@ export class APIPipeline extends Stack {
           buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
         },
         partialBuildSpec: BuildSpec.fromObject({
+          // v0.2 runs all commands in the same context
+          version: '0.2',
           phases: {
             install: {
               'runtime-versions': {
