@@ -34,7 +34,7 @@ type ChainState = {
   stage: ReaperStage
 }
 
-const MAX_ORDERS_PER_CHAIN = 50000
+const MAX_ORDERS_PER_CHAIN = 1000
 const SLEEP_TIME_MS = 1000 // 1 second between iterations
 
 /**
@@ -65,6 +65,7 @@ export class GSReaper {
   private log: Logger
   private repo: BaseOrdersRepository<UniswapXOrderEntity>
   private providers: Map<ChainId, ethers.providers.StaticJsonRpcProvider>
+  private cursors: Map<ChainId, string | undefined> = new Map()
 
   constructor(repo: BaseOrdersRepository<UniswapXOrderEntity>) {
     this.log = bunyan.createLogger({
@@ -123,7 +124,14 @@ export class GSReaper {
     switch (state.stage) {
       case ReaperStage.GET_OPEN_ORDERS: {
         this.log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
-        const orderHashes = await getOpenOrderHashes(this.repo, state.chainId, MAX_ORDERS_PER_CHAIN, this.log)
+        const { orderHashes, cursor } = await getOpenOrderHashes(
+          this.repo, 
+          state.chainId, 
+          MAX_ORDERS_PER_CHAIN, 
+          this.log,
+          this.cursors.get(state.chainId)
+        )
+        this.cursors.set(state.chainId, cursor)
         return {
           ...state,
           orderHashes: orderHashes,
@@ -368,42 +376,60 @@ async function updateOrders(
 }
 
 /**
- * Get hashes of all open orders from the database
+ * Get hashes of open orders from the database, continuing from the provided cursor if present
  */
 async function getOpenOrderHashes(
   repo: BaseOrdersRepository<UniswapXOrderEntity>, 
   chainId: ChainId, 
   maxOrders: number,
-  log: Logger
-): Promise<string[]> {
-  let cursor: string | undefined = undefined
+  log: Logger,
+  cursor?: string
+): Promise<{ orderHashes: string[], cursor?: string }> {
   let orderHashes: string[] = []
   const orderCountByType = new Map<string, number>()
-  do {
-    const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
-      DYNAMO_BATCH_WRITE_MAX,
-      {
-        orderStatus: ORDER_STATUS.OPEN,
-        chainId: chainId,
-      },
-      cursor
-    )
-    cursor = openOrders.cursor
-    orderHashes = orderHashes.concat(openOrders.orders.map(o => o.orderHash))
-    for (const order of openOrders.orders) {
-      orderCountByType.set(order.type, (orderCountByType.get(order.type) ?? 0) + 1)
-    }
-    if (orderHashes.length >= maxOrders) {
-      orderHashes = orderHashes.slice(0, maxOrders)
-      break
-    }
-  } while (cursor)
+  
+  try {
+    do {
+      const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
+        DYNAMO_BATCH_WRITE_MAX,
+        {
+          orderStatus: ORDER_STATUS.OPEN,
+          chainId: chainId,
+        },
+        cursor
+      )
+      cursor = openOrders.cursor
+      orderHashes = orderHashes.concat(openOrders.orders.map(o => o.orderHash))
+      
+      for (const order of openOrders.orders) {
+        orderCountByType.set(order.type, (orderCountByType.get(order.type) ?? 0) + 1)
+      }
+      if (orderHashes.length >= maxOrders) {
+        orderHashes = orderHashes.slice(0, maxOrders)
+        break
+      }
+    } while (cursor)
 
-  for (const [orderType, count] of orderCountByType) {
-    log.info(`Found ${count} ${orderType} open orders for chainId ${chainId}`)
+
+    // If we didn't max out the number of orders, we've reached the end of the open orders
+    // Reset the cursor to undefined so we start from the beginning next time
+    if (orderHashes.length < maxOrders) {
+      cursor = undefined
+    }
+
+    for (const [orderType, count] of orderCountByType) {
+      log.info(`Found ${count} ${orderType} open orders for chainId ${chainId}`)
+    }
+
+    return { orderHashes, cursor }
+  } catch (error) {
+    // If cursor is invalid, start from the beginning
+    if (error instanceof Error && error.message.includes('Invalid cursor')) {
+      log.info(`Invalid cursor for chainId ${chainId}, starting from beginning`)
+      return getOpenOrderHashes(repo, chainId, maxOrders, log, undefined)
+    }
+    throw error
   }
-
-  return orderHashes
 }
 
 type OrderWithSignature = 
