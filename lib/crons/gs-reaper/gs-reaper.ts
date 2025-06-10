@@ -34,7 +34,7 @@ type ChainState = {
   stage: ReaperStage
 }
 
-const MAX_ORDERS_PER_CHAIN = 1000
+const MAX_ORDERS_PER_CHAIN = 50000
 const SLEEP_TIME_MS = 1000 // 1 second between iterations
 
 /**
