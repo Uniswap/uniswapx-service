@@ -51,7 +51,7 @@ export abstract class DynamoStreamInjector<CInj, RInj> {
  *
  * DynamoDB streams will trigger this handler for new stream events
  * that fit the filter pattern in the lambda stack. The handler will
- * receieve a stream event and then parse the batched records to
+ * receive a stream event and then parse the batched records to
  * perform some action.
  */
 export abstract class DynamoStreamLambdaHandler<CInj, RInj> {
