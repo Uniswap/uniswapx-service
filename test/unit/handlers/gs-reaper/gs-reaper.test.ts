@@ -4,7 +4,7 @@ import { OrderType, REACTOR_ADDRESS_MAPPING, OrderValidation } from '@uniswap/un
 import { default as bunyan, default as Logger } from 'bunyan'
 import { GSReaper, ReaperStage } from '../../../../lib/crons/gs-reaper/gs-reaper'
 import { ORDER_STATUS } from '../../../../lib/entities'
-import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN, REAPER_MAX_ATTEMPTS } from '../../../../lib/util/constants'
+import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN, REAPER_MAX_ATTEMPTS, BLOCKS_IN_24_HOURS } from '../../../../lib/util/constants'
 import { ChainId } from '../../../../lib/util/chain'
 import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY } from '../../../test-data'
 
@@ -57,12 +57,19 @@ const mockOrdersRepository = {
   })
 }
 
+// 2 weeks from oldest block to test the 1 week lookback
+const getCurrentBlock = (chainId: ChainId) => {
+  const blocksInTwoWeeks = BLOCKS_IN_24_HOURS(chainId) * 14
+  return OLDEST_BLOCK_BY_CHAIN[chainId] + blocksInTwoWeeks
+}
+
 // Setup mock provider
 const mockProviders = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
 for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
   const chainId = Number(chainIdKey)
+  const currentBlock = getCurrentBlock(chainId)
   const mockProvider = {
-    getBlockNumber: jest.fn().mockResolvedValue(OLDEST_BLOCK_BY_CHAIN[chainId] + BLOCK_RANGE * REAPER_RANGES_PER_RUN),
+    getBlockNumber: jest.fn().mockResolvedValue(currentBlock),
     getTransaction: jest.fn().mockResolvedValue({
       gasPrice: '1000000000',
       maxPriorityFeePerGas: null,
@@ -175,11 +182,12 @@ describe('GSReaper', () => {
   describe('state machine', () => {
     it('initializes first chain state correctly', async () => {
       const state = await reaper.initializeChainState(ChainId.MAINNET)
+      const currentBlock = getCurrentBlock(ChainId.MAINNET)
       
       expect(state).toEqual({
         chainId: ChainId.MAINNET,
-        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE * REAPER_RANGES_PER_RUN,
-        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        currentBlock,
+        earliestBlock: currentBlock - (BLOCKS_IN_24_HOURS(ChainId.MAINNET) * 7),
         orderUpdates: {},
         orderHashes: [],
         stage: ReaperStage.GET_OPEN_ORDERS
@@ -274,9 +282,8 @@ describe('GSReaper', () => {
 
       // Verify we're moving to the next chain
       const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
-      // Temporarily disable this test until re-add other chains
-      // expect(result?.chainId).toBe(chainIds[chainIds.indexOf(ChainId.MAINNET) + 1])
-      // expect(result?.stage).toBe(ReaperStage.GET_OPEN_ORDERS)
+      expect(result?.chainId).toBe(chainIds[chainIds.indexOf(ChainId.MAINNET) + 1])
+      expect(result?.stage).toBe(ReaperStage.GET_OPEN_ORDERS)
     })
 
     it('returns null when processing UPDATE_DB stage for the last chain', async () => {

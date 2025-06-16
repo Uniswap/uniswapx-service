@@ -2,8 +2,8 @@ import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
-// import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
-import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS } from '../../util/constants'
+import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS, BLOCKS_IN_24_HOURS } from '../../util/constants'
 import { ethers } from 'ethers'
 import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../../handlers/OrderParser'
@@ -99,11 +99,17 @@ export class GSReaper {
       throw new Error(`No provider found for chainId ${chainId}`)
     }
     const currentBlock = await provider.getBlockNumber()
-    this.log.info(`Initializing GS Reaper for chainId ${chainId} with current block ${currentBlock} and earliest block ${OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]}`)
+    // Look back 1 week from current block
+    const blocksInOneWeek = BLOCKS_IN_24_HOURS(chainId) * 7
+    const earliestBlock = Math.max(
+      currentBlock - blocksInOneWeek,
+      OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]
+    )
+    this.log.info(`Initializing GS Reaper for chainId ${chainId} with current block ${currentBlock} and earliest block ${earliestBlock}`)
     return {
       chainId,
       currentBlock,
-      earliestBlock: OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN],
+      earliestBlock,
       orderUpdates: {},
       orderHashes: [],
       stage: ReaperStage.GET_OPEN_ORDERS
@@ -476,14 +482,14 @@ async function getOrderFillInfo(
 }
 
 async function startReapers() {
-  // const dutchReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()))
+  const dutchReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()))
   const limitReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()))
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    // await dutchReaper.start().catch(error => {
-    //   console.error('Fatal error in GS Reaper:', error)
-    //   process.exit(1)
-    // })
+    await dutchReaper.start().catch(error => {
+      console.error('Fatal error in GS Reaper:', error)
+      process.exit(1)
+    })
     await limitReaper.start().catch(error => {
       console.error('Fatal error in GS Reaper:', error)
       process.exit(1)
