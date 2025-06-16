@@ -99,10 +99,10 @@ export class GSReaper {
       throw new Error(`No provider found for chainId ${chainId}`)
     }
     const currentBlock = await provider.getBlockNumber()
-    // Look back 24 hours from current block
-    const blocksIn24Hours = BLOCKS_IN_24_HOURS(chainId)
+    // Look back 1 week from current block
+    const blocksInOneWeek = BLOCKS_IN_24_HOURS(chainId) * 7
     const earliestBlock = Math.max(
-      currentBlock - blocksIn24Hours,
+      currentBlock - blocksInOneWeek,
       OLDEST_BLOCK_BY_CHAIN[chainId as keyof typeof OLDEST_BLOCK_BY_CHAIN]
     )
     this.log.info(`Initializing GS Reaper for chainId ${chainId} with current block ${currentBlock} and earliest block ${earliestBlock}`)

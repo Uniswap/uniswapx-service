@@ -57,10 +57,10 @@ const mockOrdersRepository = {
   })
 }
 
-// 48 hours from oldest block to test the 24 hour lookback
+// 2 weeks from oldest block to test the 1 week lookback
 const getCurrentBlock = (chainId: ChainId) => {
-  const blocksIn48Hours = BLOCKS_IN_24_HOURS(chainId) * 2
-  return OLDEST_BLOCK_BY_CHAIN[chainId] + blocksIn48Hours
+  const blocksInTwoWeeks = BLOCKS_IN_24_HOURS(chainId) * 14
+  return OLDEST_BLOCK_BY_CHAIN[chainId] + blocksInTwoWeeks
 }
 
 // Setup mock provider
@@ -187,7 +187,7 @@ describe('GSReaper', () => {
       expect(state).toEqual({
         chainId: ChainId.MAINNET,
         currentBlock,
-        earliestBlock: currentBlock - BLOCKS_IN_24_HOURS(ChainId.MAINNET),
+        earliestBlock: currentBlock - (BLOCKS_IN_24_HOURS(ChainId.MAINNET) * 7),
         orderUpdates: {},
         orderHashes: [],
         stage: ReaperStage.GET_OPEN_ORDERS
