@@ -1,4 +1,4 @@
-FROM node:18-alpine@sha256:ef0861618e36d8e5339583a63e2b1082b7ad9cb59a53529bf7d742afa3e2f06b
+FROM public.ecr.aws/docker/library/node:18-alpine@sha256:ef0861618e36d8e5339583a63e2b1082b7ad9cb59a53529bf7d742afa3e2f06b
 
 WORKDIR /app
 
