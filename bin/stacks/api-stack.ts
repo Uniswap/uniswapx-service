@@ -467,16 +467,6 @@ export class APIStack extends cdk.Stack {
       datapointsToAlarm: 3,
     })
 
-    const apiAlarm4xxSev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-4XXAlarm`, {
-      alarmName: `${SERVICE_NAME}-SEV2-4XXAlarm`,
-      metric: api.metricClientError({
-        period: Duration.minutes(5),
-        statistic: 'avg',
-      }),
-      threshold: 0.8,
-      evaluationPeriods: 3,
-    })
-
     const apiAlarm4xxSev3 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-4XXAlarm`, {
       alarmName: `${SERVICE_NAME}-SEV3-4XXAlarm`,
       metric: api.metricClientError({
@@ -511,7 +501,6 @@ export class APIStack extends cdk.Stack {
       const chatBotTopic = aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
       apiAlarm5xxSev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
       apiAlarm5xxSev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarm4xxSev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
       apiAlarm4xxSev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
       apiAlarmLatencySev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
       apiAlarmLatencySev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
