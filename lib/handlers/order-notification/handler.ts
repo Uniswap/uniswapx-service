@@ -57,7 +57,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
               ...(newOrder.orderType && { type: newOrder.orderType }),
               ...(newOrder.quoteId && { quoteId: newOrder.quoteId }),
               ...(newOrder.filler && { filler: newOrder.filler }),
-              notifiedAt: Math.floor(Date.now() / 1000), // Fillers can deduce notification latency
+              notifiedAt: Date.now(), // Fillers can deduce notification latency
             },
             {
               timeout: WEBHOOK_TIMEOUT_MS,
