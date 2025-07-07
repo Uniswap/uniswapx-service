@@ -63,7 +63,7 @@ export class APIStack extends cdk.Stack {
       chainIdToStatusTrackingStateMachineArn,
       checkStatusFunction,
       getUnimindLambdaAlias,
-      // getUnimindLambda, TODO: dashboard
+      getUnimindLambda
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       stage: stage as STAGE,
@@ -438,6 +438,7 @@ export class APIStack extends cdk.Stack {
       postOrderLambdaName: postOrderLambda.functionName,
       getNonceLambdaName: getNonceLambda.functionName,
       getOrdersLambdaName: getOrdersLambda.functionName,
+      getUnimindLambdaName: getUnimindLambda.functionName,
       chainIdToStatusTrackingStateMachineArn,
       orderStatusLambdaName: checkStatusFunction.functionName,
     })

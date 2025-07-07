@@ -21,6 +21,7 @@ export interface DashboardProps extends cdk.NestedStackProps {
   postOrderLambdaName: string
   getOrdersLambdaName: string
   getNonceLambdaName: string
+  getUnimindLambdaName: string
   orderStatusLambdaName: string
   chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
 }
@@ -29,7 +30,7 @@ export class DashboardStack extends cdk.NestedStack {
   constructor(scope: Construct, name: string, props: DashboardProps) {
     super(scope, name, props)
 
-    const { apiName, chainIdToStatusTrackingStateMachineArn, orderStatusLambdaName, postOrderLambdaName } = props
+    const { apiName, chainIdToStatusTrackingStateMachineArn, orderStatusLambdaName, postOrderLambdaName, getUnimindLambdaName } = props
     const region = cdk.Stack.of(this).region
 
     new aws_cloudwatch.CfnDashboard(this, `${SERVICE_NAME}Dashboard`, {
@@ -634,34 +635,45 @@ export class DashboardStack extends cdk.NestedStack {
           },
           {
             height: 6,
-            width: 6,
+            width: 12,
             y: 6,
             x: 12,
             type: 'metric',
             properties: {
               metrics: [
-                ['Uniswap', 'UnimindPositivePi', 'Service', 'UniswapXService', { stat: 'Sum' }],
+                ['Uniswap', 'UnimindPiValue', 'Service', 'UniswapXService', { stat: 'p10', label: 'p10' }],
+                ['.', '.', '.', '.', { stat: 'p25', label: 'p25' }],
+                ['.', '.', '.', '.', { stat: 'p50', label: 'p50 (median)' }],
+                ['.', '.', '.', '.', { stat: 'p75', label: 'p75' }],
+                ['.', '.', '.', '.', { stat: 'p90', label: 'p90' }],
+                ['.', '.', '.', '.', { stat: 'p99', label: 'p99' }],
+                ['.', '.', '.', '.', { stat: 'Average', label: 'Average' }],
               ],
-              view: 'singleValue',
+              view: 'timeSeries',
+              stacked: false,
               region,
-              period: 86400,
-              title: 'Positive Pi Requests (Last 24h)',
+              period: 300,
+              title: 'Pi Value Distribution (Percentiles)',
+              yAxis: {
+                left: {
+                  showUnits: true,
+                  label: 'Pi Value',
+                },
+              },
             },
           },
           {
             height: 6,
-            width: 6,
-            y: 6,
-            x: 18,
-            type: 'metric',
+            width: 24,
+            y: 12,
+            x: 0,
+            type: 'log',
             properties: {
-              metrics: [
-                ['Uniswap', 'UnimindNegativePi', 'Service', 'UniswapXService', { stat: 'Sum' }],
-              ],
-              view: 'singleValue',
+              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}' | fields floor(pi) as bucket | filter eventType = "UnimindPiCalculated" | filter bucket >= -15 and bucket <= 15 | stats count() by bucket | sort bucket asc`,
               region,
-              period: 86400,
-              title: 'Negative Pi Requests (Last 24h)',
+              stacked: false,
+              view: 'bar',
+              title: 'Pi Value Histogram (1 bps buckets, -15 to +15 range)',
             },
           },
         ],
