@@ -614,9 +614,9 @@ export class DashboardStack extends cdk.NestedStack {
             type: 'metric',
             properties: {
               metrics: [
-                [{ expression: '(negativePi/successfulRequests) * 100', label: 'Negative Pi Percentage', id: 'e1' }],
+                [{ expression: '(negativePi/(positivePi + negativePi)) * 100', label: 'Negative Pi Percentage', id: 'e1' }],
                 ['Uniswap', 'UnimindNegativePi', 'Service', 'UniswapXService', { id: 'negativePi', visible: false }],
-                ['Uniswap', 'GetUnimindStatus2XX', 'Service', 'UniswapXService', { id: 'successfulRequests', visible: false }],
+                ['Uniswap', 'UnimindPositivePi', 'Service', 'UniswapXService', { id: 'positivePi', visible: false }],
               ],
               view: 'timeSeries',
               stacked: false,
@@ -630,6 +630,38 @@ export class DashboardStack extends cdk.NestedStack {
                   label: '%',
                 },
               },
+            },
+          },
+          {
+            height: 6,
+            width: 6,
+            y: 6,
+            x: 12,
+            type: 'metric',
+            properties: {
+              metrics: [
+                ['Uniswap', 'UnimindPositivePi', 'Service', 'UniswapXService', { stat: 'Sum' }],
+              ],
+              view: 'singleValue',
+              region,
+              period: 86400,
+              title: 'Positive Pi Requests (Last 24h)',
+            },
+          },
+          {
+            height: 6,
+            width: 6,
+            y: 6,
+            x: 18,
+            type: 'metric',
+            properties: {
+              metrics: [
+                ['Uniswap', 'UnimindNegativePi', 'Service', 'UniswapXService', { stat: 'Sum' }],
+              ],
+              view: 'singleValue',
+              region,
+              period: 86400,
+              title: 'Negative Pi Requests (Last 24h)',
             },
           },
         ],

@@ -91,12 +91,14 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       const calculateTime = afterCalculateTime - beforeCalculateTime
       metrics.putMetric(`final-parameters-calculation-time`, calculateTime)
 
-      // Track negative pi values
+      // Track negative and positive pi values
       if (parameters.pi < 0) {
         metrics.putMetric(`UnimindNegativePi`, 1, Unit.Count)
         log.info(
           `Negative pi detected for pair ${requestQueryParams.pair} with pi=${parameters.pi}, quoteId=${quoteMetadata.quoteId}`
         )
+      } else if (parameters.pi > 0) {
+        metrics.putMetric(`UnimindPositivePi`, 1, Unit.Count)
       }
 
       log.info(
