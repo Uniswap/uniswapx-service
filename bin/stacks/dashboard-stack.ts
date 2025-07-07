@@ -592,6 +592,32 @@ export class DashboardStack extends cdk.NestedStack {
               title: 'Unimind Calculation Times (ms)',
             },
           },
+          {
+            height: 6,
+            width: 12,
+            y: 6,
+            x: 0,
+            type: 'metric',
+            properties: {
+              metrics: [
+                [{ expression: '(negativePi/successfulRequests) * 100', label: 'Negative Pi Percentage', id: 'e1' }],
+                ['Uniswap', 'UnimindNegativePi', 'Service', 'UniswapXService', { id: 'negativePi', visible: false }],
+                ['Uniswap', 'GetUnimindStatus2XX', 'Service', 'UniswapXService', { id: 'successfulRequests', visible: false }],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Sum',
+              period: 300,
+              title: 'Percentage of Orders with Negative Pi',
+              yAxis: {
+                left: {
+                  showUnits: false,
+                  label: '%',
+                },
+              },
+            },
+          },
         ],
       }),
     })
