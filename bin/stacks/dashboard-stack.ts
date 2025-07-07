@@ -571,7 +571,14 @@ export class DashboardStack extends cdk.NestedStack {
               stacked: false,
               region,
               stat: 'Sum',
+              period: 300,
               title: 'Unimind Requests/Responses',
+              yAxis: {
+                left: {
+                  showUnits: true,
+                  label: 'Count',
+                },
+              },
             },
           },
           {
@@ -589,7 +596,14 @@ export class DashboardStack extends cdk.NestedStack {
               stacked: false,
               region,
               stat: 'Average',
+              period: 300,
               title: 'Unimind Calculation Times (ms)',
+              yAxis: {
+                left: {
+                  showUnits: true,
+                  label: 'Milliseconds',
+                },
+              },
             },
           },
           {
