@@ -562,10 +562,10 @@ export class DashboardStack extends cdk.NestedStack {
             type: 'metric',
             properties: {
               metrics: [
-                ['Uniswap', 'PostUnimindRequest', 'Service', 'UniswapXService'],
-                ['.', 'PostUnimindStatus2XX', '.', '.'],
-                ['.', 'PostUnimindStatus4XX', '.', '.'],
-                ['.', 'PostUnimindStatus5XX', '.', '.'],
+                ['Uniswap', 'GetUnimindRequest', 'Service', 'UniswapXService'],
+                ['.', 'GetUnimindStatus2XX', '.', '.'],
+                ['.', 'GetUnimindStatus4XX', '.', '.'],
+                ['.', 'GetUnimindStatus5XX', '.', '.'],
               ],
               view: 'timeSeries',
               stacked: false,
