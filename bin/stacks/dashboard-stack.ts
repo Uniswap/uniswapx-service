@@ -614,7 +614,7 @@ export class DashboardStack extends cdk.NestedStack {
             x: 0,
             type: 'log',
             properties: {
-              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}' | filter eventType = "UnimindPiCalculated" | stats count(*) as total, count(pi < 0) as negative, count(pi > 0) as positive | fields (negative / (negative + positive)) * 100 as negativePiPercentage`,
+              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}' | filter eventType = "UnimindPiCalculated" | stats count(*) as total, count(pi <= 0) as negative, count(pi > 0) as positive | fields (negative / (negative + positive)) * 100 as negativePiPercentage`,
               region,
               stacked: false,
               view: 'timeSeries',
