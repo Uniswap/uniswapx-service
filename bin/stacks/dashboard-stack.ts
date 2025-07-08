@@ -612,25 +612,13 @@ export class DashboardStack extends cdk.NestedStack {
             width: 12,
             y: 6,
             x: 0,
-            type: 'metric',
+            type: 'log',
             properties: {
-              metrics: [
-                [{ expression: '(negativePi/(positivePi + negativePi)) * 100', label: 'Negative Pi Percentage', id: 'e1' }],
-                ['Uniswap', 'UnimindNegativePi', 'Service', 'UniswapXService', { id: 'negativePi', visible: false }],
-                ['Uniswap', 'UnimindPositivePi', 'Service', 'UniswapXService', { id: 'positivePi', visible: false }],
-              ],
-              view: 'timeSeries',
-              stacked: false,
+              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}' | filter eventType = "UnimindPiCalculated" | stats count(*) as total, count(pi < 0) as negative, count(pi > 0) as positive | fields (negative / (negative + positive)) * 100 as negativePiPercentage`,
               region,
-              stat: 'Sum',
-              period: 300,
+              stacked: false,
+              view: 'timeSeries',
               title: 'Percentage of Orders with Negative Pi',
-              yAxis: {
-                left: {
-                  showUnits: false,
-                  label: '%',
-                },
-              },
             },
           },
           {

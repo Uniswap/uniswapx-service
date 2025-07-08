@@ -94,14 +94,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       // Track pi values for distribution analysis
       metrics.putMetric(`UnimindPiValue`, parameters.pi, Unit.None)
       
-      // Track negative and positive pi values for counting
-      if (parameters.pi <= 0) {
-        metrics.putMetric(`UnimindNegativePi`, 1, Unit.Count)
-      } else if (parameters.pi > 0) {
-        metrics.putMetric(`UnimindPositivePi`, 1, Unit.Count)
-      }
-      
-      // Log pi values for histogram analysis in CloudWatch Logs Insights
+      // Log pi values for all analysis in CloudWatch Logs Insights
       log.info({
         eventType: 'UnimindPiCalculated',
         pi: parameters.pi,
