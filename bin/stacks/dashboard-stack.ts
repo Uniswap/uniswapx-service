@@ -669,7 +669,7 @@ export class DashboardStack extends cdk.NestedStack {
             x: 0,
             type: 'log',
             properties: {
-              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}' | fields floor(pi) as bucket | filter eventType = "UnimindPiCalculated" | filter bucket >= -15 and bucket <= 15 | stats count() by bucket | sort bucket asc`,
+              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}' | filter eventType = "UnimindPiCalculated" | fields floor(max(min(pi, 15.999), -15)) as bucket | stats count() by bucket | sort bucket asc`,
               region,
               stacked: false,
               view: 'bar',
