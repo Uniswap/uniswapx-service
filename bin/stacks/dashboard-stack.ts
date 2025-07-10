@@ -614,12 +614,16 @@ export class DashboardStack extends cdk.NestedStack {
             x: 0,
             type: 'log',
             properties: {
-              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}' | filter eventType = "UnimindPiCalculated" | stats count(*) as total, count(pi <= 0) as negative, count(pi > 0) as positive | fields (negative / (negative + positive)) * 100 as negativePiPercentage`,
               region,
-              stacked: false,
+              title: 'Percentage of Orders with Negative π',
               view: 'timeSeries',
-              title: 'Percentage of Orders with Negative Pi',
-            },
+              query:
+                `SOURCE '/aws/lambda/${getUnimindLambdaName}'
+                | filter eventType = "UnimindPiCalculated"
+                | fields @timestamp, pi <= 0 as isNegative, pi > 0 as isPositive
+                | stats sum(isNegative) as negative, sum(isPositive) as positive by bin(5m)
+                | fields bin as @timestamp, (negative / (negative + positive)) * 100 as negativePiPercentage`
+            }
           },
           {
             height: 6,
@@ -629,23 +633,26 @@ export class DashboardStack extends cdk.NestedStack {
             type: 'metric',
             properties: {
               metrics: [
-                ['Uniswap', 'UnimindPiValue', 'Service', 'UniswapXService', { stat: 'p10', label: 'p10' }],
+                ['Uniswap', 'UnimindPiValue', 'Service', 'UniswapXService', { stat: 'Minimum', label: 'Min' }],
+                ['.', '.', '.', '.', { stat: 'p10', label: 'p10' }],
                 ['.', '.', '.', '.', { stat: 'p25', label: 'p25' }],
                 ['.', '.', '.', '.', { stat: 'p50', label: 'p50 (median)' }],
                 ['.', '.', '.', '.', { stat: 'p75', label: 'p75' }],
                 ['.', '.', '.', '.', { stat: 'p90', label: 'p90' }],
                 ['.', '.', '.', '.', { stat: 'p99', label: 'p99' }],
+                ['.', '.', '.', '.', { stat: 'Maximum', label: 'Max' }],
                 ['.', '.', '.', '.', { stat: 'Average', label: 'Average' }],
+                ['.', '.', '.', '.', { stat: 'SampleCount', label: 'Count', visible: false }],
               ],
               view: 'timeSeries',
               stacked: false,
               region,
-              period: 300,
+              period: 1800,
               title: 'Pi Value Distribution (Percentiles)',
               yAxis: {
                 left: {
-                  showUnits: true,
-                  label: 'Pi Value',
+                  showUnits: false,
+                  label: 'Pi Value (bps)',
                 },
               },
             },
@@ -657,7 +664,14 @@ export class DashboardStack extends cdk.NestedStack {
             x: 0,
             type: 'log',
             properties: {
-              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}' | filter eventType = "UnimindPiCalculated" | fields floor(max(min(pi, 15.999), -15)) as bucket | stats count() by bucket | sort bucket asc`,
+              query:
+                `SOURCE '/aws/lambda/${getUnimindLambdaName}'
+                | filter eventType = "UnimindPiCalculated"
+                | fields if(pi < -15, -15,
+                            if(pi > 15, 15,
+                              round(pi))) as bucket
+                | stats count() as n by bucket
+                | sort bucket asc`,
               region,
               stacked: false,
               view: 'bar',
