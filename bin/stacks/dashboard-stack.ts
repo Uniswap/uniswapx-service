@@ -616,13 +616,12 @@ export class DashboardStack extends cdk.NestedStack {
             properties: {
               region,
               title: 'Percentage of Orders with Negative π',
-              view: 'timeSeries',
+              view: 'table',
               query:
                 `SOURCE '/aws/lambda/${getUnimindLambdaName}'
                 | filter eventType = "UnimindPiCalculated"
-                | fields @timestamp, pi <= 0 as isNegative, pi > 0 as isPositive
-                | stats sum(isNegative) as negative, sum(isPositive) as positive by bin(5m)
-                | fields bin as @timestamp, (negative / (negative + positive)) * 100 as negativePiPercentage`
+                | stats sum(pi <= 0) as negCount, count(*) as totalCount by bin(1d)
+                | fields (negCount/totalCount)*100 as negativePiPercentage`,
             }
           },
           {
@@ -634,12 +633,12 @@ export class DashboardStack extends cdk.NestedStack {
             properties: {
               metrics: [
                 ['Uniswap', 'UnimindPiValue', 'Service', 'UniswapXService', { stat: 'Minimum', label: 'Min' }],
-                ['.', '.', '.', '.', { stat: 'p10', label: 'p10' }],
-                ['.', '.', '.', '.', { stat: 'p25', label: 'p25' }],
-                ['.', '.', '.', '.', { stat: 'p50', label: 'p50 (median)' }],
-                ['.', '.', '.', '.', { stat: 'p75', label: 'p75' }],
-                ['.', '.', '.', '.', { stat: 'p90', label: 'p90' }],
-                ['.', '.', '.', '.', { stat: 'p99', label: 'p99' }],
+                ['.', '.', '.', '.', { stat: 'p10.0', label: 'p10' }],
+                ['.', '.', '.', '.', { stat: 'p25.0', label: 'p25' }],
+                ['.', '.', '.', '.', { stat: 'p50.0', label: 'p50 (median)' }],
+                ['.', '.', '.', '.', { stat: 'p75.0', label: 'p75' }],
+                ['.', '.', '.', '.', { stat: 'p90.0', label: 'p90' }],
+                ['.', '.', '.', '.', { stat: 'p99.0', label: 'p99' }],
                 ['.', '.', '.', '.', { stat: 'Maximum', label: 'Max' }],
                 ['.', '.', '.', '.', { stat: 'Average', label: 'Average' }],
                 ['.', '.', '.', '.', { stat: 'SampleCount', label: 'Count', visible: false }],
