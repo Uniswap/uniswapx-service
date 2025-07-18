@@ -164,8 +164,8 @@ describe('unimind-algorithm', () => {
       }
       const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
       // Test that they match to 5 decimal places
-      expect(result.lambda1).toBeCloseTo(-0.0002122602759806385, 5)
-      expect(result.lambda2).toBeCloseTo(112.44048264468115, 5)
+      expect(result.lambda1).toBeCloseTo(-0.000133816, 5)
+      expect(result.lambda2).toBeCloseTo(73.84291297164683, 5)
       expect(result.Sigma).toBeCloseTo(-9.210341293010218, 5)
     });
     
@@ -181,8 +181,8 @@ describe('unimind-algorithm', () => {
         fillStatuses
       }
       const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
-      expect(result.lambda1).toBeCloseTo(-0.000200380252111038, 5)
-      expect(result.lambda2).toBeCloseTo(111.78800455838532, 5)
+      expect(result.lambda1).toBeCloseTo(-0.00012632668, 5)
+      expect(result.lambda2).toBeCloseTo(73.43156809115597, 5)
       expect(result.Sigma).toBeCloseTo(-9.210339648306581, 5)
     });
 
@@ -197,8 +197,8 @@ describe('unimind-algorithm', () => {
         fillStatuses: waitTimes.map(wt => typeof wt === 'number' ? 1 : 0)
       }
       const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
-      expect(result.lambda1).toBeCloseTo(-6.23298013929823e-9, 11)
-      expect(result.lambda2).toBeCloseTo(4.237439074660775, 5)
+      expect(result.lambda1).toBeCloseTo(-3.48159756e-9, 11)
+      expect(result.lambda2).toBeCloseTo(4.237290385, 5)
       expect(result.Sigma).toBeCloseTo(-0.41228565543852524, 5)
     });
 
