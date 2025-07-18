@@ -677,4 +677,107 @@ describe('Correctly modify URA calldata for Artemis support', () => {
     
     expect(originalRecipient).toBe(expectedOriginalRecipient)
   })
+  
+  describe('Testing guardrails', () => {
+    it('returns classic parameters (0,0) when lambda2 < 0', () => {
+      const strategy = new PriceImpactStrategy()
+      const unimindParameters = {
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: -1, // Lambda2 < 0
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0
+      }
+      const quoteMetadata = {
+        quoteId: 'test-quote-id',
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.5, // Valid price impact
+        route: SAMPLE_ROUTE,
+        blockNumber: 12345,
+        usedUnimind: true
+      }
+      
+      const result = calculateParameters(strategy, unimindParameters, quoteMetadata, mockLog)
+      
+      expect(result.pi).toBe(0)
+      expect(result.tau).toBe(0)
+      expect(mockLog.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'UnimindGuardrailTriggered',
+          guardrailType: 'lambda2_negative',
+          lambda2: -1
+        }),
+        expect.stringContaining('Lambda2 < 0')
+      )
+    })
+    
+    it('returns classic parameters (0,0) when price impact > 2%', () => {
+      const strategy = new PriceImpactStrategy()
+      const unimindParameters = {
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0
+      }
+      const quoteMetadata = {
+        quoteId: 'test-quote-id',
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 2.5, // > 2%
+        route: SAMPLE_ROUTE,
+        blockNumber: 12345,
+        usedUnimind: true
+      }
+      
+      const result = calculateParameters(strategy, unimindParameters, quoteMetadata, mockLog)
+      
+      expect(result.pi).toBe(0)
+      expect(result.tau).toBe(0)
+      expect(mockLog.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'UnimindGuardrailTriggered',
+          guardrailType: 'price_impact_too_high',
+          priceImpact: 2.5
+        }),
+        expect.stringContaining('Price impact > 2%')
+      )
+    })
+    
+    it('computes normal parameters when both lambda2 >= 0 and price impact <= 2%', () => {
+      const strategy = new PriceImpactStrategy()
+      const unimindParameters = {
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0
+      }
+      const quoteMetadata = {
+        quoteId: 'test-quote-id',
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.01, // Valid price impact
+        route: SAMPLE_ROUTE,
+        blockNumber: 12345,
+        usedUnimind: true
+      }
+      
+      const result = calculateParameters(strategy, unimindParameters, quoteMetadata)
+      
+      // Should compute actual values, not 0,0
+      expect(result.pi).toBeCloseTo(0.999764, 5)
+      expect(result.tau).toBeCloseTo(15.000235519, 5)
+    })
+  })
 })
