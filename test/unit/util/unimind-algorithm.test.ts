@@ -212,6 +212,17 @@ describe('unimind-algorithm', () => {
       expect(result.tau).toBeCloseTo(15.000235519, 5)
     })
 
+    it('price impact strategy test on extrinsic values with big price impact', () => {
+      const strategy = new PriceImpactStrategy()
+      const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 1, Sigma: Math.log(0.00005)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123', version: UNIMIND_ALGORITHM_VERSION };
+      const extrinsicValues: QuoteMetadata = { priceImpact: 2.1, quoteId: '0x000-0x111-123', referencePrice: '100', blockNumber: 100, route: { quote: '100', quoteGasAdjusted: '100', gasPriceWei: '100', gasUseEstimateQuote: '100', gasUseEstimate: '100', methodParameters: {calldata: '0x', value: '0', to: '0x0000000000000000000000000000000000000000'}}, pair: '0x000-0x111-123', usedUnimind: true }
+      const result = calculateParameters(strategy, intrinsicValues, extrinsicValues)
+
+      // With guardrail, price impact > 2% should return classic parameters (0,0)
+      expect(result.pi).toBe(0)
+      expect(result.tau).toBe(0)
+    })
+
     it('ceiling on tau for price impact strategy', () => {
       const strategy = new PriceImpactStrategy()
       const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: Math.log(0.0002)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123', version: UNIMIND_ALGORITHM_VERSION };

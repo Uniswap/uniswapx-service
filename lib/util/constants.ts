@@ -44,6 +44,12 @@ export const PUBLIC_UNIMIND_PARAMETERS = {
 }
 export const UNIMIND_MAX_TAU_BPS = 25
 
+// When pi = 0, AMM will be favored over Dutch Auction
+export const USE_CLASSIC_PARAMETERS = {
+  pi: 0,
+  tau: 0
+}
+
 export const RPC_HEADERS = {
   'x-uni-service-id': 'x_order_service'
 } as const
