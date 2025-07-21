@@ -7,7 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
 import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 import { validateParameters } from '../../crons/unimind-algorithm'
@@ -44,10 +44,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         }
         return {
           statusCode: 200,
-          body: {
-            pi: 0,
-            tau: 0
-          }
+          body: USE_CLASSIC_PARAMETERS
         }
       }
 
@@ -85,7 +82,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
       const beforeCalculateTime = Date.now()
       const strategy = new PriceImpactStrategy()
-      const parameters = calculateParameters(strategy, unimindParameters, quoteMetadata)
+      const parameters = calculateParameters(strategy, unimindParameters, quoteMetadata, log)
       // TODO: Add condition for not using Unimind with bad parameters
       const afterCalculateTime = Date.now()
       const calculateTime = afterCalculateTime - beforeCalculateTime
@@ -163,8 +160,41 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   }
 }
 
-export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntrinsicParameters>, unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata): UnimindResponse {
+export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntrinsicParameters>, unimindParameters: UnimindParameters, extrinsicValues: QuoteMetadata, log?: any): UnimindResponse {
   const intrinsicValues = JSON.parse(unimindParameters.intrinsicValues)
+  
+  // Guardrail 1: Disallow negative lambda2 values
+  if (intrinsicValues.lambda2 < 0) {
+    if (log) {
+      log.info({
+        eventType: 'UnimindGuardrailTriggered',
+        guardrailType: 'lambda2_negative',
+        lambda2: intrinsicValues.lambda2,
+        pair: unimindParameters.pair,
+        quoteId: extrinsicValues.quoteId,
+        priceImpact: extrinsicValues.priceImpact
+      }, `Unimind guardrail triggered: Lambda2 < 0 (${intrinsicValues.lambda2}), returning classic parameters`)
+    }
+    metrics.putMetric('UnimindGuardrailLambda2Negative', 1)
+    return USE_CLASSIC_PARAMETERS
+  }
+  
+  // Guardrail 2: Disallow large price impact
+  if (extrinsicValues.priceImpact > UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD) {
+    if (log) {
+      log.info({
+        eventType: 'UnimindGuardrailTriggered',
+        guardrailType: 'price_impact_too_high',
+        priceImpact: extrinsicValues.priceImpact,
+        pair: unimindParameters.pair,
+        quoteId: extrinsicValues.quoteId,
+        lambda2: intrinsicValues.lambda2
+      }, `Unimind guardrail triggered: Price impact > ${UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD}% (${extrinsicValues.priceImpact}%), returning classic parameters`)
+    }
+    metrics.putMetric('UnimindGuardrailPriceImpactHigh', 1)
+    return USE_CLASSIC_PARAMETERS
+  }
+  
   // Keeping intrinsic extrinsic naming for consistency with algorithm
   const pi = strategy.computePi(intrinsicValues, extrinsicValues)
   // Ceiling tau at UNIMIND_MAX_TAU_BPS for safety
