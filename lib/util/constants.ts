@@ -43,6 +43,7 @@ export const PUBLIC_UNIMIND_PARAMETERS = {
   tau: 15
 }
 export const UNIMIND_MAX_TAU_BPS = 25
+export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 2 // 2% price impact threshold
 
 // When pi = 0, AMM will be favored over Dutch Auction
 export const USE_CLASSIC_PARAMETERS = {

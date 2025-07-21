@@ -5,7 +5,7 @@ import { calculateParameters, GetUnimindHandler } from '../../../../lib/handlers
 import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS } from '../../../../lib/util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD } from '../../../../lib/util/constants'
 import { CommandParser, CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
 import { artemisModifyCalldata, UniversalRouterCalldata } from '../../../../lib/util/UniversalRouterCalldata'
@@ -715,7 +715,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
       )
     })
     
-    it('returns classic parameters (0,0) when price impact > 2%', () => {
+    it(`returns classic parameters (0,0) when price impact > ${UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD}%`, () => {
       const strategy = new PriceImpactStrategy()
       const unimindParameters = {
         pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
@@ -731,7 +731,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
         quoteId: 'test-quote-id',
         pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
         referencePrice: '4221.21',
-        priceImpact: 2.5, // > 2%
+        priceImpact: UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD + 0.5, // > threshold
         route: SAMPLE_ROUTE,
         blockNumber: 12345,
         usedUnimind: true
@@ -745,13 +745,13 @@ describe('Correctly modify URA calldata for Artemis support', () => {
         expect.objectContaining({
           eventType: 'UnimindGuardrailTriggered',
           guardrailType: 'price_impact_too_high',
-          priceImpact: 2.5
+          priceImpact: UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD + 0.5
         }),
-        expect.stringContaining('Price impact > 2%')
+        expect.stringContaining(`Price impact > ${UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD}%`)
       )
     })
     
-    it('computes normal parameters when both lambda2 >= 0 and price impact <= 2%', () => {
+    it(`computes normal parameters when both lambda2 >= 0 and price impact <= ${UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD}%`, () => {
       const strategy = new PriceImpactStrategy()
       const unimindParameters = {
         pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,

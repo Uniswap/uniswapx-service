@@ -7,7 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
 import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 import { validateParameters } from '../../crons/unimind-algorithm'
@@ -180,7 +180,7 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
   }
   
   // Guardrail 2: Disallow large price impact
-  if (extrinsicValues.priceImpact > 2) {
+  if (extrinsicValues.priceImpact > UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD) {
     if (log) {
       log.info({
         eventType: 'UnimindGuardrailTriggered',
@@ -189,7 +189,7 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
         pair: unimindParameters.pair,
         quoteId: extrinsicValues.quoteId,
         lambda2: intrinsicValues.lambda2
-      }, `Unimind guardrail triggered: Price impact > 2% (${extrinsicValues.priceImpact}%), returning classic parameters`)
+      }, `Unimind guardrail triggered: Price impact > ${UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD}% (${extrinsicValues.priceImpact}%), returning classic parameters`)
     }
     metrics.putMetric('UnimindGuardrailPriceImpactHigh', 1)
     return USE_CLASSIC_PARAMETERS

@@ -3,7 +3,7 @@ import { getStatistics } from '../../../lib/crons/unimind-algorithm';
 import { DutchV3OrderEntity } from '../../../lib/entities';
 import { ORDER_STATUS } from '../../../lib/entities/Order';
 import { mock } from 'jest-mock-extended';
-import { UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_MAX_TAU_BPS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
+import { UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
 import { PriceImpactStrategy } from '../../../lib/unimind/priceImpactStrategy';
 import { BatchedStrategy } from '../../../lib/unimind/batchedStrategy';
 import { unimindAddressFilter, UNIMIND_SAMPLE_PERCENT } from '../../../lib/util/unimind';
@@ -215,10 +215,10 @@ describe('unimind-algorithm', () => {
     it('price impact strategy test on extrinsic values with big price impact', () => {
       const strategy = new PriceImpactStrategy()
       const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 1, Sigma: Math.log(0.00005)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123', version: UNIMIND_ALGORITHM_VERSION };
-      const extrinsicValues: QuoteMetadata = { priceImpact: 2.1, quoteId: '0x000-0x111-123', referencePrice: '100', blockNumber: 100, route: { quote: '100', quoteGasAdjusted: '100', gasPriceWei: '100', gasUseEstimateQuote: '100', gasUseEstimate: '100', methodParameters: {calldata: '0x', value: '0', to: '0x0000000000000000000000000000000000000000'}}, pair: '0x000-0x111-123', usedUnimind: true }
+      const extrinsicValues: QuoteMetadata = { priceImpact: UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD + 0.1, quoteId: '0x000-0x111-123', referencePrice: '100', blockNumber: 100, route: { quote: '100', quoteGasAdjusted: '100', gasPriceWei: '100', gasUseEstimateQuote: '100', gasUseEstimate: '100', methodParameters: {calldata: '0x', value: '0', to: '0x0000000000000000000000000000000000000000'}}, pair: '0x000-0x111-123', usedUnimind: true }
       const result = calculateParameters(strategy, intrinsicValues, extrinsicValues)
 
-      // With guardrail, price impact > 2% should return classic parameters (0,0)
+      // With guardrail, price impact > threshold should return classic parameters (0,0)
       expect(result.pi).toBe(0)
       expect(result.tau).toBe(0)
     })
