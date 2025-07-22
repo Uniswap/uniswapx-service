@@ -64,16 +64,18 @@ const SLEEP_TIME_MS = 1000 // 1 second between iterations
 export class GSReaper {
   private log: Logger
   private repo: BaseOrdersRepository<UniswapXOrderEntity>
+  private unresolvedOrderStatus: ORDER_STATUS
   private providers: Map<ChainId, ethers.providers.StaticJsonRpcProvider>
   private cursors: Map<ChainId, string | undefined> = new Map()
 
-  constructor(repo: BaseOrdersRepository<UniswapXOrderEntity>) {
+  constructor(repo: BaseOrdersRepository<UniswapXOrderEntity>, unresolvedOrderStatus: ORDER_STATUS) {
     this.log = bunyan.createLogger({
       name: 'GSReaper',
       serializers: bunyan.stdSerializers,
       level: 'info',
     })
     this.repo = repo
+    this.unresolvedOrderStatus = unresolvedOrderStatus
     this.providers = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
     this.initializeProviders()
   }
@@ -130,8 +132,9 @@ export class GSReaper {
     switch (state.stage) {
       case ReaperStage.GET_OPEN_ORDERS: {
         this.log.info(`GET_OPEN_ORDERS for chainId ${state.chainId}`)
-        const { orderHashes, cursor } = await getOpenOrderHashes(
-          this.repo, 
+        const { orderHashes, cursor } = await getUnresolvedOrderHashes(
+          this.repo,
+          this.unresolvedOrderStatus,
           state.chainId, 
           MAX_ORDERS_PER_CHAIN, 
           this.log,
@@ -384,8 +387,9 @@ async function updateOrders(
 /**
  * Get hashes of open orders from the database, continuing from the provided cursor if present
  */
-async function getOpenOrderHashes(
-  repo: BaseOrdersRepository<UniswapXOrderEntity>, 
+async function getUnresolvedOrderHashes(
+  repo: BaseOrdersRepository<UniswapXOrderEntity>,
+  orderStatus: ORDER_STATUS,
   chainId: ChainId, 
   maxOrders: number,
   log: Logger,
@@ -399,7 +403,7 @@ async function getOpenOrderHashes(
       const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
         DYNAMO_BATCH_WRITE_MAX,
         {
-          orderStatus: ORDER_STATUS.OPEN,
+          orderStatus: orderStatus,
           chainId: chainId,
         },
         cursor
@@ -432,7 +436,7 @@ async function getOpenOrderHashes(
     // If cursor is invalid, start from the beginning
     if (error instanceof Error && error.message.includes('Invalid cursor')) {
       log.info(`Invalid cursor for chainId ${chainId}, starting from beginning`)
-      return getOpenOrderHashes(repo, chainId, maxOrders, log, undefined)
+      return getUnresolvedOrderHashes(repo, orderStatus, chainId, maxOrders, log, undefined)
     }
     throw error
   }
@@ -482,18 +486,24 @@ async function getOrderFillInfo(
 }
 
 async function startReapers() {
-  const dutchReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()))
-  const limitReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()))
+  const dutchOpenOrderReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.OPEN)
+  const limitOpenOrderReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.OPEN)
+  const dutchInsufficientFundsOrderReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.INSUFFICIENT_FUNDS)
+  const limitInsufficientFundsOrderReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.INSUFFICIENT_FUNDS)
+  const reapers = [
+    dutchOpenOrderReaper,
+    limitOpenOrderReaper,
+    dutchInsufficientFundsOrderReaper,
+    limitInsufficientFundsOrderReaper
+  ]
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    await dutchReaper.start().catch(error => {
-      console.error('Fatal error in GS Reaper:', error)
-      process.exit(1)
-    })
-    await limitReaper.start().catch(error => {
-      console.error('Fatal error in GS Reaper:', error)
-      process.exit(1)
-    })
+    for (const reaper of reapers) {
+      await reaper.start().catch(error => {
+        console.error('Fatal error in GS Reaper:', error)
+        process.exit(1)
+      })
+    }
   }
 }
 
