@@ -389,7 +389,7 @@ async function updateOrders(
  */
 async function getUnresolvedOrderHashes(
   repo: BaseOrdersRepository<UniswapXOrderEntity>,
-  orderStatus: ORDER_STATUS,
+  unresolvedOrderStatus: ORDER_STATUS,
   chainId: ChainId, 
   maxOrders: number,
   log: Logger,
@@ -403,7 +403,7 @@ async function getUnresolvedOrderHashes(
       const openOrders: QueryResult<UniswapXOrderEntity> = await repo.getOrders(
         DYNAMO_BATCH_WRITE_MAX,
         {
-          orderStatus: orderStatus,
+          orderStatus: unresolvedOrderStatus,
           chainId: chainId,
         },
         cursor
@@ -436,7 +436,7 @@ async function getUnresolvedOrderHashes(
     // If cursor is invalid, start from the beginning
     if (error instanceof Error && error.message.includes('Invalid cursor')) {
       log.info(`Invalid cursor for chainId ${chainId}, starting from beginning`)
-      return getUnresolvedOrderHashes(repo, orderStatus, chainId, maxOrders, log, undefined)
+      return getUnresolvedOrderHashes(repo, unresolvedOrderStatus, chainId, maxOrders, log, undefined)
     }
     throw error
   }

@@ -170,13 +170,77 @@ describe('GSReaper', () => {
     await mockOrdersRepository.addOrder(MOCK_ORDER_ENTITY)
     mockWatcher.getFillEvents.mockResolvedValue([{ orderHash: MOCK_V2_ORDER_ENTITY.orderHash }, { orderHash: MOCK_ORDER_ENTITY.orderHash }])
     
-    // Create new reaper instance
-    reaper = new GSReaper(mockOrdersRepository)
+    // Create new reaper instance with OPEN status
+    reaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN)
   })
 
   afterEach(async () => {
     mockOrdersRepository.orders.clear()
     jest.clearAllMocks()
+  })
+
+  describe('constructor with different order statuses', () => {
+    it('creates reaper with OPEN status', () => {
+      const openReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN)
+      expect(openReaper).toBeDefined()
+    })
+
+    it('creates reaper with INSUFFICIENT_FUNDS status', () => {
+      const insufficientFundsReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.INSUFFICIENT_FUNDS)
+      expect(insufficientFundsReaper).toBeDefined()
+    })
+  })
+
+  describe('order status filtering', () => {
+    it('filters orders by OPEN status', async () => {
+      // Add orders with different statuses
+      await mockOrdersRepository.addOrder({
+        ...MOCK_ORDER_ENTITY,
+        orderHash: 'open-order-hash',
+        orderStatus: ORDER_STATUS.OPEN
+      })
+      await mockOrdersRepository.addOrder({
+        ...MOCK_ORDER_ENTITY,
+        orderHash: 'insufficient-funds-order-hash',
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS
+      })
+
+      const openReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN)
+      const state = await openReaper.initializeChainState(ChainId.MAINNET)
+      
+      const result = await openReaper.processChainState({
+        ...state,
+        stage: ReaperStage.GET_OPEN_ORDERS
+      })
+
+      expect(result?.orderHashes).toContain('open-order-hash')
+      expect(result?.orderHashes).not.toContain('insufficient-funds-order-hash')
+    })
+
+    it('filters orders by INSUFFICIENT_FUNDS status', async () => {
+      // Add orders with different statuses
+      await mockOrdersRepository.addOrder({
+        ...MOCK_ORDER_ENTITY,
+        orderHash: 'open-order-hash',
+        orderStatus: ORDER_STATUS.OPEN
+      })
+      await mockOrdersRepository.addOrder({
+        ...MOCK_ORDER_ENTITY,
+        orderHash: 'insufficient-funds-order-hash',
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS
+      })
+
+      const insufficientFundsReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.INSUFFICIENT_FUNDS)
+      const state = await insufficientFundsReaper.initializeChainState(ChainId.MAINNET)
+      
+      const result = await insufficientFundsReaper.processChainState({
+        ...state,
+        stage: ReaperStage.GET_OPEN_ORDERS
+      })
+
+      expect(result?.orderHashes).toContain('insufficient-funds-order-hash')
+      expect(result?.orderHashes).not.toContain('open-order-hash')
+    })
   })
 
   describe('state machine', () => {
