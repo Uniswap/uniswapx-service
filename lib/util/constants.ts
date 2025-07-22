@@ -29,7 +29,7 @@ export const REAPER_RANGES_PER_RUN = 10
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
-export const UNIMIND_ALGORITHM_VERSION = 3;
+export const UNIMIND_ALGORITHM_VERSION = 4;
 export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
   lambda1: 0,
   lambda2: 5,
@@ -43,6 +43,13 @@ export const PUBLIC_UNIMIND_PARAMETERS = {
   tau: 15
 }
 export const UNIMIND_MAX_TAU_BPS = 25
+export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 2 // 2% price impact threshold
+
+// When pi = 0, AMM will be favored over Dutch Auction
+export const USE_CLASSIC_PARAMETERS = {
+  pi: 0,
+  tau: 0
+}
 
 export const RPC_HEADERS = {
   'x-uni-service-id': 'x_order_service'
