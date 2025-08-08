@@ -9,8 +9,9 @@ import {
   OrderType,
   OrderValidation,
   OrderValidator as OnChainOrderValidator,
+  PermissionedTokenValidator,
 } from '@uniswap/uniswapx-sdk'
-import { ethers } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
@@ -30,10 +31,10 @@ import { LimitOrder } from '../models/LimitOrder'
 import { PriorityOrder } from '../models/PriorityOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
+import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
-import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
 
 const MAX_QUERY_RETRY = 10
 
@@ -58,7 +59,7 @@ export class UniswapXOrderService {
     } else if (order instanceof DutchV2Order || order instanceof DutchV3Order) {
       const [quoteMetadata] = await Promise.all([
         order.quoteId ? this.fetchQuoteMetadata(order.quoteId) : undefined,
-        this.validateOrder(order.inner, order.signature, order.chainId)
+        this.validateOrder(order.inner, order.signature, order.chainId),
       ])
       orderEntity = order.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
     } else if (order instanceof PriorityOrder) {
@@ -76,7 +77,7 @@ export class UniswapXOrderService {
       this.logger.info('cosigned priority order', { order: cosignedOrder })
       const [quoteMetadata] = await Promise.all([
         order.quoteId ? this.fetchQuoteMetadata(order.quoteId) : undefined,
-        this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
+        this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId),
       ])
       orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
     } else {
@@ -116,11 +117,41 @@ export class UniswapXOrderService {
     // Still considered valid
     if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet) return
 
-    if (onChainValidationResult !== OrderValidation.OK) {
-      const failureReason = OrderValidation[onChainValidationResult]
-      throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)
+    if (PermissionedTokenValidator.isPermissionedToken(order.info.input.token, chainId)) {
+      const provider = this.providerMap.get(chainId)
+      if (!provider) {
+        throw new OrderValidationFailedError(`Provider not found for chainId: ${chainId}`)
+      }
+      // Permissioned tokens shouldn't work with priority orders
+      // TODO: excluded v3 orders because harder to handle trade type etc
+      if (order instanceof PriorityOrder || order instanceof DutchV3Order) {
+        throw new OrderValidationFailedError("Permissioned tokens shouldn't work with priority/v3 dutch orders")
+      }
+      const permissionedOrder = order as DutchOrder | CosignedV2DutchOrder
+      const exclusiveFiller =
+        permissionedOrder instanceof DutchOrder
+          ? permissionedOrder.info.exclusiveFiller
+          : permissionedOrder.info.cosignerData.exclusiveFiller
+      const preTransferCheckResult = await PermissionedTokenValidator.preTransferCheck(
+        this.providerMap.get(chainId)!,
+        order.info.input.token,
+        order.info.swapper,
+        exclusiveFiller,
+        BigNumber.from(
+          this.isExactInput(permissionedOrder)
+            ? permissionedOrder.info.input.startAmount
+            : permissionedOrder.info.input.endAmount
+        ).toString() // exact_out 'decay' upwards
+      )
+      if (!preTransferCheckResult) {
+        throw new OrderValidationFailedError(`Permissioned Token Pre-transfer check failed`)
+      }
+    } else {
+      if (onChainValidationResult !== OrderValidation.OK) {
+        const failureReason = OrderValidation[onChainValidationResult]
+        throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)
+      }
     }
-
     if (order.info.input.token === ethers.constants.AddressZero) {
       throw new InvalidTokenInAddress()
     }
@@ -349,5 +380,9 @@ export class UniswapXOrderService {
       this.logger.warn({ quoteId, message: 'No quote metadata found for order' })
     }
     return quoteMetadata
+  }
+
+  private isExactInput(order: DutchOrder | CosignedV2DutchOrder): boolean {
+    return order.info.input.startAmount.eq(order.info.input.endAmount)
   }
 }
