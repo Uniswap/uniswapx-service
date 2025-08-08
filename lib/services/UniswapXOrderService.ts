@@ -11,7 +11,7 @@ import {
   OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
 } from '@uniswap/uniswapx-sdk'
-import { BigNumber, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
@@ -137,11 +137,9 @@ export class UniswapXOrderService {
         order.info.input.token,
         order.info.swapper,
         exclusiveFiller,
-        BigNumber.from(
-          this.isExactInput(permissionedOrder)
-            ? permissionedOrder.info.input.startAmount
-            : permissionedOrder.info.input.endAmount
-        ).toString() // exact_out 'decay' upwards
+        this.isExactInput(permissionedOrder)
+          ? permissionedOrder.info.input.startAmount.toString()
+          : permissionedOrder.info.input.endAmount.toString() // exact_out 'decay' upwards
       )
       if (!preTransferCheckResult) {
         throw new OrderValidationFailedError(`Permissioned Token Pre-transfer check failed`)
