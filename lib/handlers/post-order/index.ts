@@ -32,20 +32,26 @@ const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
 for (const chainId of SUPPORTED_CHAINS) {
   onChainValidatorMap.set(
     chainId,
-    new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider({
-      url: CONFIG.rpcUrls.get(chainId),
-      headers: RPC_HEADERS
-    }), chainId)
+    new OnChainOrderValidator(
+      new ethers.providers.StaticJsonRpcProvider({
+        url: CONFIG.rpcUrls.get(chainId),
+        headers: RPC_HEADERS,
+      }),
+      chainId
+    )
   )
 }
 
 const providerMap: ProviderMap = new Map()
 
 for (const chainId of SUPPORTED_CHAINS) {
-  providerMap.set(chainId, new ethers.providers.StaticJsonRpcProvider({
-    url: CONFIG.rpcUrls.get(chainId),
-    headers: RPC_HEADERS
-  }))
+  providerMap.set(
+    chainId,
+    new ethers.providers.StaticJsonRpcProvider({
+      url: CONFIG.rpcUrls.get(chainId),
+      headers: RPC_HEADERS,
+    })
+  )
 }
 
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
@@ -72,10 +78,13 @@ const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidato
 for (const chainId of SUPPORTED_CHAINS) {
   relayOrderValidatorMap.set(
     chainId,
-    new OnChainRelayOrderValidator(new ethers.providers.StaticJsonRpcProvider({
-      url: CONFIG.rpcUrls.get(chainId),
-      headers: RPC_HEADERS
-    }), chainId)
+    new OnChainRelayOrderValidator(
+      new ethers.providers.StaticJsonRpcProvider({
+        url: CONFIG.rpcUrls.get(chainId),
+        headers: RPC_HEADERS,
+      }),
+      chainId
+    )
   )
 }
 
