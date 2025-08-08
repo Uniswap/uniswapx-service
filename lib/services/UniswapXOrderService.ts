@@ -111,9 +111,6 @@ export class UniswapXOrderService {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
 
-    const onChainValidator = this.onChainValidatorMap.get(chainId)
-    const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
-
     // Still considered valid
     if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet) return
 
@@ -145,6 +142,8 @@ export class UniswapXOrderService {
         throw new OrderValidationFailedError(`Permissioned Token Pre-transfer check failed`)
       }
     } else {
+      const onChainValidator = this.onChainValidatorMap.get(chainId)
+      const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
       if (onChainValidationResult !== OrderValidation.OK) {
         const failureReason = OrderValidation[onChainValidationResult]
         throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)
