@@ -111,9 +111,6 @@ export class UniswapXOrderService {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
 
-    // Still considered valid
-    if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet) return
-
     if (PermissionedTokenValidator.isPermissionedToken(order.info.input.token, chainId)) {
       const provider = this.providerMap.get(chainId)
       if (!provider) {
@@ -144,6 +141,10 @@ export class UniswapXOrderService {
     } else {
       const onChainValidator = this.onChainValidatorMap.get(chainId)
       const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
+      // Still considered valid
+      if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet)
+        return
+
       if (onChainValidationResult !== OrderValidation.OK) {
         const failureReason = OrderValidation[onChainValidationResult]
         throw new OrderValidationFailedError(`Onchain validation failed: ${failureReason}`)
