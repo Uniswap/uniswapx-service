@@ -281,20 +281,6 @@ describe('sendImmediateExclusiveFillerNotification', () => {
     expect(mockLogger.info).toHaveBeenCalled()
   })
 
-  it('should skip notification when no filler', async () => {
-    const orderWithoutFiller = { ...mockOrderEntity, filler: undefined }
-    
-    await sendImmediateExclusiveFillerNotification(
-      orderWithoutFiller,
-      'Dutch_V2',
-      mockWebhookProvider,
-      mockLogger
-    )
-    
-    expect(mockWebhookProvider.getEndpoints).not.toHaveBeenCalled()
-    expect(mockedAxios.post).not.toHaveBeenCalled()
-  })
-
   it('should skip notification when no endpoints found', async () => {
     mockWebhookProvider.getEndpoints.mockResolvedValue([])
     

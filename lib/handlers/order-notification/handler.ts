@@ -188,6 +188,11 @@ export async function sendWebhookNotifications(
 /**
  * Send immediate webhook notification to exclusive filler only
  * Called synchronously from post-order handler to minimize latency for exclusive fillers
+ * 
+ * @param orderEntity - Order entity with validated exclusive filler (caller must ensure filler is non-zero address)
+ * @param orderType - Type of the order
+ * @param webhookProvider - Provider for webhook endpoints
+ * @param logger - Logger instance
  */
 export async function sendImmediateExclusiveFillerNotification(
   orderEntity: {
@@ -199,16 +204,12 @@ export async function sendImmediateExclusiveFillerNotification(
     encodedOrder: string
     chainId: number
     quoteId?: string
-    filler?: string
+    filler: string // Caller validates exclusive filler exists
   },
   orderType: string,
   webhookProvider: { getEndpoints: (filter: any) => Promise<Array<{ url: string; headers?: { [key: string]: string } }>> },
   logger: { info: (obj: any, msg: string) => void; warn: (obj: any, msg: string) => void; error: (obj: any, msg: string) => void }
 ): Promise<void> {
-  // Only notify if there's an exclusive filler
-  if (!orderEntity.filler) {
-    return
-  }
 
   try {
     const startTime = Date.now()

@@ -37,6 +37,7 @@ import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
 import { sendImmediateExclusiveFillerNotification } from '../handlers/order-notification/handler'
 import { WebhookProvider } from '../providers/base'
+import { hasExclusiveFiller } from '../util/address'
 
 const MAX_QUERY_RETRY = 10
 
@@ -98,7 +99,7 @@ export class UniswapXOrderService {
     await this.logOrderCreatedEvent(orderEntity, realOrderType)
 
     // Send immediate notification to exclusive filler if present
-    if (this.webhookProvider && orderEntity.filler) {
+    if (this.webhookProvider && hasExclusiveFiller(orderEntity.filler)) {
       // Don't await to minimize latency-add to order posting flow
       sendImmediateExclusiveFillerNotification(
         {
