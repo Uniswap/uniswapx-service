@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { OrderNotificationHandler, sendWebhookNotifications, sendImmediateExclusiveFillerNotification } from '../../../lib/handlers/order-notification/handler'
+import { WebhookOrderData, ExclusiveFillerWebhookOrder } from '../../../lib/handlers/order-notification/types'
 
 jest.mock('axios')
 jest.mock('@uniswap/uniswapx-sdk')
@@ -170,6 +171,7 @@ describe('sendWebhookNotifications', () => {
   const mockedAxios = axios as jest.Mocked<typeof axios>
   const mockLogger = {
     info: jest.fn(),
+    warn: jest.fn(),
     error: jest.fn()
   }
   
@@ -178,11 +180,11 @@ describe('sendWebhookNotifications', () => {
     { url: 'https://webhook2.com', headers: { 'Authorization': 'Bearer token' } }
   ]
   
-  const mockOrder = {
+  const mockOrder: WebhookOrderData = {
     orderHash: '0x123',
     createdAt: 1670976836865,
     signature: '0xsig',
-    swapper: '0xswapper',
+    offerer: '0xswapper',
     orderStatus: 'open',
     encodedOrder: '0xencodedorder',
     chainId: 1,
@@ -236,11 +238,11 @@ describe('sendImmediateExclusiveFillerNotification', () => {
     error: jest.fn()
   }
   
-  const mockOrderEntity = {
+  const mockOrderEntity: ExclusiveFillerWebhookOrder = {
     orderHash: '0x123',
     createdAt: 1670976836865,
     signature: '0xsig',
-    offerer: '0xofferer',
+    offerer: '0xswapper',
     orderStatus: 'open',
     encodedOrder: '0xencodedorder',
     chainId: 1,
@@ -264,7 +266,7 @@ describe('sendImmediateExclusiveFillerNotification', () => {
     )
     
     expect(mockWebhookProvider.getEndpoints).toHaveBeenCalledWith({
-      offerer: '0xofferer',
+      offerer: '0xswapper',
       orderStatus: 'open',
       filler: '0xfiller',
       orderType: 'Dutch_V2'
@@ -274,7 +276,7 @@ describe('sendImmediateExclusiveFillerNotification', () => {
       expect.objectContaining({
         orderHash: '0x123',
         filler: '0xfiller',
-        offerer: '0xofferer'
+        offerer: '0xswapper'
       }),
       expect.any(Object)
     )

@@ -36,6 +36,7 @@ import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderVal
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
 import { sendImmediateExclusiveFillerNotification } from '../handlers/order-notification/handler'
+import { ExclusiveFillerWebhookOrder } from '../handlers/order-notification/types'
 import { WebhookProvider } from '../providers/base'
 import { hasExclusiveFiller } from '../util/address'
 
@@ -100,19 +101,23 @@ export class UniswapXOrderService {
 
     // Send immediate notification to exclusive filler if present
     if (this.webhookProvider && hasExclusiveFiller(orderEntity.filler)) {
+      // Create properly typed webhook order data
+      const exclusiveFillerOrder: ExclusiveFillerWebhookOrder = {
+        orderHash: orderEntity.orderHash,
+        createdAt: orderEntity.createdAt ?? Date.now(),
+        signature: orderEntity.signature,
+        offerer: orderEntity.offerer,
+        orderStatus: orderEntity.orderStatus,
+        encodedOrder: orderEntity.encodedOrder,
+        chainId: orderEntity.chainId,
+        quoteId: orderEntity.quoteId,
+        filler: orderEntity.filler,
+        orderType: realOrderType,
+      }
+      
       // Don't await to minimize latency-add to order posting flow
       sendImmediateExclusiveFillerNotification(
-        {
-          orderHash: orderEntity.orderHash,
-          createdAt: orderEntity.createdAt ?? Date.now(),
-          signature: orderEntity.signature,
-          offerer: orderEntity.offerer,
-          orderStatus: orderEntity.orderStatus,
-          encodedOrder: orderEntity.encodedOrder,
-          chainId: orderEntity.chainId,
-          quoteId: orderEntity.quoteId,
-          filler: orderEntity.filler,
-        },
+        exclusiveFillerOrder,
         realOrderType,
         this.webhookProvider,
         this.logger

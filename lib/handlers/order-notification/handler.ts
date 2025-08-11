@@ -2,6 +2,7 @@ import axios, { AxiosResponse } from 'axios'
 import Joi from 'joi'
 import { metrics } from '../../util/metrics'
 import { eventRecordToOrder } from '../../util/order'
+import { WebhookOrderData, ExclusiveFillerWebhookOrder, WebhookLogger, WebhookProviderInterface } from './types'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
@@ -41,7 +42,12 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
 
         log.info({ order: newOrder, registeredEndpoints }, 'Sending order to registered webhooks.')
 
-        await sendWebhookNotifications(registeredEndpoints, newOrder, log)
+        // Convert to standard webhook format (map swapper -> offerer)
+        const webhookOrderData: WebhookOrderData = {
+          ...newOrder,
+          offerer: newOrder.swapper
+        }
+        await sendWebhookNotifications(registeredEndpoints, webhookOrderData, log)
       } catch (e: unknown) {
         log.error(e instanceof Error ? e.message : e, 'Unexpected failure in handler.')
         failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
@@ -121,19 +127,8 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
  */
 export async function sendWebhookNotifications(
   endpoints: Array<{ url: string; headers?: { [key: string]: string } }>,
-  order: {
-    orderHash: string
-    createdAt: number
-    signature: string
-    swapper: string
-    orderStatus: string
-    encodedOrder: string
-    chainId: number
-    orderType?: string
-    quoteId?: string
-    filler?: string
-  },
-  logger: { info: (obj: any, msg: string) => void; error: (obj: any, msg: string) => void }
+  order: WebhookOrderData,
+  logger: WebhookLogger
 ): Promise<void> {
   // Randomize the order to prevent any filler from having a consistent advantage
   const shuffledEndpoints = [...endpoints].sort(() => Math.random())
@@ -144,7 +139,7 @@ export async function sendWebhookNotifications(
         orderHash: order.orderHash,
         createdAt: order.createdAt,
         signature: order.signature,
-        offerer: order.swapper,
+        offerer: order.offerer,
         orderStatus: order.orderStatus,
         encodedOrder: order.encodedOrder,
         chainId: order.chainId,
@@ -195,20 +190,10 @@ export async function sendWebhookNotifications(
  * @param logger - Logger instance
  */
 export async function sendImmediateExclusiveFillerNotification(
-  orderEntity: {
-    orderHash: string
-    createdAt: number
-    signature: string
-    offerer: string
-    orderStatus: string
-    encodedOrder: string
-    chainId: number
-    quoteId?: string
-    filler: string // Caller validates exclusive filler exists
-  },
+  orderEntity: ExclusiveFillerWebhookOrder,
   orderType: string,
-  webhookProvider: { getEndpoints: (filter: any) => Promise<Array<{ url: string; headers?: { [key: string]: string } }>> },
-  logger: { info: (obj: any, msg: string) => void; warn: (obj: any, msg: string) => void; error: (obj: any, msg: string) => void }
+  webhookProvider: WebhookProviderInterface,
+  logger: WebhookLogger
 ): Promise<void> {
 
   try {
@@ -239,7 +224,6 @@ export async function sendImmediateExclusiveFillerNotification(
       exclusiveFillerEndpoints,
       {
         ...orderEntity,
-        swapper: orderEntity.offerer,
         orderType,
       },
       logger
