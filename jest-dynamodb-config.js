@@ -311,5 +311,5 @@ module.exports = {
       ProvisionedThroughput: { ReadCapacityUnits: 1, WriteCapacityUnits: 1 }
     }
   ],
-  port: 8000,
+  port: 8001,
 }

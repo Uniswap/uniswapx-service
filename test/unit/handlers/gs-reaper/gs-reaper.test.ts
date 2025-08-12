@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-import { OrderType, REACTOR_ADDRESS_MAPPING, OrderValidation } from '@uniswap/uniswapx-sdk'
+import { OrderType, REACTOR_ADDRESS_MAPPING, OrderValidation, PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { GSReaper, ReaperStage } from '../../../../lib/crons/gs-reaper/gs-reaper'
 import { ORDER_STATUS } from '../../../../lib/entities'
@@ -454,6 +454,62 @@ describe('GSReaper', () => {
 
       expect(result.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
       // Should continue processing despite errors
+      expect(result.stage).toBe(ReaperStage.UPDATE_DB)
+    })
+
+    it('should skip quoter.validate for permissioned tokens', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        stage: ReaperStage.CHECK_CANCELLED
+      }
+
+      // Mock that the token is permissioned
+      jest.spyOn(PermissionedTokenValidator, 'isPermissionedToken').mockReturnValue(true)
+
+      // Mock OrderValidator to track if validate is called
+      const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
+      const validateMock = jest.fn().mockResolvedValue(OrderValidation.OK)
+      mockOrderValidator.mockImplementation(() => ({
+        validate: validateMock
+      }))
+
+      const result = await reaper.processChainState(state)
+
+      expect(validateMock).not.toHaveBeenCalled()
+      expect(result.stage).toBe(ReaperStage.UPDATE_DB)
+    })
+
+    it('should call quoter.validate for non-permissioned tokens', async () => {
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        stage: ReaperStage.CHECK_CANCELLED
+      }
+
+      // Mock that the token is NOT permissioned
+      jest.spyOn(PermissionedTokenValidator, 'isPermissionedToken').mockReturnValue(false)
+
+      // Mock OrderValidator to track if validate is called
+      const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
+      const validateMock = jest.fn().mockResolvedValue(OrderValidation.OK)
+      mockOrderValidator.mockImplementation(() => ({
+        validate: validateMock
+      }))
+
+      const result = await reaper.processChainState(state)
+
+      // Verify quoter.validate is called
+      expect(validateMock).toHaveBeenCalledWith({
+        order: expect.any(Object),
+        signature: expect.any(String)
+      })
       expect(result.stage).toBe(ReaperStage.UPDATE_DB)
     })
   })

@@ -23,6 +23,7 @@ import { FillEventLogger } from './fill-event-logger'
 import { getSettledAmounts, IS_TERMINAL_STATE, timestampToBlockNumber } from './util'
 import { parseOrder } from '../OrderParser'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../constants'
+import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 
 const FILL_CHECK_OVERLAP_BLOCK = 20
 
@@ -77,11 +78,15 @@ export class CheckOrderStatusService {
     )
 
     const parsedOrder = parseOrder(order, chainId)
-    const validation = await wrapWithTimerMetric(
-      orderQuoter.validate({
+    const validationPromise = PermissionedTokenValidator.isPermissionedToken(parsedOrder.info.input.token, chainId)
+      ? Promise.resolve(OrderValidation.OK)
+      : orderQuoter.validate({
         order: parsedOrder,
         signature: order.signature,
-      }),
+      })
+
+    const validation = await wrapWithTimerMetric(
+      validationPromise,
       CheckOrderStatusHandlerMetricNames.GetValidationTime
     )
 

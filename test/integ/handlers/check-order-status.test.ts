@@ -1,4 +1,4 @@
-import { OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation, TokenTransfer, PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
@@ -410,6 +410,105 @@ describe('Testing check order status handler', () => {
         orderType: OrderType.Dutch,
       })
     })
+
+    it('should skip quoter.validate for permissioned tokens', async () => {
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          dutchOrdersRepository,
+          mockLookbackFn,
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
+        ),
+        new CheckOrderStatusService(
+          limitOrdersRepository,
+          mockLookbackFn,
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
+        ),
+        mock<RelayOrderService>()
+      )
+
+      // Mock that the token is permissioned
+      jest.spyOn(PermissionedTokenValidator, 'isPermissionedToken').mockReturnValue(true)
+      validateMock.mockReturnValue(OrderValidation.OK)
+
+      const response = await checkOrderStatusHandler.handler(handlerEventMock)
+
+      // Verify that quoter.validate was NOT called since it's a permissioned token
+      expect(validateMock).not.toHaveBeenCalled()
+
+      // Verify the response is still correct
+      expect(response).toEqual({
+        orderHash: MOCK_ORDER_HASH,
+        orderStatus: 'open',
+        retryCount: 1,
+        retryWaitSeconds: 12,
+        chainId: 1,
+        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
+        orderType: OrderType.Dutch,
+      })
+    })
+
+    it('should call quoter.validate for non-permissioned tokens', async () => {
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          dutchOrdersRepository,
+          mockLookbackFn,
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
+        ),
+        new CheckOrderStatusService(
+          limitOrdersRepository,
+          mockLookbackFn,
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
+        ),
+        mock<RelayOrderService>()
+      )
+
+      // Mock that the token is NOT permissioned
+      jest.spyOn(PermissionedTokenValidator, 'isPermissionedToken').mockReturnValue(false)
+      validateMock.mockReturnValue(OrderValidation.OK)
+
+      const response = await checkOrderStatusHandler.handler(handlerEventMock)
+
+      // Verify that quoter.validate WAS called since it's not a permissioned token
+      expect(validateMock).toHaveBeenCalledWith({
+        order: expect.any(Object),
+        signature: MOCK_ORDER_ENTITY.signature,
+      })
+
+      // Verify the response is still correct
+      expect(response).toEqual({
+        orderHash: MOCK_ORDER_HASH,
+        orderStatus: 'open',
+        retryCount: 1,
+        retryWaitSeconds: 12,
+        chainId: 1,
+        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
+        orderType: OrderType.Dutch,
+      })
+    })
+
+
   })
 
   describe('Test getSettledAmounts', () => {
