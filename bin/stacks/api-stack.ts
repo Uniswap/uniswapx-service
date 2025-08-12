@@ -63,7 +63,7 @@ export class APIStack extends cdk.Stack {
       chainIdToStatusTrackingStateMachineArn,
       checkStatusFunction,
       getUnimindLambdaAlias,
-      getUnimindLambda
+      getUnimindLambda,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       stage: stage as STAGE,
@@ -192,7 +192,9 @@ export class APIStack extends cdk.Stack {
           priority: 2,
           statement: {
             rateBasedStatement: {
-              limit: throttlingOverride ? parseInt(throttlingOverride) : 900,
+              // rate limit across all chains
+              // default evaluation window: 5 minutes => 6 per second
+              limit: throttlingOverride ? parseInt(throttlingOverride) : 1800,
               aggregateKeyType: 'FORWARDED_IP',
               scopeDownStatement: {
                 byteMatchStatement: {
