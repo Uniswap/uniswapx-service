@@ -23,6 +23,11 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 
+// Mock the Permit2Validator
+jest.mock('../../../lib/util/Permit2Validator', () => ({
+  Permit2Validator: jest.fn()
+}))
+
 describe('Testing check order status handler', () => {
   const mockedBlockNumber = 123
   const validateMock = jest.fn()
@@ -411,7 +416,7 @@ describe('Testing check order status handler', () => {
       })
     })
 
-    it('should skip quoter.validate for permissioned tokens', async () => {
+    it('should call Permit2Validator.validate for permissioned tokens', async () => {
       const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
       const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
       const checkOrderStatusHandler = new CheckOrderStatusHandler(
@@ -439,12 +444,28 @@ describe('Testing check order status handler', () => {
 
       // Mock that the token is permissioned
       jest.spyOn(PermissionedTokenValidator, 'isPermissionedToken').mockReturnValue(true)
-      validateMock.mockReturnValue(OrderValidation.OK)
+      
+      // Mock Permit2Validator to track if validate is called
+      const mockPermit2Validator = {
+        validate: jest.fn().mockResolvedValue(OrderValidation.OK)
+      }
+      jest.spyOn(require('../../../lib/util/Permit2Validator'), 'Permit2Validator')
+        .mockImplementation(() => mockPermit2Validator)
+
+      // Mock OrderValidator to track if validate is called
+      const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
+      const orderValidatorValidateMock = jest.fn().mockResolvedValue(OrderValidation.OK)
+      mockOrderValidator.mockImplementation(() => ({
+        validate: orderValidatorValidateMock
+      }))
 
       const response = await checkOrderStatusHandler.handler(handlerEventMock)
 
+      // Verify that Permit2Validator.validate was called since it's a permissioned token
+      expect(mockPermit2Validator.validate).toHaveBeenCalledWith(expect.any(Object))
+      
       // Verify that quoter.validate was NOT called since it's a permissioned token
-      expect(validateMock).not.toHaveBeenCalled()
+      expect(orderValidatorValidateMock).not.toHaveBeenCalled()
 
       // Verify the response is still correct
       expect(response).toEqual({

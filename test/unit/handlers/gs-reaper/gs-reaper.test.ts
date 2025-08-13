@@ -150,6 +150,12 @@ jest.mock('../../../../lib/handlers/check-order-status/util', () => {
   }
 })
 
+
+// Mock Permit2Validator
+jest.mock('../../../../lib/util/Permit2Validator', () => ({
+  Permit2Validator: jest.fn()
+}))
+
 // Add mock for DutchOrdersRepository.create before the describe block
 jest.mock('../../../../lib/repositories/dutch-orders-repository', () => ({
   DutchOrdersRepository: {
@@ -457,7 +463,7 @@ describe('GSReaper', () => {
       expect(result.stage).toBe(ReaperStage.UPDATE_DB)
     })
 
-    it('should skip quoter.validate for permissioned tokens', async () => {
+    it('should call Permit2Validator.validate for permissioned tokens', async () => {
       const state = {
         chainId: ChainId.MAINNET,
         currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE,
@@ -470,16 +476,27 @@ describe('GSReaper', () => {
       // Mock that the token is permissioned
       jest.spyOn(PermissionedTokenValidator, 'isPermissionedToken').mockReturnValue(true)
 
+      // Mock Permit2Validator to track if validate is called
+      const mockPermit2Validator = {
+        validate: jest.fn().mockResolvedValue(OrderValidation.OK)
+      }
+      jest.spyOn(require('../../../../lib/util/Permit2Validator'), 'Permit2Validator')
+        .mockImplementation(() => mockPermit2Validator)
+
       // Mock OrderValidator to track if validate is called
       const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
-      const validateMock = jest.fn().mockResolvedValue(OrderValidation.OK)
+      const orderValidatorValidateMock = jest.fn().mockResolvedValue(OrderValidation.OK)
       mockOrderValidator.mockImplementation(() => ({
-        validate: validateMock
+        validate: orderValidatorValidateMock
       }))
 
       const result = await reaper.processChainState(state)
 
-      expect(validateMock).not.toHaveBeenCalled()
+      // Verify that Permit2Validator.validate was called since it's a permissioned token
+      expect(mockPermit2Validator.validate).toHaveBeenCalledWith(expect.any(Object))
+      
+      // Verify that quoter.validate was NOT called since it's a permissioned token
+      expect(orderValidatorValidateMock).not.toHaveBeenCalled()
       expect(result.stage).toBe(ReaperStage.UPDATE_DB)
     })
 
