@@ -4666,6 +4666,14 @@
     ethers "^5.7.0"
     tiny-invariant "^1.1.0"
 
+"@uniswap/permit2-sdk@^1.4.0":
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/@uniswap/permit2-sdk/-/permit2-sdk-1.4.0.tgz#eafb48e89bd747b893a88d3cabd2422a81528b80"
+  integrity sha512-l/aGhfhB93M76vXs4eB8QNwhELE6bs66kh7F1cyobaPtINaVpMmlJv+j3KmHeHwAZIsh7QXyYzhDxs07u0Pe4Q==
+  dependencies:
+    ethers "^5.7.0"
+    tiny-invariant "^1.1.0"
+
 "@uniswap/router-sdk@^1.22.2":
   version "1.22.3"
   resolved "https://registry.yarnpkg.com/@uniswap/router-sdk/-/router-sdk-1.22.3.tgz#2b2e2fda24aa2ea6f0564b4ea910949ac5a80691"
