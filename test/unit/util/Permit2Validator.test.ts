@@ -22,8 +22,8 @@ describe('Permit2Validator', () => {
     mockSignatureProvider = {
       validatePermit: jest.fn()
     }
-    const { SignatureProvider } = require('@uniswap/permit2-sdk')
-    SignatureProvider.mockImplementation(() => mockSignatureProvider)
+    const { SignatureProvider: MockedSignatureProvider } = jest.requireMock('@uniswap/permit2-sdk')
+    MockedSignatureProvider.mockImplementation(() => mockSignatureProvider)
 
     // Create validator instance
     validator = new Permit2Validator(undefined as any, ChainId.MAINNET)

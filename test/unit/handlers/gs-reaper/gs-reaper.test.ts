@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { OrderType, REACTOR_ADDRESS_MAPPING, OrderValidation, PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
+import { Permit2Validator } from '../../../../lib/util/Permit2Validator'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { GSReaper, ReaperStage } from '../../../../lib/crons/gs-reaper/gs-reaper'
 import { ORDER_STATUS } from '../../../../lib/entities'
@@ -480,8 +481,7 @@ describe('GSReaper', () => {
       const mockPermit2Validator = {
         validate: jest.fn().mockResolvedValue(OrderValidation.OK)
       }
-      jest.spyOn(require('../../../../lib/util/Permit2Validator'), 'Permit2Validator')
-        .mockImplementation(() => mockPermit2Validator)
+      Permit2Validator.mockImplementation(() => mockPermit2Validator)
 
       // Mock OrderValidator to track if validate is called
       const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator

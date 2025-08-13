@@ -449,8 +449,8 @@ describe('Testing check order status handler', () => {
       const mockPermit2Validator = {
         validate: jest.fn().mockResolvedValue(OrderValidation.OK)
       }
-      jest.spyOn(require('../../../lib/util/Permit2Validator'), 'Permit2Validator')
-        .mockImplementation(() => mockPermit2Validator)
+      const { Permit2Validator: MockedPermit2Validator } = jest.requireMock('../../../lib/util/Permit2Validator')
+      MockedPermit2Validator.mockImplementation(() => mockPermit2Validator)
 
       // Mock OrderValidator to track if validate is called
       const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
