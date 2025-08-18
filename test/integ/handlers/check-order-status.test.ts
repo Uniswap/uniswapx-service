@@ -1,4 +1,4 @@
-import { OrderType, OrderValidation, TokenTransfer } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidation, TokenTransfer, PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
@@ -22,6 +22,11 @@ import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
+
+// Mock the Permit2Validator
+jest.mock('../../../lib/util/Permit2Validator', () => ({
+  Permit2Validator: jest.fn()
+}))
 
 describe('Testing check order status handler', () => {
   const mockedBlockNumber = 123
@@ -410,6 +415,121 @@ describe('Testing check order status handler', () => {
         orderType: OrderType.Dutch,
       })
     })
+
+    it('should call Permit2Validator.validate for permissioned tokens', async () => {
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          dutchOrdersRepository,
+          mockLookbackFn,
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
+        ),
+        new CheckOrderStatusService(
+          limitOrdersRepository,
+          mockLookbackFn,
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
+        ),
+        mock<RelayOrderService>()
+      )
+
+      // Mock that the token is permissioned
+      jest.spyOn(PermissionedTokenValidator, 'isPermissionedToken').mockReturnValue(true)
+      
+      // Mock Permit2Validator to track if validate is called
+      const mockPermit2Validator = {
+        validate: jest.fn().mockResolvedValue(OrderValidation.OK)
+      }
+      const { Permit2Validator: MockedPermit2Validator } = jest.requireMock('../../../lib/util/Permit2Validator')
+      MockedPermit2Validator.mockImplementation(() => mockPermit2Validator)
+
+      // Mock OrderValidator to track if validate is called
+      const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
+      const orderValidatorValidateMock = jest.fn().mockResolvedValue(OrderValidation.OK)
+      mockOrderValidator.mockImplementation(() => ({
+        validate: orderValidatorValidateMock
+      }))
+
+      const response = await checkOrderStatusHandler.handler(handlerEventMock)
+
+      // Verify that Permit2Validator.validate was called since it's a permissioned token
+      expect(mockPermit2Validator.validate).toHaveBeenCalledWith(expect.any(Object))
+      
+      // Verify that quoter.validate was NOT called since it's a permissioned token
+      expect(orderValidatorValidateMock).not.toHaveBeenCalled()
+
+      // Verify the response is still correct
+      expect(response).toEqual({
+        orderHash: MOCK_ORDER_HASH,
+        orderStatus: 'open',
+        retryCount: 1,
+        retryWaitSeconds: 12,
+        chainId: 1,
+        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
+        orderType: OrderType.Dutch,
+      })
+    })
+
+    it('should call quoter.validate for non-permissioned tokens', async () => {
+      const dutchOrdersRepository = DutchOrdersRepository.create(localDocumentClient)
+      const limitOrdersRepository = LimitOrdersRepository.create(localDocumentClient)
+      const checkOrderStatusHandler = new CheckOrderStatusHandler(
+        'check-order-status',
+        initialInjectorPromiseMock,
+        new CheckOrderStatusService(
+          dutchOrdersRepository,
+          mockLookbackFn,
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(
+            OrderType.Dutch,
+            mock<AnalyticsService>(),
+            dutchOrdersRepository,
+            calculateDutchRetryWaitSeconds
+          )
+        ),
+        new CheckOrderStatusService(
+          limitOrdersRepository,
+          mockLookbackFn,
+          mock<FillEventLogger>(),
+          new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
+        ),
+        mock<RelayOrderService>()
+      )
+
+      // Mock that the token is NOT permissioned
+      jest.spyOn(PermissionedTokenValidator, 'isPermissionedToken').mockReturnValue(false)
+      validateMock.mockReturnValue(OrderValidation.OK)
+
+      const response = await checkOrderStatusHandler.handler(handlerEventMock)
+
+      // Verify that quoter.validate WAS called since it's not a permissioned token
+      expect(validateMock).toHaveBeenCalledWith({
+        order: expect.any(Object),
+        signature: MOCK_ORDER_ENTITY.signature,
+      })
+
+      // Verify the response is still correct
+      expect(response).toEqual({
+        orderHash: MOCK_ORDER_HASH,
+        orderStatus: 'open',
+        retryCount: 1,
+        retryWaitSeconds: 12,
+        chainId: 1,
+        startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
+        orderType: OrderType.Dutch,
+      })
+    })
+
+
   })
 
   describe('Test getSettledAmounts', () => {

@@ -10,6 +10,8 @@ import { parseOrder } from '../../handlers/OrderParser'
 import { getSettledAmounts } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
+import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
+import { Permit2Validator } from '../../util/Permit2Validator'
 
 type OrderUpdate = {
   status: ORDER_STATUS,
@@ -338,10 +340,15 @@ async function checkCancelledOrders(
     if (!orderUpdates[orderHash]) {
       try {
         const { order, signature } = await getOrderByHash(repo, orderHash)
-        const validation = await quoter.validate({
-          order: order,
-          signature: signature,
-        })
+        // We only check for nonce used and expired for permissioned tokens
+        // since the order quoter can't move input tokens
+        const validation = PermissionedTokenValidator.isPermissionedToken(order.info.input.token, chainId)
+          ? await new Permit2Validator(provider, chainId).validate(order)
+          : await quoter.validate({
+            order: order,
+            signature: signature,
+          })
+
         if (validation === OrderValidation.NonceUsed) {
           log.info(`Order ${orderHash} has been cancelled`)
           orderUpdates[orderHash] = {
