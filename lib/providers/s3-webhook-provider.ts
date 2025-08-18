@@ -23,7 +23,7 @@ export class S3WebhookConfigurationProvider implements WebhookProvider {
 
   public async getExclusiveFillerEndpoints(filler: string): Promise<Webhook[]> {
     const definition = await this.getDefinition()
-    return definition.filter[FILTER_FIELD.FILLER][filler]
+    return definition.filter[FILTER_FIELD.FILLER][filler] ?? []
   }
 
   async getDefinition(): Promise<WebhookDefinition> {
