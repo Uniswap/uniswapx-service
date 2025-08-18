@@ -8,8 +8,23 @@ describe('S3WebhookProvider test', () => {
   const bucket = 'test-bucket'
   const key = 'test-key'
 
+  let mockSend: jest.SpyInstance
+
+  beforeEach(() => {
+    if (mockSend) {
+      mockSend.mockRestore()
+    }
+  })
+
+  afterEach(() => {
+    if (mockSend) {
+      mockSend.mockRestore()
+    }
+  })
+
   function applyMock(endpoints: WebhookDefinition) {
-    jest.spyOn(S3Client.prototype, 'send').mockImplementationOnce(() =>
+    // Use mockImplementation instead of mockImplementationOnce for better control
+    mockSend = jest.spyOn(S3Client.prototype, 'send').mockImplementation(() =>
       Promise.resolve({
         Body: {
           transformToString: () => Promise.resolve(JSON.stringify(endpoints)),
@@ -179,21 +194,37 @@ describe('S3WebhookProvider test', () => {
         for (const orderType of orderTypes) {
           const endpoints = findEndpointsMatchingFilter(
             {
-            filler: '0x1',
-            orderStatus: 'open',
+              filler: '0x1',
+              orderStatus: 'open',
               offerer: '0x2',
               orderType,
             },
             mockEndpoints
-        )
-        expect(endpoints).toEqual([
-          { url: 'webhook.com/0' },
-          { url: 'webhook.com/1' },
-          { url: 'webhook.com/2' },
-          { url: 'webhook.com/4' },
+          )
+          expect(endpoints).toEqual([
+            { url: 'webhook.com/0' },
+            { url: 'webhook.com/1' },
+            { url: 'webhook.com/2' },
+            { url: 'webhook.com/4' },
           ])
         }
       })
+    })
+  })
+
+  describe('getExclusiveFillerEndpoints', () => {
+    it('Returns endpoints for a filler', async () => {
+      applyMock(mockEndpoints)
+      const provider = new S3WebhookConfigurationProvider(bucket, key)
+      const endpoints = await provider.getExclusiveFillerEndpoints('0x1')
+      expect(endpoints).toEqual([{ url: 'webhook.com/1' }])
+    })
+
+    it('Returns empty array if no endpoints found', async () => {
+      applyMock(mockEndpoints)
+      const provider = new S3WebhookConfigurationProvider(bucket, key)
+      const endpoints = await provider.getExclusiveFillerEndpoints('0x2')
+      expect(endpoints).toEqual([])
     })
   })
 })
