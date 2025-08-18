@@ -13,10 +13,6 @@ export class JsonWebhookProvider implements WebhookProvider {
   public async getEndpoints(filter: OrderFilter): Promise<Webhook[]> {
     return findEndpointsMatchingFilter(filter, this.jsonDocument)
   }
-
-  public async getExclusiveFillerEndpoints(filler: string): Promise<Webhook[]> {
-    return this.jsonDocument.filter[FILTER_FIELD.FILLER][filler] ?? []
-  }
 }
 
 export function findEndpointsMatchingFilter(filter: OrderFilter, definition: WebhookDefinition): Webhook[] {
