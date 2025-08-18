@@ -30,7 +30,13 @@ export class DashboardStack extends cdk.NestedStack {
   constructor(scope: Construct, name: string, props: DashboardProps) {
     super(scope, name, props)
 
-    const { apiName, chainIdToStatusTrackingStateMachineArn, orderStatusLambdaName, postOrderLambdaName, getUnimindLambdaName } = props
+    const {
+      apiName,
+      chainIdToStatusTrackingStateMachineArn,
+      orderStatusLambdaName,
+      postOrderLambdaName,
+      getUnimindLambdaName,
+    } = props
     const region = cdk.Stack.of(this).region
 
     new aws_cloudwatch.CfnDashboard(this, `${SERVICE_NAME}Dashboard`, {
@@ -115,8 +121,8 @@ export class DashboardStack extends cdk.NestedStack {
                 ['Uniswap', 'PostOrderRequest', 'Service', 'UniswapXService', { id: 'por', visible: false, region }],
                 ['.', 'PostOrderStatus4XX', '.', '.', { id: 'por4xx', visible: false, region }],
                 ['.', 'PostOrderStatus5XX', '.', '.', { id: 'por5xx', visible: false, region }],
-                [{ expression: '(por5xx/gor) * 100', label: 'GetOrders5XXErrorRate', id: 'r31', region, stat: 'Sum' }],
-                [{ expression: '(por4xx/gor) * 100', label: 'GetOrders4XXErrorRate', id: 'r41', region, stat: 'Sum' }],
+                [{ expression: '(gor5xx/gor) * 100', label: 'GetOrders5XXErrorRate', id: 'r31', region, stat: 'Sum' }],
+                [{ expression: '(gor4xx/gor) * 100', label: 'GetOrders4XXErrorRate', id: 'r41', region, stat: 'Sum' }],
                 ['Uniswap', 'GetOrdersRequest', 'Service', 'UniswapXService', { id: 'gor', visible: false, region }],
                 ['.', 'GetOrdersStatus4XX', '.', '.', { id: 'gor4xx', visible: false, region }],
                 ['.', 'GetOrdersStatus5XX', '.', '.', { id: 'gor5xx', visible: false, region }],
@@ -590,8 +596,20 @@ export class DashboardStack extends cdk.NestedStack {
             type: 'metric',
             properties: {
               metrics: [
-                ['Uniswap', 'final-parameters-calculation-time', 'Service', 'UniswapXService', { label: 'Final Parameters Calculation Time' }],
-                ['Uniswap', 'unimind-parameters-update-time', 'Service', 'UniswapXServiceCron', { label: 'Unimind Parameters Update Time' }],
+                [
+                  'Uniswap',
+                  'final-parameters-calculation-time',
+                  'Service',
+                  'UniswapXService',
+                  { label: 'Final Parameters Calculation Time' },
+                ],
+                [
+                  'Uniswap',
+                  'unimind-parameters-update-time',
+                  'Service',
+                  'UniswapXServiceCron',
+                  { label: 'Unimind Parameters Update Time' },
+                ],
               ],
               view: 'timeSeries',
               stacked: false,
@@ -617,12 +635,11 @@ export class DashboardStack extends cdk.NestedStack {
               region,
               title: 'Percentage of Orders with Negative π',
               view: 'table',
-              query:
-                `SOURCE '/aws/lambda/${getUnimindLambdaName}'
+              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}'
                 | filter eventType = "UnimindPiCalculated"
                 | stats sum(pi <= 0) as negCount, count(*) as totalCount by bin(1d)
                 | fields (negCount/totalCount)*100 as negativePiPercentage`,
-            }
+            },
           },
           {
             height: 6,
@@ -663,8 +680,7 @@ export class DashboardStack extends cdk.NestedStack {
             x: 0,
             type: 'log',
             properties: {
-              query:
-                `SOURCE '/aws/lambda/${getUnimindLambdaName}'
+              query: `SOURCE '/aws/lambda/${getUnimindLambdaName}'
                 | filter eventType = "UnimindPiCalculated"
                 | fields if(pi < -15, -15,
                             if(pi > 15, 15,
