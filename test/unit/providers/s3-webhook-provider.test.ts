@@ -8,8 +8,23 @@ describe('S3WebhookProvider test', () => {
   const bucket = 'test-bucket'
   const key = 'test-key'
 
+  let mockSend: jest.SpyInstance
+
+  beforeEach(() => {
+    if (mockSend) {
+      mockSend.mockRestore()
+    }
+  })
+
+  afterEach(() => {
+    if (mockSend) {
+      mockSend.mockRestore()
+    }
+  })
+
   function applyMock(endpoints: WebhookDefinition) {
-    jest.spyOn(S3Client.prototype, 'send').mockImplementationOnce(() =>
+    // Use mockImplementation instead of mockImplementationOnce for better control
+    mockSend = jest.spyOn(S3Client.prototype, 'send').mockImplementation(() =>
       Promise.resolve({
         Body: {
           transformToString: () => Promise.resolve(JSON.stringify(endpoints)),
