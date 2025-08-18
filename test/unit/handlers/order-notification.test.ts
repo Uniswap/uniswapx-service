@@ -1,5 +1,10 @@
 import axios from 'axios'
-import { OrderNotificationHandler } from '../../../lib/handlers/order-notification/handler'
+import {
+  OrderNotificationHandler,
+  sendImmediateExclusiveFillerNotification,
+  sendWebhookNotifications,
+} from '../../../lib/handlers/order-notification/handler'
+import { ExclusiveFillerWebhookOrder, WebhookOrderData } from '../../../lib/handlers/order-notification/types'
 
 jest.mock('axios')
 jest.mock('@uniswap/uniswapx-sdk')
@@ -124,10 +129,7 @@ describe('Testing new order Notification handler.', () => {
     })
     expect(logErrorMock).toBeCalledWith(
       {
-        failedWebhooks: [
-          "webhook.com/1",
-          "webhook.com/2",
-        ],
+        failedWebhooks: ['webhook.com/1', 'webhook.com/2'],
       },
       'Error: Failed to notify registered webhooks.'
     )
@@ -145,10 +147,7 @@ describe('Testing new order Notification handler.', () => {
     })
     expect(logErrorMock).toBeCalledWith(
       {
-        failedWebhooks: [
-          "webhook.com/1",
-          "webhook.com/2",
-        ],
+        failedWebhooks: ['webhook.com/1', 'webhook.com/2'],
       },
       'Error: Failed to notify registered webhooks.'
     )
@@ -163,5 +162,137 @@ describe('Testing new order Notification handler.', () => {
 
   it('Testing no records validation error.', async () => {
     await expect(async () => await orderNotificationHandler(MOCK_ORDER, {})).rejects.toThrow(Error)
+  })
+})
+
+describe('sendWebhookNotifications', () => {
+  const mockedAxios = axios as jest.Mocked<typeof axios>
+  const mockLogger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }
+
+  const mockEndpoints = [
+    { url: 'https://webhook1.com' },
+    { url: 'https://webhook2.com', headers: { Authorization: 'Bearer token' } },
+  ]
+
+  const mockOrder: WebhookOrderData = {
+    orderHash: '0x123',
+    createdAt: 1670976836865,
+    signature: '0xsig',
+    offerer: '0xswapper',
+    orderStatus: 'open',
+    encodedOrder: '0xencodedorder',
+    chainId: 1,
+    orderType: 'Dutch_V2',
+    filler: '0xfiller',
+  }
+
+  afterEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('should send webhooks to all endpoints', async () => {
+    mockedAxios.post.mockResolvedValue({ status: 200 })
+
+    await sendWebhookNotifications(mockEndpoints, mockOrder, mockLogger)
+
+    expect(mockedAxios.post).toHaveBeenCalledTimes(2)
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      'https://webhook1.com',
+      expect.objectContaining({
+        orderHash: '0x123',
+        offerer: '0xswapper',
+        filler: '0xfiller',
+        type: 'Dutch_V2',
+      }),
+      expect.objectContaining({ timeout: 200 })
+    )
+    expect(mockLogger.info).toHaveBeenCalledTimes(2)
+  })
+
+  it('should handle webhook failures gracefully', async () => {
+    mockedAxios.post.mockRejectedValue(new Error('Network error'))
+
+    await sendWebhookNotifications(mockEndpoints, mockOrder, mockLogger)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      { failedWebhooks: ['https://webhook1.com', 'https://webhook2.com'] },
+      'Error: Failed to notify registered webhooks.'
+    )
+  })
+})
+
+describe('sendImmediateExclusiveFillerNotification', () => {
+  const mockedAxios = axios as jest.Mocked<typeof axios>
+  const mockWebhookProvider = {
+    getEndpoints: jest.fn(),
+    getExclusiveFillerEndpoints: jest.fn(),
+  }
+  const mockLogger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }
+
+  const mockOrderEntity: ExclusiveFillerWebhookOrder = {
+    orderHash: '0x123',
+    createdAt: 1670976836865,
+    signature: '0xsig',
+    offerer: '0xswapper',
+    orderStatus: 'open',
+    encodedOrder: '0xencodedorder',
+    chainId: 1,
+    filler: '0xfiller',
+  }
+
+  afterEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('should send immediate notification to exclusive filler', async () => {
+    const mockEndpoints = [{ url: 'https://filler-webhook.com' }]
+    mockWebhookProvider.getExclusiveFillerEndpoints.mockResolvedValue(mockEndpoints)
+    mockedAxios.post.mockResolvedValue({ status: 200 })
+
+    await sendImmediateExclusiveFillerNotification(mockOrderEntity, 'Dutch_V2', mockWebhookProvider, mockLogger)
+
+    expect(mockWebhookProvider.getExclusiveFillerEndpoints).toHaveBeenCalledWith('0xfiller')
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      'https://filler-webhook.com',
+      expect.objectContaining({
+        orderHash: '0x123',
+        filler: '0xfiller',
+        offerer: '0xswapper',
+      }),
+      expect.any(Object)
+    )
+    expect(mockLogger.info).toHaveBeenCalled()
+  })
+
+  it('should skip notification when no endpoints found', async () => {
+    mockWebhookProvider.getExclusiveFillerEndpoints.mockResolvedValue([])
+
+    await sendImmediateExclusiveFillerNotification(mockOrderEntity, 'Dutch_V2', mockWebhookProvider, mockLogger)
+
+    expect(mockWebhookProvider.getExclusiveFillerEndpoints).toHaveBeenCalled()
+    expect(mockedAxios.post).not.toHaveBeenCalled()
+  })
+
+  it('should handle webhook provider errors gracefully', async () => {
+    mockWebhookProvider.getExclusiveFillerEndpoints.mockRejectedValue(new Error('S3 error'))
+
+    await sendImmediateExclusiveFillerNotification(mockOrderEntity, 'Dutch_V2', mockWebhookProvider, mockLogger)
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderHash: '0x123',
+        filler: '0xfiller',
+        error: expect.any(Error),
+      }),
+      'Failed to send immediate webhook notification to exclusive filler'
+    )
   })
 })
