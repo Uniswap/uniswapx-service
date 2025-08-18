@@ -63,7 +63,6 @@
     "@swc/core": "^1.3.101",
     "@swc/jest": "^0.2.29",
     "@types/sinon": "^10.0.13",
-    "@uniswap/permit2-sdk": "^1.4.0",
     "@uniswap/signer": "^0.0.4",
     "@uniswap/uniswapx-sdk": "3.0.0-beta.9",
     "@uniswap/universal-router-sdk": "^4.18.1",

@@ -23,8 +23,6 @@ import { FillEventLogger } from './fill-event-logger'
 import { getSettledAmounts, IS_TERMINAL_STATE, timestampToBlockNumber } from './util'
 import { parseOrder } from '../OrderParser'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../constants'
-import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
-import { Permit2Validator } from '../../util/Permit2Validator'
 
 const FILL_CHECK_OVERLAP_BLOCK = 20
 
@@ -79,46 +77,18 @@ export class CheckOrderStatusService {
     )
 
     const parsedOrder = parseOrder(order, chainId)
-    // We only check for nonce used and expired for permissioned tokens
-    // since the order quoter can't move input tokens
-    const isPermissionedToken = PermissionedTokenValidator.isPermissionedToken(parsedOrder.info.input.token, chainId)
-    const validationPromise = isPermissionedToken
-      ? new Permit2Validator(provider, chainId).validate(parsedOrder)
-      : orderQuoter.validate({
+    const validation = await wrapWithTimerMetric(
+      orderQuoter.validate({
         order: parsedOrder,
         signature: order.signature,
-      })
+      }),
+      CheckOrderStatusHandlerMetricNames.GetValidationTime
+    )
 
-    let validation: OrderValidation
-    try {
-      validation = await wrapWithTimerMetric(
-        validationPromise,
-        CheckOrderStatusHandlerMetricNames.GetValidationTime
-      )
-    } catch (error) {
-      log.error('error during order validation', { 
-        error, 
-        orderHash, 
-        chainId,
-        isPermissionedToken,
-      })
-      throw error
-    }
-
-    let curBlockNumber: number
-    try {
-      curBlockNumber = await wrapWithTimerMetric(
-        provider.getBlockNumber(),
-        CheckOrderStatusHandlerMetricNames.GetBlockNumberTime
-      )
-    } catch (error) {
-      log.error('error getting current block number', { 
-        error, 
-        orderHash, 
-        chainId 
-      })
-      throw error
-    }
+    const curBlockNumber = await wrapWithTimerMetric(
+      provider.getBlockNumber(),
+      CheckOrderStatusHandlerMetricNames.GetBlockNumberTime
+    )
 
     const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
 
