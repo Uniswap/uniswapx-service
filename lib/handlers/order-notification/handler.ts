@@ -1,15 +1,15 @@
+import { CosignedV2DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
+import { Unit } from 'aws-embedded-metrics'
 import axios, { AxiosResponse } from 'axios'
 import Joi from 'joi'
+import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { eventRecordToOrder } from '../../util/order'
-import { WebhookOrderData, ExclusiveFillerWebhookOrder, WebhookLogger, WebhookProviderInterface } from './types'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
+import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
-import { CosignedV2DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
-import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
-import { Unit } from 'aws-embedded-metrics'
-import { ChainId } from '../../util/chain'
+import { ExclusiveFillerWebhookOrder, WebhookLogger, WebhookOrderData, WebhookProviderInterface } from './types'
 
 const WEBHOOK_TIMEOUT_MS = 200
 
@@ -45,7 +45,7 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         // Convert to standard webhook format (map swapper -> offerer)
         const webhookOrderData: WebhookOrderData = {
           ...newOrder,
-          offerer: newOrder.swapper
+          offerer: newOrder.swapper,
         }
         await sendWebhookNotifications(registeredEndpoints, webhookOrderData, log)
       } catch (e: unknown) {
@@ -183,7 +183,7 @@ export async function sendWebhookNotifications(
 /**
  * Send immediate webhook notification to exclusive filler only
  * Called synchronously from post-order handler to minimize latency for exclusive fillers
- * 
+ *
  * @param orderEntity - Order entity with validated exclusive filler (caller must ensure filler is non-zero address)
  * @param orderType - Type of the order
  * @param webhookProvider - Provider for webhook endpoints
@@ -195,27 +195,21 @@ export async function sendImmediateExclusiveFillerNotification(
   webhookProvider: WebhookProviderInterface,
   logger: WebhookLogger
 ): Promise<void> {
-
   try {
     const startTime = Date.now()
-    
+
     // Get endpoints specifically for the exclusive filler
-    const exclusiveFillerEndpoints = await webhookProvider.getEndpoints({
-      offerer: orderEntity.offerer,
-      orderStatus: orderEntity.orderStatus,
-      filler: orderEntity.filler,
-      orderType,
-    })
+    const exclusiveFillerEndpoints = await webhookProvider.getExclusiveFillerEndpoints(orderEntity.filler)
 
     if (exclusiveFillerEndpoints.length === 0) {
       return
     }
 
     logger.info(
-      { 
-        orderHash: orderEntity.orderHash, 
-        filler: orderEntity.filler, 
-        endpointCount: exclusiveFillerEndpoints.length 
+      {
+        orderHash: orderEntity.orderHash,
+        filler: orderEntity.filler,
+        endpointCount: exclusiveFillerEndpoints.length,
       },
       'Sending immediate webhook notification to exclusive filler'
     )
@@ -232,13 +226,12 @@ export async function sendImmediateExclusiveFillerNotification(
     const duration = Date.now() - startTime
     metrics.putMetric(`ImmediateNotificationDuration-chain-${orderEntity.chainId}`, duration, Unit.Milliseconds)
     metrics.putMetric(`ImmediateNotificationAttempt-chain-${orderEntity.chainId}`, 1, Unit.Count)
-
   } catch (error) {
     logger.error(
-      { 
-        orderHash: orderEntity.orderHash, 
-        filler: orderEntity.filler, 
-        error 
+      {
+        orderHash: orderEntity.orderHash,
+        filler: orderEntity.filler,
+        error,
       },
       'Failed to send immediate webhook notification to exclusive filler'
     )

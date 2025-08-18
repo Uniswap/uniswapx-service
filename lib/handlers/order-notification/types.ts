@@ -42,4 +42,5 @@ export interface WebhookProviderInterface {
     filler?: string
     orderType?: string
   }) => Promise<Array<{ url: string; headers?: { [key: string]: string } }>>
+  getExclusiveFillerEndpoints: (filler: string) => Promise<Array<{ url: string; headers?: { [key: string]: string } }>>
 }

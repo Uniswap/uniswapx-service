@@ -2,7 +2,7 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { checkDefined } from '../preconditions/preconditions'
 import { OrderFilter, WebhookProvider } from './base'
 import { findEndpointsMatchingFilter } from './json-webhook-provider'
-import { Webhook, WebhookDefinition } from './types'
+import { FILTER_FIELD, Webhook, WebhookDefinition } from './types'
 
 export class S3WebhookConfigurationProvider implements WebhookProvider {
   private static UPDATE_ENDPOINTS_PERIOD_MS = 5 * 60000
@@ -19,6 +19,11 @@ export class S3WebhookConfigurationProvider implements WebhookProvider {
   public async getEndpoints(filter: OrderFilter): Promise<Webhook[]> {
     const definition = await this.getDefinition()
     return findEndpointsMatchingFilter(filter, definition)
+  }
+
+  public async getExclusiveFillerEndpoints(filler: string): Promise<Webhook[]> {
+    const definition = await this.getDefinition()
+    return definition.filter[FILTER_FIELD.FILLER][filler]
   }
 
   async getDefinition(): Promise<WebhookDefinition> {
