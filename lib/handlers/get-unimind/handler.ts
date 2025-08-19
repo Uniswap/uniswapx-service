@@ -8,7 +8,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
 import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
-import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
+import { IUnimindAlgorithm, unimindAddressFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 import { validateParameters } from '../../crons/unimind-algorithm'
 
