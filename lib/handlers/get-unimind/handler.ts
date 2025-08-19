@@ -48,7 +48,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         }
       }
 
-      if (!swapper || !unimindAddressFilter(swapper) || !supportedUnimindTokens(quoteMetadata.pair)) {
+      if (!swapper || !unimindAddressFilter(swapper)) {
         return {
             statusCode: 200,
             body: PUBLIC_UNIMIND_PARAMETERS
