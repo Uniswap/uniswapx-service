@@ -139,7 +139,7 @@ export class LambdaStack extends cdk.NestedStack {
       entry: path.join(__dirname, '../../lib/handlers/get-orders/index.ts'),
       handler: 'getOrdersHandler',
       timeout: Duration.seconds(29),
-      memorySize: 512,
+      memorySize: 1024,
       bundling: {
         minify: true,
         sourceMap: true,
