@@ -52,30 +52,40 @@ export const Tokens = {
 
 export const MOCK_LATEST_BLOCK = 100
 const providerGetLatestBlockMock = jest.fn().mockResolvedValue(MOCK_LATEST_BLOCK)
+const providerGetBlockMock = jest.fn().mockImplementation(() => {
+  return Promise.resolve({
+    number: MOCK_LATEST_BLOCK,
+    timestamp: Math.floor(Date.now() / 1000), // Current timestamp at execution time
+  })
+})
 
 export const MOCK_PROVIDER_MAP = new Map([
   [
     ChainId.MAINNET,
     {
       getBlockNumber: providerGetLatestBlockMock,
+      getBlock: providerGetBlockMock,
     },
   ],
   [
     ChainId.UNICHAIN,
     {
       getBlockNumber: providerGetLatestBlockMock,
+      getBlock: providerGetBlockMock,
     },
   ],
   [
     ChainId.BASE,
     {
       getBlockNumber: providerGetLatestBlockMock,
+      getBlock: providerGetBlockMock,
     },
   ],
   [
     ChainId.POLYGON,
     {
       getBlockNumber: providerGetLatestBlockMock,
+      getBlock: providerGetBlockMock,
     },
   ],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

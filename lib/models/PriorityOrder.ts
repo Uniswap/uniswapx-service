@@ -4,6 +4,7 @@ import { CosignedPriorityOrder as SDKPriorityOrder, OrderType } from '@uniswap/u
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS, PriorityOrderEntity, UniswapXOrderEntity } from '../entities'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
+import { AVERAGE_BLOCK_TIME } from '../handlers/check-order-status/util'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
@@ -109,9 +110,22 @@ export class PriorityOrder extends Order {
   }
 
   public async reparameterizeAndCosign(provider: StaticJsonRpcProvider, cosigner: KmsSigner): Promise<this> {
-    const currentBlock = await provider.getBlockNumber()
+    const block = await provider.getBlock("latest")
+    const currentTime = Math.floor(Date.now() / 1000) // Current time in seconds
+    
+    // Calculate if we need to add an extra block based on timestamp difference
+    // This keeps the time window more consistent for fillers
+    const blockTimeSeconds = AVERAGE_BLOCK_TIME(this.chainId as ChainId)
+    const timeDifference = Math.abs(currentTime - block.timestamp)
+    const halfBlockTime = blockTimeSeconds * 0.75
+    
+    // If the difference is more than 75% of the block time, add an extra block
+    const extraBlock = timeDifference > halfBlockTime ? 1 : 0
+    
     this.inner.info.cosignerData = {
-      auctionTargetBlock: BigNumber.from(currentBlock).add(PRIORITY_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId]),
+      auctionTargetBlock: BigNumber.from(block.number)
+      .add(PRIORITY_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId])
+      .add(extraBlock),
     }
 
     this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash(this.inner.info.cosignerData))
