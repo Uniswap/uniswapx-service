@@ -117,10 +117,9 @@ export class PriorityOrder extends Order {
     // This keeps the time window more consistent for fillers
     const blockTimeSeconds = AVERAGE_BLOCK_TIME(this.chainId as ChainId)
     const timeDifference = Math.abs(currentTime - block.timestamp)
-    const halfBlockTime = blockTimeSeconds * 0.75
     
     // If the difference is more than 75% of the block time, add an extra block
-    const extraBlock = timeDifference > halfBlockTime ? 1 : 0
+    const extraBlock = timeDifference > blockTimeSeconds * 0.75 ? 1 : 0
     
     this.inner.info.cosignerData = {
       auctionTargetBlock: BigNumber.from(block.number)
