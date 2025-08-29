@@ -16,8 +16,8 @@ export const HIGH_MAX_OPEN_ORDERS = 200
 
 export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.MAINNET]: 3,
-  [ChainId.UNICHAIN]: 5,
-  [ChainId.BASE]: 3,
+  [ChainId.UNICHAIN]: 4,
+  [ChainId.BASE]: 2,
   [ChainId.OPTIMISM]: 3,
   [ChainId.ARBITRUM_ONE]: 3,
   [ChainId.POLYGON]: 3,

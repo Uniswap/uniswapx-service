@@ -46,6 +46,7 @@ import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
 import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
 import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
+import { AVERAGE_BLOCK_TIME } from '../../../../lib/handlers/check-order-status/util'
 
 jest.mock('@aws-sdk/client-kms');
 jest.mock('@uniswap/signer', () => {
@@ -333,7 +334,7 @@ describe('Testing post order handler.', () => {
       // cosignature and cosignerData gets overwritten within the handler
       order.inner.info.cosignature = COSIGNATURE
       order.inner.info.cosignerData = {
-        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]),
+        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]), // No extra block since timestamp difference should be 0
       }
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
@@ -346,7 +347,7 @@ describe('Testing post order handler.', () => {
           cosignature: COSIGNATURE,
           cosignerData: {
             // MOCK_LATEST_BLOCK + 3
-            auctionTargetBlock: 103,
+            auctionTargetBlock: MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId],
           },
         })
       )
@@ -367,6 +368,111 @@ describe('Testing post order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
+    })
+
+    it('should add extra block when timestamp difference is more than 75% of block time', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+
+      const order = new PriorityOrder(
+        SDKPriorityOrderFactory.buildPriorityOrder(),
+        SIGNATURE,
+        ChainId.MAINNET,
+        undefined,
+        undefined,
+        undefined,
+        REQUEST_ID
+      )
+
+      // Mock provider with old timestamp to trigger extra block logic
+      const currentTime = Math.floor(Date.now() / 1000)
+      const blockTimeSeconds = AVERAGE_BLOCK_TIME(ChainId.MAINNET)
+      const oldTimestamp = currentTime - (blockTimeSeconds * 0.8) // 80% of block time ago (above 75% threshold)
+      
+      // Create a new provider map with the old timestamp
+      const mockProviderWithOldTimestamp = {
+        getBlockNumber: jest.fn().mockResolvedValue(MOCK_LATEST_BLOCK),
+        getBlock: jest.fn().mockResolvedValue({
+          number: MOCK_LATEST_BLOCK,
+          timestamp: oldTimestamp,
+        }),
+      }
+
+      const mockProviderMapWithOldTimestamp = new Map([
+        [ChainId.MAINNET, mockProviderWithOldTimestamp as any],
+        [ChainId.UNICHAIN, mockProviderWithOldTimestamp as any],
+        [ChainId.BASE, mockProviderWithOldTimestamp as any],
+        [ChainId.POLYGON, mockProviderWithOldTimestamp as any],
+      ])
+
+      // Create a new service instance with the modified provider map
+      const uniswapXOrderServiceWithOldTimestamp = new UniswapXOrderService(
+        {
+          validate: validatorMock,
+        } as any,
+        new OnChainValidatorMap<OrderValidator>(validatorMockMapping),
+        {
+          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+        } as any,
+        mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
+        quoteMetadataRepositoryMock,
+        mockLog,
+        getMaxOpenOrders,
+        {
+          logOrderPosted: jest.fn(),
+          logCancelled: jest.fn(),
+          logInsufficientFunds: jest.fn(),
+        },
+        mockProviderMapWithOldTimestamp
+      )
+
+      const orderDispatcherWithOldTimestamp = new OrderDispatcher(
+        uniswapXOrderServiceWithOldTimestamp,
+        new RelayOrderService(
+          {
+            validate: validatorMock,
+          } as any,
+          new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
+          mock<EventWatcherMap<RelayEventWatcher>>(),
+          {
+            putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+            countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+          } as any,
+          mockLog,
+          getMaxOpenOrders,
+          mock<FillEventLogger>()
+        ),
+        mockLog
+      )
+
+      const postOrderHandlerWithOldTimestamp = new PostOrderHandler(
+        'post-order',
+        injectorPromiseMock,
+        orderDispatcherWithOldTimestamp,
+        new PostOrderBodyParser(mockLog)
+      )
+
+      const postOrderResponse = await postOrderHandlerWithOldTimestamp.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.inner.serialize(),
+          signature: SIGNATURE,
+          orderType: OrderType.Priority,
+        }),
+        EVENT_CONTEXT
+      )
+
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
+
+      const expectedBuffer = PRIORITY_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET]
+      const expectedTargetBlock = MOCK_LATEST_BLOCK + expectedBuffer + 1 // +1 for extra block
+
+      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(
+        expect.objectContaining({
+          cosignerData: {
+            auctionTargetBlock: expectedTargetBlock,
+          },
+        })
+      )
     })
 
     it('Testing valid request and response for Dutch_V3', async () => {
