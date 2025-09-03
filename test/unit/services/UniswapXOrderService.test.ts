@@ -83,8 +83,7 @@ describe('UniswapXOrderService', () => {
         quoteId: '',
         stateMachineArn: undefined,
       },
-      undefined,
-      0
+      undefined
     )
   })
 
@@ -135,8 +134,7 @@ describe('UniswapXOrderService', () => {
         quoteId: '',
         stateMachineArn: undefined,
       },
-      undefined,
-      0
+      undefined
     )
   })
 
