@@ -134,6 +134,7 @@ describe('updateParameters Test', () => {
       }),
       version: UNIMIND_ALGORITHM_VERSION,
       count: 1,
+      batchNumber: 0
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOldPairOrder)
     await updateParameters(unimindParametersRepository, ordersTable, log)
@@ -155,6 +156,7 @@ describe('updateParameters Test', () => {
       }),
       count: UNIMIND_UPDATE_THRESHOLD - 1,
       version: UNIMIND_ALGORITHM_VERSION,
+      batchNumber: 0
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOrder)
     await updateParameters(unimindParametersRepository, ordersTable, log)
@@ -172,6 +174,7 @@ describe('updateParameters Test', () => {
       }),
       count: UNIMIND_UPDATE_THRESHOLD - 1,
       version: UNIMIND_ALGORITHM_VERSION - 1,
+      batchNumber: 0
     })
     await ordersTable.putOrderAndUpdateNonceTransaction(mockOrder)
     await updateParameters(unimindParametersRepository, ordersTable, log)
@@ -196,5 +199,109 @@ describe('updateParameters Test', () => {
     await updateParameters(unimindParametersRepository, ordersTable, log)
     const pairData = await unimindParametersRepository.getByPair(failPair)
     expect(pairData).toBeUndefined()
+  })
+
+  describe('Batch number tracking', () => {
+    const testPair = '0xTEST-0xBATCH-42161'
+    const testOrder: DutchV3OrderEntity = {
+      ...mockOrder,
+      orderHash: '0xBATCH123',
+      pair: testPair,
+      usedUnimind: true,
+    }
+
+    afterEach(async () => {
+      await ordersTable.deleteOrders([testOrder.orderHash])
+    })
+
+    it('should initialize new pairs with batchNumber 0', async () => {
+      await ordersTable.putOrderAndUpdateNonceTransaction(testOrder)
+      await updateParameters(unimindParametersRepository, ordersTable, log)
+      
+      const pairData = await unimindParametersRepository.getByPair(testPair)
+      expect(pairData).toBeDefined()
+      expect(pairData?.batchNumber).toBe(0)
+      expect(pairData?.lastUpdatedAt).toBeDefined()
+    })
+
+    it('should increment batchNumber on threshold update', async () => {
+      await unimindParametersRepository.put({
+        pair: testPair,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        count: UNIMIND_UPDATE_THRESHOLD - 1,
+        version: UNIMIND_ALGORITHM_VERSION,
+        batchNumber: 5,
+        lastUpdatedAt: Math.floor(Date.now() / 1000)
+      })
+      
+      await ordersTable.putOrderAndUpdateNonceTransaction(testOrder)
+      await updateParameters(unimindParametersRepository, ordersTable, log)
+      
+      const pairData = await unimindParametersRepository.getByPair(testPair)
+      expect(pairData?.batchNumber).toBe(6)
+      expect(pairData?.count).toBe(0) // Reset count after threshold
+      expect(pairData?.lastUpdatedAt).toBeDefined()
+    })
+
+    it('should preserve batchNumber on count-only updates', async () => {
+      const previousTimestamp = Math.floor(Date.now() / 1000) - 100
+      await unimindParametersRepository.put({
+        pair: testPair,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        count: 10,
+        version: UNIMIND_ALGORITHM_VERSION,
+        batchNumber: 3,
+        lastUpdatedAt: previousTimestamp
+      })
+      
+      await ordersTable.putOrderAndUpdateNonceTransaction(testOrder)
+      await updateParameters(unimindParametersRepository, ordersTable, log)
+      
+      const pairData = await unimindParametersRepository.getByPair(testPair)
+      expect(pairData?.batchNumber).toBe(3) // Should preserve existing batch number
+      expect(pairData?.count).toBe(11) // Should increment count
+      expect(pairData?.lastUpdatedAt).toBe(previousTimestamp) // Should preserve timestamp
+    })
+
+    it('should handle missing batchNumber gracefully', async () => {
+      await unimindParametersRepository.put({
+        pair: testPair,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        count: UNIMIND_UPDATE_THRESHOLD - 1,
+        version: UNIMIND_ALGORITHM_VERSION,
+        // batchNumber is undefined
+      } as any)
+      
+      await ordersTable.putOrderAndUpdateNonceTransaction(testOrder)
+      await updateParameters(unimindParametersRepository, ordersTable, log)
+      
+      const pairData = await unimindParametersRepository.getByPair(testPair)
+      expect(pairData?.batchNumber).toBe(1) // Should start at 1 when undefined
+      expect(pairData?.count).toBe(0)
+      expect(pairData?.lastUpdatedAt).toBeDefined()
+    })
+
+    it('should reset batchNumber to 0 on version mismatch', async () => {
+      await unimindParametersRepository.put({
+        pair: testPair,
+        intrinsicValues: JSON.stringify({
+          lambda1: 1,
+          lambda2: 2,
+          Sigma: 0.1
+        }),
+        count: 10,
+        version: UNIMIND_ALGORITHM_VERSION - 1, // Old version
+        batchNumber: 10,
+        lastUpdatedAt: Math.floor(Date.now() / 1000)
+      })
+      
+      await ordersTable.putOrderAndUpdateNonceTransaction(testOrder)
+      await updateParameters(unimindParametersRepository, ordersTable, log)
+      
+      const pairData = await unimindParametersRepository.getByPair(testPair)
+      expect(pairData?.batchNumber).toBe(0) // Reset to 0 on version mismatch
+      expect(pairData?.version).toBe(UNIMIND_ALGORITHM_VERSION)
+      expect(pairData?.lastUpdatedAt).toBeDefined()
+    })
   })
 }) 

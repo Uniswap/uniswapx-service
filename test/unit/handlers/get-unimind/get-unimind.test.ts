@@ -79,7 +79,8 @@ describe('Testing get unimind handler', () => {
         Sigma: Math.log(0.00005)
       }),
       version: UNIMIND_ALGORITHM_VERSION,
-      count: 0
+      count: 0,
+      batchNumber: 0
     })
 
     const response = await getUnimindHandler.handler(
@@ -165,7 +166,8 @@ describe('Testing get unimind handler', () => {
         Sigma: Math.log(0.00005)
       }),
       version: UNIMIND_ALGORITHM_VERSION - 1,
-      count: 0
+      count: 0,
+      batchNumber: 0
     })
 
     const response = await getUnimindHandler.handler(
@@ -184,7 +186,8 @@ describe('Testing get unimind handler', () => {
       pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       intrinsicValues: DEFAULT_UNIMIND_PARAMETERS, // Should return based on calculations with default parameters
       count: 0,
-      version: UNIMIND_ALGORITHM_VERSION
+      version: UNIMIND_ALGORITHM_VERSION,
+      batchNumber: 0
     }
     const expectedBody = calculateParameters(new PriceImpactStrategy(), expectedUnimindParameters, {
       quoteId: quoteMetadata.quoteId,
@@ -689,7 +692,8 @@ describe('Correctly modify URA calldata for Artemis support', () => {
           Sigma: Math.log(0.00005)
         }),
         version: UNIMIND_ALGORITHM_VERSION,
-        count: 0
+        count: 0,
+        batchNumber: 0
       }
       const quoteMetadata = {
         quoteId: 'test-quote-id',
@@ -725,7 +729,8 @@ describe('Correctly modify URA calldata for Artemis support', () => {
           Sigma: Math.log(0.00005)
         }),
         version: UNIMIND_ALGORITHM_VERSION,
-        count: 0
+        count: 0,
+        batchNumber: 0
       }
       const quoteMetadata = {
         quoteId: 'test-quote-id',
@@ -761,7 +766,8 @@ describe('Correctly modify URA calldata for Artemis support', () => {
           Sigma: Math.log(0.00005)
         }),
         version: UNIMIND_ALGORITHM_VERSION,
-        count: 0
+        count: 0,
+        batchNumber: 0
       }
       const quoteMetadata = {
         quoteId: 'test-quote-id',

@@ -13,7 +13,8 @@ describe('UnimindParametersRepository', () => {
       tau: 4.2,
     }),
     version: UNIMIND_ALGORITHM_VERSION,
-    count: 42
+    count: 42,
+    batchNumber: 0
   }
 
   beforeEach(() => {
