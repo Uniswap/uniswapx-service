@@ -270,6 +270,7 @@ describe('RelayOrderService', () => {
       quoteId: '',
       retryCount: 1,
       retryWaitSeconds: 12,
+      runIndex: 0,
       startingBlockNumber: 100,
     })
   })
@@ -337,6 +338,7 @@ describe('RelayOrderService', () => {
       quoteId: '',
       retryCount: 1,
       retryWaitSeconds: 12,
+      runIndex: 0,
       settledAmounts: [
         {
           amountIn: '1000000',
@@ -413,6 +415,7 @@ describe('RelayOrderService', () => {
       quoteId: '',
       retryCount: 1,
       retryWaitSeconds: 12,
+      runIndex: 0,
       settledAmounts: [
         {
           amountIn: '1000000',

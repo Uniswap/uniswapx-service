@@ -249,8 +249,7 @@ export class UniswapXOrderService {
         orderType,
         stateMachineArn,
       },
-      stateMachineArn,
-      0
+      stateMachineArn
     )
   }
 
