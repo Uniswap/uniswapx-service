@@ -28,6 +28,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     const retryCount = input.requestInjected?.retryCount ?? 0
     if (retryCount > 300) {
       const stateMachineArn = input.requestInjected.stateMachineArn
+      const currentRunIndex = input.requestInjected.runIndex || 0
+      const nextRunIndex = currentRunIndex + 1
+      
       await kickoffOrderTrackingSfn(
         {
           orderHash: input.requestInjected.orderHash,
@@ -36,9 +39,9 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
           quoteId: input.requestInjected.quoteId,
           orderType: input.requestInjected.orderType,
           stateMachineArn: input.requestInjected.stateMachineArn,
+          runIndex: nextRunIndex,
         },
-        stateMachineArn,
-        retryCount
+        stateMachineArn
       )
       powertoolsMetric
         .singleMetric()
@@ -51,6 +54,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         ...response,
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
+        runIndex: input.requestInjected.runIndex,
       }
     } else if (input.requestInjected.orderType === OrderType.Relay) {
       const response = await this.relayOrderService.checkOrderStatus(
@@ -66,6 +70,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         ...response,
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
+        runIndex: input.requestInjected.runIndex,
       }
     } else {
       // Dutch, Dutch_V2, Dutch_V3, Priority
@@ -74,6 +79,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         ...response,
         orderType: input.requestInjected.orderType,
         stateMachineArn: input.requestInjected.stateMachineArn,
+        runIndex: input.requestInjected.runIndex,
       }
     }
   }

@@ -268,6 +268,7 @@ export class CheckOrderStatusUtils {
     fillBlock?: number
     settledAmounts?: SettledAmount[]
     getFillLogAttempts?: number
+    runIndex?: number
   }): Promise<SfnStateInputOutput> {
     const {
       orderHash,
@@ -282,6 +283,7 @@ export class CheckOrderStatusUtils {
       settledAmounts,
       getFillLogAttempts,
       validation,
+      runIndex,
     } = params
 
     // Avoid updating the order if the status is unchanged.
@@ -324,6 +326,7 @@ export class CheckOrderStatusUtils {
       retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount),
       startingBlockNumber: startingBlockNumber,
       chainId: chainId,
+      runIndex: runIndex || 0,
       ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
       ...(fillBlock && { fillBlock }),
