@@ -8,6 +8,7 @@ import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected, RequestInjected } from './injector'
 import { CheckOrderStatusInputJoi } from './schema'
 import { CheckOrderStatusService } from './service'
+import { log } from '../../Logging'
 
 export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected, RequestInjected> {
   constructor(
@@ -30,6 +31,13 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
       const stateMachineArn = input.requestInjected.stateMachineArn
       const currentRunIndex = input.requestInjected.runIndex || 0
       const nextRunIndex = currentRunIndex + 1
+      
+      log.info('Restarting step function due to retry limit', {
+        orderHash: input.requestInjected.orderHash,
+        retryCount,
+        currentRunIndex,
+        nextRunIndex
+      })
       
       await kickoffOrderTrackingSfn(
         {
