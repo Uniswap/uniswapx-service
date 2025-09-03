@@ -248,6 +248,7 @@ export class UniswapXOrderService {
         quoteId: quoteId ?? '',
         orderType,
         stateMachineArn,
+        runIndex: 0,
       },
       stateMachineArn
     )

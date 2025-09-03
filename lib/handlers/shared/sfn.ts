@@ -22,18 +22,13 @@ export async function kickoffOrderTrackingSfn(
   const region = checkDefined(process.env['REGION'], 'REGION is undefined')
   const sfnClient = new SFNClient({ region: region })
   
-  // Use runIndex if provided, otherwise start with 0 for first execution
-  const nameSuffix = sfnInput.runIndex !== undefined ? sfnInput.runIndex : 0
-  
-  // Ensure runIndex is always included in the input for consistency
-  const inputWithRunIndex = {
-    ...sfnInput,
-    runIndex: sfnInput.runIndex !== undefined ? sfnInput.runIndex : 0
-  }
-  
+  // Use runIndex if provided, otherwise fall back to random number
+  const BIG_NUMBER = 1000000000000
+  const rand = Math.floor(Math.random() * BIG_NUMBER)
+  const nameSuffix = sfnInput.runIndex !== undefined ? sfnInput.runIndex : rand
   const startExecutionCommand = new StartExecutionCommand({
     stateMachineArn: stateMachineArn,
-    input: JSON.stringify(inputWithRunIndex),
+    input: JSON.stringify(sfnInput),
     name: sfnInput.orderHash + '_' + nameSuffix,
   })
   log.info('Starting state machine execution', { startExecutionCommand })
