@@ -81,6 +81,7 @@ describe('UniswapXOrderService', () => {
         orderStatus: 'open',
         orderType: 'Limit',
         quoteId: '',
+        runIndex: 0,
         stateMachineArn: undefined,
       },
       undefined
@@ -132,6 +133,7 @@ describe('UniswapXOrderService', () => {
         orderStatus: 'open',
         orderType: 'Priority',
         quoteId: '',
+        runIndex: 0,
         stateMachineArn: undefined,
       },
       undefined

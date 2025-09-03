@@ -63,6 +63,7 @@ describe('RelayOrderService', () => {
         orderStatus: 'open',
         orderType: 'Relay',
         quoteId: '',
+        runIndex: 0,
         stateMachineArn: 'defined',
       },
       'defined'
