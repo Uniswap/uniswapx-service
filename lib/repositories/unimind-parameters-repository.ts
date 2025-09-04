@@ -9,6 +9,8 @@ export interface UnimindParameters {
   intrinsicValues: string
   count: number
   version: number
+  batchNumber: number        // Tracks parameter update iterations
+  lastUpdatedAt?: number     // Unix timestamp for update tracking
 }
 
 export interface UnimindParametersRepository {
@@ -38,6 +40,8 @@ export class DynamoUnimindParametersRepository implements UnimindParametersRepos
         intrinsicValues: { type: DYNAMODB_TYPES.STRING, required: true },
         count: { type: DYNAMODB_TYPES.NUMBER, required: true },
         version: { type: DYNAMODB_TYPES.NUMBER, required: true },
+        batchNumber: { type: DYNAMODB_TYPES.NUMBER, required: true, default: 0 },
+        lastUpdatedAt: { type: DYNAMODB_TYPES.NUMBER, required: false },
       },
       table,
     } as const)

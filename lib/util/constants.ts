@@ -33,7 +33,7 @@ export const UNIMIND_ALGORITHM_VERSION = 4;
 export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
   lambda1: 0,
   lambda2: 5,
-  Sigma: -9.968
+  Sigma: -9.21034
 })
 export const UNIMIND_UPDATE_THRESHOLD = 25
 export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'

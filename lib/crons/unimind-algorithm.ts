@@ -76,7 +76,9 @@ export async function updateParameters(
         pair: pairKey,
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
         count,
-        version: UNIMIND_ALGORITHM_VERSION
+        version: UNIMIND_ALGORITHM_VERSION,
+        batchNumber: 0,
+        lastUpdatedAt: Math.floor(Date.now() / 1000)
       })
     } else if(!validateParameters(pairData, log)) {
       log.info(`Unimind updateParameters: Parameters for pair ${pairKey} are invalid, updating with default parameters`) 
@@ -84,7 +86,9 @@ export async function updateParameters(
         pair: pairKey,
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
         count,
-        version: UNIMIND_ALGORITHM_VERSION
+        version: UNIMIND_ALGORITHM_VERSION,
+        batchNumber: 0,
+        lastUpdatedAt: Math.floor(Date.now() / 1000)
       })
     } 
     else { // We have seen this pair before, check if we need to update the parameters
@@ -107,20 +111,25 @@ export async function updateParameters(
         const strategy = new PriceImpactStrategy()
         const updatedParameters = strategy.unimindAlgorithm(statistics, pairData, log)
         log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
+        const nextBatchNumber = (pairData.batchNumber !== undefined ? pairData.batchNumber : 0) + 1
         await unimindParametersRepo.put({
           pair: pairKey,
           intrinsicValues: JSON.stringify(updatedParameters),
           count: 0,
-          version: UNIMIND_ALGORITHM_VERSION
+          version: UNIMIND_ALGORITHM_VERSION,
+          batchNumber: nextBatchNumber,
+          lastUpdatedAt: Math.floor(Date.now() / 1000)
         })
         const intrinsicValues = JSON.parse(pairData.intrinsicValues)
         log.info(
           `Unimind updateParameters: parameters for ${pairKey} updated from ` +
           `${Object.entries(intrinsicValues).map(([key, value]) => `${key}: ${value}`).join(', ')} ` +
           `to ${Object.entries(updatedParameters).map(([key, value]) => `${key}: ${value}`).join(', ')} ` +
-          `based on ${totalCount} recent orders`
+          `based on ${totalCount} recent orders. ` +
+          `Version: ${UNIMIND_ALGORITHM_VERSION}, Batch: ${nextBatchNumber}`
         )
-        metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)  
+        metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)
+        metrics?.putMetric(`unimind-batch-number-${pairKey}`, nextBatchNumber, Unit.None)  
       } else {
         log.info(`Unimind updateParameters: Total count for pair ${pairKey} (${totalCount}) is less than ${UNIMIND_UPDATE_THRESHOLD}, not updating parameters`)
         // Update the count
@@ -128,7 +137,9 @@ export async function updateParameters(
           pair: pairKey,
           intrinsicValues: pairData.intrinsicValues,
           count: totalCount,
-          version: UNIMIND_ALGORITHM_VERSION
+          version: UNIMIND_ALGORITHM_VERSION,
+          batchNumber: pairData.batchNumber || 0,
+          lastUpdatedAt: pairData.lastUpdatedAt
         })
       }
     }

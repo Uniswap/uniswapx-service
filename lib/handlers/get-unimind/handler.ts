@@ -74,7 +74,9 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
             intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
             pair: requestQueryParams.pair,
             count: 0,
-            version: UNIMIND_ALGORITHM_VERSION
+            version: UNIMIND_ALGORITHM_VERSION,
+            batchNumber: 0,
+            lastUpdatedAt: Math.floor(Date.now() / 1000)
         }
         await unimindParametersRepository.put(entry)
         unimindParameters = entry
