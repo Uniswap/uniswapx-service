@@ -243,7 +243,7 @@ describe('Testing post order handler.', () => {
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
         stateMachineArn: MOCK_ARN_1,
         input:
-          '{"orderHash":"0x4ab4f60562fadec8a074b65c834c0414f990ac51742d4fe96c2271d22aeba6b2","chainId":1,"orderStatus":"open","quoteId":"55e2cfca-5521-4a0a-b597-7bfb569032d7","orderType":"Dutch","stateMachineArn":"MOCK_ARN_1"}',
+          '{"orderHash":"0x4ab4f60562fadec8a074b65c834c0414f990ac51742d4fe96c2271d22aeba6b2","chainId":1,"orderStatus":"open","quoteId":"55e2cfca-5521-4a0a-b597-7bfb569032d7","orderType":"Dutch","stateMachineArn":"MOCK_ARN_1","runIndex":0}',
       })
 
       expect(postOrderResponse).toEqual({
@@ -754,6 +754,7 @@ describe('Testing post order handler.', () => {
         orderStatus: ORDER_STATUS.OPEN,
         orderType: OrderType.Dutch,
         stateMachineArn: MOCK_ARN_1,
+        runIndex: 0,
       }
       expect(async () => await kickoffOrderTrackingSfn(sfnInput, MOCK_ARN_1)).not.toThrow()
       expect(mockSfnClient.calls()).toHaveLength(1)

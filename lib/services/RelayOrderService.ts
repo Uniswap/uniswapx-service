@@ -134,6 +134,7 @@ export class RelayOrderService {
         quoteId: quoteId ?? '',
         orderType,
         stateMachineArn,
+        runIndex: 0,
       },
       stateMachineArn
     )
