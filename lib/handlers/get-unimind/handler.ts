@@ -8,7 +8,7 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
 import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
-import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter } from '../../util/unimind'
+import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter, unimindTradeFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 import { validateParameters } from '../../crons/unimind-algorithm'
 
@@ -48,12 +48,43 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         }
       }
 
-      if (!swapper || !unimindAddressFilter(swapper) || !supportedUnimindTokens(quoteMetadata.pair)) {
+      // Step 1: Eligibility checks (who CAN participate)
+      const isEligible = swapper && 
+                         unimindAddressFilter(swapper) && 
+                         supportedUnimindTokens(quoteMetadata.pair);
+
+      if (!isEligible) {
         return {
             statusCode: 200,
             body: PUBLIC_UNIMIND_PARAMETERS
         }
       }
+
+      // Step 2: Experiment assignment (who WILL participate)
+      if (!unimindTradeFilter(quoteMetadata.quoteId)) {
+        // Log for monitoring but return control parameters
+        log.info({ 
+          quoteId: quoteMetadata.quoteId,
+          swapper,
+          pair: quoteMetadata.pair,
+          experiment: 'unimind_trade_ab',
+          group: 'control'
+        }, 'Trade assigned to control group');
+        
+        return {
+            statusCode: 200,
+            body: PUBLIC_UNIMIND_PARAMETERS
+        }
+      }
+
+      // Log treatment group
+      log.info({ 
+        quoteId: quoteMetadata.quoteId,
+        swapper,
+        pair: quoteMetadata.pair,
+        experiment: 'unimind_trade_ab',
+        group: 'treatment'
+      }, 'Trade assigned to treatment group');
 
       // If we made it through these filters, then we are using Unimind to provide parameters
       quoteMetadata.usedUnimind = true

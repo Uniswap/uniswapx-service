@@ -6,7 +6,8 @@ import { QuoteMetadata } from "../repositories/quote-metadata-repository";
 import { UNIMIND_LIST } from "../config/unimind-list";
 import { keccak256 } from "ethers/lib/utils";
 
-export const UNIMIND_SAMPLE_PERCENT = 100;
+export const UNIMIND_ADDRESS_SAMPLE_PERCENT = 100;
+export const UNIMIND_TRADE_SAMPLE_PERCENT = 100;
 
 export function unimindAddressFilter(address: string) {
   // Always include the dev swapper address
@@ -22,7 +23,19 @@ export function unimindAddressFilter(address: string) {
   const value = parseInt(lastFourChars, 16);
   
   // Check if in sample range (1-100)
-  return (value % 100) + 1 <= UNIMIND_SAMPLE_PERCENT;
+  return (value % 100) + 1 <= UNIMIND_ADDRESS_SAMPLE_PERCENT;
+}
+
+export function unimindTradeFilter(quoteId: string): boolean {
+  // Hash the quoteId for deterministic, consistent sampling
+  const hash = keccak256(Buffer.from(quoteId.toLowerCase()));
+  
+  // Same technique as address filter - use last 4 hex chars
+  const lastFourChars = hash.slice(-4);
+  const value = parseInt(lastFourChars, 16);
+  
+  // Check if in sample range (1-100)
+  return (value % 100) + 1 <= UNIMIND_TRADE_SAMPLE_PERCENT;
 }
 
 export function supportedUnimindTokens(pair: string) {
