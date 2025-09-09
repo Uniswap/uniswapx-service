@@ -15,6 +15,8 @@ import { validateParameters } from '../../crons/unimind-algorithm'
 type UnimindResponse = {
   pi: number
   tau: number
+  batchNumber: number
+  algorithmVersion: number
 }
 
 export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, RequestInjected, void, UnimindQueryParams, UnimindResponse> {
@@ -44,7 +46,11 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         }
         return {
           statusCode: 200,
-          body: USE_CLASSIC_PARAMETERS
+          body: {
+            ...USE_CLASSIC_PARAMETERS,
+            batchNumber: -1,  // -1 since logOnly doesn't use Unimind
+            algorithmVersion: -1
+          }
         }
       }
 
@@ -98,13 +104,15 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         eventType: 'UnimindPiCalculated',
         pi: parameters.pi,
         tau: parameters.tau,
+        batchNumber: parameters.batchNumber,
+        algorithmVersion: parameters.algorithmVersion,
         pair: requestQueryParams.pair,
         quoteId: quoteMetadata.quoteId,
         priceImpact: quoteMetadata.priceImpact
       })
 
       log.info(
-        `For the pair ${requestQueryParams.pair} with price impact of ${quoteMetadata.priceImpact}, pi is ${parameters.pi} and tau is ${parameters.tau}. The quoteId is ${quoteMetadata.quoteId}`
+        `For the pair ${requestQueryParams.pair} with price impact of ${quoteMetadata.priceImpact}, pi is ${parameters.pi} and tau is ${parameters.tau} (batch: ${parameters.batchNumber}, version: ${parameters.algorithmVersion}). The quoteId is ${quoteMetadata.quoteId}`
       )
       return {
         statusCode: 200,
@@ -130,7 +138,9 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
   protected responseBodySchema(): Joi.ObjectSchema {
     return Joi.object({
       pi: Joi.number().required(),
-      tau: Joi.number().required()
+      tau: Joi.number().required(),
+      batchNumber: Joi.number().required(),
+      algorithmVersion: Joi.number().required()
     })
   }
 
@@ -178,7 +188,11 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
       }, `Unimind guardrail triggered: Lambda2 < 0 (${intrinsicValues.lambda2}), returning classic parameters`)
     }
     metrics.putMetric('UnimindGuardrailLambda2Negative', 1)
-    return USE_CLASSIC_PARAMETERS
+    return {
+      ...USE_CLASSIC_PARAMETERS,
+      batchNumber: unimindParameters.batchNumber,
+      algorithmVersion: unimindParameters.version
+    }
   }
   
   // Guardrail 2: Disallow large price impact
@@ -194,7 +208,11 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
       }, `Unimind guardrail triggered: Price impact > ${UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD}% (${extrinsicValues.priceImpact}%), returning classic parameters`)
     }
     metrics.putMetric('UnimindGuardrailPriceImpactHigh', 1)
-    return USE_CLASSIC_PARAMETERS
+    return {
+      ...USE_CLASSIC_PARAMETERS,
+      batchNumber: unimindParameters.batchNumber,
+      algorithmVersion: unimindParameters.version
+    }
   }
   
   // Keeping intrinsic extrinsic naming for consistency with algorithm
@@ -203,6 +221,8 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
   const tau = Math.min(strategy.computeTau(intrinsicValues, extrinsicValues), UNIMIND_MAX_TAU_BPS)
   return {
     pi,
-    tau
+    tau,
+    batchNumber: unimindParameters.batchNumber,
+    algorithmVersion: unimindParameters.version
   }
 }
