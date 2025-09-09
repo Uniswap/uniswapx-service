@@ -7,7 +7,7 @@ import { UNIMIND_LIST } from "../config/unimind-list";
 import { keccak256 } from "ethers/lib/utils";
 
 export const UNIMIND_ADDRESS_SAMPLE_PERCENT = 100;
-export const UNIMIND_TRADE_SAMPLE_PERCENT = 100;
+export const UNIMIND_TRADE_SAMPLE_PERCENT = 66;
 
 export function unimindAddressFilter(address: string) {
   // Always include the dev swapper address
