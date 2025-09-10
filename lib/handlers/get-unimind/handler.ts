@@ -24,7 +24,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, UnimindQueryParams>
   ): Promise<Response<UnimindResponse> | ErrorResponse> {
     const { containerInjected, requestQueryParams, requestInjected } = params
-    const { quoteMetadataRepository, unimindParametersRepository } = containerInjected
+    const { quoteMetadataRepository, unimindParametersRepository, analyticsService } = containerInjected
     const { log } = requestInjected
     try {
       const { logOnly, swapper, ...quoteMetadataFields } = requestQueryParams
@@ -109,6 +109,20 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         pair: requestQueryParams.pair,
         quoteId: quoteMetadata.quoteId,
         priceImpact: quoteMetadata.priceImpact
+      })
+      
+      // Log analytics event through the analytics service
+      analyticsService.logUnimindResponse({
+        pi: parameters.pi,
+        tau: parameters.tau,
+        batchNumber: parameters.batchNumber,
+        algorithmVersion: parameters.algorithmVersion,
+        quoteId: quoteMetadata.quoteId,
+        pair: requestQueryParams.pair,
+        swapper: swapper,
+        priceImpact: quoteMetadata.priceImpact,
+        referencePrice: quoteMetadata.referencePrice,
+        route: quoteMetadata.route,
       })
 
       log.info(
