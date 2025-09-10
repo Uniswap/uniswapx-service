@@ -178,6 +178,8 @@ describe('Testing post order handler.', () => {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
+          logUnimindResponse: jest.fn(),
+          logUnimindParameterUpdate: jest.fn(),
         },
         MOCK_PROVIDER_MAP
       ),
@@ -422,6 +424,8 @@ describe('Testing post order handler.', () => {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
+          logUnimindResponse: jest.fn(),
+          logUnimindParameterUpdate: jest.fn(),
         },
         mockProviderMapWithOldTimestamp
       )
