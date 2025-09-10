@@ -40,7 +40,9 @@ export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e580
 // Direct pi and tau to use for curve; Not intrinsicValues
 export const PUBLIC_UNIMIND_PARAMETERS = {
   pi: 15,
-  tau: 15
+  tau: 15,
+  batchNumber: -1,  // -1 indicates Unimind was not used to calculate these params
+  algorithmVersion: -1  // -1 indicates not using Unimind algorithm
 }
 export const UNIMIND_MAX_TAU_BPS = 25
 export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 2 // 2% price impact threshold
@@ -49,6 +51,7 @@ export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 2 // 2% price impact thresho
 export const USE_CLASSIC_PARAMETERS = {
   pi: 0,
   tau: 0
+  // batchNumber and algorithmVersion are added dynamically
 }
 
 export const RPC_HEADERS = {
