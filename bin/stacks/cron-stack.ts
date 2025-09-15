@@ -22,7 +22,7 @@ export class CronStack extends cdk.NestedStack {
 
     this.unimindAlgorithmCronLambda = new aws_lambda_nodejs.NodejsFunction(this, 'unimindAlgorithmCronLambda', {
       role: lambdaRole,
-      runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+      runtime: cdk.aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/crons/unimind-algorithm.ts'),
       handler: 'handler',
       timeout: cdk.Duration.minutes(1),
