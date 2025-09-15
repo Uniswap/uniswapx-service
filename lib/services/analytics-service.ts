@@ -5,6 +5,7 @@ import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
 import { isDutchV3OrderEntity, isPriorityOrderEntity, ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
+import { UnimindUpdateType } from '../util/constants'
 
 export interface AnalyticsServiceInterface {
   logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType): void
@@ -34,7 +35,7 @@ export interface UnimindResponseParams {
 // Parameters for Unimind parameter update analytics
 export interface UnimindParameterUpdateParams {
   pair: string
-  updateType: 'new_pair' | 'algorithm_update' | 'threshold_reached'
+  updateType: UnimindUpdateType
   previousIntrinsicValues?: string
   newIntrinsicValues: string
   orderCount: number

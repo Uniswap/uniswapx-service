@@ -30,6 +30,12 @@ export const REAPER_RANGES_PER_RUN = 10
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
 export const UNIMIND_ALGORITHM_VERSION = 4;
+
+export enum UnimindUpdateType {
+  NEW_PAIR = 'new_pair',
+  ALGORITHM_UPDATE = 'algorithm_update',
+  THRESHOLD_REACHED = 'threshold_reached'
+}
 export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
   lambda1: 0,
   lambda2: 5,

@@ -4,7 +4,7 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
 import { DynamoUnimindParametersRepository, UnimindParameters } from '../repositories/unimind-parameters-repository'
 import { UnimindParametersRepository } from '../repositories/unimind-parameters-repository'
-import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_UPDATE_THRESHOLD } from '../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_UPDATE_THRESHOLD, UnimindUpdateType } from '../util/constants'
 import { UNIMIND_ALGORITHM_CRON_INTERVAL } from '../../bin/constants'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
 import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
@@ -79,7 +79,7 @@ export async function updateParameters(
       // Log analytics event
       analyticsService?.logUnimindParameterUpdate({
         pair: pairKey,
-        updateType: 'new_pair',
+        updateType: UnimindUpdateType.NEW_PAIR,
         newIntrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
         orderCount: count,
         batchNumber: 0,
@@ -100,7 +100,7 @@ export async function updateParameters(
       // Log analytics event
       analyticsService?.logUnimindParameterUpdate({
         pair: pairKey,
-        updateType: 'algorithm_update',
+        updateType: UnimindUpdateType.ALGORITHM_UPDATE,
         previousIntrinsicValues: pairData.intrinsicValues,
         newIntrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
         orderCount: count,
@@ -142,7 +142,7 @@ export async function updateParameters(
         // Log analytics event
         analyticsService?.logUnimindParameterUpdate({
           pair: pairKey,
-          updateType: 'threshold_reached',
+          updateType: UnimindUpdateType.THRESHOLD_REACHED,
           previousIntrinsicValues: pairData.intrinsicValues,
           newIntrinsicValues: JSON.stringify(updatedParameters),
           orderCount: count,
