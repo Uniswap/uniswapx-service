@@ -5,11 +5,44 @@ import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
 import { isDutchV3OrderEntity, isPriorityOrderEntity, ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../entities'
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
+import { UnimindUpdateType } from '../util/constants'
 
 export interface AnalyticsServiceInterface {
   logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType): void
   logCancelled(orderHash: string, orderType: OrderType, quoteId?: string): void
   logInsufficientFunds(orderHash: string, orderType: OrderType, quoteId?: string): void
+  logUnimindResponse(params: UnimindResponseParams): void
+  logUnimindParameterUpdate(params: UnimindParameterUpdateParams): void
+}
+
+// Parameters for Unimind response analytics
+export interface UnimindResponseParams {
+  pi: number
+  tau: number
+  batchNumber: number
+  algorithmVersion: number
+  quoteId: string
+  pair: string
+  swapper: string
+  priceImpact: number
+  referencePrice: string
+  route?: any
+  amountIn?: string
+  amountOut?: string
+  chainId?: number
+}
+
+// Parameters for Unimind parameter update analytics
+export interface UnimindParameterUpdateParams {
+  pair: string
+  updateType: UnimindUpdateType
+  previousIntrinsicValues?: string
+  newIntrinsicValues: string
+  orderCount: number
+  totalCount?: number
+  batchNumber: number
+  algorithmVersion: number
+  updateThreshold?: number
 }
 // used to log data used for analytics
 export class AnalyticsService implements AnalyticsServiceInterface {
@@ -148,6 +181,32 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         fillTimeBlocks: fillTimeBlocks,
         logTime: Math.floor(Date.now() / 1000).toString(),
       },
+    })
+  }
+
+  public logUnimindResponse(params: UnimindResponseParams): void {
+    this.logger.info('Analytics Message', {
+      eventType: 'UnimindResponse',
+      body: {
+        createdAt: this.createdAtTimestampInSeconds(),
+        createdAtMs: Date.now().toString(),
+        ...params,
+        // Ensure route is stringified if it exists
+        route: params.route ? JSON.stringify(params.route) : undefined,
+        // Format the swapper address consistently with other analytics
+        swapper: this.getFillerAddress(params.swapper),
+      }
+    })
+  }
+
+  public logUnimindParameterUpdate(params: UnimindParameterUpdateParams): void {
+    this.logger.info('Analytics Message', {
+      eventType: 'UnimindParameterUpdate',
+      body: {
+        createdAt: this.createdAtTimestampInSeconds(),
+        createdAtMs: Date.now().toString(),
+        ...params,
+      }
     })
   }
 }

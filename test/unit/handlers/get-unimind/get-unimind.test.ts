@@ -47,7 +47,10 @@ describe('Testing get unimind handler', () => {
   const injectorPromiseMock: any = {
     getContainerInjected: () => ({
       quoteMetadataRepository: mockQuoteMetadataRepo,
-      unimindParametersRepository: mockUnimindParametersRepo
+      unimindParametersRepository: mockUnimindParametersRepo,
+      analyticsService: {
+        logUnimindResponse: jest.fn(),
+      }
     }),
     getRequestInjected: () => requestInjected,
   }
