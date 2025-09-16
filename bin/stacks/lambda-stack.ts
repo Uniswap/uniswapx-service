@@ -401,6 +401,15 @@ export class LambdaStack extends cdk.NestedStack {
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
 
+    // Subscription filters for UnimindResponse analytics events
+    if (props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN']) {
+      new cdk.aws_logs.CfnSubscriptionFilter(this, 'UnimindResponseSub', {
+        destinationArn: props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN'],
+        filterPattern: '{ $.eventType = "UnimindResponse" }',
+        logGroupName: this.getUnimindLambda.logGroup.logGroupName,
+      })
+    }
+
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
         serviceNamespace: asg.ServiceNamespace.LAMBDA,
