@@ -43,6 +43,8 @@ export interface UnimindParameterUpdateParams {
   batchNumber: number
   algorithmVersion: number
   updateThreshold?: number
+  // Statistics from batch - only provided for THRESHOLD_REACHED updates (JSON stringified)
+  statistics?: string
 }
 // used to log data used for analytics
 export class AnalyticsService implements AnalyticsServiceInterface {

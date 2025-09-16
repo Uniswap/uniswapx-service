@@ -139,7 +139,7 @@ export async function updateParameters(
         log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
         const nextBatchNumber = (pairData.batchNumber !== undefined ? pairData.batchNumber : 0) + 1
         
-        // Log analytics event
+        // Log analytics event with statistics for threshold-based updates
         analyticsService?.logUnimindParameterUpdate({
           pair: pairKey,
           updateType: UnimindUpdateType.THRESHOLD_REACHED,
@@ -150,6 +150,7 @@ export async function updateParameters(
           batchNumber: nextBatchNumber,
           algorithmVersion: UNIMIND_ALGORITHM_VERSION,
           updateThreshold: UNIMIND_UPDATE_THRESHOLD,
+          statistics: JSON.stringify(statistics),  // JSON stringify for consistent data pipeline handling
         })
         
         await unimindParametersRepo.put({
