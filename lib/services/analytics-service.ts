@@ -6,6 +6,7 @@ import { isDutchV3OrderEntity, isPriorityOrderEntity, ORDER_STATUS, RelayOrderEn
 import { log } from '../Logging'
 import { currentTimestampInSeconds } from '../util/time'
 import { UnimindUpdateType } from '../util/constants'
+import { ANALYTICS_EVENTS } from '../util/analytics-events'
 
 export interface AnalyticsServiceInterface {
   logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType): void
@@ -80,7 +81,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
     if (isPriorityOrderEntity(order)) {
       const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.amount > cur.amount ? prev : cur))
       this.logger.info('Analytics Message', {
-        eventType: 'OrderPosted',
+        eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
           auctionStartBlock: order.auctionStartBlock,
           auctionTargetBlock: order.cosignerData.auctionTargetBlock,
@@ -96,7 +97,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
     } else if (isDutchV3OrderEntity(order)) {
       const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
       this.logger.info('Analytics Message', {
-        eventType: 'OrderPosted',
+        eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
           startBlock: order.cosignerData.decayStartBlock,
           inputStartAmount: order.input?.startAmount,
@@ -109,7 +110,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
     } else {
       const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
       this.logger.info('Analytics Message', {
-        eventType: 'OrderPosted',
+        eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
           startTime: order.decayStartTime,
           endTime: order.decayEndTime,
@@ -188,7 +189,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
 
   public logUnimindResponse(params: UnimindResponseParams): void {
     this.logger.info('Analytics Message', {
-      eventType: 'UnimindResponse',
+      eventType: ANALYTICS_EVENTS.UNIMIND_RESPONSE,
       body: {
         createdAt: this.createdAtTimestampInSeconds(),
         createdAtMs: Date.now().toString(),
@@ -203,7 +204,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
 
   public logUnimindParameterUpdate(params: UnimindParameterUpdateParams): void {
     this.logger.info('Analytics Message', {
-      eventType: 'UnimindParameterUpdate',
+      eventType: ANALYTICS_EVENTS.UNIMIND_PARAMETER_UPDATE,
       body: {
         createdAt: this.createdAtTimestampInSeconds(),
         createdAtMs: Date.now().toString(),
