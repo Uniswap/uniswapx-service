@@ -6,7 +6,7 @@ import * as aws_logs from 'aws-cdk-lib/aws-logs'
 import { Construct } from 'constructs'
 import path from 'path'
 
-import { SERVICE_NAME, UNIMIND_ALGORITHM_CRON_INTERVAL } from '../constants'
+import { SERVICE_NAME, UNIMIND_ALGORITHM_CRON_INTERVAL, FILTER_PATTERNS } from '../constants'
 
 export interface CronStackProps extends cdk.NestedStackProps {
   lambdaRole: aws_iam.Role
@@ -46,7 +46,7 @@ export class CronStack extends cdk.NestedStack {
     if (props.envVars && props.envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN']) {
       new aws_logs.CfnSubscriptionFilter(this, 'UnimindParameterUpdateSub', {
         destinationArn: props.envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'],
-        filterPattern: '{ $.eventType = "UnimindParameterUpdate" }',
+        filterPattern: FILTER_PATTERNS.UNIMIND_PARAMETER_UPDATE,
         logGroupName: this.unimindAlgorithmCronLambda.logGroup.logGroupName,
       })
     }

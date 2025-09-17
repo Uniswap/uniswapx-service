@@ -8,7 +8,7 @@ import path from 'path'
 import { checkDefined } from '../../lib/preconditions/preconditions'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
-import { SERVICE_NAME } from '../constants'
+import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
 import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.json'
 
 export class StepFunctionStack extends cdk.NestedStack {
@@ -67,7 +67,7 @@ export class StepFunctionStack extends cdk.NestedStack {
           'FILL_EVENT_DESTINATION_ARN is undefined'
         ),
         // filter patterns should match ORDER_STATUS.FILLED, ORDER_STATUS.CANCELLED
-        filterPattern: '{ $.orderInfo.orderStatus = "filled" || $.orderInfo.orderStatus = "cancelled" }',
+        filterPattern: FILTER_PATTERNS.TERMINAL_ORDER_STATE,
         logGroupName: checkStatusFunction.logGroup.logGroupName,
       })
 
@@ -76,7 +76,7 @@ export class StepFunctionStack extends cdk.NestedStack {
           props.envVars['ACTIVE_ORDER_EVENT_DESTINATION_ARN'],
           'ACTIVE_ORDER_EVENT_DESTINATION_ARN is undefined'
         ),
-        filterPattern: '{ $.orderInfo.orderStatus = "insufficient-funds" }',
+        filterPattern: FILTER_PATTERNS.INSUFFICIENT_FUNDS,
         logGroupName: checkStatusFunction.logGroup.logGroupName,
       })
     }
