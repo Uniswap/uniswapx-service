@@ -6,7 +6,7 @@ import { mock } from 'jest-mock-extended';
 import { UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
 import { PriceImpactStrategy } from '../../../lib/unimind/priceImpactStrategy';
 import { BatchedStrategy } from '../../../lib/unimind/batchedStrategy';
-import { unimindAddressFilter, UNIMIND_SAMPLE_PERCENT } from '../../../lib/util/unimind';
+import { unimindAddressFilter, UNIMIND_ADDRESS_SAMPLE_PERCENT, unimindTradeFilter, UNIMIND_TRADE_SAMPLE_PERCENT } from '../../../lib/util/unimind';
 import { calculateParameters } from '../../../lib/handlers/get-unimind/handler';
 import { QuoteMetadata } from '../../../lib/repositories/quote-metadata-repository';
 
@@ -246,7 +246,7 @@ describe('unimindAddressFilter', () => {
     expect(unimindAddressFilter(mixedCaseAddress)).toBe(true);
   });
 
-  it(`should sample approximately ${UNIMIND_SAMPLE_PERCENT}% of addresses`, () => {
+  it(`should sample approximately ${UNIMIND_ADDRESS_SAMPLE_PERCENT}% of addresses`, () => {
     const sampleSize = 10000;
     const addresses = Array.from({ length: sampleSize }, () => {
       // Generate a random Ethereum address (40 hex chars with 0x prefix)
@@ -264,7 +264,40 @@ describe('unimindAddressFilter', () => {
 
     // Check that the percentage is approximately UNIMIND_SAMPLE_PERCENT%
     const percentage = (passedCount / sampleSize) * 100;
-    expect(percentage).toBeGreaterThanOrEqual(UNIMIND_SAMPLE_PERCENT - 1);
-    expect(percentage).toBeLessThanOrEqual(UNIMIND_SAMPLE_PERCENT + 1);
+    expect(percentage).toBeGreaterThanOrEqual(UNIMIND_ADDRESS_SAMPLE_PERCENT - 1);
+    expect(percentage).toBeLessThanOrEqual(UNIMIND_ADDRESS_SAMPLE_PERCENT + 1);
+  });
+});
+
+describe('unimindTradeFilter', () => {
+  it('should consistently assign same quoteId to same group', () => {
+    const quoteId = 'quote-123-abc';
+    const result1 = unimindTradeFilter(quoteId);
+    const result2 = unimindTradeFilter(quoteId);
+    expect(result1).toBe(result2);
+  });
+
+  it('should handle mixed-case quoteIds consistently', () => {
+    const quoteId = 'QUOTE-123-ABC';
+    const result1 = unimindTradeFilter(quoteId);
+    const result2 = unimindTradeFilter(quoteId.toLowerCase());
+    const result3 = unimindTradeFilter('quote-123-abc');
+    expect(result1).toBe(result2);
+    expect(result2).toBe(result3);
+  });
+
+  it('should roughly match target percentage over many samples', () => {
+    const samples = 10000;
+    let passed = 0;
+    
+    for (let i = 0; i < samples; i++) {
+      const quoteId = `quote-${i}-${Math.random()}`;
+      if (unimindTradeFilter(quoteId)) passed++;
+    }
+    
+    const percentage = (passed / samples) * 100;
+    // Allow 5% tolerance for randomness
+    expect(percentage).toBeGreaterThan(UNIMIND_TRADE_SAMPLE_PERCENT - 5);
+    expect(percentage).toBeLessThan(UNIMIND_TRADE_SAMPLE_PERCENT + 5);
   });
 });
