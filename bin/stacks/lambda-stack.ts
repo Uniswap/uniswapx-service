@@ -407,6 +407,7 @@ export class LambdaStack extends cdk.NestedStack {
         destinationArn: props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN'],
         filterPattern: FILTER_PATTERNS.UNIMIND_RESPONSE,
         logGroupName: this.getUnimindLambda.logGroup.logGroupName,
+        roleArn: props.envVars['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'],
       })
     }
 
