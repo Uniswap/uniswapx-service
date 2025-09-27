@@ -346,7 +346,7 @@ describe('Testing get unimind handler', () => {
 
   it('fails when repository throws error', async () => {
     const quoteMetadata = {
-      quoteId: 'this-should-fail',
+      quoteId: 'test-quote-0', // This quoteId passes the unimindTradeFilter
       pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
       referencePrice: '666.56',
       priceImpact: 0.01,
