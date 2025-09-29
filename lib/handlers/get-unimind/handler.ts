@@ -55,9 +55,15 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       }
 
       if (!swapper || !unimindAddressFilter(swapper) || !supportedUnimindTokens(quoteMetadata.pair)) {
+        quoteMetadata.usedUnimind = false
+        try {
+          await quoteMetadataRepository.put(quoteMetadata)
+        } catch (error) {
+          log.error({ error, quoteId: quoteMetadata.quoteId }, 'Failed to store quote metadata for public parameters path')
+        } // Don't signal failure when assigning public params while still attempting to persist metadata
         return {
-            statusCode: 200,
-            body: PUBLIC_UNIMIND_PARAMETERS
+          statusCode: 200,
+          body: PUBLIC_UNIMIND_PARAMETERS
         }
       }
 
