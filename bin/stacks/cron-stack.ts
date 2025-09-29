@@ -48,7 +48,6 @@ export class CronStack extends cdk.NestedStack {
         destinationArn: props.envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'],
         filterPattern: FILTER_PATTERNS.UNIMIND_PARAMETER_UPDATE,
         logGroupName: this.unimindAlgorithmCronLambda.logGroup.logGroupName,
-        roleArn: props.envVars['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'],
       })
     }
   }
