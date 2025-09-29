@@ -8,11 +8,13 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { DynamoQuoteMetadataRepository, QuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 import { DynamoUnimindParametersRepository, UnimindParametersRepository } from '../../repositories/unimind-parameters-repository'
 import { UnimindQueryParams } from './schema'
+import { AnalyticsService } from '../../services/analytics-service'
 
 export type RequestInjected = ApiRInj
 export interface ContainerInjected {
   quoteMetadataRepository: QuoteMetadataRepository
   unimindParametersRepository: UnimindParametersRepository
+  analyticsService: AnalyticsService
 }
 
 export class GetUnimindInjector extends ApiInjector<ContainerInjected, RequestInjected, void, UnimindQueryParams> {
@@ -26,7 +28,8 @@ export class GetUnimindInjector extends ApiInjector<ContainerInjected, RequestIn
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
       quoteMetadataRepository: DynamoQuoteMetadataRepository.create(this.documentClient),
-      unimindParametersRepository: DynamoUnimindParametersRepository.create(this.documentClient)
+      unimindParametersRepository: DynamoUnimindParametersRepository.create(this.documentClient),
+      analyticsService: AnalyticsService.create()
     }
   }
 

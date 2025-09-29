@@ -13,7 +13,7 @@ import { Construct } from 'constructs'
 import * as path from 'path'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
-import { SERVICE_NAME } from '../constants'
+import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
 import { CronStack } from './cron-stack'
 import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { StepFunctionStack } from './step-function-stack'
@@ -135,7 +135,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetOrders${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/get-orders/index.ts'),
       handler: 'getOrdersHandler',
       timeout: Duration.seconds(29),
@@ -150,7 +150,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.orderNotificationLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrderNotification${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/order-notification/index.ts'),
       handler: 'orderNotificationHandler',
       retryAttempts: 0,
@@ -215,7 +215,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/post-order/index.ts'),
       handler: 'postOrderHandler',
       timeout: Duration.seconds(29),
@@ -230,7 +230,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.postLimitOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostLimitOrder${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/post-limit-order/index.ts'),
       handler: 'postLimitOrderHandler',
       timeout: Duration.seconds(29),
@@ -245,7 +245,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getLimitOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetLimitOrders${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/get-limit-orders/index.ts'),
       handler: 'getLimitOrdersHandler',
       timeout: Duration.seconds(5),
@@ -259,7 +259,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/get-nonce/index.ts'),
       handler: 'getNonceHandler',
       memorySize: 512,
@@ -280,7 +280,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/get-docs/index.ts'),
       handler: 'getDocsHandler',
       memorySize: 512,
@@ -299,7 +299,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getDocsUILambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocsUI${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/get-docs/index.ts'),
       handler: 'getDocsUIHandler',
       memorySize: 512,
@@ -318,7 +318,7 @@ export class LambdaStack extends cdk.NestedStack {
 
     this.getUnimindLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetUnimind${lambdaName}`, {
       role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_18_X,
+      runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/get-unimind/index.ts'),
       handler: 'getUnimindHandler',
       timeout: Duration.seconds(29),
@@ -334,13 +334,13 @@ export class LambdaStack extends cdk.NestedStack {
     if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
       new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
         destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
-        filterPattern: '{ $.eventType = "OrderPosted" }',
+        filterPattern: FILTER_PATTERNS.ORDER_POSTED,
         logGroupName: this.postOrderLambda.logGroup.logGroupName,
       })
 
       new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedLimitOrderSub', {
         destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
-        filterPattern: '{ $.eventType = "OrderPosted" }',
+        filterPattern: FILTER_PATTERNS.ORDER_POSTED,
         logGroupName: this.postLimitOrderLambda.logGroup.logGroupName,
       })
     }
@@ -400,6 +400,15 @@ export class LambdaStack extends cdk.NestedStack {
       version: this.getUnimindLambda.currentVersion,
       provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
     })
+
+    // Subscription filters for UnimindResponse analytics events
+    if (props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN']) {
+      new cdk.aws_logs.CfnSubscriptionFilter(this, 'UnimindResponseSub', {
+        destinationArn: props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN'],
+        filterPattern: FILTER_PATTERNS.UNIMIND_RESPONSE,
+        logGroupName: this.getUnimindLambda.logGroup.logGroupName,
+      })
+    }
 
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {

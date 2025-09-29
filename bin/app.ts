@@ -103,7 +103,7 @@ export class APIPipeline extends Stack {
         phases: {
           install: {
             'runtime-versions': {
-              nodejs: '18',
+              nodejs: '20',
             },
           },
         },
@@ -125,7 +125,7 @@ export class APIPipeline extends Stack {
           phases: {
             install: {
               'runtime-versions': {
-                nodejs: '18',
+                nodejs: '20',
               },
             },
           },
@@ -195,6 +195,9 @@ export class APIPipeline extends Stack {
           .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_BETA')
           .toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
+        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_BETA').toString(),
+        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_BETA').toString(),
+        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret.secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_BETA').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerBeta.secretValue.toString(),
@@ -228,6 +231,9 @@ export class APIPipeline extends Stack {
           .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_PROD')
           .toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
+        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_PROD').toString(),
+        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_PROD').toString(),
+        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret.secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_PROD').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerProd.secretValue.toString(),
@@ -324,7 +330,7 @@ export class APIPipeline extends Stack {
         phases: {
           install: {
             'runtime-versions': {
-              nodejs: '18',
+              nodejs: '20',
             },
           },
         },
@@ -355,6 +361,9 @@ envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
 envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
 envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
+envVars['UNIMIND_RESPONSE_DESTINATION_ARN'] = process.env['UNIMIND_RESPONSE_DESTINATION_ARN'] || ''
+envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] = process.env['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] || ''
+envVars['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] = process.env['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] || ''
 envVars['LABS_COSIGNER'] = process.env['LABS_COSIGNER'] || ''
 envVars['LABS_PRIORITY_COSIGNER'] = process.env['LABS_PRIORITY_COSIGNER'] || ''
 

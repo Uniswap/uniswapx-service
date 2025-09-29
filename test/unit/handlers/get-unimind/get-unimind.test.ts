@@ -47,7 +47,10 @@ describe('Testing get unimind handler', () => {
   const injectorPromiseMock: any = {
     getContainerInjected: () => ({
       quoteMetadataRepository: mockQuoteMetadataRepo,
-      unimindParametersRepository: mockUnimindParametersRepo
+      unimindParametersRepository: mockUnimindParametersRepo,
+      analyticsService: {
+        logUnimindResponse: jest.fn(),
+      }
     }),
     getRequestInjected: () => requestInjected,
   }
@@ -96,6 +99,8 @@ describe('Testing get unimind handler', () => {
     const body = JSON.parse(response.body)
     expect(body.pi).toBeCloseTo(0.999764, 5)
     expect(body.tau).toBeCloseTo(15.000235519, 5)
+    expect(body.batchNumber).toBe(0)
+    expect(body.algorithmVersion).toBe(UNIMIND_ALGORITHM_VERSION)
     expect(response.statusCode).toBe(200)
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
       ...quoteMetadata,
@@ -140,7 +145,9 @@ describe('Testing get unimind handler', () => {
     const body = JSON.parse(response.body)
     expect(body).toEqual({
       pi: expect.any(Number),
-      tau: expect.any(Number)
+      tau: expect.any(Number),
+      batchNumber: 0,  // Default when creating new entry
+      algorithmVersion: UNIMIND_ALGORITHM_VERSION
     })
   })
 
@@ -229,7 +236,9 @@ describe('Testing get unimind handler', () => {
     const body = JSON.parse(response.body)
     expect(body).toEqual({
       pi: 0,
-      tau: 0
+      tau: 0,
+      batchNumber: -1,  // Didn't actually use Unimind for params
+      algorithmVersion: -1
     })
 
     // Quote metadata should be saved
@@ -285,7 +294,9 @@ describe('Testing get unimind handler', () => {
     const body = JSON.parse(response.body)
     expect(body).toEqual({
       pi: 0,
-      tau: 0
+      tau: 0,
+      batchNumber: -1,
+      algorithmVersion: -1
     })
   })
 
@@ -480,7 +491,9 @@ describe('Testing get unimind handler', () => {
     const body = JSON.parse(response.body)
     expect(body).toEqual({
       pi: 0,
-      tau: 0
+      tau: 0,
+      batchNumber: -1,  // Didn't actually use Unimind for params
+      algorithmVersion: -1
     })
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledTimes(1)
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledTimes(0)
@@ -709,6 +722,8 @@ describe('Correctly modify URA calldata for Artemis support', () => {
       
       expect(result.pi).toBe(0)
       expect(result.tau).toBe(0)
+      expect(result.batchNumber).toBe(0)  // Actual batchNumber from parameters
+      expect(result.algorithmVersion).toBe(UNIMIND_ALGORITHM_VERSION)  // Actual version
       expect(mockLog.info).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: 'UnimindGuardrailTriggered',
@@ -746,6 +761,8 @@ describe('Correctly modify URA calldata for Artemis support', () => {
       
       expect(result.pi).toBe(0)
       expect(result.tau).toBe(0)
+      expect(result.batchNumber).toBe(0)  // Actual batchNumber from parameters
+      expect(result.algorithmVersion).toBe(UNIMIND_ALGORITHM_VERSION)  // Actual version
       expect(mockLog.info).toHaveBeenCalledWith(
         expect.objectContaining({
           eventType: 'UnimindGuardrailTriggered',

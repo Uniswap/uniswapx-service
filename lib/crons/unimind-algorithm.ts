@@ -4,7 +4,7 @@ import { default as bunyan, default as Logger } from 'bunyan'
 import { metricScope, MetricsLogger, Unit } from 'aws-embedded-metrics'
 import { DynamoUnimindParametersRepository, UnimindParameters } from '../repositories/unimind-parameters-repository'
 import { UnimindParametersRepository } from '../repositories/unimind-parameters-repository'
-import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_UPDATE_THRESHOLD } from '../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_UPDATE_THRESHOLD, UnimindUpdateType } from '../util/constants'
 import { UNIMIND_ALGORITHM_CRON_INTERVAL } from '../../bin/constants'
 import { DutchOrdersRepository } from '../repositories/dutch-orders-repository'
 import { DutchV3OrderEntity, ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
@@ -12,6 +12,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { QueryResult } from '../repositories/base'
 import { ChainId } from '@uniswap/sdk-core'
 import { PriceImpactStrategy } from '../unimind/priceImpactStrategy'
+import { AnalyticsService } from '../services/analytics-service'
 
 export const handler: ScheduledHandler = metricScope((metrics) => async (_event: EventBridgeEvent<string, void>) => {
   await main(metrics)
@@ -29,7 +30,8 @@ async function main(metrics: MetricsLogger) {
 
   const unimindParametersRepo = DynamoUnimindParametersRepository.create(new DynamoDB.DocumentClient())
   const ordersRepo = DutchOrdersRepository.create(new DynamoDB.DocumentClient()) as DutchOrdersRepository
-  await updateParameters(unimindParametersRepo, ordersRepo, log, metrics)
+  const analyticsService = AnalyticsService.create()
+  await updateParameters(unimindParametersRepo, ordersRepo, log, metrics, analyticsService)
 }
 
 /**
@@ -54,7 +56,8 @@ export async function updateParameters(
   unimindParametersRepo: UnimindParametersRepository,
   ordersRepo: DutchOrdersRepository,
   log: Logger, 
-  metrics?: MetricsLogger
+  metrics?: MetricsLogger,
+  analyticsService?: AnalyticsService
 ): Promise<void> {
   const beforeUpdateTime = Date.now()
   // Query Orders table for latest orders
@@ -72,6 +75,17 @@ export async function updateParameters(
     // We haven't seen this pair before, so it must have received the default parameters
     if (!pairData) {
       log.info(`Unimind updateParameters: No parameters found for pair ${pairKey}, updating with default parameters`)
+      
+      // Log analytics event
+      analyticsService?.logUnimindParameterUpdate({
+        pair: pairKey,
+        updateType: UnimindUpdateType.NEW_PAIR,
+        newIntrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        orderCount: count,
+        batchNumber: 0,
+        algorithmVersion: UNIMIND_ALGORITHM_VERSION,
+      })
+      
       await unimindParametersRepo.put({
         pair: pairKey,
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
@@ -82,6 +96,18 @@ export async function updateParameters(
       })
     } else if(!validateParameters(pairData, log)) {
       log.info(`Unimind updateParameters: Parameters for pair ${pairKey} are invalid, updating with default parameters`) 
+      
+      // Log analytics event
+      analyticsService?.logUnimindParameterUpdate({
+        pair: pairKey,
+        updateType: UnimindUpdateType.ALGORITHM_UPDATE,
+        previousIntrinsicValues: pairData.intrinsicValues,
+        newIntrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        orderCount: count,
+        batchNumber: 0,
+        algorithmVersion: UNIMIND_ALGORITHM_VERSION,
+      })
+      
       await unimindParametersRepo.put({
         pair: pairKey,
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
@@ -112,6 +138,21 @@ export async function updateParameters(
         const updatedParameters = strategy.unimindAlgorithm(statistics, pairData, log)
         log.info(`Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`)
         const nextBatchNumber = (pairData.batchNumber !== undefined ? pairData.batchNumber : 0) + 1
+        
+        // Log analytics event with statistics for threshold-based updates
+        analyticsService?.logUnimindParameterUpdate({
+          pair: pairKey,
+          updateType: UnimindUpdateType.THRESHOLD_REACHED,
+          previousIntrinsicValues: pairData.intrinsicValues,
+          newIntrinsicValues: JSON.stringify(updatedParameters),
+          orderCount: count,
+          totalCount: totalCount,
+          batchNumber: nextBatchNumber,
+          algorithmVersion: UNIMIND_ALGORITHM_VERSION,
+          updateThreshold: UNIMIND_UPDATE_THRESHOLD,
+          statistics: JSON.stringify(statistics),  // JSON stringify for consistent data pipeline handling
+        })
+        
         await unimindParametersRepo.put({
           pair: pairKey,
           intrinsicValues: JSON.stringify(updatedParameters),
