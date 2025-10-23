@@ -210,9 +210,12 @@ export async function getUnimindOrdersByTimeRange(ordersRepo: DutchOrdersReposit
     undefined // no cursor needed for this query
   )
 
-  // Filter out the orders that did not use Unimind
-  const unimindOrders = result.orders.filter(order => order.usedUnimind)
-  log.info(`Unimind getOrdersByTimeRange: Found ${result.orders.length} orders. ${unimindOrders.length} of them used Unimind.`)
+  // Filter out the orders that did not use Unimind and exclude cancelled orders
+  const unimindOrders = result.orders.filter(order =>
+    order.usedUnimind &&
+    (order.orderStatus === ORDER_STATUS.FILLED || order.orderStatus === ORDER_STATUS.EXPIRED)
+  )
+  log.info(`Unimind getOrdersByTimeRange: Found ${result.orders.length} orders. ${unimindOrders.length} of them used Unimind and are filled or expired.`)
 
   return unimindOrders
 }
