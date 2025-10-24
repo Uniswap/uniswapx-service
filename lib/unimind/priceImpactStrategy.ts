@@ -1,8 +1,7 @@
 import { default as Logger } from 'bunyan'
-import { median } from 'simple-statistics'
 import { UnimindStatistics } from "../crons/unimind-algorithm";
 import { UnimindParameters } from "../repositories/unimind-parameters-repository";
-import { IUnimindAlgorithm } from "../util/unimind";
+import { IUnimindAlgorithm, median } from "../util/unimind";
 import { QuoteMetadata } from '../repositories/quote-metadata-repository';
 import { BPS } from '@uniswap/uniswapx-sdk';
 
