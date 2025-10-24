@@ -232,6 +232,16 @@ describe('unimind-algorithm', () => {
       expect(result.pi).toBeCloseTo(0.999764, 5)
       expect(result.tau).toBe(UNIMIND_MAX_TAU_BPS)
     })
+
+    it('bias negative tau toward 0 for price impact strategy', () => {
+      const strategy = new PriceImpactStrategy()
+      const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: Math.log(0.0002)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123', version: UNIMIND_ALGORITHM_VERSION, batchNumber: 0 };
+      const extrinsicValues: QuoteMetadata = { priceImpact: UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD - 0.01, quoteId: '0x000-0x111-123', referencePrice: '100', blockNumber: 100, route: { quote: '100', quoteGasAdjusted: '100', gasPriceWei: '100', gasUseEstimateQuote: '100', gasUseEstimate: '100', methodParameters: {calldata: '0x', value: '0', to: '0x0000000000000000000000000000000000000000'}}, pair: '0x000-0x111-123', usedUnimind: true }
+      const result = calculateParameters(strategy, intrinsicValues, extrinsicValues)
+
+      expect(result.tau).toBeLessThan(0)
+      expect(result.tau).toBeCloseTo(-46.32367036, 5)
+    })
   });
 });
 

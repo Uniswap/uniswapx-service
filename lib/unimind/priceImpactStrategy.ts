@@ -23,6 +23,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
 
     private LENGTH_OF_AUCTION_IN_BLOCKS = 32;
     private D_FR_D_SIGMA = Math.log(0.00001);
+    private NEGATIVE_TAU_BIAS_TO_0_FACTOR = 3;
 
     public unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger): PriceImpactIntrinsicParameters {
         const previousParameters = JSON.parse(pairData.intrinsicValues);
@@ -362,7 +363,11 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         const auctionDecayAmount = this.LENGTH_OF_AUCTION_IN_BLOCKS * expSigma;
         const auctionDecayAmountBps = auctionDecayAmount * BPS;
         const tau = auctionDecayAmountBps - this.computePi(intrinsicValues, extrinsicValues);
-        return tau; // In units of bps
+        // When tau is negative, it means the auction is entirely above the AMM
+        // This happens in very high price impact scenarios
+        // We bias toward 0 to increase fill rate
+        // TODO: Use non-linear decay to address this long-term
+        return tau < 0 ? tau / this.NEGATIVE_TAU_BIAS_TO_0_FACTOR : tau; // In units of bps
     }
 }
 
