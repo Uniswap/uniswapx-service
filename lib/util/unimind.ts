@@ -48,6 +48,24 @@ export function supportedUnimindTokens(pair: string) {
   return token1 !== undefined && token2 !== undefined
 }
 
+/**
+ * Calculates median of an array of numbers
+ */
+export function median(values: number[]): number {
+  if (values.length === 0) return 0;
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 0) {
+    // Even number of elements: average of two middle values
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  } else {
+    // Odd number of elements: middle value
+    return sorted[mid];
+  }
+}
+
 export interface IUnimindAlgorithm<T> {
   /**
  * @notice Adjusts Unimind parameters (intrinsic values) based on historical order statistics

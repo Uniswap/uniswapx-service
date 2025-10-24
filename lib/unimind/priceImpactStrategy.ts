@@ -1,7 +1,7 @@
 import { default as Logger } from 'bunyan'
 import { UnimindStatistics } from "../crons/unimind-algorithm";
 import { UnimindParameters } from "../repositories/unimind-parameters-repository";
-import { IUnimindAlgorithm } from "../util/unimind";
+import { IUnimindAlgorithm, median } from "../util/unimind";
 import { QuoteMetadata } from '../repositories/quote-metadata-repository';
 import { BPS } from '@uniswap/uniswapx-sdk';
 
@@ -17,11 +17,12 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
     private TARGET_WAIT_TIME_IN_BLOCKS = 8;
     private BETA = 1;
     private LAMBDA1_LEARNING_RATE = 3.625e-10; // Midpoint of 1.5e-10 and 5.75e-10
-    private LAMBDA2_LEARNING_RATE = 0.3625; // Midpoint of 0.15 and 0.575
+    private LAMBDA2_LEARNING_RATE = 0.25625; // Midpoint of 0.15 and 0.3625
     private SIGMA_LEARNING_RATE = 1.5e-6; // 1e-6 seemed too slow -- 8/30/25
 
     private LENGTH_OF_AUCTION_IN_BLOCKS = 32;
     private D_FR_D_SIGMA = Math.log(0.00001);
+    private NEGATIVE_TAU_BIAS_TO_0_FACTOR = 3;
 
     public unimindAlgorithm(statistics: UnimindStatistics, pairData: UnimindParameters, log: Logger): PriceImpactIntrinsicParameters {
         const previousParameters = JSON.parse(pairData.intrinsicValues);
@@ -59,12 +60,18 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         }, 'Unimind algorithm data usage - NOTE: unfilled orders are being ignored');
         
         // Calculate and apply gradients to update lambda parameters
-        const { lambda1_updated, lambda2_updated, avgCostFunction, gradientInfo } = 
+        const { lambda1_updated, lambda2_updated, medianCostFunction, gradientInfo } =
             this.updateLambdaParameters(validDataPoints, lambda1, lambda2, Sigma, log);
-        
+
+        // Calculate median and average wait times for logging
+        const validWaitTimes = validDataPoints.map(p => p.waitTime);
+        const medianWaitTime = validWaitTimes.length > 0 ? median(validWaitTimes) : 0;
+        const avgWaitTime = validWaitTimes.length > 0 ?
+            validWaitTimes.reduce((sum, wt) => sum + wt, 0) / validWaitTimes.length : 0;
+
         // Log the updates with important context
         log.info({
-            avgCostFunction,
+            medianCostFunction,
             lambda1_old: lambda1,
             lambda1_new: lambda1_updated,
             lambda1_gradient: gradientInfo.lambda1Gradient,
@@ -77,9 +84,9 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
             targetFillRate: this.TARGET_FILL_RATE,
             actualFillRate: this.calculateAverageFillRate(fillStatuses),
             targetWaitTime: this.TARGET_WAIT_TIME_IN_BLOCKS,
-            avgWaitTime: validDataPoints.length > 0 ? 
-                validDataPoints.reduce((sum, p) => sum + p.waitTime, 0) / validDataPoints.length : 0
-        }, 'Unimind parameter updates - NOTE: only learning from filled orders');
+            medianWaitTime: medianWaitTime,
+            avgWaitTime: avgWaitTime
+        }, 'Unimind parameter updates - optimizing for median wait time');
         
         // Return updated parameters
         return {
@@ -139,7 +146,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
     ): { 
         lambda1_updated: number, 
         lambda2_updated: number, 
-        avgCostFunction: number | undefined,
+        medianCostFunction: number | undefined,
         gradientInfo: { 
             lambda1Gradient: number | undefined, 
             lambda2Gradient: number | undefined 
@@ -149,7 +156,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
             return { 
                 lambda1_updated: lambda1, 
                 lambda2_updated: lambda2, 
-                avgCostFunction: undefined,
+                medianCostFunction: undefined,
                 gradientInfo: { lambda1Gradient: undefined, lambda2Gradient: undefined }
             };
         }
@@ -158,11 +165,11 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         const gradients = validDataPoints.map(({ waitTime, priceImpact }) => {
             return this.calculateGradients(waitTime, priceImpact, lambda1, lambda2, Sigma, log);
         });
-        
-        // Calculate average cost function and gradients
-        const avgCostFunction = gradients.reduce((sum, g) => sum + g.costFunction, 0) / gradients.length;
-        const lambda1Gradient = gradients.reduce((sum, g) => sum + g.d_J_d_lambda1, 0) / gradients.length;
-        const lambda2Gradient = gradients.reduce((sum, g) => sum + g.d_J_d_lambda2, 0) / gradients.length;
+
+        // Calculate median cost function and gradients (robust to outliers)
+        const medianCostFunction = median(gradients.map(g => g.costFunction));
+        const lambda1Gradient = median(gradients.map(g => g.d_J_d_lambda1));
+        const lambda2Gradient = median(gradients.map(g => g.d_J_d_lambda2));
         
         // Update parameters using gradient descent
         const lambda1_updated = lambda1 - this.LAMBDA1_LEARNING_RATE * lambda1Gradient;
@@ -171,7 +178,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         return { 
             lambda1_updated, 
             lambda2_updated, 
-            avgCostFunction,
+            medianCostFunction,
             gradientInfo: { lambda1Gradient, lambda2Gradient }
         };
     }
@@ -355,7 +362,11 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         const auctionDecayAmount = this.LENGTH_OF_AUCTION_IN_BLOCKS * expSigma;
         const auctionDecayAmountBps = auctionDecayAmount * BPS;
         const tau = auctionDecayAmountBps - this.computePi(intrinsicValues, extrinsicValues);
-        return tau; // In units of bps
+        // When tau is negative, it means the auction is entirely above the AMM
+        // This happens in very high price impact scenarios
+        // We bias toward 0 to increase fill rate
+        // TODO: Use non-linear decay to address this long-term
+        return tau < 0 ? tau / this.NEGATIVE_TAU_BIAS_TO_0_FACTOR : tau; // In units of bps
     }
 }
 
