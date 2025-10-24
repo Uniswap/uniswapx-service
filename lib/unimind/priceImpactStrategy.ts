@@ -61,7 +61,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         }, 'Unimind algorithm data usage - NOTE: unfilled orders are being ignored');
         
         // Calculate and apply gradients to update lambda parameters
-        const { lambda1_updated, lambda2_updated, avgCostFunction, gradientInfo } =
+        const { lambda1_updated, lambda2_updated, medianCostFunction, gradientInfo } =
             this.updateLambdaParameters(validDataPoints, lambda1, lambda2, Sigma, log);
 
         // Calculate median and average wait times for logging
@@ -72,7 +72,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
 
         // Log the updates with important context
         log.info({
-            avgCostFunction,
+            medianCostFunction,
             lambda1_old: lambda1,
             lambda1_new: lambda1_updated,
             lambda1_gradient: gradientInfo.lambda1Gradient,
@@ -147,7 +147,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
     ): { 
         lambda1_updated: number, 
         lambda2_updated: number, 
-        avgCostFunction: number | undefined,
+        medianCostFunction: number | undefined,
         gradientInfo: { 
             lambda1Gradient: number | undefined, 
             lambda2Gradient: number | undefined 
@@ -157,7 +157,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
             return { 
                 lambda1_updated: lambda1, 
                 lambda2_updated: lambda2, 
-                avgCostFunction: undefined,
+                medianCostFunction: undefined,
                 gradientInfo: { lambda1Gradient: undefined, lambda2Gradient: undefined }
             };
         }
@@ -168,7 +168,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         });
 
         // Calculate median cost function and gradients (robust to outliers)
-        const avgCostFunction = median(gradients.map(g => g.costFunction));
+        const medianCostFunction = median(gradients.map(g => g.costFunction));
         const lambda1Gradient = median(gradients.map(g => g.d_J_d_lambda1));
         const lambda2Gradient = median(gradients.map(g => g.d_J_d_lambda2));
         
@@ -179,7 +179,7 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         return { 
             lambda1_updated, 
             lambda2_updated, 
-            avgCostFunction,
+            medianCostFunction,
             gradientInfo: { lambda1Gradient, lambda2Gradient }
         };
     }
