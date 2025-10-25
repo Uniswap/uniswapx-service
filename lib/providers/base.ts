@@ -9,5 +9,4 @@ export type OrderFilter = {
 
 export interface WebhookProvider {
   getEndpoints(filter: OrderFilter): Promise<Webhook[]>
-  getExclusiveFillerEndpoints(filler: string): Promise<Webhook[]>
 }
