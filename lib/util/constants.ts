@@ -1,4 +1,4 @@
-import { ChainId } from "./chain"
+import { ChainId } from './chain'
 
 export const WEBHOOK_CONFIG_BUCKET = 'order-webhook-notification-config'
 export const PRODUCTION_WEBHOOK_CONFIG_KEY = 'production.json'
@@ -29,17 +29,17 @@ export const REAPER_RANGES_PER_RUN = 10
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
-export const UNIMIND_ALGORITHM_VERSION = 4;
+export const UNIMIND_ALGORITHM_VERSION = 4
 
 export enum UnimindUpdateType {
   NEW_PAIR = 'new_pair',
   ALGORITHM_UPDATE = 'algorithm_update',
-  THRESHOLD_REACHED = 'threshold_reached'
+  THRESHOLD_REACHED = 'threshold_reached',
 }
 export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
   lambda1: 0,
   lambda2: 5,
-  Sigma: -9.21034
+  Sigma: -9.21034,
 })
 export const UNIMIND_UPDATE_THRESHOLD = 25
 export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
@@ -47,8 +47,8 @@ export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e580
 export const PUBLIC_UNIMIND_PARAMETERS = {
   pi: 15,
   tau: 15,
-  batchNumber: -1,  // -1 indicates Unimind was not used to calculate these params
-  algorithmVersion: -1  // -1 indicates not using Unimind algorithm
+  batchNumber: -1, // -1 indicates Unimind was not used to calculate these params
+  algorithmVersion: -1, // -1 indicates not using Unimind algorithm
 }
 export const UNIMIND_MAX_TAU_BPS = 25
 export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 2 // 2% price impact threshold
@@ -56,12 +56,12 @@ export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 2 // 2% price impact thresho
 // When pi = 0, AMM will be favored over Dutch Auction
 export const USE_CLASSIC_PARAMETERS = {
   pi: 0,
-  tau: 0
+  tau: 0,
   // batchNumber and algorithmVersion are added dynamically
 }
 
 export const RPC_HEADERS = {
-  'x-uni-service-id': 'x_order_service'
+  'x-uni-service-id': 'x_order_service',
 } as const
 
 export enum TradeType {
