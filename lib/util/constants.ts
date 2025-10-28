@@ -63,3 +63,8 @@ export const USE_CLASSIC_PARAMETERS = {
 export const RPC_HEADERS = {
   'x-uni-service-id': 'x_order_service'
 } as const
+
+export enum TradeType {
+  EXACT_INPUT = 'EXACT_INPUT',
+  EXACT_OUTPUT = 'EXACT_OUTPUT',
+}

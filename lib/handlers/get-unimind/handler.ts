@@ -7,7 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, TradeType, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
 import { IUnimindAlgorithm, supportedUnimindTokens, unimindAddressFilter, unimindTradeFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 import { validateParameters } from '../../crons/unimind-algorithm'
@@ -267,7 +267,25 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
       algorithmVersion: unimindParameters.version
     }
   }
-  
+
+  // Guardrail 3: Temporarily disallow EXACT_OUTPUT through Unimind
+  // TAPI calls it EXACT_INPUT, EXACT_OUTPUT instead of EXACT_IN, EXACT_OUT
+  if (extrinsicValues.orderType === TradeType.EXACT_OUTPUT) {
+    if (log) {
+      log.info({
+        eventType: 'UnimindGuardrailTriggered',
+        guardrailType: 'exact_out_not_allowed',
+        orderType: extrinsicValues.orderType,
+      }, 'Unimind guardrail triggered: EXACT_OUTPUT not allowed, returning classic parameters')
+    }
+    metrics.putMetric('UnimindGuardrailExactOutNotAllowed', 1)
+    return {
+      ...USE_CLASSIC_PARAMETERS,
+      batchNumber: unimindParameters.batchNumber,
+      algorithmVersion: unimindParameters.version
+    }
+  }
+
   // Keeping intrinsic extrinsic naming for consistency with algorithm
   const pi = strategy.computePi(intrinsicValues, extrinsicValues)
   // Ceiling tau at UNIMIND_MAX_TAU_BPS for safety

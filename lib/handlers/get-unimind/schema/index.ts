@@ -1,5 +1,6 @@
 import Joi from 'joi'
 import { QuoteMetadata } from '../../../repositories/quote-metadata-repository'
+import { TradeType } from '../../../util/constants'
 
 // Route struct we expect after parsing
 const routeSchema = Joi.object({
@@ -44,7 +45,8 @@ export const unimindQueryParamsSchema = Joi.object({
     .falsy('false')
     .sensitive(),
     // All other values are rejected for a 400 error
-  swapper: Joi.string().optional()
+  swapper: Joi.string().optional(),
+  orderType: Joi.string().optional().valid(TradeType.EXACT_INPUT, TradeType.EXACT_OUTPUT)
 })
 
 export type UnimindQueryParams = Omit<QuoteMetadata, 'route'> & {
