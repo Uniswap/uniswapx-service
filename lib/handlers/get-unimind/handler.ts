@@ -162,6 +162,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         priceImpact: quoteMetadata.priceImpact,
         referencePrice: quoteMetadata.referencePrice,
         route: quoteMetadata.route,
+        tradeType: quoteMetadata.tradeType,
       })
 
       log.info(
@@ -270,12 +271,12 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
 
   // Guardrail 3: Temporarily disallow EXACT_OUTPUT through Unimind
   // TAPI calls it EXACT_INPUT, EXACT_OUTPUT instead of EXACT_IN, EXACT_OUT
-  if (extrinsicValues.orderType === TradeType.EXACT_OUTPUT) {
+  if (extrinsicValues.tradeType === TradeType.EXACT_OUTPUT) {
     if (log) {
       log.info({
         eventType: 'UnimindGuardrailTriggered',
         guardrailType: 'exact_out_not_allowed',
-        orderType: extrinsicValues.orderType,
+        tradeType: extrinsicValues.tradeType,
       }, 'Unimind guardrail triggered: EXACT_OUTPUT not allowed, returning classic parameters')
     }
     metrics.putMetric('UnimindGuardrailExactOutNotAllowed', 1)

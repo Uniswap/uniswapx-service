@@ -803,7 +803,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
       expect(result.tau).toBeCloseTo(15.000235519, 5)
     })
 
-    it('returns classic parameters (0,0) when orderType is EXACT_OUTPUT', () => {
+    it('returns classic parameters (0,0) when tradeType is EXACT_OUTPUT', () => {
       const strategy = new PriceImpactStrategy()
       const unimindParameters = {
         pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
@@ -824,7 +824,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
         route: SAMPLE_ROUTE,
         blockNumber: 12345,
         usedUnimind: true,
-        orderType: TradeType.EXACT_OUTPUT
+        tradeType: TradeType.EXACT_OUTPUT
       }
 
       const result = calculateParameters(strategy, unimindParameters, quoteMetadata, mockLog)
@@ -837,13 +837,13 @@ describe('Correctly modify URA calldata for Artemis support', () => {
         expect.objectContaining({
           eventType: 'UnimindGuardrailTriggered',
           guardrailType: 'exact_out_not_allowed',
-          orderType: TradeType.EXACT_OUTPUT
+          tradeType: TradeType.EXACT_OUTPUT
         }),
         expect.stringContaining('EXACT_OUTPUT not allowed')
       )
     })
 
-    it('computes normal parameters when orderType is EXACT_INPUT', () => {
+    it('computes normal parameters when tradeType is EXACT_INPUT', () => {
       const strategy = new PriceImpactStrategy()
       const unimindParameters = {
         pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
@@ -864,7 +864,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
         route: SAMPLE_ROUTE,
         blockNumber: 12345,
         usedUnimind: true,
-        orderType: TradeType.EXACT_INPUT
+        tradeType: TradeType.EXACT_INPUT
       }
 
       const result = calculateParameters(strategy, unimindParameters, quoteMetadata)
@@ -874,7 +874,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
       expect(result.tau).toBeCloseTo(15.000235519, 5)
     })
 
-    it('computes normal parameters when orderType is undefined', () => {
+    it('computes normal parameters when tradeType is undefined', () => {
       const strategy = new PriceImpactStrategy()
       const unimindParameters = {
         pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
@@ -895,7 +895,7 @@ describe('Correctly modify URA calldata for Artemis support', () => {
         route: SAMPLE_ROUTE,
         blockNumber: 12345,
         usedUnimind: true
-        // orderType is undefined (not provided)
+        // tradeType is undefined (not provided)
       }
 
       const result = calculateParameters(strategy, unimindParameters, quoteMetadata)

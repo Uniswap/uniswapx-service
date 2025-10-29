@@ -5,18 +5,18 @@ import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { TABLE_NAMES } from './util'
 
 interface MethodParameters {
-    calldata: string
-    value: string
-    to: string
+  calldata: string
+  value: string
+  to: string
 }
 
 export interface Route {
-    quote: string
-    quoteGasAdjusted: string
-    gasPriceWei: string
-    gasUseEstimateQuote: string
-    gasUseEstimate: string
-    methodParameters: MethodParameters
+  quote: string
+  quoteGasAdjusted: string
+  gasPriceWei: string
+  gasUseEstimateQuote: string
+  gasUseEstimate: string
+  methodParameters: MethodParameters
 }
 
 export interface QuoteMetadata {
@@ -27,7 +27,7 @@ export interface QuoteMetadata {
   route: Route
   pair: string
   usedUnimind: boolean
-  orderType?: string
+  tradeType?: string
 }
 
 export interface QuoteMetadataRepository {
@@ -51,16 +51,16 @@ export class DynamoQuoteMetadataRepository implements QuoteMetadataRepository {
     })
 
     const entity = new Entity({
-    name: 'QuoteMetadata',
+      name: 'QuoteMetadata',
       attributes: {
         quoteId: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
         referencePrice: { type: DYNAMODB_TYPES.STRING, required: true },
         priceImpact: { type: DYNAMODB_TYPES.NUMBER, required: true },
-        pair: {type: DYNAMODB_TYPES.STRING, required: true},
-        blockNumber: {type: DYNAMODB_TYPES.NUMBER, required: false},
-        route: {type: DYNAMODB_TYPES.MAP, required: false},
-        usedUnimind: {type: DYNAMODB_TYPES.BOOLEAN, required: true},
-        orderType: {type: DYNAMODB_TYPES.STRING, required: false}
+        pair: { type: DYNAMODB_TYPES.STRING, required: true },
+        blockNumber: { type: DYNAMODB_TYPES.NUMBER, required: false },
+        route: { type: DYNAMODB_TYPES.MAP, required: false },
+        usedUnimind: { type: DYNAMODB_TYPES.BOOLEAN, required: true },
+        tradeType: { type: DYNAMODB_TYPES.STRING, required: false },
       },
       table,
     } as const)
@@ -85,4 +85,4 @@ export class DynamoQuoteMetadataRepository implements QuoteMetadataRepository {
     const result = await this.entity.get({ quoteId }, { execute: true })
     return result.Item as QuoteMetadata | undefined
   }
-} 
+}
