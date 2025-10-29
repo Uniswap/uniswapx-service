@@ -2,11 +2,18 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { getAddress } from '@ethersproject/address'
 import { AddressZero } from '@ethersproject/constants'
 import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
-import { isDutchV3OrderEntity, isPriorityOrderEntity, ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../entities'
+import {
+  isDutchV3OrderEntity,
+  isPriorityOrderEntity,
+  ORDER_STATUS,
+  RelayOrderEntity,
+  SettledAmount,
+  UniswapXOrderEntity,
+} from '../entities'
 import { log } from '../Logging'
-import { currentTimestampInSeconds } from '../util/time'
-import { UnimindUpdateType } from '../util/constants'
 import { ANALYTICS_EVENTS } from '../util/analytics-events'
+import { UnimindUpdateType } from '../util/constants'
+import { currentTimestampInSeconds } from '../util/time'
 
 export interface AnalyticsServiceInterface {
   logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType): void
@@ -31,6 +38,7 @@ export interface UnimindResponseParams {
   amountIn?: string
   amountOut?: string
   chainId?: number
+  tradeType?: string
 }
 
 // Parameters for Unimind parameter update analytics
@@ -198,7 +206,8 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         route: params.route ? JSON.stringify(params.route) : undefined,
         // Format the swapper address consistently with other analytics
         swapper: this.getFillerAddress(params.swapper),
-      }
+        tradeType: params.tradeType,
+      },
     })
   }
 
@@ -209,7 +218,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         createdAt: this.createdAtTimestampInSeconds(),
         createdAtMs: Date.now().toString(),
         ...params,
-      }
+      },
     })
   }
 }

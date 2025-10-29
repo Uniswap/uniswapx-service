@@ -12,8 +12,8 @@ const routeSchema = Joi.object({
   methodParameters: Joi.object({
     calldata: Joi.string().required(),
     value: Joi.string().required(),
-    to: Joi.string().required()
-  }).required()
+    to: Joi.string().required(),
+  }).required(),
 })
 
 export const unimindQueryParamsSchema = Joi.object({
@@ -38,19 +38,16 @@ export const unimindQueryParamsSchema = Joi.object({
     }, 'validate route JSON')
     .messages({
       'string.invalidJson': 'route must be a valid JSON string',
-      'string.routeInvalid': 'route structure is invalid after parsing'
+      'string.routeInvalid': 'route structure is invalid after parsing',
     }),
-  logOnly: Joi.boolean().optional()
-    .truthy('true')
-    .falsy('false')
-    .sensitive(),
-    // All other values are rejected for a 400 error
+  logOnly: Joi.boolean().optional().truthy('true').falsy('false').sensitive(),
+  // All other values are rejected for a 400 error
   swapper: Joi.string().optional(),
-  orderType: Joi.string().optional().valid(TradeType.EXACT_INPUT, TradeType.EXACT_OUTPUT)
+  tradeType: Joi.string().optional().valid(TradeType.EXACT_INPUT, TradeType.EXACT_OUTPUT),
 })
 
 export type UnimindQueryParams = Omit<QuoteMetadata, 'route'> & {
-  route: string, // route is now a JSON string to be used as a GET query param
-  logOnly?: boolean,
+  route: string // route is now a JSON string to be used as a GET query param
+  logOnly?: boolean
   swapper?: string
 }
