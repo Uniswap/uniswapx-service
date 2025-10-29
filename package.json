@@ -85,7 +85,9 @@
   "prettier": {
     "printWidth": 120,
     "semi": false,
-    "singleQuote": true
+    "singleQuote": true,
+    "endOfLine": "lf",
+    "insertFinalNewline": true
   },
   "engines": {
     "node": ">=20.0.0"

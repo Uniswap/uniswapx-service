@@ -5,7 +5,7 @@ import { calculateParameters, GetUnimindHandler } from '../../../../lib/handlers
 import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { UnimindParametersRepository } from '../../../../lib/repositories/unimind-parameters-repository'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD } from '../../../../lib/util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, TradeType, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD } from '../../../../lib/util/constants'
 import { CommandParser, CommandType } from '@uniswap/universal-router-sdk'
 import { Interface } from 'ethers/lib/utils'
 import { artemisModifyCalldata, UniversalRouterCalldata } from '../../../../lib/util/UniversalRouterCalldata'
@@ -798,6 +798,108 @@ describe('Correctly modify URA calldata for Artemis support', () => {
       
       const result = calculateParameters(strategy, unimindParameters, quoteMetadata)
       
+      // Should compute actual values, not 0,0
+      expect(result.pi).toBeCloseTo(0.999764, 5)
+      expect(result.tau).toBeCloseTo(15.000235519, 5)
+    })
+
+    it('returns classic parameters (0,0) when orderType is EXACT_OUTPUT', () => {
+      const strategy = new PriceImpactStrategy()
+      const unimindParameters = {
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0,
+        batchNumber: 0
+      }
+      const quoteMetadata = {
+        quoteId: 'test-quote-id',
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.5, // Valid price impact
+        route: SAMPLE_ROUTE,
+        blockNumber: 12345,
+        usedUnimind: true,
+        orderType: TradeType.EXACT_OUTPUT
+      }
+
+      const result = calculateParameters(strategy, unimindParameters, quoteMetadata, mockLog)
+
+      expect(result.pi).toBe(0)
+      expect(result.tau).toBe(0)
+      expect(result.batchNumber).toBe(0)
+      expect(result.algorithmVersion).toBe(UNIMIND_ALGORITHM_VERSION)
+      expect(mockLog.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'UnimindGuardrailTriggered',
+          guardrailType: 'exact_out_not_allowed',
+          orderType: TradeType.EXACT_OUTPUT
+        }),
+        expect.stringContaining('EXACT_OUTPUT not allowed')
+      )
+    })
+
+    it('computes normal parameters when orderType is EXACT_INPUT', () => {
+      const strategy = new PriceImpactStrategy()
+      const unimindParameters = {
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0,
+        batchNumber: 0
+      }
+      const quoteMetadata = {
+        quoteId: 'test-quote-id',
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.01, // Valid price impact
+        route: SAMPLE_ROUTE,
+        blockNumber: 12345,
+        usedUnimind: true,
+        orderType: TradeType.EXACT_INPUT
+      }
+
+      const result = calculateParameters(strategy, unimindParameters, quoteMetadata)
+
+      // Should compute actual values, not 0,0
+      expect(result.pi).toBeCloseTo(0.999764, 5)
+      expect(result.tau).toBeCloseTo(15.000235519, 5)
+    })
+
+    it('computes normal parameters when orderType is undefined', () => {
+      const strategy = new PriceImpactStrategy()
+      const unimindParameters = {
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0,
+        batchNumber: 0
+      }
+      const quoteMetadata = {
+        quoteId: 'test-quote-id',
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.01, // Valid price impact
+        route: SAMPLE_ROUTE,
+        blockNumber: 12345,
+        usedUnimind: true
+        // orderType is undefined (not provided)
+      }
+
+      const result = calculateParameters(strategy, unimindParameters, quoteMetadata)
+
       // Should compute actual values, not 0,0
       expect(result.pi).toBeCloseTo(0.999764, 5)
       expect(result.tau).toBeCloseTo(15.000235519, 5)
