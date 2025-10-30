@@ -17,8 +17,8 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
     private TARGET_WAIT_TIME_IN_BLOCKS = 8;
     private BETA = 1;
     private LAMBDA1_LEARNING_RATE = 3.625e-10; // Midpoint of 1.5e-10 and 5.75e-10
-    private LAMBDA2_LEARNING_RATE = 0.25625; // Midpoint of 0.15 and 0.3625
-    private SIGMA_LEARNING_RATE = 1.5e-6; // 1e-6 seemed too slow -- 8/30/25
+    private LAMBDA2_LEARNING_RATE = 0.1; // From simulation. Last trial 0.25625 was too fast
+    private SIGMA_LEARNING_RATE = 2e-5; // Simulation showed 1e-3 is good, last trial was 1.5e-6 way too slow. 2e-5 is a good next trial
 
     private LENGTH_OF_AUCTION_IN_BLOCKS = 32;
     private D_FR_D_SIGMA = Math.log(0.00001);
