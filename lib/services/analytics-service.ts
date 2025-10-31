@@ -54,6 +54,10 @@ export interface UnimindParameterUpdateParams {
   updateThreshold?: number
   // Statistics from batch - only provided for THRESHOLD_REACHED updates (JSON stringified)
   statistics?: string
+  // Batch metrics - only provided for THRESHOLD_REACHED updates
+  meanWaitTime?: number
+  medianWaitTime?: number
+  fillRate?: number
 }
 // used to log data used for analytics
 export class AnalyticsService implements AnalyticsServiceInterface {
