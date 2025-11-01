@@ -21,7 +21,7 @@ export class LimitOrder extends Order {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: UniswapXOrderEntity = {
-      type: OrderType.Dutch,
+      type: OrderType.Limit,
       encodedOrder: decodedOrder.serialize(),
       signature: this.signature,
       nonce: decodedOrder.info.nonce.toString(),
