@@ -14,10 +14,6 @@ import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
-import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
-import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
-import { STAGE } from '../../util/stage'
-import { checkDefined } from '../../preconditions/preconditions'
 import { SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS, RPC_HEADERS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
@@ -65,11 +61,6 @@ const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
 const quoteMetadataRepo = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 
-// Set up webhook provider for immediate notifications
-const stage = checkDefined(process.env['stage'], 'stage should be defined in the .env')
-const s3Key = stage === STAGE.BETA ? BETA_WEBHOOK_CONFIG_KEY : PRODUCTION_WEBHOOK_CONFIG_KEY
-const webhookProvider = new S3WebhookConfigurationProvider(`${WEBHOOK_CONFIG_BUCKET}-${stage}-1`, s3Key)
-
 const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,
   onChainValidatorMap,
@@ -79,8 +70,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),
-  providerMap,
-  webhookProvider
+  providerMap
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
