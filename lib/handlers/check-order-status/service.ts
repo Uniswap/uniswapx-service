@@ -327,6 +327,7 @@ export class CheckOrderStatusUtils {
       startingBlockNumber: startingBlockNumber,
       chainId: chainId,
       runIndex: runIndex || 0,
+      orderType: this.serviceOrderType,
       ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
       ...(fillBlock && { fillBlock }),

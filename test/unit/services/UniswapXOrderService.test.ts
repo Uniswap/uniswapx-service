@@ -1,8 +1,10 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { KmsSigner } from '@uniswap/signer'
 import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
+import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
+import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { DutchV1Order, DutchV2Order } from '../../../lib/models'
@@ -138,6 +140,53 @@ describe('UniswapXOrderService', () => {
       },
       undefined
     )
+  })
+
+  test('createOrder with PriorityOrder rejects stale order when auctionTargetBlock > auctionStartBlock', async () => {
+    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
+    mockOrderValidator.validate.mockReturnValue({ valid: true })
+
+    const onChainValidator = mock<OrderValidator>()
+    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
+
+    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
+    onChainValidatorMap.get.mockReturnValue(onChainValidator)
+
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    const logger = mock<Logger>()
+    const AnalyticsService = mock<AnalyticsService>()
+
+    const service = new UniswapXOrderService(
+      mockOrderValidator,
+      onChainValidatorMap,
+      repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
+      mock<QuoteMetadataRepository>(),
+      logger,
+      () => {
+        return 10
+      },
+      AnalyticsService,
+      MOCK_PROVIDER_MAP
+    )
+
+    // Create a priority order with a very low auctionStartBlock (block 1)
+    // When reparameterizeAndCosign runs, it will set auctionTargetBlock to current block + buffer (~103)
+    // This creates a stale order scenario where auctionTargetBlock > auctionStartBlock
+    const baseOrder = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET)
+    // Manually set auctionStartBlock to a very low value after creation
+    // This simulates a stale order where the start block is in the past
+    baseOrder.info.auctionStartBlock = BigNumber.from(1)
+    const priorityOrder = new PriorityOrder(baseOrder, '0x00', ChainId.MAINNET)
+
+    await expect(service.createOrder(priorityOrder)).rejects.toThrow(OrderValidationFailedError)
+    await expect(service.createOrder(priorityOrder)).rejects.toThrow(
+      'auctionStartBlock too low'
+    )
+
+    // Verify that validation and persistence were not called
+    expect(mockOrderValidator.validate).not.toHaveBeenCalled()
+    expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
   })
 
   test('getDutchOrders calls db with DUTCH_LIMIT and Dutch', async () => {
