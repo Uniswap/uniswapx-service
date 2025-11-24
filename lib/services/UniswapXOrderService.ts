@@ -79,6 +79,9 @@ export class UniswapXOrderService {
       )
 
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner)
+      if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock > cosignedOrder.inner.info.auctionStartBlock) {
+        throw new OrderValidationFailedError('auctionStartBlock too low')
+      }
       this.logger.info('cosigned priority order', { order: cosignedOrder })
       const [quoteMetadata] = await Promise.all([
         order.quoteId ? this.fetchQuoteMetadata(order.quoteId) : undefined,
