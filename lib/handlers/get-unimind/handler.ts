@@ -57,47 +57,54 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       // Step 1: Eligibility checks
       const onUnimindTokenList = supportedUnimindTokens(quoteMetadata.pair);
 
-      if (!onUnimindTokenList) {
-        // If it's not on the Unimind token list, we will still send 2/3 to Unimind but 1/3 to Public Params
-        quoteMetadata.usedUnimind = false
-        
-        try {
-          await quoteMetadataRepository.put(quoteMetadata)
-        } catch (error) {
-          log.error({ error, quoteId: quoteMetadata.quoteId }, 'Failed to store quote metadata for public parameters path')
-        } // Don't signal failure when assigning public params while still attempting to persist metadata
-
-        return {
-          statusCode: 200,
-          body: PUBLIC_STATIC_PARAMETERS
-        }
-      }
-
-      // Step 2: Experiment assignment (who WILL participate)
-      if (!unimindTradeFilter(quoteMetadata.quoteId)) {
-        // Log for monitoring but return control parameters
-        log.info({ 
+      // Step 2: Experiment assignment
+      if (onUnimindTokenList) {
+        // Both tokens on list → ALWAYS use Unimind (no sampling)
+        log.info({
           quoteId: quoteMetadata.quoteId,
           swapper,
           pair: quoteMetadata.pair,
           experiment: 'unimind_trade_ab',
-          group: 'control'
-        }, 'Trade assigned to control group');
-        
-        return {
+          group: 'treatment',
+          reason: 'both_tokens_on_unimind_list'
+        }, 'Trade assigned to treatment group (both tokens on Unimind list)');
+      } else {
+        // Either one or both tokens NOT on list → apply sampling (2/3 Unimind, 1/3 control)
+        if (!unimindTradeFilter(quoteMetadata.quoteId)) {
+          // Assigned to control group (1/3)
+          log.info({
+            quoteId: quoteMetadata.quoteId,
+            swapper,
+            pair: quoteMetadata.pair,
+            experiment: 'unimind_trade_ab',
+            group: 'control',
+            reason: 'not_on_unimind_list_sampled_out'
+          }, 'Trade assigned to control group (tokens not on list, sampled out)');
+
+          quoteMetadata.usedUnimind = false
+
+          try {
+            await quoteMetadataRepository.put(quoteMetadata)
+          } catch (error) {
+            log.error({ error, quoteId: quoteMetadata.quoteId }, 'Failed to store quote metadata for public parameters path')
+          } // Don't signal failure when assigning public params while still attempting to persist metadata
+
+          return {
             statusCode: 200,
             body: PUBLIC_STATIC_PARAMETERS
+          }
         }
-      }
 
-      // Log treatment group
-      log.info({ 
-        quoteId: quoteMetadata.quoteId,
-        swapper,
-        pair: quoteMetadata.pair,
-        experiment: 'unimind_trade_ab',
-        group: 'treatment'
-      }, 'Trade assigned to treatment group');
+        // Assigned to treatment group (2/3)
+        log.info({
+          quoteId: quoteMetadata.quoteId,
+          swapper,
+          pair: quoteMetadata.pair,
+          experiment: 'unimind_trade_ab',
+          group: 'treatment',
+          reason: 'not_on_unimind_list_sampled_in'
+        }, 'Trade assigned to treatment group (tokens not on list, sampled in)');
+      }
 
       // If we made it through these filters, then we are using Unimind to provide parameters
       quoteMetadata.usedUnimind = true
