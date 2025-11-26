@@ -571,6 +571,169 @@ describe('Testing get unimind handler', () => {
     expect(mockQuoteMetadataRepo.put).toHaveBeenCalledTimes(1)
     expect(mockUnimindParametersRepo.getByPair).toHaveBeenCalledTimes(1)
   })
+
+  // Tests for new sampling behavior
+  describe('Token list and sampling behavior', () => {
+    const NOT_ON_LIST_PAIR = '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123'
+
+    it('Both tokens on list → always uses Unimind (no sampling)', async () => {
+      const quoteMetadata = {
+        quoteId: 'test-on-list-quote', // Any quoteId should work for tokens on list
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.01,
+        route: STRINGIFIED_ROUTE,
+      }
+      const quoteQueryParams = {
+        ...quoteMetadata,
+        swapper: UNIMIND_DEV_SWAPPER_ADDRESS
+      }
+
+      mockUnimindParametersRepo.getByPair.mockResolvedValue({
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0,
+        batchNumber: 0
+      })
+
+      const response = await getUnimindHandler.handler(
+        {
+          queryStringParameters: quoteQueryParams,
+          requestContext: {
+            requestId: 'test-request-id'
+          }
+        } as any,
+        EVENT_CONTEXT
+      )
+
+      expect(response.statusCode).toBe(200)
+      const body = JSON.parse(response.body)
+      // Should receive Unimind parameters, not PUBLIC_STATIC_PARAMETERS (which has pi=15, tau=15)
+      expect(body.pi).not.toBe(15)
+      expect(body.tau).not.toBe(15)
+      expect(body.batchNumber).not.toBe(-1)
+      expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
+        ...quoteMetadata,
+        route: SAMPLE_ROUTE,
+        usedUnimind: true
+      })
+      expect(mockLog.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          group: 'treatment',
+          reason: 'both_tokens_on_unimind_list'
+        }),
+        expect.stringContaining('both tokens on Unimind list')
+      )
+    })
+
+    it('Not on list + passes filter (66%) → uses Unimind', async () => {
+      const quoteMetadata = {
+        quoteId: 'test-quote-0', // This quoteId passes unimindTradeFilter
+        pair: NOT_ON_LIST_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.01,
+        route: STRINGIFIED_ROUTE,
+      }
+      const quoteQueryParams = {
+        ...quoteMetadata,
+        swapper: UNIMIND_DEV_SWAPPER_ADDRESS
+      }
+
+      mockUnimindParametersRepo.getByPair.mockResolvedValue({
+        pair: NOT_ON_LIST_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0,
+        batchNumber: 0
+      })
+
+      const response = await getUnimindHandler.handler(
+        {
+          queryStringParameters: quoteQueryParams,
+          requestContext: {
+            requestId: 'test-request-id'
+          }
+        } as any,
+        EVENT_CONTEXT
+      )
+
+      expect(response.statusCode).toBe(200)
+      const body = JSON.parse(response.body)
+      // Should receive Unimind parameters, not PUBLIC_STATIC_PARAMETERS
+      expect(body.pi).not.toBe(15)
+      expect(body.tau).not.toBe(15)
+      expect(body.batchNumber).not.toBe(-1)
+      expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
+        ...quoteMetadata,
+        route: SAMPLE_ROUTE,
+        usedUnimind: true
+      })
+      expect(mockLog.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          group: 'treatment',
+          reason: 'not_on_unimind_list_sampled_in'
+        }),
+        expect.stringContaining('sampled in')
+      )
+    })
+
+    it('Not on list + fails filter (34%) → uses PUBLIC_STATIC_PARAMETERS', async () => {
+      const quoteMetadata = {
+        quoteId: 'test-quote-fail-filter', // This should fail the filter
+        pair: NOT_ON_LIST_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.01,
+        route: STRINGIFIED_ROUTE,
+      }
+      const quoteQueryParams = {
+        ...quoteMetadata,
+        swapper: UNIMIND_DEV_SWAPPER_ADDRESS
+      }
+
+      const response = await getUnimindHandler.handler(
+        {
+          queryStringParameters: quoteQueryParams,
+          requestContext: {
+            requestId: 'test-request-id'
+          }
+        } as any,
+        EVENT_CONTEXT
+      )
+
+      expect(response.statusCode).toBe(200)
+      const body = JSON.parse(response.body)
+      // Should receive PUBLIC_STATIC_PARAMETERS (pi=15, tau=15, batchNumber=-1, algorithmVersion=-1)
+      expect(body).toEqual({
+        pi: 15,
+        tau: 15,
+        batchNumber: -1,
+        algorithmVersion: -1
+      })
+      expect(mockQuoteMetadataRepo.put).toHaveBeenCalledWith({
+        ...quoteMetadata,
+        route: SAMPLE_ROUTE,
+        usedUnimind: false
+      })
+      expect(mockLog.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          group: 'control',
+          reason: 'not_on_unimind_list_sampled_out'
+        }),
+        expect.stringContaining('sampled out')
+      )
+      // Should NOT call unimindParametersRepo since we're using public params
+      expect(mockUnimindParametersRepo.getByPair).not.toHaveBeenCalled()
+    })
+  })
 })
 
 describe('Correctly modify URA calldata for Artemis support', () => {

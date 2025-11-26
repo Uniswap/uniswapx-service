@@ -9,8 +9,8 @@ export interface UnimindParameters {
   intrinsicValues: string
   count: number
   version: number
-  batchNumber: number        // Tracks parameter update iterations
-  lastUpdatedAt?: number     // Unix timestamp for update tracking
+  batchNumber: number // Tracks parameter update iterations
+  lastUpdatedAt?: number // Unix timestamp for update tracking
 }
 
 export interface UnimindParametersRepository {
@@ -66,4 +66,4 @@ export class DynamoUnimindParametersRepository implements UnimindParametersRepos
     const result = await this.entity.get({ pair }, { execute: true })
     return result.Item as UnimindParameters | undefined
   }
-} 
+}
