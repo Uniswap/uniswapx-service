@@ -7,7 +7,7 @@ import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import { metrics } from '../../util/metrics'
 import { UnimindQueryParams, unimindQueryParamsSchema } from './schema'
-import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_UNIMIND_PARAMETERS, TradeType, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, PUBLIC_STATIC_PARAMETERS, TradeType, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, USE_CLASSIC_PARAMETERS } from '../../util/constants'
 import { IUnimindAlgorithm, supportedUnimindTokens, unimindTradeFilter } from '../../util/unimind'
 import { PriceImpactIntrinsicParameters, PriceImpactStrategy } from '../../unimind/priceImpactStrategy'
 import { validateParameters } from '../../crons/unimind-algorithm'
@@ -55,9 +55,10 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
       }
       
       // Step 1: Eligibility checks
-      const isEligible = supportedUnimindTokens(quoteMetadata.pair);
+      const onUnimindTokenList = supportedUnimindTokens(quoteMetadata.pair);
 
-      if (!isEligible) {
+      if (!onUnimindTokenList) {
+        // If it's not on the Unimind token list, we will still send 2/3 to Unimind but 1/3 to Public Params
         quoteMetadata.usedUnimind = false
         
         try {
@@ -68,7 +69,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
 
         return {
           statusCode: 200,
-          body: PUBLIC_UNIMIND_PARAMETERS
+          body: PUBLIC_STATIC_PARAMETERS
         }
       }
 
@@ -85,7 +86,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         
         return {
             statusCode: 200,
-            body: PUBLIC_UNIMIND_PARAMETERS
+            body: PUBLIC_STATIC_PARAMETERS
         }
       }
 
