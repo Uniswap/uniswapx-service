@@ -35,10 +35,6 @@ import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-me
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
-import { sendImmediateExclusiveFillerNotification } from '../handlers/order-notification/handler'
-import { ExclusiveFillerWebhookOrder } from '../handlers/order-notification/types'
-import { WebhookProvider } from '../providers/base'
-import { hasExclusiveFiller } from '../util/address'
 
 const MAX_QUERY_RETRY = 10
 
@@ -52,12 +48,11 @@ export class UniswapXOrderService {
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
     private analyticsService: AnalyticsServiceInterface,
-    private readonly providerMap: ProviderMap,
-    private readonly webhookProvider?: WebhookProvider
+    private readonly providerMap: ProviderMap
   ) {}
 
   async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order): Promise<string> {
-    let orderEntity: UniswapXOrderEntity
+    let orderEntity
     if (order instanceof DutchV1Order || order instanceof LimitOrder) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
@@ -101,39 +96,6 @@ export class UniswapXOrderService {
 
     const realOrderType = order.orderType
     await this.logOrderCreatedEvent(orderEntity, realOrderType)
-
-    // Send immediate notification to exclusive filler if present
-    if (this.webhookProvider && hasExclusiveFiller(orderEntity.filler)) {
-      // Create properly typed webhook order data
-      const exclusiveFillerOrder: ExclusiveFillerWebhookOrder = {
-        orderHash: orderEntity.orderHash,
-        createdAt: orderEntity.createdAt ?? Date.now(),
-        signature: orderEntity.signature,
-        offerer: orderEntity.offerer,
-        orderStatus: orderEntity.orderStatus,
-        encodedOrder: orderEntity.encodedOrder,
-        chainId: orderEntity.chainId,
-        quoteId: orderEntity.quoteId,
-        filler: orderEntity.filler,
-        orderType: realOrderType,
-      }
-      
-      // Don't await to minimize latency-add to order posting flow
-      sendImmediateExclusiveFillerNotification(
-        exclusiveFillerOrder,
-        realOrderType,
-        this.webhookProvider,
-        this.logger
-      ).catch((error) => {
-        this.logger.warn(
-          { 
-            orderHash: orderEntity.orderHash, 
-            error: error.message || error,
-            message: 'Immediate webhook notification failed, will rely on DynamoDB stream'
-          }
-        )
-      })
-    }
 
     // TODO: cleanup with generic order model
     const quoteId = 'quoteId' in order ? order.quoteId : undefined

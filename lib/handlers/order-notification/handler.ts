@@ -1,15 +1,14 @@
-import { CosignedV2DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
-import { Unit } from 'aws-embedded-metrics'
 import axios, { AxiosResponse } from 'axios'
 import Joi from 'joi'
-import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { eventRecordToOrder } from '../../util/order'
 import { BatchFailureResponse, DynamoStreamLambdaHandler } from '../base/dynamo-stream-handler'
-import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
 import { ContainerInjected, RequestInjected } from './injector'
 import { OrderNotificationInputJoi } from './schema'
-import { ExclusiveFillerWebhookOrder, WebhookLogger, WebhookOrderData, WebhookProviderInterface } from './types'
+import { CosignedV2DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
+import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
+import { Unit } from 'aws-embedded-metrics'
+import { ChainId } from '../../util/chain'
 
 const WEBHOOK_TIMEOUT_MS = 200
 
@@ -42,12 +41,54 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
 
         log.info({ order: newOrder, registeredEndpoints }, 'Sending order to registered webhooks.')
 
-        // Convert to standard webhook format (map swapper -> offerer)
-        const webhookOrderData: WebhookOrderData = {
-          ...newOrder,
-          offerer: newOrder.swapper,
+        // Randomize the order to prevent any filler from having a consistent advantage
+        const shuffledEndpoints = [...registeredEndpoints].sort(() => Math.random())
+        const requests: Promise<AxiosResponse>[] = shuffledEndpoints.map((endpoint) =>
+          axios.post(
+            endpoint.url,
+            {
+              orderHash: newOrder.orderHash,
+              createdAt: newOrder.createdAt,
+              signature: newOrder.signature,
+              offerer: newOrder.swapper,
+              orderStatus: newOrder.orderStatus,
+              encodedOrder: newOrder.encodedOrder,
+              chainId: newOrder.chainId,
+              ...(newOrder.orderType && { type: newOrder.orderType }),
+              ...(newOrder.quoteId && { quoteId: newOrder.quoteId }),
+              ...(newOrder.filler && { filler: newOrder.filler }),
+              notifiedAt: Date.now(), // Fillers can deduce notification latency
+            },
+            {
+              timeout: WEBHOOK_TIMEOUT_MS,
+              headers: { ...endpoint.headers },
+            }
+          )
+        )
+
+        // we send to each webhook only once but log which ones failed
+        const results = await Promise.allSettled(requests)
+        const failedWebhooks: string[] = []
+
+        results.forEach((result, index) => {
+          metrics.putMetric(`OrderNotificationAttempt-chain-${newOrder.chainId}`, 1)
+          if (result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202) {
+            delete result.value.request
+            log.info(
+              { result: result.value },
+              `Success: New order record sent to registered webhook ${registeredEndpoints[index].url}.`
+            )
+            metrics.putMetric(`OrderNotificationSendSuccess-chain-${newOrder.chainId}`, 1)
+          } else {
+            failedWebhooks.push(registeredEndpoints[index].url)
+            metrics.putMetric(`OrderNotificationSendFailure-chain-${newOrder.chainId}`, 1)
+          }
+        })
+
+        if (failedWebhooks.length > 0) {
+          log.error({ failedWebhooks }, 'Error: Failed to notify registered webhooks.')
+          // No longer retry webhook delivery failures
         }
-        await sendWebhookNotifications(registeredEndpoints, webhookOrderData, log)
       } catch (e: unknown) {
         log.error(e instanceof Error ? e.message : e, 'Unexpected failure in handler.')
         failedRecords.push({ itemIdentifier: record.dynamodb?.SequenceNumber })
@@ -118,124 +159,5 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
       const staleRecordMetricName = `NotificationRecordStaleness-chain-${newOrder.chainId.toString()}`
       metrics.putMetric(staleRecordMetricName, recordTimeDifference)
     }
-  }
-}
-
-/**
- * Send webhook notifications to all provided endpoints
- * Extracted from OrderNotificationHandler for reuse in immediate notifications
- */
-export async function sendWebhookNotifications(
-  endpoints: Array<{ url: string; headers?: { [key: string]: string } }>,
-  order: WebhookOrderData,
-  logger: WebhookLogger
-): Promise<void> {
-  // Randomize the order to prevent any filler from having a consistent advantage
-  const shuffledEndpoints = [...endpoints].sort(() => Math.random())
-  const requests: Promise<AxiosResponse>[] = shuffledEndpoints.map((endpoint) =>
-    axios.post(
-      endpoint.url,
-      {
-        orderHash: order.orderHash,
-        createdAt: order.createdAt,
-        signature: order.signature,
-        offerer: order.offerer,
-        orderStatus: order.orderStatus,
-        encodedOrder: order.encodedOrder,
-        chainId: order.chainId,
-        ...(order.orderType && { type: order.orderType }),
-        ...(order.quoteId && { quoteId: order.quoteId }),
-        ...(order.filler && { filler: order.filler }),
-        notifiedAt: Date.now(), // Fillers can deduce notification latency
-      },
-      {
-        timeout: WEBHOOK_TIMEOUT_MS,
-        headers: { ...endpoint.headers },
-      }
-    )
-  )
-
-  // we send to each webhook only once but log which ones failed
-  const results = await Promise.allSettled(requests)
-  const failedWebhooks: string[] = []
-
-  results.forEach((result, index) => {
-    metrics.putMetric(`OrderNotificationAttempt-chain-${order.chainId}`, 1)
-    if (result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202) {
-      delete result.value.request
-      logger.info(
-        { result: result.value },
-        `Success: New order record sent to registered webhook ${endpoints[index].url}.`
-      )
-      metrics.putMetric(`OrderNotificationSendSuccess-chain-${order.chainId}`, 1)
-    } else {
-      failedWebhooks.push(endpoints[index].url)
-      metrics.putMetric(`OrderNotificationSendFailure-chain-${order.chainId}`, 1)
-    }
-  })
-
-  if (failedWebhooks.length > 0) {
-    logger.error({ failedWebhooks }, 'Error: Failed to notify registered webhooks.')
-    // No longer retry webhook delivery failures
-  }
-}
-
-/**
- * Send immediate webhook notification to exclusive filler only
- * Called synchronously from post-order handler to minimize latency for exclusive fillers
- *
- * @param orderEntity - Order entity with validated exclusive filler (caller must ensure filler is non-zero address)
- * @param orderType - Type of the order
- * @param webhookProvider - Provider for webhook endpoints
- * @param logger - Logger instance
- */
-export async function sendImmediateExclusiveFillerNotification(
-  orderEntity: ExclusiveFillerWebhookOrder,
-  orderType: string,
-  webhookProvider: WebhookProviderInterface,
-  logger: WebhookLogger
-): Promise<void> {
-  try {
-    const startTime = Date.now()
-
-    // Get endpoints specifically for the exclusive filler
-    const exclusiveFillerEndpoints = await webhookProvider.getExclusiveFillerEndpoints(orderEntity.filler)
-
-    if (exclusiveFillerEndpoints.length === 0) {
-      return
-    }
-
-    logger.info(
-      {
-        orderHash: orderEntity.orderHash,
-        filler: orderEntity.filler,
-        endpointCount: exclusiveFillerEndpoints.length,
-      },
-      'Sending immediate webhook notification to exclusive filler'
-    )
-
-    await sendWebhookNotifications(
-      exclusiveFillerEndpoints,
-      {
-        ...orderEntity,
-        orderType,
-      },
-      logger
-    )
-
-    const duration = Date.now() - startTime
-    metrics.putMetric(`ImmediateNotificationDuration-chain-${orderEntity.chainId}`, duration, Unit.Milliseconds)
-    metrics.putMetric(`ImmediateNotificationAttempt-chain-${orderEntity.chainId}`, 1, Unit.Count)
-  } catch (error) {
-    logger.error(
-      {
-        orderHash: orderEntity.orderHash,
-        filler: orderEntity.filler,
-        error,
-      },
-      'Failed to send immediate webhook notification to exclusive filler'
-    )
-    metrics.putMetric(`ImmediateNotificationError-chain-${orderEntity.chainId}`, 1, Unit.Count)
-    // Don't throw - we don't want webhook failures to break order posting
   }
 }
