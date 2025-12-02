@@ -167,6 +167,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
         referencePrice: quoteMetadata.referencePrice,
         route: quoteMetadata.route,
         tradeType: quoteMetadata.tradeType,
+        onUnimindTokenList: onUnimindTokenList,
       })
 
       log.info(

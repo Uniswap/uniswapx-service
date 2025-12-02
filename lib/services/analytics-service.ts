@@ -39,6 +39,7 @@ export interface UnimindResponseParams {
   amountOut?: string
   chainId?: number
   tradeType?: string
+  onUnimindTokenList?: boolean
 }
 
 // Parameters for Unimind parameter update analytics
