@@ -79,6 +79,15 @@ export type RelayOrderPostRequestBody = {
   signature: string
 }
 
+export type HybridOrderPostRequestBody = {
+  orderType: OrderType.Hybrid
+  chainId: number
+  encodedOrder: string
+  signature: string
+  quoteId?: string
+  requestId?: string
+}
+
 export type PostOrderRequestBody =
   | LegacyDutchOrderPostRequestBody
   | DutchV1OrderPostRequestBody
@@ -87,6 +96,7 @@ export type PostOrderRequestBody =
   | LimitOrderPostRequestBody
   | RelayOrderPostRequestBody
   | PriorityOrderPostRequestBody
+  | HybridOrderPostRequestBody
 
 export type PostOrderResponse = {
   hash: string

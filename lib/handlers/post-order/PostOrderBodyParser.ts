@@ -10,6 +10,7 @@ import {
   UniswapXOrderParser,
   CosignedV3DutchOrder,
   CosignedV3DutchOrder as SDKV3DutchOrder,
+  HybridOrderClass as SDKHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { DutchV1Order } from '../../models/DutchV1Order'
@@ -18,6 +19,7 @@ import { LimitOrder } from '../../models/LimitOrder'
 import { Order } from '../../models/Order'
 import { PriorityOrder } from '../../models/PriorityOrder'
 import { RelayOrder } from '../../models/RelayOrder'
+import { HybridOrder } from '../../models/HybridOrder'
 import { PostOrderRequestBody } from './schema'
 import { DutchV3Order } from '../../models/DutchV3Order'
 import { metrics } from '../../util/metrics'
@@ -46,6 +48,8 @@ export class PostOrderBodyParser {
         return this.tryParseRelayOrder(encodedOrder, signature, chainId)
       case OrderType.Priority:
         return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
+      case OrderType.Hybrid:
+        return this.tryParseHybridOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case undefined:
         // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
         // Try to parse both and see which hits.
@@ -162,6 +166,27 @@ export class PostOrderBodyParser {
       return new PriorityOrder(order, signature, chainId, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse Priority order', {
+        err,
+        encodedOrder,
+        chainId,
+        signature,
+      })
+      throw err
+    }
+  }
+
+  private tryParseHybridOrder(
+    encodedOrder: string,
+    signature: string,
+    chainId: number,
+    quoteId?: string,
+    requestId?: string
+  ): HybridOrder {
+    try {
+      const order = SDKHybridOrder.parse(encodedOrder, chainId)
+      return new HybridOrder(order.inner, signature, chainId, undefined, undefined, quoteId, requestId)
+    } catch (err) {
+      this.logger.error('Unable to parse Hybrid order', {
         err,
         encodedOrder,
         chainId,

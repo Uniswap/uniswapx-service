@@ -5,6 +5,7 @@ export enum GetOrderTypeQueryParamEnum {
   Relay = 'Relay',
   Limit = 'Limit',
   Priority = 'Priority',
+  Hybrid = 'Hybrid',
 
   Dutch_V1_V2 = 'Dutch_V1_V2',
 }

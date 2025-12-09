@@ -11,6 +11,9 @@ import {
   PriorityOutput,
   REACTOR_ADDRESS_MAPPING,
   V3DutchOutput,
+  // TODO: use CoignedHybridOrder once SDK is updated
+  HybridOrderClass,
+  HybridOutput,
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import Joi from 'joi'
@@ -29,7 +32,7 @@ export class OffChainUniswapXOrderValidator {
     private readonly skipValidationMap?: SkipValidationMap
   ) {}
 
-  validate(order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder): OrderValidationResponse {
+  validate(order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder | HybridOrderClass): OrderValidationResponse {
     let orderType
     if (order instanceof DutchOrder) {
       orderType = OrderType.Dutch
@@ -39,6 +42,8 @@ export class OffChainUniswapXOrderValidator {
       orderType = OrderType.Dutch_V3
     } else if (order instanceof CosignedPriorityOrder) {
       orderType = OrderType.Priority
+    } else if (order instanceof HybridOrderClass) {
+      orderType = OrderType.Hybrid
     } else {
       return {
         valid: false,
@@ -63,7 +68,14 @@ export class OffChainUniswapXOrderValidator {
       }
     }
 
-    if (orderType == OrderType.Priority) {
+    let token: string;
+    if (order instanceof HybridOrderClass) {
+      token = order.order.input.token
+    } else {
+      token = order.info.input.token
+    }
+
+    if (orderType == OrderType.Priority && order instanceof CosignedPriorityOrder) {
       const priorityCosignerValidation = this.validatePriorityCosigner((order as CosignedPriorityOrder).info.cosigner)
       if (!priorityCosignerValidation.valid) {
         return priorityCosignerValidation
@@ -114,12 +126,12 @@ export class OffChainUniswapXOrderValidator {
       return reactorValidation
     }
 
-    const inputTokenValidation = this.validateInputToken(order.info.input.token)
+    const inputTokenValidation = this.validateInputToken(token)
     if (!inputTokenValidation.valid) {
       return inputTokenValidation
     }
 
-    if (orderType == OrderType.Priority) {
+    if (orderType == OrderType.Priority && order instanceof CosignedPriorityOrder) {
       const input = order.info.input as PriorityInput
       const inputAmountValidation = this.validateInputAmount(input.amount)
       if (!inputAmountValidation.valid) {
@@ -135,7 +147,28 @@ export class OffChainUniswapXOrderValidator {
       if (!outputsValidation.valid) {
         return outputsValidation
       }
-    } else if (orderType == OrderType.Dutch_V3) {
+    } else if (orderType == OrderType.Hybrid && order instanceof HybridOrderClass) {
+      const hybridOrder = order as HybridOrderClass
+      const curveValidation = this.validateHybridCurve(hybridOrder.order.priceCurve, hybridOrder.order.scalingFactor)
+      if (!curveValidation.valid) {
+        return curveValidation
+      }
+
+      const supplementalCurveValidation = this.validateHybridCurve(hybridOrder.order.cosignerData.supplementalPriceCurve, hybridOrder.order.scalingFactor)
+      if (!supplementalCurveValidation.valid) {
+        return supplementalCurveValidation
+      }
+
+      const inputMaxAmountValidation = this.validateInputAmount(hybridOrder.order.input.maxAmount)
+      if (!inputMaxAmountValidation.valid) {
+        return inputMaxAmountValidation
+      }
+
+      const outputsValidation = this.validateHybridOutputs(hybridOrder.order.outputs as HybridOutput[])
+      if (!outputsValidation.valid) {
+        return outputsValidation
+      }
+    } else if (orderType == OrderType.Dutch_V3 && order instanceof CosignedV3DutchOrder) {
       const dutchV3Order = order as CosignedV3DutchOrder
       const inputStartAmountValidation = this.validateInputAmount(dutchV3Order.info.input.startAmount)
       if (!inputStartAmountValidation.valid) {
@@ -162,7 +195,7 @@ export class OffChainUniswapXOrderValidator {
       if (!outputsValidation.valid) {
         return outputsValidation
       }
-    } else {
+    } else if (orderType == OrderType.Dutch && (order instanceof DutchOrder || order instanceof CosignedV2DutchOrder)) {
       const input = order.info.input as DutchInput
       const inputStartAmountValidation = this.validateInputAmount(input.startAmount)
       if (!inputStartAmountValidation.valid) {
@@ -543,5 +576,86 @@ export class OffChainUniswapXOrderValidator {
       }
     }
     return { valid: true }
+  }
+
+  private validateHybridCurve(priceCurve: BigNumber[], scalingFactor: BigNumber): OrderValidationResponse {
+    if (!this.isValidUint256(scalingFactor)) {
+      return {
+        valid: false,
+        errorString: `Invalid scalingFactor ${scalingFactor.toString()}`,
+      }
+    }
+
+    const ONE_E18 = BigNumber.from(10).pow(18)
+    const SCALING_FACTOR_MASK = BigNumber.from(1).shl(240).sub(1)
+    
+    // Direction: 0: unknown, 1: positive, -1: negative
+    let direction = 0; 
+    let directionSet = false;
+
+    for (let i = 0; i < priceCurve.length; i++) {
+      if (!this.isValidUint256(priceCurve[i])) {
+        return {
+          valid: false,
+          errorString: `Invalid priceCurve value at index ${i}: ${priceCurve[i].toString()}`,
+        }
+      }
+
+      const curveScalingFactor = priceCurve[i].and(SCALING_FACTOR_MASK)
+        if (curveScalingFactor == ONE_E18) {
+          continue
+        }
+
+        if (!directionSet) {
+            direction = curveScalingFactor.gt(ONE_E18) ? 1 : -1;
+            directionSet = true;
+        } else {
+          const currentDirection = curveScalingFactor.gt(ONE_E18) ? 1 : -1;
+          if (currentDirection != direction) {
+            return {
+              valid: false,
+              errorString: `Invalid priceCurve: direction inconsistency`,
+            }
+          }
+        }
+        continue
+    }
+
+    return { valid: true }
+  }
+
+  private validateHybridOutputs(outputs: HybridOutput[]): OrderValidationResponse {
+    if (outputs.length == 0) {
+      return {
+        valid: false,
+        errorString: `Invalid number of outputs: 0`,
+      }
+    }
+    for (const output of outputs) {
+      const { token, recipient, minAmount } = output
+      if (FieldValidator.isValidEthAddress().validate(token).error) {
+        return {
+          valid: false,
+          errorString: `Invalid output token ${token}`,
+        }
+      }
+
+      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
+        return {
+          valid: false,
+          errorString: `Invalid recipient ${recipient}`,
+        }
+      }
+
+      if (!this.isValidUint256(minAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid minAmount ${minAmount.toString()}`,
+        }
+      }
+    }
+    return {
+      valid: true,
+    }
   }
 }

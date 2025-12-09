@@ -25,6 +25,18 @@ export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.GÖRLI]: 3,
 }
 
+// Hybrid orders use similar block buffer logic to Priority orders
+export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
+  [ChainId.MAINNET]: 3,
+  [ChainId.UNICHAIN]: 4,
+  [ChainId.BASE]: 3,
+  [ChainId.OPTIMISM]: 3,
+  [ChainId.ARBITRUM_ONE]: 3,
+  [ChainId.POLYGON]: 3,
+  [ChainId.SEPOLIA]: 3,
+  [ChainId.GÖRLI]: 3,
+}
+
 export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20;
 
 export const UR_EXECUTE_SELECTOR = "24856bc3"

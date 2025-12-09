@@ -7,6 +7,7 @@ import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetOrderTypeQueryParamEnum } from '../handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
+import { GetHybridOrderResponse } from '../handlers/get-orders/schema/GetHybridOrderResponse'
 import { GetRelayOrderResponse } from '../handlers/get-orders/schema/GetRelayOrderResponse'
 import { Order } from '../models/Order'
 import { RelayOrder } from '../models/RelayOrder'
@@ -39,7 +40,7 @@ export class OrderDispatcher {
     { params, limit, cursor, executeAddress }: { params: GetOrdersQueryParams; limit: number; cursor: string | undefined; executeAddress?: string }
   ): Promise<
     | GetOrdersResponse<
-        UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetPriorityOrderResponse
+        UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetPriorityOrderResponse | GetHybridOrderResponse
       >
     | GetOrdersResponse<GetRelayOrderResponse>
   > {
@@ -56,6 +57,8 @@ export class OrderDispatcher {
         return await this.uniswapXService.getDutchOrders(limit, params, cursor)
       case GetOrderTypeQueryParamEnum.Priority:
         return await this.uniswapXService.getPriorityOrders(limit, params, cursor, executeAddress)
+      case GetOrderTypeQueryParamEnum.Hybrid:
+        return await this.uniswapXService.getHybridOrders(limit, params, cursor)
       case GetOrderTypeQueryParamEnum.Limit:
         return await this.uniswapXService.getLimitOrders(limit, params, cursor)
       default:
@@ -69,7 +72,8 @@ export class OrderDispatcher {
       order.orderType === OrderType.Limit ||
       order.orderType === OrderType.Dutch_V2 ||
       order.orderType === OrderType.Dutch_V3 ||
-      order.orderType === OrderType.Priority
+      order.orderType === OrderType.Priority ||
+      order.orderType === OrderType.Hybrid
     )
   }
 

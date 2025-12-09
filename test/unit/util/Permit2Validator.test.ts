@@ -13,6 +13,7 @@ describe('Permit2Validator', () => {
   let validator: Permit2Validator
   let mockSignatureProvider: jest.Mocked<any>
   let testOrder: UniswapXOrder
+  let inputToken: string
 
   beforeEach(() => {
     // Reset all mocks
@@ -27,14 +28,14 @@ describe('Permit2Validator', () => {
 
     // Create validator instance
     validator = new Permit2Validator(undefined as any, ChainId.MAINNET)
-
+    inputToken = '0x1234567890123456789012345678901234567890'
     testOrder = {
       info: {
         deadline: Math.floor(Date.now() / 1000) + 3600,
         nonce: ethers.BigNumber.from(123),
         swapper: '0x1234567890123456789012345678901234567890',
         input: {
-          token: '0x1234567890123456789012345678901234567890',
+          token: inputToken,
           amount: ethers.BigNumber.from('1000000000000000000')
         }
       }
@@ -54,7 +55,7 @@ describe('Permit2Validator', () => {
       expect(result).toBe(OrderValidation.NonceUsed)
       expect(mockSignatureProvider.validatePermit).toHaveBeenCalledWith({
         permitted: {
-          token: testOrder.info.input.token,
+          token: inputToken,
           amount: 0
         },
         spender: testOrder.info.swapper,
@@ -75,7 +76,7 @@ describe('Permit2Validator', () => {
       expect(result).toBe(OrderValidation.Expired)
       expect(mockSignatureProvider.validatePermit).toHaveBeenCalledWith({
         permitted: {
-          token: testOrder.info.input.token,
+          token: inputToken,
           amount: 0
         },
         spender: testOrder.info.swapper,
@@ -96,7 +97,7 @@ describe('Permit2Validator', () => {
       expect(result).toBe(OrderValidation.OK)
       expect(mockSignatureProvider.validatePermit).toHaveBeenCalledWith({
         permitted: {
-          token: testOrder.info.input.token,
+          token: inputToken,
           amount: 0
         },
         spender: testOrder.info.swapper,

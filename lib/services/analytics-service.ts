@@ -4,6 +4,7 @@ import { AddressZero } from '@ethersproject/constants'
 import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
 import {
   isDutchV3OrderEntity,
+  isHybridOrderEntity,
   isPriorityOrderEntity,
   ORDER_STATUS,
   RelayOrderEntity,
@@ -118,6 +119,20 @@ export class AnalyticsService implements AnalyticsServiceInterface {
           outputStartAmount: userOutput.startAmount,
           outputCurve: JSON.stringify(userOutput.curve),
           startingBaseFee: order.startingBaseFee,
+        }),
+      })
+    } else if (isHybridOrderEntity(order)) {
+      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.minAmount > cur.minAmount ? prev : cur))
+      this.logger.info('Analytics Message', {
+        eventType: ANALYTICS_EVENTS.ORDER_POSTED,
+        body: Object.assign(sharedFields, {
+          auctionStartBlock: order.auctionStartBlock,
+          auctionTargetBlock: order.cosignerData.auctionTargetBlock,
+          baselinePriorityFeeWei: order.baselinePriorityFeeWei,
+          scalingFactor: order.scalingFactor,
+          inputMaxAmount: order.input?.maxAmount,
+          outputMinAmount: userOutput.minAmount,
+          priceCurve: JSON.stringify(order.priceCurve),
         }),
       })
     } else {
