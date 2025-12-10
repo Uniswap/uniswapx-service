@@ -10,7 +10,7 @@ import {
   UniswapXOrderParser,
   CosignedV3DutchOrder,
   CosignedV3DutchOrder as SDKV3DutchOrder,
-  HybridOrderClass as SDKHybridOrder,
+  CosignedHybridOrder as SDKHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { DutchV1Order } from '../../models/DutchV1Order'
@@ -184,7 +184,7 @@ export class PostOrderBodyParser {
   ): HybridOrder {
     try {
       const order = SDKHybridOrder.parse(encodedOrder, chainId)
-      return new HybridOrder(order.inner, signature, chainId, undefined, undefined, quoteId, requestId)
+      return new HybridOrder(order, signature, chainId, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse Hybrid order', {
         err,

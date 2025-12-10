@@ -1,8 +1,8 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { KmsSigner } from '@uniswap/signer'
-import { OrderType } from '@uniswap/uniswapx-sdk'
-import { BigNumber } from 'ethers'
+import { OrderType, CosignedHybridOrder as SDKHybridOrder, HybridCosignerData } from '@uniswap/uniswapx-sdk'
+import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS } from '../entities'
 import { HybridOrderEntity, UniswapXOrderEntity } from '../entities/Order'
 import { HYBRID_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
@@ -12,8 +12,6 @@ import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 import { ChainId } from '../util/chain'
 import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
-// TODO: make SignedHybridOrder once SDK is updated
-import { HybridOrderClass as SDKHybridOrder } from '@uniswap/uniswapx-sdk'
 
 export class HybridOrder extends Order {
   constructor(
@@ -42,20 +40,20 @@ export class HybridOrder extends Order {
 
 
   public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): HybridOrderEntity {
-    const { input, outputs } = this.inner.order
+    const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: HybridOrderEntity = {
       type: OrderType.Hybrid,
       encodedOrder: decodedOrder.serialize(),
       signature: this.signature,
-      nonce: decodedOrder.order.info.nonce.toString(),
+      nonce: decodedOrder.info.nonce.toString(),
       orderHash: decodedOrder.hash().toLowerCase(),
       chainId: decodedOrder.chainId,
       orderStatus: orderStatus,
-      offerer: decodedOrder.order.info.swapper.toLowerCase(),
-      auctionStartBlock: decodedOrder.order.auctionStartBlock.toNumber(),
-      baselinePriorityFeeWei: decodedOrder.order.baselinePriorityFeeWei.toString(),
-      scalingFactor: decodedOrder.order.scalingFactor.toString(),
+      offerer: decodedOrder.info.swapper.toLowerCase(),
+      auctionStartBlock: decodedOrder.info.auctionStartBlock.toNumber(),
+      baselinePriorityFeeWei: decodedOrder.info.baselinePriorityFeeWei.toString(),
+      scalingFactor: decodedOrder.info.scalingFactor.toString(),
       input: {
         token: input.token,
         maxAmount: input.maxAmount.toString(),
@@ -65,16 +63,16 @@ export class HybridOrder extends Order {
         minAmount: output.minAmount.toString(),
         recipient: output.recipient.toLowerCase(),
       })),
-      priceCurve: decodedOrder.order.priceCurve.map((p) => p.toString()),
-      reactor: decodedOrder.order.info.reactor.toLowerCase(),
-      deadline: decodedOrder.order.info.deadline,
-      cosigner: decodedOrder.order.cosigner.toLowerCase(),
+      priceCurve: decodedOrder.info.priceCurve.map((p) => p.toString()),
+      reactor: decodedOrder.info.reactor.toLowerCase(),
+      deadline: decodedOrder.info.deadline,
+      cosigner: decodedOrder.info.cosigner.toLowerCase(),
       cosignerData: {
-        auctionTargetBlock: decodedOrder.order.cosignerData.auctionTargetBlock.toNumber(),
-        supplementalPriceCurve: decodedOrder.order.cosignerData.supplementalPriceCurve.map((p) => p.toString()),
+        auctionTargetBlock: decodedOrder.info.cosignerData.auctionTargetBlock.toNumber(),
+        supplementalPriceCurve: decodedOrder.info.cosignerData.supplementalPriceCurve.map((p) => p.toString()),
       },
       txHash: this.txHash,
-      cosignature: decodedOrder.order.cosignature,
+      cosignature: decodedOrder.info.cosignature,
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
@@ -116,7 +114,11 @@ export class HybridOrder extends Order {
     )
   }
 
-  public async reparameterizeAndCosign(provider: StaticJsonRpcProvider, cosigner: KmsSigner): Promise<this> {
+  public async reparameterizeAndCosign(
+    provider: StaticJsonRpcProvider,
+    cosigner: KmsSigner,
+    quoteMetadata?: QuoteMetadata
+  ): Promise<this> {
     const block = await provider.getBlock('latest')
     const currentTime = Math.floor(Date.now() / 1000) // Current time in seconds
 
@@ -132,15 +134,82 @@ export class HybridOrder extends Order {
       .add(HYBRID_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId] || 3)
       .add(extraBlock)
 
-    this.inner.order.cosignerData = {
-      auctionTargetBlock: targetBlock,
-      // TODO: confirm what type of curve we want for supplemental curve
-      supplementalPriceCurve: [BigNumber.from(1).shl(240).and(BigNumber.from(10).pow(18))],
-    }
+    const cosignerData = this.generateCosignerData(
+      targetBlock,
+      false,
+      quoteMetadata,
+    )
 
-    this.inner.order.cosignature = await cosigner.signDigest(this.inner.cosignatureHash())
+    this.inner.info.cosignerData = cosignerData
+
+    this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash())
     return this
   }
+
+  /**
+ * Generates cosigner data for hybrid orders based on the scaling factor and quote metadata.
+ * If scalingFactor == 1e18, returns non-zero target block and supplemental price curve.
+ * Otherwise, returns zero target block and empty supplemental price curve.
+ */
+private generateCosignerData(
+  targetBlock: BigNumber,
+  scaleWorse: boolean,
+  quoteMetadata?: QuoteMetadata
+): HybridCosignerData {
+  // If scalingFactor is not 1e18, return empty cosigner data
+  if (this.inner.info.priceCurve.length == 0) {
+    return {
+      auctionTargetBlock: BigNumber.from(0),
+      supplementalPriceCurve: [],
+    }
+  }
+
+  const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther // 1e18
+
+  // NOTE: only works for one output
+  if (this.inner.info.outputs.length != 1) {
+    return {
+      auctionTargetBlock: BigNumber.from(0),
+      supplementalPriceCurve: [],
+    }
+  }
+
+  const currentRate = this.inner.info.outputs[0].minAmount.div(this.inner.info.input.maxAmount)
+  const scale = (currentRate.mul(BASE_SCALING_FACTOR.pow(2))).div(BigNumber.from(quoteMetadata?.referencePrice))
+  if (scale.eq(BASE_SCALING_FACTOR)) {
+    return {
+      auctionTargetBlock: targetBlock,
+      supplementalPriceCurve: [],
+    }
+  }
+
+  if (this.inner.info.scalingFactor.eq(BASE_SCALING_FACTOR)) {
+    return {
+      auctionTargetBlock: targetBlock,
+      supplementalPriceCurve: [],
+    }
+  }
+
+  if (!scaleWorse) {
+    if (scale.gt(BASE_SCALING_FACTOR) != this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR)) {
+      return {
+        auctionTargetBlock: targetBlock,
+        supplementalPriceCurve: [],
+      }
+    }
+  }
+
+  const supplementalPriceCurve: BigNumber[] = []
+  for (let i = 0; i < this.inner.info.priceCurve.length; i++) {
+    const relativeDifference = (this.inner.info.priceCurve[i].mul(BASE_SCALING_FACTOR)).div(scale.sub(BASE_SCALING_FACTOR))
+    supplementalPriceCurve.push(relativeDifference)
+  }
+
+  return {
+    auctionTargetBlock: targetBlock,
+    supplementalPriceCurve,
+  }
+}
 
   public toGetResponse(): GetHybridOrderResponse {
     return {
@@ -149,32 +218,32 @@ export class HybridOrder extends Order {
       signature: this.signature,
       encodedOrder: this.inner.serialize(),
       chainId: this.chainId,
-      nonce: this.inner.order.info.nonce.toString(),
+      nonce: this.inner.info.nonce.toString(),
       txHash: this.txHash,
       orderHash: this.inner.hash(),
-      swapper: this.inner.order.info.swapper,
-      reactor: this.inner.order.info.reactor,
-      deadline: this.inner.order.info.deadline,
-      auctionStartBlock: this.inner.order.auctionStartBlock.toNumber(),
-      baselinePriorityFeeWei: this.inner.order.baselinePriorityFeeWei.toString(),
-      scalingFactor: this.inner.order.scalingFactor.toString(),
+      swapper: this.inner.info.swapper,
+      reactor: this.inner.info.reactor,
+      deadline: this.inner.info.deadline,
+      auctionStartBlock: this.inner.info.auctionStartBlock.toNumber(),
+      baselinePriorityFeeWei: this.inner.info.baselinePriorityFeeWei.toString(),
+      scalingFactor: this.inner.info.scalingFactor.toString(),
       input: {
-        token: this.inner.order.input.token,
-        maxAmount: this.inner.order.input.maxAmount.toString(),
+        token: this.inner.info.input.token,
+        maxAmount: this.inner.info.input.maxAmount.toString(),
       },
-      outputs: this.inner.order.outputs.map((o) => ({
+      outputs: this.inner.info.outputs.map((o) => ({
         token: o.token,
         minAmount: o.minAmount.toString(),
         recipient: o.recipient,
       })),
-      priceCurve: this.inner.order.priceCurve.map((p) => p.toString()),
+      priceCurve: this.inner.info.priceCurve.map((p) => p.toString()),
       settledAmounts: this.settledAmounts,
-      cosigner: this.inner.order.cosigner,
+      cosigner: this.inner.info.cosigner,
       cosignerData: {
-        auctionTargetBlock: this.inner.order.cosignerData.auctionTargetBlock.toNumber(),
-        supplementalPriceCurve: this.inner.order.cosignerData.supplementalPriceCurve.map((p) => p.toString()),
+        auctionTargetBlock: this.inner.info.cosignerData.auctionTargetBlock.toNumber(),
+        supplementalPriceCurve: this.inner.info.cosignerData.supplementalPriceCurve.map((p) => p.toString()),
       },
-      cosignature: this.inner.order.cosignature,
+      cosignature: this.inner.info.cosignature,
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
@@ -182,4 +251,3 @@ export class HybridOrder extends Order {
     }
   }
 }
-

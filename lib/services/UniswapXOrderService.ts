@@ -10,8 +10,7 @@ import {
   OrderValidation,
   OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
-  // TODO: use CoignedHybridOrder once SDK is updated
-  HybridOrderClass,
+  CosignedHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
@@ -102,16 +101,16 @@ export class UniswapXOrderService {
         `provider not found for chainId: ${order.chainId}`
       )
 
-      const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner)
+      // Fetch quoteMetadata first so it can be used for cosigner data generation
+      const quoteMetadata = order.quoteId ? await this.fetchQuoteMetadata(order.quoteId) : undefined
+
+      const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner, quoteMetadata)
       // Validate that auctionTargetBlock is not after auctionStartBlock
-      if (cosignedOrder.inner.order.cosignerData.auctionTargetBlock.gt(cosignedOrder.inner.order.auctionStartBlock)) {
+      if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock.gt(cosignedOrder.inner.info.auctionStartBlock)) {
         throw new OrderValidationFailedError('auctionStartBlock too low')
       }
       this.logger.info('cosigned hybrid order', { order: cosignedOrder })
-      const [quoteMetadata] = await Promise.all([
-        order.quoteId ? this.fetchQuoteMetadata(order.quoteId) : undefined,
-        this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId),
-      ])
+      await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
       orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
     } else {
       throw new Error('unsupported OrderType')
@@ -168,7 +167,7 @@ export class UniswapXOrderService {
   }
 
   private async validateOrder(
-    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder | HybridOrderClass,
+    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder | CosignedHybridOrder,
     signature: string,
     chainId: number
   ): Promise<void> {
@@ -177,8 +176,8 @@ export class UniswapXOrderService {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
     let token: string;
-    if (order instanceof HybridOrderClass) {
-      token = order.order.input.token
+    if (order instanceof CosignedHybridOrder) {
+      token = order.info.input.token
     } else {
       token = order.info.input.token
     }
