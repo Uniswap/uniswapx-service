@@ -193,6 +193,31 @@ export default class FieldValidator {
     return Joi.string().valid(priorityCosigner)
   }
 
+  public static isValidHardQuote(): Joi.ObjectSchema {
+    return Joi.object({
+      quoteId: Joi.string().required(),
+      requestId: Joi.string().required(),
+      tokenInChainId: Joi.number().required(),
+      tokenOutChainId: Joi.number().required(),
+      tokenIn: Joi.string().required(),
+      input: Joi.object({
+        token: Joi.string().required(),
+        amount: Joi.string().required(),
+      }).required(),
+      tokenOut: Joi.string().required(),
+      outputs: Joi.array().items(Joi.object({
+        token: Joi.string().required(),
+        amount: Joi.string().required(),
+        recipient: Joi.string().required(),
+      })).required(),
+      swapper: Joi.string().required(),
+      filler: Joi.string().required(),
+      orderHash: Joi.string().required(),
+      createdAt: Joi.number().required(),
+      createdAtMs: Joi.string().required(),
+    })
+  }
+
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {
     let lengthModifier = '*'
     if (length) {

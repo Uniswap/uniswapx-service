@@ -8,6 +8,7 @@ import { HybridOrderEntity, UniswapXOrderEntity } from '../entities/Order'
 import { HYBRID_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { AVERAGE_BLOCK_TIME } from '../handlers/check-order-status/util'
 import { GetHybridOrderResponse } from '../handlers/get-orders/schema/GetHybridOrderResponse'
+import { HardQuote } from '../handlers/post-order/schema'
 import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 import { ChainId } from '../util/chain'
@@ -29,7 +30,8 @@ export class HybridOrder extends Order {
       tokenIn: string
       amountIn: string
     }[],
-    readonly route?: Route
+    readonly route?: Route,
+    readonly hardQuote?: HardQuote
   ) {
     super()
   }
@@ -117,7 +119,7 @@ export class HybridOrder extends Order {
   public async reparameterizeAndCosign(
     provider: StaticJsonRpcProvider,
     cosigner: KmsSigner,
-    quoteMetadata?: QuoteMetadata
+    hardQuote?: HardQuote
   ): Promise<this> {
     const block = await provider.getBlock('latest')
     const currentTime = Math.floor(Date.now() / 1000) // Current time in seconds
@@ -133,11 +135,14 @@ export class HybridOrder extends Order {
     const targetBlock = BigNumber.from(block.number)
       .add(HYBRID_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId] || 3)
       .add(extraBlock)
+      
+    // Using string literal to match style of rest of the repo  
+    const scaleWorse = process.env["SCALE_WORSE"] === 'true'
 
     const cosignerData = this.generateCosignerData(
       targetBlock,
-      false,
-      quoteMetadata,
+      scaleWorse,
+      hardQuote
     )
 
     this.inner.info.cosignerData = cosignerData
@@ -147,35 +152,36 @@ export class HybridOrder extends Order {
   }
 
   /**
- * Generates cosigner data for hybrid orders based on the scaling factor and quote metadata.
- * If scalingFactor == 1e18, returns non-zero target block and supplemental price curve.
- * Otherwise, returns zero target block and empty supplemental price curve.
- */
-private generateCosignerData(
-  targetBlock: BigNumber,
-  scaleWorse: boolean,
-  quoteMetadata?: QuoteMetadata
-): HybridCosignerData {
-  // If scalingFactor is not 1e18, return empty cosigner data
-  if (this.inner.info.priceCurve.length == 0) {
-    return {
-      auctionTargetBlock: BigNumber.from(0),
-      supplementalPriceCurve: [],
+   * Generates cosigner data for hybrid orders based on the scaling factor and hardQuote.
+   * If the price curve is empty, zero target block and empty supplemental price curve.
+   * Otherwise, returns supplemental price curve.
+   */
+  private generateCosignerData(
+    targetBlock: BigNumber,
+    scaleWorse: boolean,
+    hardQuote?: HardQuote
+  ): HybridCosignerData {
+    // If no price curve, return empty cosigner data
+    if (this.inner.info.priceCurve.length == 0) {
+      return {
+        auctionTargetBlock: BigNumber.from(0),
+        supplementalPriceCurve: [],
+      }
     }
-  }
 
-  const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther // 1e18
+    const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther // 1e18
 
-  // NOTE: only works for one output
-  if (this.inner.info.outputs.length != 1) {
-    return {
-      auctionTargetBlock: BigNumber.from(0),
-      supplementalPriceCurve: [],
+    // NOTE: only works for one output
+    if (this.inner.info.outputs.length != 1) {
+      return {
+        auctionTargetBlock: BigNumber.from(0),
+        supplementalPriceCurve: [],
+      }
     }
-  }
 
-  const currentRate = this.inner.info.outputs[0].minAmount.div(this.inner.info.input.maxAmount)
-  const scale = (currentRate.mul(BASE_SCALING_FACTOR.pow(2))).div(BigNumber.from(quoteMetadata?.referencePrice))
+  const currentRate = (this.inner.info.outputs[0].minAmount.mul(BASE_SCALING_FACTOR)).div(this.inner.info.input.maxAmount)
+  const quoteRate = (BigNumber.from(hardQuote?.input.amount).mul(BASE_SCALING_FACTOR)).div(BigNumber.from(hardQuote?.outputs[0].amount))
+  const scale = (currentRate.mul(BASE_SCALING_FACTOR)).div(BigNumber.from(quoteRate))
   if (scale.eq(BASE_SCALING_FACTOR)) {
     return {
       auctionTargetBlock: targetBlock,
@@ -183,33 +189,33 @@ private generateCosignerData(
     }
   }
 
-  if (this.inner.info.scalingFactor.eq(BASE_SCALING_FACTOR)) {
-    return {
-      auctionTargetBlock: targetBlock,
-      supplementalPriceCurve: [],
-    }
-  }
-
-  if (!scaleWorse) {
-    if (scale.gt(BASE_SCALING_FACTOR) != this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR)) {
+    if (this.inner.info.scalingFactor.eq(BASE_SCALING_FACTOR)) {
       return {
         auctionTargetBlock: targetBlock,
         supplementalPriceCurve: [],
       }
     }
-  }
 
-  const supplementalPriceCurve: BigNumber[] = []
-  for (let i = 0; i < this.inner.info.priceCurve.length; i++) {
-    const relativeDifference = (this.inner.info.priceCurve[i].mul(BASE_SCALING_FACTOR)).div(scale.sub(BASE_SCALING_FACTOR))
-    supplementalPriceCurve.push(relativeDifference)
-  }
+    if (!scaleWorse) {
+      if (scale.gt(BASE_SCALING_FACTOR) != this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR)) {
+        return {
+          auctionTargetBlock: targetBlock,
+          supplementalPriceCurve: [],
+        }
+      }
+    }
 
-  return {
-    auctionTargetBlock: targetBlock,
-    supplementalPriceCurve,
+    const supplementalPriceCurve: BigNumber[] = []
+    for (let i = 0; i < this.inner.info.priceCurve.length; i++) {
+      const relativeDifference = (this.inner.info.priceCurve[i].mul(BASE_SCALING_FACTOR)).div(scale.sub(BASE_SCALING_FACTOR))
+      supplementalPriceCurve.push(relativeDifference)
+    }
+
+    return {
+      auctionTargetBlock: targetBlock,
+      supplementalPriceCurve,
+    }
   }
-}
 
   public toGetResponse(): GetHybridOrderResponse {
     return {

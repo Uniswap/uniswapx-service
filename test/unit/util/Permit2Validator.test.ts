@@ -41,7 +41,7 @@ describe('Permit2Validator', () => {
       }
     } as UniswapXOrder
   })
-
+  
   describe('validate', () => {
     it('should return NonceUsed when permit is already used', async () => {
       mockSignatureProvider.validatePermit.mockResolvedValue({
@@ -55,7 +55,7 @@ describe('Permit2Validator', () => {
       expect(result).toBe(OrderValidation.NonceUsed)
       expect(mockSignatureProvider.validatePermit).toHaveBeenCalledWith({
         permitted: {
-          token: inputToken,
+          token: testOrder.info.input.token,
           amount: 0
         },
         spender: testOrder.info.swapper,
@@ -76,7 +76,7 @@ describe('Permit2Validator', () => {
       expect(result).toBe(OrderValidation.Expired)
       expect(mockSignatureProvider.validatePermit).toHaveBeenCalledWith({
         permitted: {
-          token: inputToken,
+          token: testOrder.info.input.token,
           amount: 0
         },
         spender: testOrder.info.swapper,
@@ -97,7 +97,7 @@ describe('Permit2Validator', () => {
       expect(result).toBe(OrderValidation.OK)
       expect(mockSignatureProvider.validatePermit).toHaveBeenCalledWith({
         permitted: {
-          token: inputToken,
+          token: testOrder.info.input.token,
           amount: 0
         },
         spender: testOrder.info.swapper,

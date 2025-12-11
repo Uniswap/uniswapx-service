@@ -20,7 +20,7 @@ import { Order } from '../../models/Order'
 import { PriorityOrder } from '../../models/PriorityOrder'
 import { RelayOrder } from '../../models/RelayOrder'
 import { HybridOrder } from '../../models/HybridOrder'
-import { PostOrderRequestBody } from './schema'
+import { PostOrderRequestBody, HardQuote } from './schema'
 import { DutchV3Order } from '../../models/DutchV3Order'
 import { metrics } from '../../util/metrics'
 import { Unit } from 'aws-embedded-metrics'
@@ -49,7 +49,7 @@ export class PostOrderBodyParser {
       case OrderType.Priority:
         return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Hybrid:
-        return this.tryParseHybridOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
+        return this.tryParseHybridOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId, body.hardQuote)
       case undefined:
         // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
         // Try to parse both and see which hits.
@@ -180,11 +180,12 @@ export class PostOrderBodyParser {
     signature: string,
     chainId: number,
     quoteId?: string,
-    requestId?: string
+    requestId?: string,
+    hardQuote?: HardQuote
   ): HybridOrder {
     try {
       const order = SDKHybridOrder.parse(encodedOrder, chainId)
-      return new HybridOrder(order, signature, chainId, undefined, undefined, quoteId, requestId)
+      return new HybridOrder(order, signature, chainId, undefined, undefined, quoteId, requestId, undefined, undefined, undefined, hardQuote)
     } catch (err) {
       this.logger.error('Unable to parse Hybrid order', {
         err,

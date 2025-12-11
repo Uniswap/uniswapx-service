@@ -100,18 +100,17 @@ export class UniswapXOrderService {
         this.providerMap.get(order.chainId),
         `provider not found for chainId: ${order.chainId}`
       )
+      
 
-      // Fetch quoteMetadata first so it can be used for cosigner data generation
-      const quoteMetadata = order.quoteId ? await this.fetchQuoteMetadata(order.quoteId) : undefined
-
-      const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner, quoteMetadata)
+      // HybridOrder uses hardQuote passed from the POST request instead of fetching quoteMetadata
+      const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner, order.hardQuote)
       // Validate that auctionTargetBlock is not after auctionStartBlock
       if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock.gt(cosignedOrder.inner.info.auctionStartBlock)) {
         throw new OrderValidationFailedError('auctionStartBlock too low')
       }
       this.logger.info('cosigned hybrid order', { order: cosignedOrder })
       await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
-      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
+      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN)
     } else {
       throw new Error('unsupported OrderType')
     }
