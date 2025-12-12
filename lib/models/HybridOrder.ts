@@ -152,11 +152,18 @@ export class HybridOrder extends Order {
   }
 
   /**
-   * Generates cosigner data for hybrid orders. Hybrid orders here will only be used for
-   * purpose of replacing DutchV2/V3 orders, or Priority orders. Each order will only be
-   * either a dutch auction, or a priority auction, and not both. Therefore:
-   * If the price curve is empty, zero target block and empty supplemental price curve.
-   * Otherwise, returns supplemental price curve.
+   * Generates cosigner data for hybrid orders.
+   *
+   * Hybrid orders here will only be used for the purpose of replacing DutchV2/V3 orders,
+   * or Priority orders. Each order will only be either a dutch auction, or a priority
+   * auction, and not both. Therefore:
+   * - If the price curve is empty, returns zero target block and empty supplemental price curve.
+   * - Otherwise, returns supplemental price curve based on the hardQuote data.
+   *
+   * @param targetBlock - The target block number for the auction
+   * @param scaleWorse - Whether to allow scaling in a worse direction for the user
+   * @param hardQuote - Optional hard quote data from the POST request
+   * @returns The cosigner data containing auctionTargetBlock and supplementalPriceCurve
    */
   private generateCosignerData(
     targetBlock: BigNumber,
