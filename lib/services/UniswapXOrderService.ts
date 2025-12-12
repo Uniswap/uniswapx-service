@@ -92,7 +92,6 @@ export class UniswapXOrderService {
       ])
       orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
     } else if (order instanceof HybridOrder) {
-      // Hybrid orders require cosigning similar to Priority orders
       const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
       const awsRegion = checkDefined(process.env.REGION, 'REGION is not defined')
       const cosigner = new KmsSigner(new KMSClient({ region: awsRegion }), kmsKeyId)
