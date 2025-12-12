@@ -91,7 +91,7 @@ export type HardQuoteOutput = {
   recipient: string
 }
 
-// Matches V3HardQuote from GAPI (V2 and V3 quotes are converted to this)
+// Matches V3HardQuote from GAPI (V2 and V3 quotes get converted to this)
 export type HardQuote = {
   quoteId: string
   requestId: string

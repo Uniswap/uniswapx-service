@@ -133,7 +133,7 @@ export class HybridOrder extends Order {
     const extraBlock = timeDifference > blockTimeSeconds * 0.75 ? 1 : 0
 
     const targetBlock = BigNumber.from(block.number)
-      .add(HYBRID_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId] || 3)
+      .add(HYBRID_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId])
       .add(extraBlock)
       
     // Using string literal to match style of rest of the repo  
@@ -168,6 +168,14 @@ export class HybridOrder extends Order {
         supplementalPriceCurve: [],
       }
     }
+    
+    // If no hardQuote provided, but price curve has length, simply set acution target block
+    if (hardQuote == undefined) {
+      return {
+        auctionTargetBlock: targetBlock,
+        supplementalPriceCurve: [],
+      }
+    }
 
     const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther // 1e18
 
@@ -179,9 +187,10 @@ export class HybridOrder extends Order {
       }
     }
 
-  const currentRate = (this.inner.info.outputs[0].minAmount.mul(BASE_SCALING_FACTOR)).div(this.inner.info.input.maxAmount)
-  const quoteRate = (BigNumber.from(hardQuote?.input.amount).mul(BASE_SCALING_FACTOR)).div(BigNumber.from(hardQuote?.outputs[0].amount))
-  const scale = (currentRate.mul(BASE_SCALING_FACTOR)).div(BigNumber.from(quoteRate))
+  const currentRateWad = (this.inner.info.outputs[0].minAmount.mul(BASE_SCALING_FACTOR)).div(this.inner.info.input.maxAmount)
+  const quoteRateWas = (BigNumber.from(hardQuote?.input.amount).mul(BASE_SCALING_FACTOR)).div(BigNumber.from(hardQuote?.outputs[0].amount))
+  const scale = (currentRateWad.mul(BASE_SCALING_FACTOR)).div(BigNumber.from(quoteRateWas))
+
   if (scale.eq(BASE_SCALING_FACTOR)) {
     return {
       auctionTargetBlock: targetBlock,

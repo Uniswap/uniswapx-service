@@ -25,7 +25,7 @@ export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.GÖRLI]: 3,
 }
 
-// Hybrid orders use similar block buffer logic to Priority orders
+// Hybrid orders use target block to determine when the price curve starts
 export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.MAINNET]: 3,
   [ChainId.UNICHAIN]: 4,
