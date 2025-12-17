@@ -8,7 +8,7 @@ import {
   OrderValidation,
   OrderValidator,
   UniswapXEventWatcher,
-  HybridOrderClass,
+  CosignedHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
@@ -85,8 +85,8 @@ export class CheckOrderStatusService {
      // Type for legacy orders that have input at the info level
      type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
     // Note: For v4 orders like Hybrid, input is at a different level. Get input token safely.
-    const inputToken = parsedOrder instanceof HybridOrderClass 
-      ? parsedOrder.order.input.token 
+    const inputToken = parsedOrder instanceof CosignedHybridOrder 
+      ? parsedOrder.info.input.token 
       : (parsedOrder as LegacyUniswapXOrder).info.input.token
     const isPermissionedToken = PermissionedTokenValidator.isPermissionedToken(inputToken, chainId)
     const validationPromise = isPermissionedToken

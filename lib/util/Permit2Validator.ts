@@ -6,7 +6,7 @@ import {
   CosignedV2DutchOrder, 
   CosignedV3DutchOrder, 
   CosignedPriorityOrder,
-  HybridOrderClass 
+  CosignedHybridOrder 
 } from '@uniswap/uniswapx-sdk'
 import { ChainId } from './chain'
 import { permit2Address, SignatureProvider, PermitTransferFrom, TokenPermissions } from '@uniswap/permit2-sdk'
@@ -54,7 +54,7 @@ export class Permit2Validator {
     // Type for legacy orders that have input at the info level
     type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
     // Get input token from the order (handles both legacy and v4 orders)
-    const token = order instanceof HybridOrderClass ? order.order.input.token : (order as LegacyUniswapXOrder).info.input.token
+    const token = order instanceof CosignedHybridOrder ? order.info.input.token : (order as LegacyUniswapXOrder).info.input.token
 
     // Validate each input token
       const permitTransferFrom: PermitTransferFrom = {

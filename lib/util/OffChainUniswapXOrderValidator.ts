@@ -11,8 +11,7 @@ import {
   PriorityOutput,
   REACTOR_ADDRESS_MAPPING,
   V3DutchOutput,
-  // TODO: use CoignedHybridOrder once SDK is updated
-  HybridOrderClass,
+  CosignedHybridOrder,
   HybridOutput,
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
@@ -32,7 +31,7 @@ export class OffChainUniswapXOrderValidator {
     private readonly skipValidationMap?: SkipValidationMap
   ) {}
 
-  validate(order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder | HybridOrderClass): OrderValidationResponse {
+  validate(order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder | CosignedHybridOrder): OrderValidationResponse {
     let orderType
     if (order instanceof DutchOrder) {
       orderType = OrderType.Dutch
@@ -42,7 +41,7 @@ export class OffChainUniswapXOrderValidator {
       orderType = OrderType.Dutch_V3
     } else if (order instanceof CosignedPriorityOrder) {
       orderType = OrderType.Priority
-    } else if (order instanceof HybridOrderClass) {
+    } else if (order instanceof CosignedHybridOrder) {
       orderType = OrderType.Hybrid
     } else {
       return {
@@ -69,8 +68,8 @@ export class OffChainUniswapXOrderValidator {
     }
 
     let token: string;
-    if (order instanceof HybridOrderClass) {
-      token = order.order.input.token
+    if (order instanceof CosignedHybridOrder) {
+      token = order.info.input.token
     } else {
       token = order.info.input.token
     }
@@ -147,24 +146,24 @@ export class OffChainUniswapXOrderValidator {
       if (!outputsValidation.valid) {
         return outputsValidation
       }
-    } else if (orderType == OrderType.Hybrid && order instanceof HybridOrderClass) {
-      const hybridOrder = order as HybridOrderClass
-      const curveValidation = this.validateHybridCurve(hybridOrder.order.priceCurve, hybridOrder.order.scalingFactor)
+    } else if (orderType == OrderType.Hybrid && order instanceof CosignedHybridOrder) {
+      const hybridOrder = order as CosignedHybridOrder
+      const curveValidation = this.validateHybridCurve(hybridOrder.info.priceCurve, hybridOrder.info.scalingFactor)
       if (!curveValidation.valid) {
         return curveValidation
       }
 
-      const supplementalCurveValidation = this.validateHybridCurve(hybridOrder.order.cosignerData.supplementalPriceCurve, hybridOrder.order.scalingFactor)
+      const supplementalCurveValidation = this.validateHybridCurve(hybridOrder.info.cosignerData.supplementalPriceCurve, hybridOrder.info.scalingFactor)
       if (!supplementalCurveValidation.valid) {
         return supplementalCurveValidation
       }
 
-      const inputMaxAmountValidation = this.validateInputAmount(hybridOrder.order.input.maxAmount)
+      const inputMaxAmountValidation = this.validateInputAmount(hybridOrder.info.input.maxAmount)
       if (!inputMaxAmountValidation.valid) {
         return inputMaxAmountValidation
       }
 
-      const outputsValidation = this.validateHybridOutputs(hybridOrder.order.outputs as HybridOutput[])
+      const outputsValidation = this.validateHybridOutputs(hybridOrder.info.outputs as HybridOutput[])
       if (!outputsValidation.valid) {
         return outputsValidation
       }

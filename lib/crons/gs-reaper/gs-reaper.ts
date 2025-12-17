@@ -5,7 +5,7 @@ import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS, BLOCKS_IN_24_HOURS } from '../../util/constants'
 import { ethers } from 'ethers'
-import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, HybridOrderClass, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
+import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, CosignedHybridOrder, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../../handlers/OrderParser'
 import { getSettledAmounts } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
@@ -345,8 +345,8 @@ async function checkCancelledOrders(
         // Type for legacy orders that have input at the info level
         type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
         // Note: For v4 orders like Hybrid, input is at a different level
-        const inputToken = order instanceof HybridOrderClass 
-          ? order.order.input.token 
+        const inputToken = order instanceof CosignedHybridOrder 
+          ? order.info.input.token 
           : (order as LegacyUniswapXOrder).info.input.token
         const validation = PermissionedTokenValidator.isPermissionedToken(inputToken, chainId)
           ? await new Permit2Validator(provider, chainId).validate(order)
