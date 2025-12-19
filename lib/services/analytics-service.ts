@@ -128,7 +128,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         body: Object.assign(sharedFields, {
           auctionStartBlock: order.auctionStartBlock,
           auctionTargetBlock: order.cosignerData.auctionTargetBlock,
-          baselinePriorityFeeWei: order.baselinePriorityFeeWei,
+          baselinePriorityFee: order.baselinePriorityFee,
           scalingFactor: order.scalingFactor,
           inputMaxAmount: order.input?.maxAmount,
           outputMinAmount: userOutput.minAmount,

@@ -42,8 +42,8 @@ export class SDKHybridOrderFactory {
           ? BigNumber.from(overrides.auctionStartBlock)
           : BigNumber.from(MOCK_LATEST_BLOCK + 10)
       )
-      .baselinePriorityFeeWei(
-        overrides.baselinePriorityFeeWei ? BigNumber.from(overrides.baselinePriorityFeeWei) : BigNumber.from(0)
+      .baselinePriorityFee(
+        overrides.baselinePriorityFee ? BigNumber.from(overrides.baselinePriorityFee) : BigNumber.from(0)
       )
       .scalingFactor(
         overrides.scalingFactor ? BigNumber.from(overrides.scalingFactor) : ethers.constants.WeiPerEther // 1e18 - neutral scaling factor

@@ -44,6 +44,8 @@ export class HybridOrder extends Order {
   public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): HybridOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
+    console.log('decodedOrder', JSON.stringify(decodedOrder, null, 2))
+    console.log("decodedOrder hash", decodedOrder.hash())
     const order: HybridOrderEntity = {
       type: OrderType.Hybrid,
       encodedOrder: decodedOrder.serialize(),
@@ -54,7 +56,7 @@ export class HybridOrder extends Order {
       orderStatus: orderStatus,
       offerer: decodedOrder.info.swapper.toLowerCase(),
       auctionStartBlock: decodedOrder.info.auctionStartBlock.toNumber(),
-      baselinePriorityFeeWei: decodedOrder.info.baselinePriorityFeeWei.toString(),
+      baselinePriorityFee: decodedOrder.info.baselinePriorityFee.toString(),
       scalingFactor: decodedOrder.info.scalingFactor.toString(),
       input: {
         token: input.token,
@@ -249,7 +251,7 @@ export class HybridOrder extends Order {
       reactor: this.inner.info.reactor,
       deadline: this.inner.info.deadline,
       auctionStartBlock: this.inner.info.auctionStartBlock.toNumber(),
-      baselinePriorityFeeWei: this.inner.info.baselinePriorityFeeWei.toString(),
+      baselinePriorityFee: this.inner.info.baselinePriorityFee.toString(),
       scalingFactor: this.inner.info.scalingFactor.toString(),
       input: {
         token: this.inner.info.input.token,

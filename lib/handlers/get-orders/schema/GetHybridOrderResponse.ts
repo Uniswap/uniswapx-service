@@ -19,7 +19,7 @@ export type GetHybridOrderResponse = {
   txHash: string | undefined
   deadline: number
   auctionStartBlock: number
-  baselinePriorityFeeWei: string
+  baselinePriorityFee: string
   scalingFactor: string
   input: {
     token: string
@@ -70,7 +70,7 @@ export const GetHybridOrderResponseEntryJoi = Joi.object({
     })
   ),
   auctionStartBlock: Joi.number().min(0),
-  baselinePriorityFeeWei: FieldValidator.isValidAmount(),
+  baselinePriorityFee: FieldValidator.isValidAmount(),
   scalingFactor: FieldValidator.isValidAmount(),
   priceCurve: Joi.array().items(FieldValidator.isValidAmount()),
   cosigner: FieldValidator.isValidEthAddress(),

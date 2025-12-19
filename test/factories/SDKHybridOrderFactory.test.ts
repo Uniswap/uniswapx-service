@@ -23,11 +23,11 @@ describe('SDKHybridOrderFactory', () => {
     expect(actual.info.auctionStartBlock).toEqual(BigNumber.from('20000000'))
   })
 
-  it('respects baselinePriorityFeeWei overrides', () => {
+  it('respects baselinePriorityFee overrides', () => {
     const actual = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
-      baselinePriorityFeeWei: '5000000000',
+      baselinePriorityFee: '5000000000',
     })
-    expect(actual.info.baselinePriorityFeeWei).toEqual(BigNumber.from('5000000000'))
+    expect(actual.info.baselinePriorityFee).toEqual(BigNumber.from('5000000000'))
   })
 
   it('respects scalingFactor overrides', () => {
