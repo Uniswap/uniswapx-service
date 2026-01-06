@@ -31,7 +31,7 @@ export interface UnimindResponseParams {
   algorithmVersion: number
   quoteId: string
   pair: string
-  swapper: string
+  swapper?: string
   priceImpact: number
   referencePrice: string
   route?: any
@@ -39,6 +39,7 @@ export interface UnimindResponseParams {
   amountOut?: string
   chainId?: number
   tradeType?: string
+  onUnimindTokenList?: boolean
 }
 
 // Parameters for Unimind parameter update analytics
@@ -209,7 +210,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         // Ensure route is stringified if it exists
         route: params.route ? JSON.stringify(params.route) : undefined,
         // Format the swapper address consistently with other analytics
-        swapper: this.getFillerAddress(params.swapper),
+        swapper: this.getFillerAddress(params.swapper ?? AddressZero),
         tradeType: params.tradeType,
       },
     })

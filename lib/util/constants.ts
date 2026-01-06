@@ -46,7 +46,7 @@ export const UNIMIND_CIRCUIT_BREAKER_MAX_BATCH = 5 // Circuit breaker active for
 export const UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS = 5 // Order count to begin checking circuit breaker
 export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
 // Direct pi and tau to use for curve; Not intrinsicValues
-export const PUBLIC_UNIMIND_PARAMETERS = {
+export const PUBLIC_STATIC_PARAMETERS = {
   pi: 15,
   tau: 15,
   batchNumber: -1, // -1 indicates Unimind was not used to calculate these params

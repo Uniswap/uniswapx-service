@@ -3,10 +3,10 @@ import { getStatistics } from '../../../lib/crons/unimind-algorithm';
 import { DutchV3OrderEntity } from '../../../lib/entities';
 import { ORDER_STATUS } from '../../../lib/entities/Order';
 import { mock } from 'jest-mock-extended';
-import { UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
+import { UNIMIND_ALGORITHM_VERSION, UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD, UNIMIND_MAX_TAU_BPS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants';
 import { PriceImpactStrategy } from '../../../lib/unimind/priceImpactStrategy';
 import { BatchedStrategy } from '../../../lib/unimind/batchedStrategy';
-import { unimindAddressFilter, UNIMIND_ADDRESS_SAMPLE_PERCENT, unimindTradeFilter, UNIMIND_TRADE_SAMPLE_PERCENT } from '../../../lib/util/unimind';
+import { unimindTradeFilter, UNIMIND_TRADE_SAMPLE_PERCENT } from '../../../lib/util/unimind';
 import { calculateParameters } from '../../../lib/handlers/get-unimind/handler';
 import { QuoteMetadata } from '../../../lib/repositories/quote-metadata-repository';
 
@@ -242,40 +242,6 @@ describe('unimind-algorithm', () => {
       expect(result.tau).toBeLessThan(0)
       expect(result.tau).toBeCloseTo(-46.32367036, 5)
     })
-  });
-});
-
-describe('unimindAddressFilter', () => {
-  it('should return true for the dev swapper address', () => {
-    expect(unimindAddressFilter(UNIMIND_DEV_SWAPPER_ADDRESS)).toBe(true);
-  });
-
-  it('should return true for the dev swapper address regardless of case', () => {
-    // Create a mixed-case version of the dev address
-    const mixedCaseAddress = UNIMIND_DEV_SWAPPER_ADDRESS.toUpperCase();
-    expect(unimindAddressFilter(mixedCaseAddress)).toBe(true);
-  });
-
-  it(`should sample approximately ${UNIMIND_ADDRESS_SAMPLE_PERCENT}% of addresses`, () => {
-    const sampleSize = 10000;
-    const addresses = Array.from({ length: sampleSize }, () => {
-      // Generate a random Ethereum address (40 hex chars with 0x prefix)
-      let addr = '0x';
-      for (let i = 0; i < 40; i++) {
-        addr += '0123456789abcdef'[Math.floor(Math.random() * 16)];
-      }
-      return addr;
-    });
-
-    // Count how many addresses pass the filter
-    const passedCount = addresses.filter(addr => 
-      unimindAddressFilter(addr)
-    ).length;
-
-    // Check that the percentage is approximately UNIMIND_SAMPLE_PERCENT%
-    const percentage = (passedCount / sampleSize) * 100;
-    expect(percentage).toBeGreaterThanOrEqual(UNIMIND_ADDRESS_SAMPLE_PERCENT - 1);
-    expect(percentage).toBeLessThanOrEqual(UNIMIND_ADDRESS_SAMPLE_PERCENT + 1);
   });
 });
 
