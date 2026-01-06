@@ -156,7 +156,7 @@ export async function updateParameters(
         const statistics = getStatistics(pairOrders.orders, log)
         const batchMetrics = calculateBatchMetrics(statistics)
 
-        // Check circuit breaker: early batches (0-3) with zero fill rate
+        // Check circuit breaker: early batches with zero fill rate
         const circuitBreakerTriggered = shouldCheckCircuitBreaker && batchMetrics.fillRate === 0
         if (circuitBreakerTriggered) {
           log.info(
