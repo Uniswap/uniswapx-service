@@ -20,6 +20,8 @@ import {
   UnimindUpdateType,
   UNIMIND_ALGORITHM_VERSION,
   UNIMIND_UPDATE_THRESHOLD,
+  UNIMIND_CIRCUIT_BREAKER_MAX_BATCH,
+  UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS,
 } from '../util/constants'
 import { median } from '../util/unimind'
 
@@ -131,11 +133,13 @@ export async function updateParameters(
     } else {
       // We have seen this pair before, check if we need to update the parameters
       const totalCount = pairData.count + count
-      if (totalCount >= UNIMIND_UPDATE_THRESHOLD) {
-        log.info(
-          `Unimind updateParameters: Total count for pair ${pairKey} is greater than or equal to ${UNIMIND_UPDATE_THRESHOLD}, updating parameters`
-        )
-        // Update the parameters
+      const reachedThreshold = totalCount >= UNIMIND_UPDATE_THRESHOLD
+      const shouldCheckCircuitBreaker =
+        pairData.batchNumber <= UNIMIND_CIRCUIT_BREAKER_MAX_BATCH &&
+        totalCount >= UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS &&
+        !reachedThreshold
+
+      if (reachedThreshold || shouldCheckCircuitBreaker) {
         // Query for the last totalCount instances of this pair in the orders table
         const pairOrders = (await ordersRepo.getOrdersFilteredByType(
           totalCount,
@@ -151,52 +155,81 @@ export async function updateParameters(
         log.info(`Unimind updateParameters: Found ${pairOrders.orders.length} orders for pair ${pairKey}`)
         const statistics = getStatistics(pairOrders.orders, log)
         const batchMetrics = calculateBatchMetrics(statistics)
-        const strategy = new PriceImpactStrategy()
-        const updatedParameters = strategy.unimindAlgorithm(statistics, pairData, log)
-        log.info(
-          `Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`
-        )
-        const nextBatchNumber = (pairData.batchNumber !== undefined ? pairData.batchNumber : 0) + 1
 
-        // Log analytics event with statistics for threshold-based updates
-        analyticsService?.logUnimindParameterUpdate({
-          pair: pairKey,
-          updateType: UnimindUpdateType.THRESHOLD_REACHED,
-          previousIntrinsicValues: pairData.intrinsicValues,
-          newIntrinsicValues: JSON.stringify(updatedParameters),
-          orderCount: count,
-          totalCount: totalCount,
-          batchNumber: nextBatchNumber,
-          algorithmVersion: UNIMIND_ALGORITHM_VERSION,
-          updateThreshold: UNIMIND_UPDATE_THRESHOLD,
-          statistics: JSON.stringify(statistics), // JSON stringify for consistent data pipeline handling
-          meanWaitTime: batchMetrics.meanWaitTime,
-          medianWaitTime: batchMetrics.medianWaitTime,
-          fillRate: batchMetrics.fillRate,
-        })
+        // Check circuit breaker: early batches (0-3) with zero fill rate
+        const circuitBreakerTriggered = shouldCheckCircuitBreaker && batchMetrics.fillRate === 0
+        if (circuitBreakerTriggered) {
+          log.info(
+            `Unimind updateParameters: Circuit breaker triggered for pair ${pairKey} (batch ${pairData.batchNumber}) - fillRate is 0 after ${totalCount} orders`
+          )
+        }
 
-        await unimindParametersRepo.put({
-          pair: pairKey,
-          intrinsicValues: JSON.stringify(updatedParameters),
-          count: 0,
-          version: UNIMIND_ALGORITHM_VERSION,
-          batchNumber: nextBatchNumber,
-          lastUpdatedAt: Math.floor(Date.now() / 1000),
-        })
-        const intrinsicValues = JSON.parse(pairData.intrinsicValues)
-        log.info(
-          `Unimind updateParameters: parameters for ${pairKey} updated from ` +
-            `${Object.entries(intrinsicValues)
-              .map(([key, value]) => `${key}: ${value}`)
-              .join(', ')} ` +
-            `to ${Object.entries(updatedParameters)
-              .map(([key, value]) => `${key}: ${value}`)
-              .join(', ')} ` +
-            `based on ${totalCount} recent orders. ` +
-            `Version: ${UNIMIND_ALGORITHM_VERSION}, Batch: ${nextBatchNumber}`
-        )
-        metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)
-        metrics?.putMetric(`unimind-batch-number-${pairKey}`, nextBatchNumber, Unit.None)
+        if (reachedThreshold || circuitBreakerTriggered) {
+          log.info(
+            `Unimind updateParameters: Updating parameters for pair ${pairKey} (threshold: ${reachedThreshold}, circuit breaker: ${circuitBreakerTriggered})`
+          )
+          const strategy = new PriceImpactStrategy()
+          const updatedParameters = strategy.unimindAlgorithm(statistics, pairData, log)
+          log.info(
+            `Unimind updateParameters: Updated parameters for pair ${pairKey} are ${JSON.stringify(updatedParameters)}`
+          )
+          const nextBatchNumber = (pairData.batchNumber !== undefined ? pairData.batchNumber : 0) + 1
+
+          // Log analytics event with statistics for threshold-based updates
+          analyticsService?.logUnimindParameterUpdate({
+            pair: pairKey,
+            updateType: UnimindUpdateType.THRESHOLD_REACHED,
+            previousIntrinsicValues: pairData.intrinsicValues,
+            newIntrinsicValues: JSON.stringify(updatedParameters),
+            orderCount: count,
+            totalCount: totalCount,
+            batchNumber: nextBatchNumber,
+            algorithmVersion: UNIMIND_ALGORITHM_VERSION,
+            updateThreshold: UNIMIND_UPDATE_THRESHOLD,
+            statistics: JSON.stringify(statistics), // JSON stringify for consistent data pipeline handling
+            meanWaitTime: batchMetrics.meanWaitTime,
+            medianWaitTime: batchMetrics.medianWaitTime,
+            fillRate: batchMetrics.fillRate,
+          })
+
+          await unimindParametersRepo.put({
+            pair: pairKey,
+            intrinsicValues: JSON.stringify(updatedParameters),
+            count: 0,
+            version: UNIMIND_ALGORITHM_VERSION,
+            batchNumber: nextBatchNumber,
+            lastUpdatedAt: Math.floor(Date.now() / 1000),
+          })
+          const intrinsicValues = JSON.parse(pairData.intrinsicValues)
+          log.info(
+            `Unimind updateParameters: parameters for ${pairKey} updated from ` +
+              `${Object.entries(intrinsicValues)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join(', ')} ` +
+              `to ${Object.entries(updatedParameters)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join(', ')} ` +
+              `based on ${totalCount} recent orders. ` +
+              `Version: ${UNIMIND_ALGORITHM_VERSION}, Batch: ${nextBatchNumber}`
+          )
+          metrics?.putMetric(`unimind-parameters-updated-${pairKey}`, 1, Unit.Count)
+          metrics?.putMetric(`unimind-batch-number-${pairKey}`, nextBatchNumber, Unit.None)
+        } else {
+          log.info(
+            `Unimind updateParameters: Circuit breaker not triggered for pair ${pairKey} - fillRate ${batchMetrics.fillRate.toFixed(
+              3
+            )} > 0, not updating parameters yet`
+          )
+          // Update the count only
+          await unimindParametersRepo.put({
+            pair: pairKey,
+            intrinsicValues: pairData.intrinsicValues,
+            count: totalCount,
+            version: UNIMIND_ALGORITHM_VERSION,
+            batchNumber: pairData.batchNumber || 0,
+            lastUpdatedAt: pairData.lastUpdatedAt,
+          })
+        }
       } else {
         log.info(
           `Unimind updateParameters: Total count for pair ${pairKey} (${totalCount}) is less than ${UNIMIND_UPDATE_THRESHOLD}, not updating parameters`

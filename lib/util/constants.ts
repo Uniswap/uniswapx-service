@@ -42,6 +42,8 @@ export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
   Sigma: -9.21034,
 })
 export const UNIMIND_UPDATE_THRESHOLD = 25
+export const UNIMIND_CIRCUIT_BREAKER_MAX_BATCH = 5 // Circuit breaker active for batches 0-5
+export const UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS = 5 // Order count to begin checking circuit breaker
 export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
 // Direct pi and tau to use for curve; Not intrinsicValues
 export const PUBLIC_UNIMIND_PARAMETERS = {
