@@ -53,7 +53,7 @@ export const PUBLIC_STATIC_PARAMETERS = {
   algorithmVersion: -1, // -1 indicates not using Unimind algorithm
 }
 export const UNIMIND_MAX_TAU_BPS = 25
-export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 2 // 2% price impact threshold
+export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 1.25 // 1.25% price impact threshold
 
 // When pi = 0, AMM will be favored over Dutch Auction
 export const USE_CLASSIC_PARAMETERS = {
