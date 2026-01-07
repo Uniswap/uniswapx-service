@@ -202,6 +202,43 @@ describe('unimind-algorithm', () => {
       expect(result.Sigma).toBeCloseTo(-0.41228565543852524, 5)
     });
 
+    it('Zero fill rate: creates synthetic data and shifts auction downward', () => {
+      const strategy = new PriceImpactStrategy()
+      // Starting with default parameters
+      const intrinsicValues = {
+        intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 5, Sigma: -9.21034}),
+        count: UNIMIND_UPDATE_THRESHOLD,
+        pair: '0x000-0x111-123',
+        version: UNIMIND_ALGORITHM_VERSION,
+        batchNumber: 0
+      };
+
+      // All orders expired (zero fill rate)
+      const priceImpacts = [0.5, 0.8, 0.3, 0.6, 0.4];
+      const waitTimes = [undefined, undefined, undefined, undefined, undefined];
+      const fillStatuses = [0, 0, 0, 0, 0];
+
+      const statistics = {
+        priceImpacts,
+        waitTimes,
+        fillStatuses
+      }
+
+      const result = strategy.unimindAlgorithm(statistics, intrinsicValues, log);
+
+      // Lambda1 should increase (to lower pi and shift auction down)
+      expect(result.lambda1).toBeGreaterThan(0);
+
+      // Sigma should increase (to increase tau and shift auction down)
+      expect(result.Sigma).toBeGreaterThan(-9.21034);
+
+      // Lambda2 should also adjust
+      expect(result.lambda2).not.toEqual(5);
+
+      // Verify values changed significantly due to synthetic 32-block wait times
+      expect(Math.abs(result.lambda1 - 0)).toBeGreaterThan(1e-10);
+    });
+
     it('price impact strategy test on extrinsic values', () => {
       const strategy = new PriceImpactStrategy()
       const intrinsicValues = { intrinsicValues: JSON.stringify({lambda1: 0, lambda2: 8, Sigma: Math.log(0.00005)}), count: UNIMIND_UPDATE_THRESHOLD, pair: '0x000-0x111-123', version: UNIMIND_ALGORITHM_VERSION, batchNumber: 0 };
@@ -240,7 +277,7 @@ describe('unimind-algorithm', () => {
       const result = calculateParameters(strategy, intrinsicValues, extrinsicValues)
 
       expect(result.tau).toBeLessThan(0)
-      expect(result.tau).toBeCloseTo(-46.32367036, 5)
+      expect(result.tau).toBeCloseTo(-20.50475243, 5)
     })
   });
 });
