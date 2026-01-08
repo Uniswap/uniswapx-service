@@ -19,6 +19,10 @@ export class OnChainValidatorMap<T extends OrderValidator | RelayOrderValidator 
     return validator
   }
 
+  has(chainId: ChainId): boolean {
+    return this.chainIdToValidators.has(chainId)
+  }
+
   set(chainId: ChainId, validator: T): void {
     this.chainIdToValidators.set(chainId, validator)
   }

@@ -12,6 +12,7 @@ import {
   PermissionedTokenValidator,
   CosignedHybridOrder,
   V4OrderValidator as OnChainV4OrderValidator,
+  V4OrderQuote,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
@@ -172,12 +173,7 @@ export class UniswapXOrderService {
     if (!offChainValidationResult.valid) {
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
-    let token: string;
-    if (order instanceof CosignedHybridOrder) {
-      token = order.info.input.token
-    } else {
-      token = order.info.input.token
-    }
+    const token = order.info.input.token
 
     if (PermissionedTokenValidator.isPermissionedToken(token, chainId)) {
       const provider = this.providerMap.get(chainId)
@@ -208,15 +204,27 @@ export class UniswapXOrderService {
       }
     } else {
       let onChainValidationResult: OrderValidation
+      let v4QuoteResult: V4OrderQuote | undefined
 
-      // Use V4 quoter for Hybrid orders if available
-      if (order instanceof CosignedHybridOrder && this.onChainV4ValidatorMap) {
+      // Use V4 quoter for Hybrid orders if available on this chain
+      if (order instanceof CosignedHybridOrder && this.onChainV4ValidatorMap?.has(chainId)) {
+        this.logger.info('Validating Hybrid order with V4 quoter', { chainId })
         const v4Validator = this.onChainV4ValidatorMap.get(chainId)
-        onChainValidationResult = await v4Validator.validate({ order: order, signature: signature })
-    } else {
-      const onChainValidator = this.onChainValidatorMap.get(chainId)
+        // TODO: use validate() instead of quote()
+        v4QuoteResult = await v4Validator.quote({ order: order, signature: signature })
+        onChainValidationResult = v4QuoteResult.validation
+      } else {
+        const onChainValidator = this.onChainValidatorMap.get(chainId)
         onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
       }
+
+      this.logger.info('Onchain validation result', {
+        validation: OrderValidation[onChainValidationResult],
+        validationCode: onChainValidationResult,
+        ...(v4QuoteResult?.validationErrorData && { validationErrorData: v4QuoteResult.validationErrorData }),
+        ...(v4QuoteResult?.validationErrorText && { validationErrorText: v4QuoteResult.validationErrorText }),
+        ...(v4QuoteResult?.rpcCalls && { rpcCalls: v4QuoteResult.rpcCalls }),
+      })
 
       // Still considered valid for Priority and Hybrid orders (both have block-based auctions)
       if (

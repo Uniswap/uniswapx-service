@@ -4729,10 +4729,10 @@
     dotenv "^14.2.0"
     hardhat-watcher "^2.1.1"
 
-"@uniswap/uniswapx-sdk@3.0.0-beta.13":
-  version "3.0.0-beta.13"
-  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.0-beta.13.tgz#1f1162159066547bcbe3dd50f136682dcf17da3e"
-  integrity sha512-Qh5xQGfOYJu0KhUoKS6/SDMjb85SEhRQTakaCq0hpvmCA53AaCT8w9GD8kT0MKLZGwt5PD5KS4CE4XJuo74qeQ==
+"@uniswap/uniswapx-sdk@3.0.0-beta.14":
+  version "3.0.0-beta.14"
+  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.0-beta.14.tgz#2c7345cd1155819e6f5c0b62abadc5690d01379e"
+  integrity sha512-EN0rbwwgCnIRymRa3KdbQ1IPrecJGSCbjiZEzz2i9HClRzCENuxE8qukwdHqt1jrAB2WmtM3vN0uN3Sk65Ursw==
   dependencies:
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"

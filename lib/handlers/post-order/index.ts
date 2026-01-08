@@ -2,6 +2,7 @@ import {
   OrderValidator as OnChainOrderValidator,
   RelayOrderValidator as OnChainRelayOrderValidator,
   V4OrderValidator as OnChainV4OrderValidator,
+  UNISWAPX_V4_ORDER_QUOTER_MAPPING as OnChainV4QuoterMapping
 } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { ethers } from 'ethers'
@@ -41,7 +42,9 @@ for (const chainId of SUPPORTED_CHAINS) {
         headers: RPC_HEADERS,
   })
   onChainValidatorMap.set(chainId, new OnChainOrderValidator(provider, chainId))
-  onChainV4ValidatorMap.set(chainId, new OnChainV4OrderValidator(provider, chainId))
+  if (OnChainV4QuoterMapping[chainId]) {
+    onChainV4ValidatorMap.set(chainId, new OnChainV4OrderValidator(provider, chainId))
+  }
 }
 
 const providerMap: ProviderMap = new Map()
