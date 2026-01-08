@@ -158,7 +158,7 @@ export type HybridOrderOutput = {
 export type HybridOrderEntity = SharedXOrderEntity & {
   type: OrderType.Hybrid
   auctionStartBlock: number
-  baselinePriorityFee: string
+  baselinePriorityFeeWei: string
   scalingFactor: string
   input: HybridOrderInput
   outputs: HybridOrderOutput[]

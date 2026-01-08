@@ -54,7 +54,7 @@ export class HybridOrder extends Order {
       orderStatus: orderStatus,
       offerer: decodedOrder.info.swapper.toLowerCase(),
       auctionStartBlock: decodedOrder.info.auctionStartBlock.toNumber(),
-      baselinePriorityFee: decodedOrder.info.baselinePriorityFee.toString(),
+      baselinePriorityFeeWei: decodedOrder.info.baselinePriorityFee.toString(),
       scalingFactor: decodedOrder.info.scalingFactor.toString(),
       input: {
         token: input.token,
