@@ -44,8 +44,6 @@ export class HybridOrder extends Order {
   public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): HybridOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
-    console.log('decodedOrder', JSON.stringify(decodedOrder, null, 2))
-    console.log("decodedOrder hash", decodedOrder.hash())
     const order: HybridOrderEntity = {
       type: OrderType.Hybrid,
       encodedOrder: decodedOrder.serialize(),

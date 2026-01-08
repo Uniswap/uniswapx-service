@@ -1,6 +1,7 @@
 import {
   OrderValidator as OnChainOrderValidator,
   RelayOrderValidator as OnChainRelayOrderValidator,
+  V4OrderValidator as OnChainV4OrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { ethers } from 'ethers'
@@ -32,18 +33,15 @@ import { getMaxOpenOrders, PostOrderInjector } from './injector'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
 
 const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
+const onChainV4ValidatorMap = new OnChainValidatorMap<OnChainV4OrderValidator>()
 
 for (const chainId of SUPPORTED_CHAINS) {
-  onChainValidatorMap.set(
-    chainId,
-    new OnChainOrderValidator(
-      new ethers.providers.StaticJsonRpcProvider({
+  const provider = new ethers.providers.StaticJsonRpcProvider({
         url: CONFIG.rpcUrls.get(chainId),
         headers: RPC_HEADERS,
-      }),
-      chainId
-    )
-  )
+  })
+  onChainValidatorMap.set(chainId, new OnChainOrderValidator(provider, chainId))
+  onChainV4ValidatorMap.set(chainId, new OnChainV4OrderValidator(provider, chainId))
 }
 
 const providerMap: ProviderMap = new Map()
@@ -80,7 +78,8 @@ const uniswapXOrderService = new UniswapXOrderService(
   getMaxOpenOrders,
   AnalyticsService.create(),
   providerMap,
-  webhookProvider
+  webhookProvider,
+  onChainV4ValidatorMap
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)

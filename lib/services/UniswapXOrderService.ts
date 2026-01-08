@@ -11,6 +11,7 @@ import {
   OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
   CosignedHybridOrder,
+  V4OrderValidator as OnChainV4OrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
@@ -56,7 +57,8 @@ export class UniswapXOrderService {
     private readonly getMaxOpenOrders: (offerer: string) => number,
     private analyticsService: AnalyticsServiceInterface,
     private readonly providerMap: ProviderMap,
-    private readonly webhookProvider?: WebhookProvider
+    private readonly webhookProvider?: WebhookProvider,
+    private readonly onChainV4ValidatorMap?: OnChainValidatorMap<OnChainV4OrderValidator>
   ) {}
 
   async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order | HybridOrder): Promise<string> {
@@ -205,10 +207,22 @@ export class UniswapXOrderService {
         throw new OrderValidationFailedError(`Permissioned Token Pre-transfer check failed`)
       }
     } else {
+      let onChainValidationResult: OrderValidation
+
+      // Use V4 quoter for Hybrid orders if available
+      if (order instanceof CosignedHybridOrder && this.onChainV4ValidatorMap) {
+        const v4Validator = this.onChainV4ValidatorMap.get(chainId)
+        onChainValidationResult = await v4Validator.validate({ order: order, signature: signature })
+    } else {
       const onChainValidator = this.onChainValidatorMap.get(chainId)
-      const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
-      // Still considered valid
-      if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet)
+        onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
+      }
+
+      // Still considered valid for Priority and Hybrid orders (both have block-based auctions)
+      if (
+        (order instanceof CosignedPriorityOrder || order instanceof CosignedHybridOrder) &&
+        onChainValidationResult == OrderValidation.OrderNotFillableYet
+      )
         return
 
       if (onChainValidationResult !== OrderValidation.OK) {
