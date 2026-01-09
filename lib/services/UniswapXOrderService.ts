@@ -106,7 +106,9 @@ export class UniswapXOrderService {
 
       // HybridOrder uses hardQuote passed from the POST request instead of fetching quoteMetadata
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner, order.hardQuote)
-      
+      if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock > cosignedOrder.inner.info.auctionStartBlock) {
+        throw new OrderValidationFailedError('auctionStartBlock too low')
+      }
       this.logger.info('cosigned hybrid order', { order: cosignedOrder })
       await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
       orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN)
@@ -204,27 +206,16 @@ export class UniswapXOrderService {
       }
     } else {
       let onChainValidationResult: OrderValidation
-      let v4QuoteResult: V4OrderQuote | undefined
 
       // Use V4 quoter for Hybrid orders if available on this chain
       if (order instanceof CosignedHybridOrder && this.onChainV4ValidatorMap?.has(chainId)) {
-        this.logger.info('Validating Hybrid order with V4 quoter', { chainId })
-        const v4Validator = this.onChainV4ValidatorMap.get(chainId)
-        // TODO: use validate() instead of quote()
-        v4QuoteResult = await v4Validator.quote({ order: order, signature: signature })
-        onChainValidationResult = v4QuoteResult.validation
+        const onChainV4Validator = this.onChainV4ValidatorMap.get(chainId)
+        onChainValidationResult = await onChainV4Validator.validate({ order: order, signature: signature })
+      
       } else {
         const onChainValidator = this.onChainValidatorMap.get(chainId)
         onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
       }
-
-      this.logger.info('Onchain validation result', {
-        validation: OrderValidation[onChainValidationResult],
-        validationCode: onChainValidationResult,
-        ...(v4QuoteResult?.validationErrorData && { validationErrorData: v4QuoteResult.validationErrorData }),
-        ...(v4QuoteResult?.validationErrorText && { validationErrorText: v4QuoteResult.validationErrorText }),
-        ...(v4QuoteResult?.rpcCalls && { rpcCalls: v4QuoteResult.rpcCalls }),
-      })
 
       // Still considered valid for Priority and Hybrid orders (both have block-based auctions)
       if (
