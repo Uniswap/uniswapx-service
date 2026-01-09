@@ -12,7 +12,6 @@ import {
   PermissionedTokenValidator,
   CosignedHybridOrder,
   V4OrderValidator as OnChainV4OrderValidator,
-  V4OrderQuote,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
