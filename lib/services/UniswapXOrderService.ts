@@ -102,7 +102,6 @@ export class UniswapXOrderService {
         `provider not found for chainId: ${order.chainId}`
       )
       
-
       // HybridOrder uses hardQuote passed from the POST request instead of fetching quoteMetadata
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner, order.hardQuote)
       if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock > cosignedOrder.inner.info.auctionStartBlock) {

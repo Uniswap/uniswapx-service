@@ -1,3 +1,4 @@
+import { BigNumber } from 'ethers'
 import { ChainId } from '../util/chain'
 
 export const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
@@ -58,3 +59,5 @@ export const HEX_BASE = 16
 export const CHARS_PER_BYTE = 2
 export const UR_SELECTOR_BYTES = 4
 export const UR_BYTES_PER_ACTION = 2
+
+export const SCALING_FACTOR_MASK = BigNumber.from(1).shl(240).sub(1)

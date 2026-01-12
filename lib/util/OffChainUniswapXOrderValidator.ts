@@ -1,22 +1,22 @@
 import {
+  CosignedHybridOrder,
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
   CosignedV3DutchOrder,
   DutchInput,
   DutchOrder,
   DutchOutput,
+  HybridOutput,
   NonlinearDutchDecay,
   OrderType,
   PriorityInput,
   PriorityOutput,
   REACTOR_ADDRESS_MAPPING,
   V3DutchOutput,
-  CosignedHybridOrder,
-  HybridOutput,
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import Joi from 'joi'
-import { ONE_DAY_IN_SECONDS } from './constants'
+import { ONE_DAY_IN_SECONDS, SCALING_FACTOR_MASK } from './constants'
 import FieldValidator from './field-validator'
 import { OrderValidationResponse } from './OrderValidationResponse'
 
@@ -31,7 +31,9 @@ export class OffChainUniswapXOrderValidator {
     private readonly skipValidationMap?: SkipValidationMap
   ) {}
 
-  validate(order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder | CosignedHybridOrder): OrderValidationResponse {
+  validate(
+    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder | CosignedHybridOrder
+  ): OrderValidationResponse {
     let orderType
     if (order instanceof DutchOrder) {
       orderType = OrderType.Dutch
@@ -58,8 +60,10 @@ export class OffChainUniswapXOrderValidator {
       }
 
       // If input override is set, it must be less than the start amount
-      if (!dutchOrder.info.cosignerData.inputOverride.isZero() && 
-          dutchOrder.info.cosignerData.inputOverride.gt(dutchOrder.info.input.startAmount)) {
+      if (
+        !dutchOrder.info.cosignerData.inputOverride.isZero() &&
+        dutchOrder.info.cosignerData.inputOverride.gt(dutchOrder.info.input.startAmount)
+      ) {
         return {
           valid: false,
           errorString: 'Invalid inputOverride > startAmount',
@@ -67,7 +71,7 @@ export class OffChainUniswapXOrderValidator {
       }
     }
 
-    let token: string;
+    let token: string
     if (order instanceof CosignedHybridOrder) {
       token = order.info.input.token
     } else {
@@ -153,7 +157,10 @@ export class OffChainUniswapXOrderValidator {
         return curveValidation
       }
 
-      const supplementalCurveValidation = this.validateHybridCurve(hybridOrder.info.cosignerData.supplementalPriceCurve, hybridOrder.info.scalingFactor)
+      const supplementalCurveValidation = this.validateHybridCurve(
+        hybridOrder.info.cosignerData.supplementalPriceCurve,
+        hybridOrder.info.scalingFactor
+      )
       if (!supplementalCurveValidation.valid) {
         return supplementalCurveValidation
       }
@@ -190,7 +197,10 @@ export class OffChainUniswapXOrderValidator {
         }
       }
 
-      const outputsValidation = this.validateV3DutchOutputs(order.info.outputs as V3DutchOutput[], dutchV3Order.info.cosignerData.outputOverrides)
+      const outputsValidation = this.validateV3DutchOutputs(
+        order.info.outputs as V3DutchOutput[],
+        dutchV3Order.info.cosignerData.outputOverrides
+      )
       if (!outputsValidation.valid) {
         return outputsValidation
       }
@@ -423,7 +433,6 @@ export class OffChainUniswapXOrderValidator {
     }
   }
 
-
   private validateV3DutchOutputs(outputs: V3DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
     if (outputs.length == 0) {
       return {
@@ -586,11 +595,10 @@ export class OffChainUniswapXOrderValidator {
     }
 
     const ONE_E18 = BigNumber.from(10).pow(18)
-    const SCALING_FACTOR_MASK = BigNumber.from(1).shl(240).sub(1)
-    
+
     // Direction: 0: unknown, 1: positive, -1: negative
-    let direction = 0; 
-    let directionSet = false;
+    let direction = 0
+    let directionSet = false
 
     for (let i = 0; i < priceCurve.length; i++) {
       if (!this.isValidUint256(priceCurve[i])) {
@@ -601,23 +609,23 @@ export class OffChainUniswapXOrderValidator {
       }
 
       const curveScalingFactor = priceCurve[i].and(SCALING_FACTOR_MASK)
-        if (curveScalingFactor == ONE_E18) {
-          continue
-        }
+      if (curveScalingFactor == ONE_E18) {
+        continue
+      }
 
-        if (!directionSet) {
-            direction = curveScalingFactor.gt(ONE_E18) ? 1 : -1;
-            directionSet = true;
-        } else {
-          const currentDirection = curveScalingFactor.gt(ONE_E18) ? 1 : -1;
-          if (currentDirection != direction) {
-            return {
-              valid: false,
-              errorString: `Invalid priceCurve: direction inconsistency`,
-            }
+      if (!directionSet) {
+        direction = curveScalingFactor.gt(ONE_E18) ? 1 : -1
+        directionSet = true
+      } else {
+        const currentDirection = curveScalingFactor.gt(ONE_E18) ? 1 : -1
+        if (currentDirection != direction) {
+          return {
+            valid: false,
+            errorString: `Invalid priceCurve: direction inconsistency`,
           }
         }
-        continue
+      }
+      continue
     }
 
     return { valid: true }

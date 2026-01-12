@@ -1,18 +1,44 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { KmsSigner } from '@uniswap/signer'
-import { OrderType, CosignedHybridOrder as SDKHybridOrder, HybridCosignerData } from '@uniswap/uniswapx-sdk'
+import { CosignedHybridOrder as SDKHybridOrder, HybridCosignerData, OrderType } from '@uniswap/uniswapx-sdk'
+import axios from 'axios'
 import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS } from '../entities'
 import { HybridOrderEntity, UniswapXOrderEntity } from '../entities/Order'
-import { HYBRID_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { AVERAGE_BLOCK_TIME } from '../handlers/check-order-status/util'
+import { HYBRID_ORDER_TARGET_BLOCK_BUFFER, SCALING_FACTOR_MASK } from '../handlers/constants'
 import { GetHybridOrderResponse } from '../handlers/get-orders/schema/GetHybridOrderResponse'
 import { HardQuote } from '../handlers/post-order/schema'
-import { Order } from './Order'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 import { ChainId } from '../util/chain'
 import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
+import { Order } from './Order'
+
+const INITIALIZER_COSIGN_PATH = '/cosign/hybrid'
+const INITIALIZER_TIMEOUT_MS = 5000
+
+interface InitializerCosignResponse {
+  success: boolean
+  receivedFeedIds: string[]
+  usedFeedIds: string[]
+  signedOrder: {
+    orderType: string
+    info: Record<string, unknown>
+    cosigner: string
+    input: Record<string, unknown>
+    outputs: Record<string, unknown>[]
+    cosignerData: {
+      auctionTargetBlock: number
+      supplementalPriceCurve: string[]
+    }
+    cosignature: string
+  }
+  chainId: number
+  encodedOrder: string
+  processingStatus: string
+  timestamp: number
+}
 
 export class HybridOrder extends Order {
   constructor(
@@ -39,7 +65,6 @@ export class HybridOrder extends Order {
   get orderType(): OrderType {
     return OrderType.Hybrid
   }
-
 
   public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): HybridOrderEntity {
     const { input, outputs } = this.inner.info
@@ -89,18 +114,21 @@ export class HybridOrder extends Order {
   }
 
   public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): HybridOrder {
-    const route = executeAddress && entity.route ? {
-        quote: entity.route.quote,
-        quoteGasAdjusted: entity.route.quoteGasAdjusted,
-        gasPriceWei: entity.route.gasPriceWei,
-        gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
-        gasUseEstimate: entity.route.gasUseEstimate,
-        methodParameters : {
-          calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
-          value: entity.route.methodParameters.value,
-          to: entity.route.methodParameters.to,
-        },
-      } : entity.route
+    const route =
+      executeAddress && entity.route
+        ? {
+            quote: entity.route.quote,
+            quoteGasAdjusted: entity.route.quoteGasAdjusted,
+            gasPriceWei: entity.route.gasPriceWei,
+            gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
+            gasUseEstimate: entity.route.gasUseEstimate,
+            methodParameters: {
+              calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
+              value: entity.route.methodParameters.value,
+              to: entity.route.methodParameters.to,
+            },
+          }
+        : entity.route
 
     return new HybridOrder(
       SDKHybridOrder.parse(entity.encodedOrder, entity.chainId),
@@ -135,41 +163,52 @@ export class HybridOrder extends Order {
     const targetBlock = BigNumber.from(block.number)
       .add(HYBRID_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId])
       .add(extraBlock)
-      
-    // Using string literal to match style of rest of the repo  
-    const scaleWorse = process.env["SCALE_WORSE"] === 'true'
 
-    const cosignerData = this.generateCosignerData(
-      targetBlock,
-      scaleWorse,
-      hardQuote
-    )
+    // Using string literal to match style of rest of the repo
+    const scaleWorse = process.env['SCALE_WORSE'] === 'true'
+
+    const cosignerData = this.generateCosignerData(targetBlock, scaleWorse, hardQuote)
 
     this.inner.info.cosignerData = cosignerData
 
-    this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash())
+    // Call initializer to get cosignature, fall back to local cosigner if not configured
+    const initializerUrl = process.env['INITIALIZER_URL']
+    if (initializerUrl) {
+      const cosignature = await this.fetchCosignatureFromInitializer(initializerUrl)
+      this.inner.info.cosignature = cosignature
+    } else {
+      this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash())
+    }
+
     return this
   }
 
-  /**
-   * Generates cosigner data for hybrid orders.
-   *
-   * Hybrid orders here will only be used for the purpose of replacing DutchV2/V3 orders,
-   * or Priority orders. Each order will only be either a dutch auction, or a priority
-   * auction, and not both. Therefore:
-   * - If the price curve is empty, returns zero target block and empty supplemental price curve.
-   * - Otherwise, returns supplemental price curve based on the hardQuote data.
-   *
-   * @param targetBlock - The target block number for the auction
-   * @param scaleWorse - Whether to allow scaling in a worse direction for the user
-   * @param hardQuote - Optional hard quote data from the POST request
-   * @returns The cosigner data containing auctionTargetBlock and supplementalPriceCurve
-   */
-  private generateCosignerData(
-    targetBlock: BigNumber,
-    scaleWorse: boolean,
-    hardQuote?: HardQuote
-  ): HybridCosignerData {
+  private async fetchCosignatureFromInitializer(initializerUrl: string): Promise<string> {
+    const url = `${initializerUrl}${INITIALIZER_COSIGN_PATH}`
+
+    const response = await axios.post<InitializerCosignResponse>(
+      url,
+      {
+        encodedOrder: this.inner.serialize(),
+        chainId: this.chainId,
+        signature: this.signature,
+      },
+      {
+        timeout: INITIALIZER_TIMEOUT_MS,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+
+    if (!response.data.success) {
+      throw new Error(`Initializer cosign request failed: processingStatus=${response.data.processingStatus}`)
+    }
+
+    return response.data.signedOrder.cosignature
+  }
+
+  private generateCosignerData(targetBlock: BigNumber, scaleWorse: boolean, hardQuote?: HardQuote): HybridCosignerData {
     // If no price curve, return empty cosigner data
     if (this.inner.info.priceCurve.length == 0) {
       return {
@@ -177,7 +216,7 @@ export class HybridOrder extends Order {
         supplementalPriceCurve: [],
       }
     }
-    
+
     // If no hardQuote provided, but price curve has length, simply set acution target block
     if (hardQuote == undefined) {
       return {
@@ -188,24 +227,14 @@ export class HybridOrder extends Order {
 
     const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther // 1e18
 
-    // NOTE: only works for one output
-    if (this.inner.info.outputs.length != 1) {
+    const scale = this.calculateScale(hardQuote, BASE_SCALING_FACTOR)
+
+    if (scale.eq(BASE_SCALING_FACTOR)) {
       return {
-        auctionTargetBlock: BigNumber.from(0),
+        auctionTargetBlock: targetBlock,
         supplementalPriceCurve: [],
       }
     }
-
-  const currentRateWad = (this.inner.info.outputs[0].minAmount.mul(BASE_SCALING_FACTOR)).div(this.inner.info.input.maxAmount)
-  const quoteRateWas = (BigNumber.from(hardQuote?.input.amount).mul(BASE_SCALING_FACTOR)).div(BigNumber.from(hardQuote?.outputs[0].amount))
-  const scale = (currentRateWad.mul(BASE_SCALING_FACTOR)).div(BigNumber.from(quoteRateWas))
-
-  if (scale.eq(BASE_SCALING_FACTOR)) {
-    return {
-      auctionTargetBlock: targetBlock,
-      supplementalPriceCurve: [],
-    }
-  }
 
     if (this.inner.info.scalingFactor.eq(BASE_SCALING_FACTOR)) {
       return {
@@ -224,15 +253,108 @@ export class HybridOrder extends Order {
     }
 
     const supplementalPriceCurve: BigNumber[] = []
+    const isExactInput = this.isExactInput()
     for (let i = 0; i < this.inner.info.priceCurve.length; i++) {
-      const relativeDifference = (this.inner.info.priceCurve[i].mul(BASE_SCALING_FACTOR)).div(scale.sub(BASE_SCALING_FACTOR))
-      supplementalPriceCurve.push(relativeDifference)
+      const extractedElement = this.extractElement(this.inner.info.priceCurve[i])
+      if (this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR) != extractedElement.gt(BASE_SCALING_FACTOR)) {
+        throw new Error('Scaling factor and price curve direction mismatch')
+      }
+      if (isExactInput) {
+        // Exact input: better price means more output, scale UP the curve
+        supplementalPriceCurve.push(extractedElement.mul(scale).div(BASE_SCALING_FACTOR))
+      } else {
+        // Exact output: better price means less input, scale DOWN the curve
+        supplementalPriceCurve.push(extractedElement.mul(BASE_SCALING_FACTOR).div(scale))
+      }
     }
 
     return {
       auctionTargetBlock: targetBlock,
       supplementalPriceCurve,
     }
+  }
+
+  private extractElement(priceCurveElement: BigNumber): BigNumber {
+    return priceCurveElement.and(SCALING_FACTOR_MASK)
+  }
+
+  private calculateScale(hardQuote: HardQuote, baseScalingFactor: BigNumber): BigNumber {
+    if (this.isExactInput()) {
+      return this.calculateExactInputScale(hardQuote, baseScalingFactor)
+    } else {
+      return this.calculateExactOutputScale(hardQuote, baseScalingFactor)
+    }
+  }
+
+  private isExactInput(): boolean {
+    const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther
+    if (this.inner.info.scalingFactor.eq(BASE_SCALING_FACTOR)) {
+      if (this.inner.info.priceCurve.length == 0) {
+        throw new Error('Price curve is empty and scaling factor is neutral')
+      }
+      if (this.inner.info.priceCurve?.[0].gt(BASE_SCALING_FACTOR)) {
+        return true
+      } else if (this.inner.info.priceCurve?.[0].lt(BASE_SCALING_FACTOR)) {
+        return false
+      } else {
+        throw new Error('Both price curve and scaling factor are neutral')
+      }
+    } else if (this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR)) {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  private calculateExactInputScale(hardQuote: HardQuote, baseScalingFactor: BigNumber): BigNumber {
+    const orderMaxInput = this.inner.info.input.maxAmount
+    const quoteInput = BigNumber.from(hardQuote.input.amount)
+
+    // Avoid division by zero
+    if (quoteInput.isZero()) {
+      return baseScalingFactor
+    }
+
+    if (hardQuote.outputs.length != this.inner.info.outputs.length) {
+      throw new Error('Hard quote outputs length does not match order outputs length')
+    }
+
+    // Convert each output to input terms and sum the results
+    let totalProjectedInput = BigNumber.from(0)
+    for (let i = 0; i < this.inner.info.outputs.length; i++) {
+      const orderMinOutput = this.inner.info.outputs[i].minAmount
+      const quoteOutput = BigNumber.from(hardQuote.outputs[i]?.amount ?? 0)
+
+      // Skip if quote output is zero to avoid division by zero
+      if (quoteOutput.isZero()) {
+        continue
+      }
+
+      // projectedInput_i = minOutput_i * quoteInput / quoteOutput_i
+      const projectedInput = orderMinOutput.mul(quoteInput).div(quoteOutput)
+      totalProjectedInput = totalProjectedInput.add(projectedInput)
+    }
+
+    // Avoid division by zero
+    if (totalProjectedInput.isZero()) {
+      return baseScalingFactor
+    }
+
+    // scale = maxInput / totalProjectedInput (in WAD terms)
+    return orderMaxInput.mul(baseScalingFactor).div(totalProjectedInput)
+  }
+
+  private calculateExactOutputScale(hardQuote: HardQuote, baseScalingFactor: BigNumber): BigNumber {
+    const orderMaxInput = this.inner.info.input.maxAmount
+    const quoteInput = BigNumber.from(hardQuote.input.amount)
+
+    // Avoid division by zero
+    if (quoteInput.isZero()) {
+      return baseScalingFactor
+    }
+
+    // scale = maxInput / quoteInput (in WAD terms)
+    return orderMaxInput.mul(baseScalingFactor).div(quoteInput)
   }
 
   public toGetResponse(): GetHybridOrderResponse {
