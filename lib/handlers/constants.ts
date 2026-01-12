@@ -60,4 +60,5 @@ export const CHARS_PER_BYTE = 2
 export const UR_SELECTOR_BYTES = 4
 export const UR_BYTES_PER_ACTION = 2
 
+export const BASE_SCALING_FACTOR = BigNumber.from(10).pow(18)
 export const SCALING_FACTOR_MASK = BigNumber.from(1).shl(240).sub(1)

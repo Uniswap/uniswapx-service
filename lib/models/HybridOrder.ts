@@ -2,11 +2,12 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { KmsSigner } from '@uniswap/signer'
 import { CosignedHybridOrder as SDKHybridOrder, HybridCosignerData, OrderType } from '@uniswap/uniswapx-sdk'
-import { BigNumber, ethers } from 'ethers'
+import { BigNumber } from 'ethers'
 import { ORDER_STATUS } from '../entities'
 import { HybridOrderEntity, UniswapXOrderEntity } from '../entities/Order'
+import { CosigningError } from '../errors/CosigningError'
 import { AVERAGE_BLOCK_TIME } from '../handlers/check-order-status/util'
-import { HYBRID_ORDER_TARGET_BLOCK_BUFFER, SCALING_FACTOR_MASK } from '../handlers/constants'
+import { BASE_SCALING_FACTOR, HYBRID_ORDER_TARGET_BLOCK_BUFFER, SCALING_FACTOR_MASK } from '../handlers/constants'
 import { GetHybridOrderResponse } from '../handlers/get-orders/schema/GetHybridOrderResponse'
 import { HardQuote } from '../handlers/post-order/schema'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
@@ -167,7 +168,7 @@ export class HybridOrder extends Order {
 
     this.inner.info.cosignerData = cosignerData
 
-    if (INITIALIZER_URL && INITIALIZER_URL.length > 0) {
+    if (INITIALIZER_URL?.length ?? 0 > 0) {
       const cosignature = await this.fetchCosignatureFromInitializer()
       this.inner.info.cosignature = cosignature
     } else {
@@ -187,7 +188,7 @@ export class HybridOrder extends Order {
     const response = await InitializerClient.post<InitializerCosignResponse>(INITIALIZER_COSIGN_HYBRID_PATH, payload)
 
     if (!response.data.success) {
-      throw new Error(`Initializer cosign request failed: processingStatus=${response.data.processingStatus}`)
+      throw new CosigningError(`Initializer cosign request failed: processingStatus=${response.data.processingStatus}`)
     }
 
     return response.data.signedOrder.cosignature
@@ -201,15 +202,13 @@ export class HybridOrder extends Order {
       }
     }
 
-    // If no hardQuote provided, but price curve has length, simply set acution target block
+    // If no hardQuote provided, but price curve has length, simply set auction target block
     if (hardQuote == undefined) {
       return {
         auctionTargetBlock: targetBlock,
         supplementalPriceCurve: [],
       }
     }
-
-    const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther // 1e18
 
     const scale = this.calculateScale(hardQuote, BASE_SCALING_FACTOR)
 
@@ -227,8 +226,10 @@ export class HybridOrder extends Order {
       }
     }
 
+    const isExactInput = this.isExactInput()
+
     if (!scaleWorse) {
-      if (scale.gt(BASE_SCALING_FACTOR) != this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR)) {
+      if (scale.lt(BASE_SCALING_FACTOR)) {
         return {
           auctionTargetBlock: targetBlock,
           supplementalPriceCurve: [],
@@ -236,12 +237,20 @@ export class HybridOrder extends Order {
       }
     }
 
+    const supplementalPriceCurve = this.generateSupplementalPriceCurve(scale, isExactInput)
+
+    return {
+      auctionTargetBlock: targetBlock,
+      supplementalPriceCurve,
+    }
+  }
+
+  private generateSupplementalPriceCurve(scale: BigNumber, isExactInput: boolean): BigNumber[] {
     const supplementalPriceCurve: BigNumber[] = []
-    const isExactInput = this.isExactInput()
     for (let i = 0; i < this.inner.info.priceCurve.length; i++) {
       const extractedElement = this.extractElement(this.inner.info.priceCurve[i])
       if (this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR) != extractedElement.gt(BASE_SCALING_FACTOR)) {
-        throw new Error('Scaling factor and price curve direction mismatch')
+        throw new CosigningError('Scaling factor and price curve direction mismatch')
       }
       if (isExactInput) {
         let newElement = extractedElement.mul(scale).div(BASE_SCALING_FACTOR)
@@ -263,11 +272,7 @@ export class HybridOrder extends Order {
         supplementalPriceCurve.push(newElement)
       }
     }
-
-    return {
-      auctionTargetBlock: targetBlock,
-      supplementalPriceCurve,
-    }
+    return supplementalPriceCurve
   }
 
   private extractElement(priceCurveElement: BigNumber): BigNumber {
@@ -283,17 +288,16 @@ export class HybridOrder extends Order {
   }
 
   private isExactInput(): boolean {
-    const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther
     if (this.inner.info.scalingFactor.eq(BASE_SCALING_FACTOR)) {
       if (this.inner.info.priceCurve.length == 0) {
-        throw new Error('Price curve is empty and scaling factor is neutral')
+        throw new CosigningError('Price curve is empty and scaling factor is neutral')
       }
       if (this.inner.info.priceCurve?.[0].gt(BASE_SCALING_FACTOR)) {
         return true
       } else if (this.inner.info.priceCurve?.[0].lt(BASE_SCALING_FACTOR)) {
         return false
       } else {
-        throw new Error('Both price curve and scaling factor are neutral')
+        throw new CosigningError('Both price curve and scaling factor are neutral')
       }
     } else if (this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR)) {
       return true
@@ -303,40 +307,28 @@ export class HybridOrder extends Order {
   }
 
   private calculateExactInputScale(hardQuote: HardQuote, baseScalingFactor: BigNumber): BigNumber {
-    const orderMaxInput = this.inner.info.input.maxAmount
-    const quoteInput = BigNumber.from(hardQuote.input.amount)
+    // For exact input orders with multiple outputs, scaling must be handled by the remote initializer
+    // because we need separate quotes for each output to properly weight them
+    if (this.inner.info.outputs.length > 1) {
+      throw new CosigningError('Exact input orders with multiple outputs must be cosigned by the remote initializer')
+    }
 
-    if (quoteInput.isZero()) {
+    const orderMinOutput = this.inner.info.outputs[0].minAmount
+    if (orderMinOutput.isZero()) {
       return baseScalingFactor
     }
 
-    if (hardQuote.outputs.length != this.inner.info.outputs.length) {
-      throw new Error('Hard quote outputs length does not match order outputs length')
+    if (hardQuote.outputs.length > 1) {
+      throw new CosigningError('Hard quote outputs length can only be 1 for locally cosigned exact input orders')
     }
 
-    // Convert each output to input terms and sum the results
-    let totalProjectedInput = BigNumber.from(0)
-    for (let i = 0; i < this.inner.info.outputs.length; i++) {
-      const orderMinOutput = this.inner.info.outputs[i].minAmount
-      const quoteOutput = BigNumber.from(hardQuote.outputs[i]?.amount ?? 0)
-
-      // Skip if quote output is zero to avoid division by zero
-      if (quoteOutput.isZero()) {
-        continue
-      }
-
-      // projectedInput_i = minOutput_i * quoteInput / quoteOutput_i
-      const projectedInput = orderMinOutput.mul(quoteInput).div(quoteOutput)
-      totalProjectedInput = totalProjectedInput.add(projectedInput)
-    }
-
-    // Avoid division by zero
-    if (totalProjectedInput.isZero()) {
+    const newOutput = BigNumber.from(hardQuote.outputs[0].amount)
+    if (newOutput.isZero()) {
       return baseScalingFactor
     }
 
     // scale = maxInput / totalProjectedInput (in WAD terms)
-    return orderMaxInput.mul(baseScalingFactor).div(totalProjectedInput)
+    return newOutput.mul(baseScalingFactor).div(orderMinOutput)
   }
 
   private calculateExactOutputScale(hardQuote: HardQuote, baseScalingFactor: BigNumber): BigNumber {

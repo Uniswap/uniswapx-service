@@ -84,7 +84,7 @@ export class CheckOrderStatusService {
     // since the order quoter can't move input tokens
      // Type for legacy orders that have input at the info level
      type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
-    // Note: For v4 orders like Hybrid, input is at a different level. Get input token safely.
+    // For v4 orders like Hybrid, input is at a different level. Get input token safely.
     const inputToken = parsedOrder instanceof CosignedHybridOrder 
       ? parsedOrder.info.input.token 
       : (parsedOrder as LegacyUniswapXOrder).info.input.token

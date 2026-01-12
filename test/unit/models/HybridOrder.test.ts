@@ -478,9 +478,7 @@ describe('HybridOrder Model', () => {
         })
 
         test('calculates correct values when scale and scalingFactor have same direction (both < 1)', async () => {
-          // Reset SCALE_WORSE to test the matching direction case
-          delete process.env['SCALE_WORSE']
-
+          process.env['SCALE_WORSE'] = 'true'
           const mockProvider = createMockProvider()
 
           // Exact output order: scalingFactor < 1e18
@@ -501,7 +499,7 @@ describe('HybridOrder Model', () => {
           const hardQuote = createHardQuote('1000000', '1000000000000000000')
 
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
-
+          delete process.env['SCALE_WORSE']
           // Exact output: supplemental = target - original + BASE
           // target = 0.95e18 * 1e18 / 0.5e18 = 1.9e18
           // unclamped supplemental = 1.9e18 - 0.95e18 + 1e18 = 1.95e18
@@ -595,7 +593,7 @@ describe('HybridOrder Model', () => {
       })
 
       describe('scaleWorse behavior', () => {
-        test('returns empty supplementalPriceCurve when scale direction opposes scalingFactor and scaleWorse=false', async () => {
+        test('returns empty supplementalPriceCurve when scale direction opposes scalingFactor and scaleWorse=false for exactInput', async () => {
           const mockProvider = createMockProvider()
 
           // Exact input order: scalingFactor > 1e18
@@ -622,6 +620,40 @@ describe('HybridOrder Model', () => {
           // scale = 1000000 * 1e18 / 2000000 = 0.5e18 (< BASE)
           // scalingFactor is 1.1e18 (> BASE), so directions mismatch
           const hardQuote = createHardQuote('1000000', '1000000000000000000')
+
+          await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
+
+          // With scaleWorse=false (default), mismatched directions = empty curve
+          expect(order.inner.info.cosignerData.supplementalPriceCurve).toEqual([])
+        })
+
+        test('returns empty supplementalPriceCurve when scale direction opposes scalingFactor and scaleWorse=false for exactOutput', async () => {
+          const mockProvider = createMockProvider()
+
+          // Exact input order: scalingFactor > 1e18
+          const scalingFactor = BASE.mul(90).div(100) // 0.9x (< BASE)
+          const priceCurveValue = BASE.mul(95).div(100) // 0.95x
+
+          const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
+            auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
+            scalingFactor: scalingFactor.toString(),
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
+            input: {
+              maxAmount: '1000000', // 1e6
+            },
+            outputs: [
+              {
+                minAmount: '1000000000000000000',
+                recipient: '0x0000000000000000000000000000000000000000',
+              },
+            ],
+          })
+          const order = new HybridOrder(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
+
+          // projectedInput = 2e6
+          // scale = 2
+          // scalingFactor is 0.9e18 (< BASE), so directions mismatch
+          const hardQuote = createHardQuote('2000000', '1000000000000000000')
 
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
 
@@ -698,10 +730,10 @@ describe('HybridOrder Model', () => {
           expect(order.inner.info.cosignerData.supplementalPriceCurve).toEqual([])
         })
 
-        test('throws error when hardQuote outputs length mismatches order outputs', async () => {
+        test('throws error for exact input orders with multiple outputs', async () => {
           const mockProvider = createMockProvider()
 
-          const scalingFactor = BASE.mul(110).div(100) // Exact input
+          const scalingFactor = BASE.mul(110).div(100) // Exact input (> BASE)
           const priceCurveValue = BASE.mul(105).div(100)
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
@@ -724,11 +756,51 @@ describe('HybridOrder Model', () => {
           })
           const order = new HybridOrder(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
 
-          // Only one output in hardQuote but order has two
+          // Exact input orders with multiple outputs must be handled by remote initializer
           const hardQuote = createHardQuote('1000000', '1000000000000000000')
 
           await expect(order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)).rejects.toThrow(
-            'Hard quote outputs length does not match order outputs length'
+            'Exact input orders with multiple outputs must be cosigned by the remote initializer'
+          )
+        })
+
+        test('works correctly for exact output orders with multiple outputs', async () => {
+          const mockProvider = createMockProvider()
+
+          const scalingFactor = BASE.mul(90).div(100) // Exact output (< BASE)
+          const priceCurveValue = BASE.mul(95).div(100) // 0.95x
+
+          const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
+            auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
+            scalingFactor: scalingFactor.toString(),
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
+            input: {
+              maxAmount: '2000000', // 2M input available
+            },
+            outputs: [
+              {
+                minAmount: '1000000000000000000', // 1 ETH required
+                recipient: '0x0000000000000000000000000000000000000000',
+              },
+              {
+                minAmount: '500000000000000000', // 0.5 ETH required
+                recipient: '0x0000000000000000000000000000000000000001',
+              },
+            ],
+          })
+          const order = new HybridOrder(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
+
+          // scale = maxInput * 1e18 / quoteInput = 2000000 * 1e18 / 1000000 = 2e18
+          const hardQuote = createHardQuote('1000000', '1000000000000000000')
+
+          await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
+
+          // Exact output: supplemental = target - original + BASE
+          // target = 0.95e18 * 1e18 / 2e18 = 0.475e18
+          // supplemental = 0.475e18 - 0.95e18 + 1e18 = 0.525e18
+          expect(order.inner.info.cosignerData.supplementalPriceCurve).toHaveLength(1)
+          expect(order.inner.info.cosignerData.supplementalPriceCurve[0].toString()).toEqual(
+            BASE.mul(525).div(1000).toString() // 0.525e18
           )
         })
       })
