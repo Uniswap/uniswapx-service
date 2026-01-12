@@ -70,7 +70,7 @@
     "aws-cdk-lib": "2.200.1",
     "aws-embedded-metrics": "^4.1.0",
     "aws-sdk": "^2.1238.0",
-    "axios": "^1.2.1",
+    "axios": "^1.8.2",
     "bunyan": "^1.8.15",
     "constructs": "^10.1.137",
     "dotenv": "^16.0.3",
