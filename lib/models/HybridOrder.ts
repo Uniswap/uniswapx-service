@@ -2,7 +2,6 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { KmsSigner } from '@uniswap/signer'
 import { CosignedHybridOrder as SDKHybridOrder, HybridCosignerData, OrderType } from '@uniswap/uniswapx-sdk'
-import axios from 'axios'
 import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS } from '../entities'
 import { HybridOrderEntity, UniswapXOrderEntity } from '../entities/Order'
@@ -12,11 +11,9 @@ import { GetHybridOrderResponse } from '../handlers/get-orders/schema/GetHybridO
 import { HardQuote } from '../handlers/post-order/schema'
 import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
 import { ChainId } from '../util/chain'
+import { InitializerClient, INITIALIZER_COSIGN_HYBRID_PATH, INITIALIZER_URL } from '../util/initializer'
 import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
 import { Order } from './Order'
-
-const INITIALIZER_COSIGN_PATH = '/cosign/hybrid'
-const INITIALIZER_TIMEOUT_MS = 5000
 
 interface InitializerCosignResponse {
   success: boolean
@@ -150,7 +147,7 @@ export class HybridOrder extends Order {
     hardQuote?: HardQuote
   ): Promise<this> {
     const block = await provider.getBlock('latest')
-    const currentTime = Math.floor(Date.now() / 1000) // Current time in seconds
+    const currentTime = Math.floor(Date.now() / 1000)
 
     // Calculate if we need to add an extra block based on timestamp difference
     // This keeps the time window more consistent for fillers
@@ -164,17 +161,14 @@ export class HybridOrder extends Order {
       .add(HYBRID_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId])
       .add(extraBlock)
 
-    // Using string literal to match style of rest of the repo
     const scaleWorse = process.env['SCALE_WORSE'] === 'true'
 
     const cosignerData = this.generateCosignerData(targetBlock, scaleWorse, hardQuote)
 
     this.inner.info.cosignerData = cosignerData
 
-    // Call initializer to get cosignature, fall back to local cosigner if not configured
-    const initializerUrl = process.env['INITIALIZER_URL']
-    if (initializerUrl) {
-      const cosignature = await this.fetchCosignatureFromInitializer(initializerUrl)
+    if (INITIALIZER_URL && INITIALIZER_URL.length > 0) {
+      const cosignature = await this.fetchCosignatureFromInitializer()
       this.inner.info.cosignature = cosignature
     } else {
       this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash())
@@ -183,23 +177,14 @@ export class HybridOrder extends Order {
     return this
   }
 
-  private async fetchCosignatureFromInitializer(initializerUrl: string): Promise<string> {
-    const url = `${initializerUrl}${INITIALIZER_COSIGN_PATH}`
+  private async fetchCosignatureFromInitializer(): Promise<string> {
+    const payload = {
+      encodedOrder: this.inner.serialize(),
+      chainId: this.chainId,
+      signature: this.signature,
+    }
 
-    const response = await axios.post<InitializerCosignResponse>(
-      url,
-      {
-        encodedOrder: this.inner.serialize(),
-        chainId: this.chainId,
-        signature: this.signature,
-      },
-      {
-        timeout: INITIALIZER_TIMEOUT_MS,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    const response = await InitializerClient.post<InitializerCosignResponse>(INITIALIZER_COSIGN_HYBRID_PATH, payload)
 
     if (!response.data.success) {
       throw new Error(`Initializer cosign request failed: processingStatus=${response.data.processingStatus}`)
@@ -209,7 +194,6 @@ export class HybridOrder extends Order {
   }
 
   private generateCosignerData(targetBlock: BigNumber, scaleWorse: boolean, hardQuote?: HardQuote): HybridCosignerData {
-    // If no price curve, return empty cosigner data
     if (this.inner.info.priceCurve.length == 0) {
       return {
         auctionTargetBlock: BigNumber.from(0),
@@ -260,11 +244,23 @@ export class HybridOrder extends Order {
         throw new Error('Scaling factor and price curve direction mismatch')
       }
       if (isExactInput) {
+        let newElement = extractedElement.mul(scale).div(BASE_SCALING_FACTOR)
+        newElement = newElement.sub(extractedElement).add(BASE_SCALING_FACTOR)
+        const distFromBase = extractedElement.add(newElement.sub(BASE_SCALING_FACTOR)).sub(BASE_SCALING_FACTOR)
+        if (distFromBase.lt(0)) {
+          newElement = newElement.sub(distFromBase)
+        }
         // Exact input: better price means more output, scale UP the curve
-        supplementalPriceCurve.push(extractedElement.mul(scale).div(BASE_SCALING_FACTOR))
+        supplementalPriceCurve.push(newElement)
       } else {
+        let newElement = extractedElement.mul(BASE_SCALING_FACTOR).div(scale)
+        newElement = newElement.sub(extractedElement).add(BASE_SCALING_FACTOR)
+        const distFromBase = extractedElement.add(newElement.sub(BASE_SCALING_FACTOR)).sub(BASE_SCALING_FACTOR)
+        if (distFromBase.gt(0)) {
+          newElement = newElement.sub(distFromBase)
+        }
         // Exact output: better price means less input, scale DOWN the curve
-        supplementalPriceCurve.push(extractedElement.mul(BASE_SCALING_FACTOR).div(scale))
+        supplementalPriceCurve.push(newElement)
       }
     }
 
@@ -310,7 +306,6 @@ export class HybridOrder extends Order {
     const orderMaxInput = this.inner.info.input.maxAmount
     const quoteInput = BigNumber.from(hardQuote.input.amount)
 
-    // Avoid division by zero
     if (quoteInput.isZero()) {
       return baseScalingFactor
     }

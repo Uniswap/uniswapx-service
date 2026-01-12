@@ -3,7 +3,7 @@ import { Block } from '@ethersproject/abstract-provider'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { KmsSigner } from '@uniswap/signer'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import axios from 'axios'
+import { AxiosInstance } from 'axios'
 import { ethers } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
@@ -12,12 +12,22 @@ import { GetHybridOrderResponse } from '../../../lib/handlers/get-orders/schema/
 import { HardQuote } from '../../../lib/handlers/post-order/schema'
 import { HybridOrder } from '../../../lib/models/HybridOrder'
 import { ChainId } from '../../../lib/util/chain'
+import { InitializerClient } from '../../../lib/util/initializer'
 import { SDKHybridOrderFactory } from '../../factories/SDKHybridOrderFactory'
 import { MOCK_SIGNATURE } from '../../test-data'
 import { COSIGNATURE, MOCK_LATEST_BLOCK } from '../fixtures'
 
-jest.mock('axios')
-const mockedAxios = axios as jest.Mocked<typeof axios>
+jest.mock('../../../lib/util/initializer', () => ({
+  ...jest.requireActual('../../../lib/util/initializer'),
+  get INITIALIZER_URL() {
+    return process.env['INITIALIZER_URL']
+  },
+  InitializerClient: {
+    post: jest.fn(),
+  },
+}))
+const mockedInitializerClient = InitializerClient as jest.Mocked<AxiosInstance>
+const BASE = ethers.constants.WeiPerEther
 
 describe('HybridOrder Model', () => {
   const log = mock<Logger>()
@@ -116,7 +126,7 @@ describe('HybridOrder Model', () => {
 
         expect(mockCosigner.signDigest).toHaveBeenCalled()
         expect(result.inner.info.cosignature).toEqual(COSIGNATURE)
-        expect(mockedAxios.post).not.toHaveBeenCalled()
+        expect(mockedInitializerClient.post).not.toHaveBeenCalled()
       })
 
       test('sets auctionTargetBlock correctly when price curve exists', async () => {
@@ -143,7 +153,7 @@ describe('HybridOrder Model', () => {
         const mockProvider = createMockProvider(MOCK_LATEST_BLOCK, oldTimestamp)
 
         const BASE_SCALING_FACTOR = ethers.constants.WeiPerEther
-        const priceCurveValue = BASE_SCALING_FACTOR.mul(105).div(100) // Non-empty price curve
+        const priceCurveValue = BASE_SCALING_FACTOR.mul(105).div(100)
 
         const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
           auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
@@ -174,7 +184,7 @@ describe('HybridOrder Model', () => {
         })
         const order = new HybridOrder(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
 
-        mockedAxios.post.mockResolvedValueOnce({
+        mockedInitializerClient.post.mockResolvedValueOnce({
           data: {
             success: true,
             receivedFeedIds: [],
@@ -192,16 +202,12 @@ describe('HybridOrder Model', () => {
 
         const result = await order.reparameterizeAndCosign(mockProvider, mockCosigner)
 
-        expect(mockedAxios.post).toHaveBeenCalledWith(
-          `${MOCK_INITIALIZER_URL}/cosign/hybrid`,
+        expect(mockedInitializerClient.post).toHaveBeenCalledWith(
+          '/cosign/hybrid',
           expect.objectContaining({
             encodedOrder: expect.any(String),
             chainId: ChainId.MAINNET,
             signature: MOCK_SIGNATURE,
-          }),
-          expect.objectContaining({
-            timeout: 5000,
-            headers: { 'Content-Type': 'application/json' },
           })
         )
         expect(result.inner.info.cosignature).toEqual(MOCK_INITIALIZER_COSIGNATURE)
@@ -215,7 +221,7 @@ describe('HybridOrder Model', () => {
         })
         const order = new HybridOrder(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
 
-        mockedAxios.post.mockResolvedValueOnce({
+        mockedInitializerClient.post.mockResolvedValueOnce({
           data: {
             success: false,
             processingStatus: 'failed',
@@ -234,7 +240,7 @@ describe('HybridOrder Model', () => {
         })
         const order = new HybridOrder(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
 
-        mockedAxios.post.mockRejectedValueOnce(new Error('Network error'))
+        mockedInitializerClient.post.mockRejectedValueOnce(new Error('Network error'))
 
         await expect(order.reparameterizeAndCosign(mockProvider, mockCosigner)).rejects.toThrow('Network error')
       })
@@ -266,12 +272,19 @@ describe('HybridOrder Model', () => {
         createdAtMs: Date.now().toString(),
       })
 
+      // Helper to create properly formatted price curve elements
+      // Format: upper 16 bits = relative block number, lower 240 bits = scaling factor value
+      const createPriceCurveElement = (relativeBlock: number, scalingFactor: ethers.BigNumber): string => {
+        const blockPart = ethers.BigNumber.from(relativeBlock).shl(240)
+        return blockPart.or(scalingFactor).toString()
+      }
+
       test('returns empty supplementalPriceCurve when price curve is empty', async () => {
         const mockProvider = createMockProvider()
 
         const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
           auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
-          priceCurve: [], // Empty price curve
+          priceCurve: [],
         })
         const order = new HybridOrder(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
 
@@ -289,7 +302,7 @@ describe('HybridOrder Model', () => {
 
         const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
           auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
-          priceCurve: [priceCurveValue.toString()],
+          priceCurve: [createPriceCurveElement(1, priceCurveValue)],
         })
         const order = new HybridOrder(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
 
@@ -302,16 +315,15 @@ describe('HybridOrder Model', () => {
 
       test('returns empty supplementalPriceCurve when calculated scale equals base (no price improvement)', async () => {
         const mockProvider = createMockProvider()
-        const BASE = ethers.constants.WeiPerEther
 
         // Exact output order: scalingFactor < 1e18
         const scalingFactor = BASE.mul(90).div(100) // 0.9x (exact output)
-        const priceCurve = BASE.mul(95).div(100) // 0.95x
+        const priceCurveValue = BASE.mul(95).div(100) // 0.95x
 
         const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
           auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
           scalingFactor: scalingFactor.toString(),
-          priceCurve: [priceCurve.toString()],
+          priceCurve: [createPriceCurveElement(1, priceCurveValue)],
           input: {
             maxAmount: '1000000', // Same as quote input = scale of 1.0
           },
@@ -329,15 +341,14 @@ describe('HybridOrder Model', () => {
 
       test('returns empty supplementalPriceCurve when scalingFactor is neutral (1e18)', async () => {
         const mockProvider = createMockProvider()
-        const BASE = ethers.constants.WeiPerEther
 
         // Neutral scaling factor with non-neutral price curve
-        const priceCurve = BASE.mul(105).div(100) // 1.05x
+        const priceCurveValue = BASE.mul(105).div(100) // 1.05x
 
         const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
           auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
           scalingFactor: BASE.toString(), // Neutral 1e18
-          priceCurve: [priceCurve.toString()],
+          priceCurve: [createPriceCurveElement(1, priceCurveValue)],
           input: {
             maxAmount: '2000000',
           },
@@ -363,16 +374,14 @@ describe('HybridOrder Model', () => {
 
         test('calculates correct supplementalPriceCurve for 2x scale improvement', async () => {
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
-          // Exact output order configuration
           const scalingFactor = BASE.mul(90).div(100) // 0.9x indicates exact output
-          const priceCurve = BASE.mul(95).div(100) // 0.95x
+          const priceCurveValue = BASE.mul(95).div(100) // 0.95x
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '2000000', // 2x the quote input
             },
@@ -385,25 +394,25 @@ describe('HybridOrder Model', () => {
 
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
 
-          // Exact output: scale DOWN the curve (better price = less input needed)
-          // supplementalPriceCurve = priceCurve * BASE / scale = 0.95e18 * 1e18 / 2e18 = 0.475e18
+          // Exact output: supplemental = target - original + BASE
+          // target = 0.95e18 * 1e18 / 2e18 = 0.475e18
+          // supplemental = 0.475e18 - 0.95e18 + 1e18 = 0.525e18
           expect(order.inner.info.cosignerData.supplementalPriceCurve).toHaveLength(1)
           expect(order.inner.info.cosignerData.supplementalPriceCurve[0].toString()).toEqual(
-            BASE.mul(475).div(1000).toString() // 0.475e18
+            BASE.mul(525).div(1000).toString() // 0.525e18
           )
         })
 
         test('calculates correct supplementalPriceCurve for 1.5x scale improvement', async () => {
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           const scalingFactor = BASE.mul(80).div(100) // 0.8x exact output
-          const priceCurve = BASE.mul(90).div(100) // 0.9x
+          const priceCurveValue = BASE.mul(90).div(100) // 0.9x
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '1500000', // 1.5x the quote input
             },
@@ -415,17 +424,17 @@ describe('HybridOrder Model', () => {
 
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
 
-          // Exact output: scale DOWN the curve
-          // supplementalPriceCurve = priceCurve * BASE / scale = 0.9e18 * 1e18 / 1.5e18 = 0.6e18
+          // Exact output: supplemental = target - original + BASE
+          // target = 0.9e18 * 1e18 / 1.5e18 = 0.6e18
+          // supplemental = 0.6e18 - 0.9e18 + 1e18 = 0.7e18
           expect(order.inner.info.cosignerData.supplementalPriceCurve).toHaveLength(1)
           expect(order.inner.info.cosignerData.supplementalPriceCurve[0].toString()).toEqual(
-            BASE.mul(60).div(100).toString() // 0.6e18
+            BASE.mul(70).div(100).toString() // 0.7e18
           )
         })
 
         test('handles multiple price curve values correctly', async () => {
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           const scalingFactor = BASE.mul(80).div(100) // 0.8x exact output
           // Multiple price curve points
@@ -436,7 +445,11 @@ describe('HybridOrder Model', () => {
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve1.toString(), priceCurve2.toString(), priceCurve3.toString()],
+            priceCurve: [
+              createPriceCurveElement(1, priceCurve1),
+              createPriceCurveElement(2, priceCurve2),
+              createPriceCurveElement(3, priceCurve3),
+            ],
             input: {
               maxAmount: '2000000', // 2x scale
             },
@@ -447,20 +460,20 @@ describe('HybridOrder Model', () => {
 
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
 
-          // Exact output with scale = 2e18: scale DOWN each curve value by dividing by 2
+          // Exact output with scale = 2e18: supplemental = target - original + BASE
           expect(order.inner.info.cosignerData.supplementalPriceCurve).toHaveLength(3)
 
-          // curve1: 0.9e18 / 2 = 0.45e18
+          // curve1: target = 0.9e18 / 2 = 0.45e18, supplemental = 0.45e18 - 0.9e18 + 1e18 = 0.55e18
           expect(order.inner.info.cosignerData.supplementalPriceCurve[0].toString()).toEqual(
-            BASE.mul(45).div(100).toString()
+            BASE.mul(55).div(100).toString()
           )
-          // curve2: 0.85e18 / 2 = 0.425e18
+          // curve2: target = 0.85e18 / 2 = 0.425e18, supplemental = 0.425e18 - 0.85e18 + 1e18 = 0.575e18
           expect(order.inner.info.cosignerData.supplementalPriceCurve[1].toString()).toEqual(
-            BASE.mul(425).div(1000).toString()
+            BASE.mul(575).div(1000).toString()
           )
-          // curve3: 0.8e18 / 2 = 0.4e18
+          // curve3: target = 0.8e18 / 2 = 0.4e18, supplemental = 0.4e18 - 0.8e18 + 1e18 = 0.6e18
           expect(order.inner.info.cosignerData.supplementalPriceCurve[2].toString()).toEqual(
-            BASE.mul(40).div(100).toString()
+            BASE.mul(60).div(100).toString()
           )
         })
 
@@ -469,16 +482,15 @@ describe('HybridOrder Model', () => {
           delete process.env['SCALE_WORSE']
 
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           // Exact output order: scalingFactor < 1e18
           const scalingFactor = BASE.mul(90).div(100) // 0.9x
-          const priceCurve = BASE.mul(95).div(100) // 0.95x
+          const priceCurveValue = BASE.mul(95).div(100) // 0.95x
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '500000',
             },
@@ -490,11 +502,15 @@ describe('HybridOrder Model', () => {
 
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
 
-          // Exact output: scale DOWN by dividing by scale
-          // supplementalPriceCurve = priceCurve * BASE / scale = 0.95e18 * 1e18 / 0.5e18 = 1.9e18
+          // Exact output: supplemental = target - original + BASE
+          // target = 0.95e18 * 1e18 / 0.5e18 = 1.9e18
+          // unclamped supplemental = 1.9e18 - 0.95e18 + 1e18 = 1.95e18
+          // But distFromBase = 0.95e18 + 0.95e18 - 1e18 = 0.9e18 > 0
+          // So clamped: supplemental = 1.95e18 - 0.9e18 = 1.05e18
+          // This ensures combined = 0.95e18 + 1.05e18 - 1e18 = 1e18 (neutral)
           expect(order.inner.info.cosignerData.supplementalPriceCurve).toHaveLength(1)
           expect(order.inner.info.cosignerData.supplementalPriceCurve[0].toString()).toEqual(
-            BASE.mul(190).div(100).toString() // 1.9e18
+            BASE.mul(105).div(100).toString() // 1.05e18 (clamped to prevent direction flip)
           )
         })
       })
@@ -502,16 +518,15 @@ describe('HybridOrder Model', () => {
       describe('exact input orders (scalingFactor > 1e18) - supplementalPriceCurve value tests', () => {
         test('calculates correct supplementalPriceCurve for exact input with 2x scale', async () => {
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           // Exact input order: scalingFactor > 1e18
           const scalingFactor = BASE.mul(110).div(100) // 1.1x indicates exact input
-          const priceCurve = BASE.mul(105).div(100) // 1.05x
+          const priceCurveValue = BASE.mul(105).div(100) // 1.05x
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '1000000',
             },
@@ -532,25 +547,25 @@ describe('HybridOrder Model', () => {
 
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
 
-          // Exact input: scale UP the curve (better price = more output)
-          // supplementalPriceCurve = priceCurve * scale / BASE = 1.05e18 * 2e18 / 1e18 = 2.1e18
+          // Exact input: supplemental = target - original + BASE
+          // target = 1.05e18 * 2e18 / 1e18 = 2.1e18
+          // supplemental = 2.1e18 - 1.05e18 + 1e18 = 2.05e18
           expect(order.inner.info.cosignerData.supplementalPriceCurve).toHaveLength(1)
           expect(order.inner.info.cosignerData.supplementalPriceCurve[0].toString()).toEqual(
-            BASE.mul(210).div(100).toString() // 2.1e18
+            BASE.mul(205).div(100).toString() // 2.05e18
           )
         })
 
         test('calculates correct supplementalPriceCurve for exact input with 1.25x scale', async () => {
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           const scalingFactor = BASE.mul(120).div(100) // 1.2x exact input
-          const priceCurve = BASE.mul(110).div(100) // 1.1x
+          const priceCurveValue = BASE.mul(110).div(100) // 1.1x
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '1000000',
             },
@@ -569,11 +584,12 @@ describe('HybridOrder Model', () => {
 
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
 
-          // Exact input: scale UP the curve
-          // supplementalPriceCurve = priceCurve * scale / BASE = 1.1e18 * 1.25e18 / 1e18 = 1.375e18
+          // Exact input: supplemental = target - original + BASE
+          // target = 1.1e18 * 1.25e18 / 1e18 = 1.375e18
+          // supplemental = 1.375e18 - 1.1e18 + 1e18 = 1.275e18
           expect(order.inner.info.cosignerData.supplementalPriceCurve).toHaveLength(1)
           expect(order.inner.info.cosignerData.supplementalPriceCurve[0].toString()).toEqual(
-            BASE.mul(1375).div(1000).toString() // 1.375e18
+            BASE.mul(1275).div(1000).toString() // 1.275e18
           )
         })
       })
@@ -581,16 +597,15 @@ describe('HybridOrder Model', () => {
       describe('scaleWorse behavior', () => {
         test('returns empty supplementalPriceCurve when scale direction opposes scalingFactor and scaleWorse=false', async () => {
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           // Exact input order: scalingFactor > 1e18
           const scalingFactor = BASE.mul(110).div(100) // 1.1x (> BASE)
-          const priceCurve = BASE.mul(105).div(100) // 1.05x
+          const priceCurveValue = BASE.mul(105).div(100) // 1.05x
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '1000000',
             },
@@ -617,16 +632,15 @@ describe('HybridOrder Model', () => {
         test('generates supplementalPriceCurve when scaleWorse=true even with direction mismatch', async () => {
           process.env['SCALE_WORSE'] = 'true'
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           // Exact input order: scalingFactor > 1e18
           const scalingFactor = BASE.mul(110).div(100) // 1.1x (> BASE)
-          const priceCurve = BASE.mul(105).div(100) // 1.05x
+          const priceCurveValue = BASE.mul(105).div(100) // 1.05x
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '1000000',
             },
@@ -645,11 +659,15 @@ describe('HybridOrder Model', () => {
           await order.reparameterizeAndCosign(mockProvider, mockCosigner, hardQuote)
 
           // With scaleWorse=true, even with mismatch, curve should be generated
-          // Exact input: scale UP the curve
-          // supplementalPriceCurve = priceCurve * scale / BASE = 1.05e18 * 0.5e18 / 1e18 = 0.525e18
+          // Exact input: supplemental = target - original + BASE
+          // target = 1.05e18 * 0.5e18 / 1e18 = 0.525e18
+          // unclamped supplemental = 0.525e18 - 1.05e18 + 1e18 = 0.475e18
+          // distFromBase = 1.05e18 + (0.475e18 - 1e18) - 1e18 = -0.475e18 < 0
+          // Clamped: supplemental = 0.475e18 - (-0.475e18) = 0.95e18
+          // This ensures combined = 1.05e18 + 0.95e18 - 1e18 = 1e18 (neutral, doesn't flip past BASE)
           expect(order.inner.info.cosignerData.supplementalPriceCurve).toHaveLength(1)
           expect(order.inner.info.cosignerData.supplementalPriceCurve[0].toString()).toEqual(
-            BASE.mul(525).div(1000).toString() // 0.525e18
+            BASE.mul(95).div(100).toString() // 0.95e18 - brings combined to neutral 1e18
           )
         })
       })
@@ -657,15 +675,14 @@ describe('HybridOrder Model', () => {
       describe('edge cases', () => {
         test('returns base scaling factor when quote input is zero', async () => {
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           const scalingFactor = BASE.mul(90).div(100)
-          const priceCurve = BASE.mul(95).div(100)
+          const priceCurveValue = BASE.mul(95).div(100)
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '1000000',
             },
@@ -683,15 +700,14 @@ describe('HybridOrder Model', () => {
 
         test('throws error when hardQuote outputs length mismatches order outputs', async () => {
           const mockProvider = createMockProvider()
-          const BASE = ethers.constants.WeiPerEther
 
           const scalingFactor = BASE.mul(110).div(100) // Exact input
-          const priceCurve = BASE.mul(105).div(100)
+          const priceCurveValue = BASE.mul(105).div(100)
 
           const sdkOrder = SDKHybridOrderFactory.buildHybridOrder(ChainId.MAINNET, {
             auctionStartBlock: String(MOCK_LATEST_BLOCK + 100),
             scalingFactor: scalingFactor.toString(),
-            priceCurve: [priceCurve.toString()],
+            priceCurve: [createPriceCurveElement(1, priceCurveValue)],
             input: {
               maxAmount: '1000000',
             },
