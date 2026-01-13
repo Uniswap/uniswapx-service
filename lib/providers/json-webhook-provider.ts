@@ -1,4 +1,3 @@
-import { OrderType } from '@uniswap/uniswapx-sdk'
 import { OrderFilter, WebhookProvider } from './base'
 import { FILTER_FIELD, Webhook, WebhookDefinition } from './types'
 
@@ -25,21 +24,17 @@ export function findEndpointsMatchingFilter(filter: OrderFilter, definition: Web
   const catchallEndpoints = definition['*'] ?? []
   endpoints.push(...catchallEndpoints)
 
-  // remove limit orders orders when matching webhooks
-  // webhook is currently used only to fill dutch, dutch_v2, and dutch_v3 orders
-  if (filter.orderType !== OrderType.Limit) {
-    const supportedFilterKeys: (FILTER_FIELD.FILLER | FILTER_FIELD.OFFERER | FILTER_FIELD.ORDER_STATUS)[] = [
-      FILTER_FIELD.FILLER,
-      FILTER_FIELD.ORDER_STATUS,
-      FILTER_FIELD.OFFERER,
-    ]
-    const filterMapping = definition.filter
-    for (const filterKey of supportedFilterKeys) {
-      const filterValue = filter[filterKey]
-      if (filterValue && Object.keys(filterMapping[filterKey]).includes(filterValue)) {
-        const filterEndpoints = filterMapping[filterKey][filterValue]
-        endpoints.push(...filterEndpoints)
-      }
+  const supportedFilterKeys: (FILTER_FIELD.FILLER | FILTER_FIELD.OFFERER | FILTER_FIELD.ORDER_STATUS)[] = [
+    FILTER_FIELD.FILLER,
+    FILTER_FIELD.ORDER_STATUS,
+    FILTER_FIELD.OFFERER,
+  ]
+  const filterMapping = definition.filter
+  for (const filterKey of supportedFilterKeys) {
+    const filterValue = filter[filterKey]
+    if (filterValue && Object.keys(filterMapping[filterKey]).includes(filterValue)) {
+      const filterEndpoints = filterMapping[filterKey][filterValue]
+      endpoints.push(...filterEndpoints)
     }
   }
 
