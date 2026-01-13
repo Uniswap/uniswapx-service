@@ -50,15 +50,40 @@ export class PriceImpactStrategy implements IUnimindAlgorithm<PriceImpactIntrins
         const Sigma_updated = this.updateSigma(fillStatuses, Sigma);
         
         // Create array of valid data points
-        const validDataPoints = this.collectValidDataPoints(waitTimes, fillStatuses, priceImpactFractions);
-        
+        let validDataPoints = this.collectValidDataPoints(waitTimes, fillStatuses, priceImpactFractions);
+
+        // Special case: when fill rate is exactly 0, we have no filled orders to learn from
+        // Treat unfilled orders as if they waited the full auction length to shift auction downward
+        const fillRate = this.calculateAverageFillRate(fillStatuses);
+        if (fillRate === 0 && validDataPoints.length === 0) {
+            log.info({
+                totalOrders: waitTimes.length,
+                fillRate: fillRate,
+                action: 'creating_synthetic_data'
+            }, 'Zero fill rate detected - treating unfilled orders as waiting full auction length');
+
+            validDataPoints = [];
+            for (let i = 0; i < waitTimes.length; i++) {
+                if (waitTimes[i] === undefined && priceImpactFractions[i] !== undefined) {
+                    validDataPoints.push({
+                        waitTime: this.LENGTH_OF_AUCTION_IN_BLOCKS, // 32 blocks - full auction wait
+                        priceImpact: priceImpactFractions[i],
+                        fillStatus: 0
+                    });
+                }
+            }
+            log.info({
+                syntheticDataPoints: validDataPoints.length
+            }, 'Created synthetic data points for zero fill rate scenario');
+        }
+
         // Log stats about what data we're using
         log.info({
             totalOrders: waitTimes.length,
             usedForOptimization: validDataPoints.length,
             ignoredOrders: waitTimes.length - validDataPoints.length
         }, 'Unimind algorithm data usage - NOTE: unfilled orders are being ignored');
-        
+
         // Calculate and apply gradients to update lambda parameters
         const { lambda1_updated, lambda2_updated, medianCostFunction, gradientInfo } =
             this.updateLambdaParameters(validDataPoints, lambda1, lambda2, Sigma, log);

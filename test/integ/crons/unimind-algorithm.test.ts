@@ -250,15 +250,15 @@ describe('updateParameters Test', () => {
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
         count: 10,
         version: UNIMIND_ALGORITHM_VERSION,
-        batchNumber: 3,
+        batchNumber: 10, // Use number larger than circuit breaker cutoff
         lastUpdatedAt: previousTimestamp
       })
-      
+
       await ordersTable.putOrderAndUpdateNonceTransaction(testOrder)
       await updateParameters(unimindParametersRepository, ordersTable, log)
-      
+
       const pairData = await unimindParametersRepository.getByPair(testPair)
-      expect(pairData?.batchNumber).toBe(3) // Should preserve existing batch number
+      expect(pairData?.batchNumber).toBe(10) // Should preserve existing batch number
       expect(pairData?.count).toBe(11) // Should increment count
       expect(pairData?.lastUpdatedAt).toBe(previousTimestamp) // Should preserve timestamp
     })
