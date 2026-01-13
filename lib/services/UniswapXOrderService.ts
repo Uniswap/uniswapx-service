@@ -2,6 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { KMSClient } from '@aws-sdk/client-kms'
 import { KmsSigner } from '@uniswap/signer'
 import {
+  CosignedHybridOrder,
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
   CosignedV3DutchOrder,
@@ -10,7 +11,6 @@ import {
   OrderValidation,
   OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
-  CosignedHybridOrder,
   V4OrderValidator as OnChainV4OrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
@@ -21,28 +21,28 @@ import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
+import { GetHybridOrderResponse } from '../handlers/get-orders/schema/GetHybridOrderResponse'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
-import { GetHybridOrderResponse } from '../handlers/get-orders/schema/GetHybridOrderResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
+import { sendImmediateExclusiveFillerNotification } from '../handlers/order-notification/handler'
+import { ExclusiveFillerWebhookOrder } from '../handlers/order-notification/types'
 import { ProviderMap } from '../handlers/shared'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { DutchV1Order } from '../models/DutchV1Order'
 import { DutchV2Order } from '../models/DutchV2Order'
 import { DutchV3Order } from '../models/DutchV3Order'
+import { HybridOrder } from '../models/HybridOrder'
 import { LimitOrder } from '../models/LimitOrder'
 import { PriorityOrder } from '../models/PriorityOrder'
-import { HybridOrder } from '../models/HybridOrder'
 import { checkDefined } from '../preconditions/preconditions'
+import { WebhookProvider } from '../providers/base'
 import { BaseOrdersRepository } from '../repositories/base'
 import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
+import { hasExclusiveFiller } from '../util/address'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
-import { sendImmediateExclusiveFillerNotification } from '../handlers/order-notification/handler'
-import { ExclusiveFillerWebhookOrder } from '../handlers/order-notification/types'
-import { WebhookProvider } from '../providers/base'
-import { hasExclusiveFiller } from '../util/address'
 
 const MAX_QUERY_RETRY = 10
 
@@ -61,7 +61,9 @@ export class UniswapXOrderService {
     private readonly onChainV4ValidatorMap?: OnChainValidatorMap<OnChainV4OrderValidator>
   ) {}
 
-  async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order | HybridOrder): Promise<string> {
+  async createOrder(
+    order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order | HybridOrder
+  ): Promise<string> {
     let orderEntity: UniswapXOrderEntity
     if (order instanceof DutchV1Order || order instanceof LimitOrder) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
@@ -101,7 +103,7 @@ export class UniswapXOrderService {
         this.providerMap.get(order.chainId),
         `provider not found for chainId: ${order.chainId}`
       )
-      
+
       // HybridOrder uses hardQuote passed from the POST request instead of fetching quoteMetadata
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner, order.hardQuote)
       if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock > cosignedOrder.inner.info.auctionStartBlock) {
@@ -139,7 +141,7 @@ export class UniswapXOrderService {
         filler: orderEntity.filler,
         orderType: realOrderType,
       }
-      
+
       // Don't await to minimize latency-add to order posting flow
       sendImmediateExclusiveFillerNotification(
         exclusiveFillerOrder,
@@ -147,13 +149,11 @@ export class UniswapXOrderService {
         this.webhookProvider,
         this.logger
       ).catch((error) => {
-        this.logger.warn(
-          { 
-            orderHash: orderEntity.orderHash, 
-            error: error.message || error,
-            message: 'Immediate webhook notification failed, will rely on DynamoDB stream'
-          }
-        )
+        this.logger.warn({
+          orderHash: orderEntity.orderHash,
+          error: error.message || error,
+          message: 'Immediate webhook notification failed, will rely on DynamoDB stream',
+        })
       })
     }
 
@@ -206,9 +206,13 @@ export class UniswapXOrderService {
       let onChainValidationResult: OrderValidation
 
       // Use V4 quoter for Hybrid orders if available on this chain
-      if (order instanceof CosignedHybridOrder && this.onChainV4ValidatorMap?.has(chainId)) {
-        const onChainV4Validator = this.onChainV4ValidatorMap.get(chainId)
-        onChainValidationResult = await onChainV4Validator.validate({ order: order, signature: signature })
+      if (order instanceof CosignedHybridOrder) {
+        if (this.onChainV4ValidatorMap?.has(chainId)) {
+          const onChainV4Validator = this.onChainV4ValidatorMap.get(chainId)
+          onChainValidationResult = await onChainV4Validator.validate({ order: order, signature: signature })
+        } else {
+          throw new Error(`Onchain validator not found for chainId: ${chainId}`)
+        }
       } else {
         const onChainValidator = this.onChainValidatorMap.get(chainId)
         onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
