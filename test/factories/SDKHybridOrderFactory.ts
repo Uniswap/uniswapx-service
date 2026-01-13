@@ -11,6 +11,7 @@ import { PartialDeep } from './PartialDeep'
 
 /**
  * Helper class for building CosignedHybridOrders.
+ * All values adapted from https://github.com/Uniswap/sdks/blob/c4177e520e17cc291608589c4c07212b061bab8c/sdks/uniswapx-sdk/src/builder/HybridOrderBuilder.test.ts
  */
 export class SDKHybridOrderFactory {
   static buildHybridOrder(

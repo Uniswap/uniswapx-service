@@ -209,7 +209,6 @@ export class UniswapXOrderService {
       if (order instanceof CosignedHybridOrder && this.onChainV4ValidatorMap?.has(chainId)) {
         const onChainV4Validator = this.onChainV4ValidatorMap.get(chainId)
         onChainValidationResult = await onChainV4Validator.validate({ order: order, signature: signature })
-      
       } else {
         const onChainValidator = this.onChainValidatorMap.get(chainId)
         onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })

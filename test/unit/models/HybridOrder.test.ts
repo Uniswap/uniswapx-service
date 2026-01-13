@@ -26,6 +26,7 @@ jest.mock('../../../lib/util/initializer', () => ({
     post: jest.fn(),
   },
 }))
+
 const mockedInitializerClient = InitializerClient as jest.Mocked<AxiosInstance>
 const BASE = ethers.constants.WeiPerEther
 
@@ -205,9 +206,9 @@ describe('HybridOrder Model', () => {
         expect(mockedInitializerClient.post).toHaveBeenCalledWith(
           '/cosign/hybrid',
           expect.objectContaining({
-            encodedOrder: expect.any(String),
+            hybridOrder: expect.any(String),
             chainId: ChainId.MAINNET,
-            signature: MOCK_SIGNATURE,
+            signedFeeds: expect.any(Array),
           })
         )
         expect(result.inner.info.cosignature).toEqual(MOCK_INITIALIZER_COSIGNATURE)

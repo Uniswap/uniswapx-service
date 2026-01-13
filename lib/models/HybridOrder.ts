@@ -180,9 +180,10 @@ export class HybridOrder extends Order {
 
   private async fetchCosignatureFromInitializer(): Promise<string> {
     const payload = {
-      encodedOrder: this.inner.serialize(),
+      hybridOrder: this.inner.serialize(),
+      // TODO: integrate UDO to get signedFeeds
+      signedFeeds: [],
       chainId: this.chainId,
-      signature: this.signature,
     }
 
     const response = await InitializerClient.post<InitializerCosignResponse>(INITIALIZER_COSIGN_HYBRID_PATH, payload)

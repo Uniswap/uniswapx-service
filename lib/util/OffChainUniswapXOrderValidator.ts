@@ -152,14 +152,19 @@ export class OffChainUniswapXOrderValidator {
       }
     } else if (orderType == OrderType.Hybrid && order instanceof CosignedHybridOrder) {
       const hybridOrder = order as CosignedHybridOrder
-      const curveValidation = this.validateHybridCurve(hybridOrder.info.priceCurve, hybridOrder.info.scalingFactor)
+      const curveValidation = this.validateHybridCurve(
+        hybridOrder.info.priceCurve,
+        hybridOrder.info.scalingFactor,
+        false
+      )
       if (!curveValidation.valid) {
         return curveValidation
       }
 
       const supplementalCurveValidation = this.validateHybridCurve(
         hybridOrder.info.cosignerData.supplementalPriceCurve,
-        hybridOrder.info.scalingFactor
+        hybridOrder.info.scalingFactor,
+        true
       )
       if (!supplementalCurveValidation.valid) {
         return supplementalCurveValidation
@@ -586,7 +591,11 @@ export class OffChainUniswapXOrderValidator {
     return { valid: true }
   }
 
-  private validateHybridCurve(priceCurve: BigNumber[], scalingFactor: BigNumber): OrderValidationResponse {
+  private validateHybridCurve(
+    priceCurve: BigNumber[],
+    scalingFactor: BigNumber,
+    isSupplemental: boolean
+  ): OrderValidationResponse {
     if (!this.isValidUint256(scalingFactor)) {
       return {
         valid: false,
@@ -605,6 +614,12 @@ export class OffChainUniswapXOrderValidator {
         return {
           valid: false,
           errorString: `Invalid priceCurve value at index ${i}: ${priceCurve[i].toString()}`,
+        }
+      }
+      if (!isSupplemental && priceCurve[i].lt(SCALING_FACTOR_MASK)) {
+        return {
+          valid: false,
+          errorString: `priceCurve element missing block duration at index ${i}: ${priceCurve[i].toString()}`,
         }
       }
 
