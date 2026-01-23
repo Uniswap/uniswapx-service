@@ -11,6 +11,9 @@ import {
 import { ChainId } from './chain'
 import { permit2Address, SignatureProvider, PermitTransferFrom, TokenPermissions } from '@uniswap/permit2-sdk'
 
+// Type for legacy orders that have input at the info level
+type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
+
 export interface ValidationContext {
   chainId: ChainId
   currentBlock: number
@@ -51,8 +54,6 @@ export class Permit2Validator {
 
     const address = permit2Address(this.chainId)
     const signatureProvider = new SignatureProvider(this.provider, address)
-    // Type for legacy orders that have input at the info level
-    type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
     // Get input token from the order (handles both legacy and v4 orders)
     const token = order instanceof CosignedHybridOrder ? order.info.input.token : (order as LegacyUniswapXOrder).info.input.token
 

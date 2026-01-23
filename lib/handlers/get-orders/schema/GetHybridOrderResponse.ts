@@ -1,9 +1,41 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import Joi from 'joi'
+import { BigNumber, ethers } from 'ethers'
+import Joi, { CustomHelpers } from 'joi'
 import FieldValidator from '../../../util/field-validator'
 import { ORDER_STATUS } from '../../../entities'
 import { Route } from '../../../repositories/quote-metadata-repository'
 import { CommonOrderValidationFields } from './Common'
+
+// Validates that all elements in a price curve are on the same side of 1e18
+// (all >= 1e18 or all <= 1e18, but not a mix)
+const priceCurveValidator = Joi.array()
+  .items(FieldValidator.isValidAmount())
+  .custom((values: string[], helpers: CustomHelpers<string[]>) => {
+    if (!values || values.length === 0) {
+      return values
+    }
+
+    let hasAbove = false
+    let hasBelow = false
+
+    for (const value of values) {
+      const bn = BigNumber.from(value)
+      if (bn.gt(ethers.constants.WeiPerEther)) {
+        hasAbove = true
+      } else if (bn.lt(ethers.constants.WeiPerEther)) {
+        hasBelow = true
+      }
+
+      // Values equal to 1e18 are neutral and don't affect either side
+      if (hasAbove && hasBelow) {
+        return helpers.error('any.invalid', {
+          message: 'priceCurve elements must all be on the same side of 1e18',
+        })
+      }
+    }
+
+    return values
+  }, 'price curve same side validation')
 
 export type GetHybridOrderResponse = {
   type: OrderType.Hybrid
@@ -52,7 +84,7 @@ export type GetHybridOrderResponse = {
 
 export const HybridCosignerDataJoi = Joi.object({
   auctionTargetBlock: Joi.number(),
-  supplementalPriceCurve: Joi.array().items(FieldValidator.isValidAmount()),
+  supplementalPriceCurve: priceCurveValidator,
 })
 
 export const GetHybridOrderResponseEntryJoi = Joi.object({
@@ -72,7 +104,7 @@ export const GetHybridOrderResponseEntryJoi = Joi.object({
   auctionStartBlock: Joi.number().min(0),
   baselinePriorityFee: FieldValidator.isValidAmount(),
   scalingFactor: FieldValidator.isValidAmount(),
-  priceCurve: Joi.array().items(FieldValidator.isValidAmount()),
+  priceCurve: priceCurveValidator,
   cosigner: FieldValidator.isValidEthAddress(),
   cosignerData: HybridCosignerDataJoi,
 })

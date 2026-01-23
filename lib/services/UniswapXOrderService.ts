@@ -104,7 +104,8 @@ export class UniswapXOrderService {
         `provider not found for chainId: ${order.chainId}`
       )
 
-      // HybridOrder uses hardQuote passed from the POST request instead of fetching quoteMetadata
+      // HybridOrder uses hardQuote passed from the POST request instead of fetching quoteMetadata,
+      // except in the case that it is strictly a priority order
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner, order.hardQuote)
       if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock > cosignedOrder.inner.info.auctionStartBlock) {
         throw new OrderValidationFailedError('auctionStartBlock too low')

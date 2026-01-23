@@ -293,17 +293,12 @@ export class HybridOrder extends Order {
       if (this.inner.info.priceCurve.length == 0) {
         throw new CosigningError('Price curve is empty and scaling factor is neutral')
       }
-      if (this.inner.info.priceCurve?.[0].gt(BASE_SCALING_FACTOR)) {
-        return true
-      } else if (this.inner.info.priceCurve?.[0].lt(BASE_SCALING_FACTOR)) {
-        return false
-      } else {
+      if (this.inner.info.priceCurve?.[0] == BASE_SCALING_FACTOR) {
         throw new CosigningError('Both price curve and scaling factor are neutral')
       }
-    } else if (this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR)) {
-      return true
+      return (this.inner.info.priceCurve?.[0].gt(BASE_SCALING_FACTOR))
     } else {
-      return false
+      return (this.inner.info.scalingFactor.gt(BASE_SCALING_FACTOR))
     }
   }
 
