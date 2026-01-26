@@ -8,6 +8,7 @@ import {
   OrderValidation,
   OrderValidator,
   UniswapXEventWatcher,
+  CosignedHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
@@ -28,6 +29,9 @@ import { Permit2Validator } from '../../util/Permit2Validator'
 
 const FILL_CHECK_OVERLAP_BLOCK = 20
 
+// Type for legacy orders that have input at the info level
+type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
+   
 export type CheckOrderStatusRequest = {
   chainId: number
   orderHash: string
@@ -81,7 +85,11 @@ export class CheckOrderStatusService {
     const parsedOrder = parseOrder(order, chainId)
     // We only check for nonce used and expired for permissioned tokens
     // since the order quoter can't move input tokens
-    const isPermissionedToken = PermissionedTokenValidator.isPermissionedToken(parsedOrder.info.input.token, chainId)
+    // For v4 orders like Hybrid, input is at a different level. Get input token safely.
+    const inputToken = parsedOrder instanceof CosignedHybridOrder 
+      ? parsedOrder.info.input.token 
+      : (parsedOrder as LegacyUniswapXOrder).info.input.token
+    const isPermissionedToken = PermissionedTokenValidator.isPermissionedToken(inputToken, chainId)
     const validationPromise = isPermissionedToken
       ? new Permit2Validator(provider, chainId).validate(parsedOrder)
       : orderQuoter.validate({
@@ -168,6 +176,10 @@ export class CheckOrderStatusService {
             case OrderType.Priority: { // Approximation
               const orderCreationBlock = order.cosignerData.auctionTargetBlock - PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId];
               fillTimeBlocks = fillBlock - orderCreationBlock;
+              break;
+            }
+            case OrderType.Hybrid: { // Exact
+              fillTimeBlocks = fillBlock - order.cosignerData.auctionTargetBlock;
               break;
             }
           }

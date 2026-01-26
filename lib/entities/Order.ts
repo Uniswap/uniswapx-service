@@ -144,9 +144,36 @@ export type PriorityOrderEntity = SharedXOrderEntity & {
   cosignature: string
 }
 
-// Db representation of Dutch V1, Dutch V2, Dutch V3, or Limit Order
+export type HybridOrderInput = {
+  token: string
+  maxAmount: string
+}
+
+export type HybridOrderOutput = {
+  token: string
+  minAmount: string
+  recipient: string
+}
+
+export type HybridOrderEntity = SharedXOrderEntity & {
+  type: OrderType.Hybrid
+  auctionStartBlock: number
+  baselinePriorityFeeWei: string
+  scalingFactor: string
+  input: HybridOrderInput
+  outputs: HybridOrderOutput[]
+  priceCurve: string[]
+  cosigner: string
+  cosignerData: {
+    auctionTargetBlock: number
+    supplementalPriceCurve: string[]
+  }
+  cosignature: string
+}
+
+// Db representation of Dutch V1, Dutch V2, Dutch V3, Priority, Hybrid, or Limit Order
 // indexes are returned at runtime but not represented on this type. Ideally we will include a mapping at repo layer boundary
-export type UniswapXOrderEntity = DutchV1OrderEntity | DutchV2OrderEntity | PriorityOrderEntity | DutchV3OrderEntity
+export type UniswapXOrderEntity = DutchV1OrderEntity | DutchV2OrderEntity | PriorityOrderEntity | DutchV3OrderEntity | HybridOrderEntity
 
 export enum SORT_FIELDS {
   CREATED_AT = 'createdAt',
@@ -166,4 +193,8 @@ export function isDutchV2OrderEntity(order: UniswapXOrderEntity): order is Dutch
 
 export function isDutchV1OrderEntity(order: UniswapXOrderEntity): order is DutchV1OrderEntity {
   return order.type === OrderType.Dutch || order.type === OrderType.Limit
+}
+
+export function isHybridOrderEntity(order: UniswapXOrderEntity): order is HybridOrderEntity {
+  return order.type === OrderType.Hybrid
 }

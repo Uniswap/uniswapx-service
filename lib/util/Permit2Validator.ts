@@ -1,7 +1,18 @@
 import { ethers } from 'ethers'
-import { OrderValidation, UniswapXOrder } from '@uniswap/uniswapx-sdk'
+import { 
+  OrderValidation, 
+  UniswapXOrder, 
+  DutchOrder, 
+  CosignedV2DutchOrder, 
+  CosignedV3DutchOrder, 
+  CosignedPriorityOrder,
+  CosignedHybridOrder 
+} from '@uniswap/uniswapx-sdk'
 import { ChainId } from './chain'
 import { permit2Address, SignatureProvider, PermitTransferFrom, TokenPermissions } from '@uniswap/permit2-sdk'
+
+// Type for legacy orders that have input at the info level
+type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
 
 export interface ValidationContext {
   chainId: ChainId
@@ -43,27 +54,29 @@ export class Permit2Validator {
 
     const address = permit2Address(this.chainId)
     const signatureProvider = new SignatureProvider(this.provider, address)
+    // Get input token from the order (handles both legacy and v4 orders)
+    const token = order instanceof CosignedHybridOrder ? order.info.input.token : (order as LegacyUniswapXOrder).info.input.token
 
-    // Construct PermitTransferFrom from order data
-    const permitTransferFrom: PermitTransferFrom = {
-      permitted: {
-        token: order.info.input.token,
-        amount: 0 // Amount is not used in validation
-      } as TokenPermissions,
-      spender: order.info.swapper,
-      nonce: order.info.nonce,
-      deadline: order.info.deadline
-    }
+    // Validate each input token
+      const permitTransferFrom: PermitTransferFrom = {
+        permitted: {
+          token,
+          amount: 0 // Amount is not used in validation
+        } as TokenPermissions,
+        spender: order.info.swapper,
+        nonce: order.info.nonce,
+        deadline: order.info.deadline
+      }
 
-    const permitValidation = await signatureProvider.validatePermit(permitTransferFrom)
+      const permitValidation = await signatureProvider.validatePermit(permitTransferFrom)
 
-    if (permitValidation.isUsed) {
-      return OrderValidation.NonceUsed
-    }
+      if (permitValidation.isUsed) {
+        return OrderValidation.NonceUsed
+      }
 
-    if (permitValidation.isExpired) {
-      return OrderValidation.Expired
-    }
+      if (permitValidation.isExpired) {
+        return OrderValidation.Expired
+      }
 
     return OrderValidation.OK
   }

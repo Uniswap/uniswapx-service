@@ -13,6 +13,7 @@ describe('Permit2Validator', () => {
   let validator: Permit2Validator
   let mockSignatureProvider: jest.Mocked<any>
   let testOrder: UniswapXOrder
+  let inputToken: string
 
   beforeEach(() => {
     // Reset all mocks
@@ -27,20 +28,20 @@ describe('Permit2Validator', () => {
 
     // Create validator instance
     validator = new Permit2Validator(undefined as any, ChainId.MAINNET)
-
+    inputToken = '0x1234567890123456789012345678901234567890'
     testOrder = {
       info: {
         deadline: Math.floor(Date.now() / 1000) + 3600,
         nonce: ethers.BigNumber.from(123),
         swapper: '0x1234567890123456789012345678901234567890',
         input: {
-          token: '0x1234567890123456789012345678901234567890',
+          token: inputToken,
           amount: ethers.BigNumber.from('1000000000000000000')
         }
       }
     } as UniswapXOrder
   })
-
+  
   describe('validate', () => {
     it('should return NonceUsed when permit is already used', async () => {
       mockSignatureProvider.validatePermit.mockResolvedValue({

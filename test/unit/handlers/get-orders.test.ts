@@ -8,7 +8,9 @@ import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { HeaderExpectation } from '../../HeaderExpectation'
 import { REQUEST_ID } from '../fixtures'
 import Joi from 'joi'
+import { ethers } from 'ethers'
 import { GetDutchV3OrderResponse, GetDutchV3OrderResponseEntryJoi } from '../../../lib/handlers/get-orders/schema/GetDutchV3OrderResponse'
+import { GetHybridOrderResponseEntryJoi, HybridCosignerDataJoi } from '../../../lib/handlers/get-orders/schema/GetHybridOrderResponse'
 
 describe('Testing get orders handler.', () => {
   const MOCK_ORDER = {
@@ -111,6 +113,39 @@ describe('Testing get orders handler.', () => {
         recipient: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
       },
     ],
+  }
+
+  const MOCK_HYBRID_ORDER = {
+    signature:
+      '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
+    orderStatus: ORDER_STATUS.OPEN,
+    orderHash: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3',
+    swapper: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
+    encodedOrder: '0x00000000001325ad66ad5fa02621d3ad52c9323c6c2bff26820000000',
+    type: OrderType.Hybrid,
+    chainId: 1,
+    auctionStartBlock: 100,
+    baselinePriorityFee: '0',
+    scalingFactor: '1000000000000000000',
+    input: {
+      token: '0x0000000000000000000000000000000000000000',
+      maxAmount: '1000000000000000000',
+    },
+    outputs: [
+      {
+        token: '0x0000000000000000000000000000000000000001',
+        minAmount: '1000000000000000000',
+        recipient: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
+      },
+    ],
+    priceCurve: ['1000000000000000000'],
+    cosigner: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
+    cosignerData: {
+      auctionTargetBlock: 95,
+      supplementalPriceCurve: ['1000000000000000000'],
+    },
+    cosignature:
+      '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
   }
 
   let getOrdersMock: any, queryFiltersMock: any, requestInjectedMock: any, injectorPromiseMock: any
@@ -456,5 +491,96 @@ describe('Testing get orders handler.', () => {
 
       expect(result.error).toBeUndefined()
     });
+
+    describe('Hybrid order priceCurve validation', () => {
+      const ONE_E18 = ethers.constants.WeiPerEther
+
+      it('accepts empty priceCurve array', () => {
+        const result = GetHybridOrderResponseEntryJoi.validate(
+          { ...MOCK_HYBRID_ORDER, priceCurve: [] },
+          { allowUnknown: true }
+        )
+        expect(result.error).toBeUndefined()
+      })
+
+      it('accepts all elements above 1e18', () => {
+        const priceCurve = [ONE_E18.add(1).toString(), ONE_E18.add(1000).toString(), ONE_E18.mul(2).toString()]
+        const result = GetHybridOrderResponseEntryJoi.validate(
+          { ...MOCK_HYBRID_ORDER, priceCurve },
+          { allowUnknown: true }
+        )
+        expect(result.error).toBeUndefined()
+      })
+
+      it('accepts all elements below 1e18', () => {
+        const priceCurve = [ONE_E18.sub(1).toString(), ONE_E18.div(2).toString(), '1']
+        const result = GetHybridOrderResponseEntryJoi.validate(
+          { ...MOCK_HYBRID_ORDER, priceCurve },
+          { allowUnknown: true }
+        )
+        expect(result.error).toBeUndefined()
+      })
+
+      it('accepts all elements equal to 1e18', () => {
+        const priceCurve = [ONE_E18.toString(), ONE_E18.toString()]
+        const result = GetHybridOrderResponseEntryJoi.validate(
+          { ...MOCK_HYBRID_ORDER, priceCurve },
+          { allowUnknown: true }
+        )
+        expect(result.error).toBeUndefined()
+      })
+
+      it('accepts elements at 1e18 mixed with above', () => {
+        const priceCurve = [ONE_E18.toString(), ONE_E18.add(100).toString()]
+        const result = GetHybridOrderResponseEntryJoi.validate(
+          { ...MOCK_HYBRID_ORDER, priceCurve },
+          { allowUnknown: true }
+        )
+        expect(result.error).toBeUndefined()
+      })
+
+      it('accepts elements at 1e18 mixed with below', () => {
+        const priceCurve = [ONE_E18.toString(), ONE_E18.sub(100).toString()]
+        const result = GetHybridOrderResponseEntryJoi.validate(
+          { ...MOCK_HYBRID_ORDER, priceCurve },
+          { allowUnknown: true }
+        )
+        expect(result.error).toBeUndefined()
+      })
+
+      it('rejects mix of elements above and below 1e18', () => {
+        const priceCurve = [ONE_E18.add(1).toString(), ONE_E18.sub(1).toString()]
+        const result = GetHybridOrderResponseEntryJoi.validate(
+          { ...MOCK_HYBRID_ORDER, priceCurve },
+          { allowUnknown: true }
+        )
+        expect(result.error).toBeDefined()
+      })
+
+      it('rejects when first element is below and later element is above 1e18', () => {
+        const priceCurve = [ONE_E18.sub(1000).toString(), ONE_E18.toString(), ONE_E18.add(1).toString()]
+        const result = GetHybridOrderResponseEntryJoi.validate(
+          { ...MOCK_HYBRID_ORDER, priceCurve },
+          { allowUnknown: true }
+        )
+        expect(result.error).toBeDefined()
+      })
+
+      it('accepts supplementalPriceCurve with all elements above 1e18', () => {
+        const result = HybridCosignerDataJoi.validate({
+          auctionTargetBlock: 100,
+          supplementalPriceCurve: [ONE_E18.add(1).toString(), ONE_E18.mul(2).toString()],
+        })
+        expect(result.error).toBeUndefined()
+      })
+
+      it('rejects supplementalPriceCurve with mix of elements above and below 1e18', () => {
+        const result = HybridCosignerDataJoi.validate({
+          auctionTargetBlock: 100,
+          supplementalPriceCurve: [ONE_E18.add(1).toString(), ONE_E18.sub(1).toString()],
+        })
+        expect(result.error).toBeDefined()
+      })
+    })
   })
 })

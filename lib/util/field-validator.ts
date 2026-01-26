@@ -77,7 +77,8 @@ export default class FieldValidator {
     OrderType.Dutch_V3,
     OrderType.Limit,
     OrderType.Relay,
-    OrderType.Priority
+    OrderType.Priority,
+    OrderType.Hybrid
   )
 
   private static readonly GET_ORDER_TYPE_JOI = Joi.string().valid(
@@ -87,7 +88,8 @@ export default class FieldValidator {
     OrderType.Limit,
     OrderType.Relay,
     'Dutch_V1_V2',
-    OrderType.Priority
+    OrderType.Priority,
+    OrderType.Hybrid
   )
 
   private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
@@ -189,6 +191,31 @@ export default class FieldValidator {
   public static isValidPriorityCosigner(): StringSchema {
     const priorityCosigner = getEnvVar('LABS_PRIORITY_COSIGNER')
     return Joi.string().valid(priorityCosigner)
+  }
+
+  public static isValidHardQuote(): Joi.ObjectSchema {
+    return Joi.object({
+      quoteId: Joi.string().required(),
+      requestId: Joi.string().required(),
+      tokenInChainId: Joi.number().required(),
+      tokenOutChainId: Joi.number().required(),
+      tokenIn: Joi.string().required(),
+      input: Joi.object({
+        token: Joi.string().required(),
+        amount: Joi.string().required(),
+      }).required(),
+      tokenOut: Joi.string().required(),
+      outputs: Joi.array().items(Joi.object({
+        token: Joi.string().required(),
+        amount: Joi.string().required(),
+        recipient: Joi.string().required(),
+      })).required(),
+      swapper: Joi.string().required(),
+      filler: Joi.string().required(),
+      orderHash: Joi.string().required(),
+      createdAt: Joi.number().required(),
+      createdAtMs: Joi.string().required(),
+    })
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {

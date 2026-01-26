@@ -1,7 +1,7 @@
-import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
+import { OrderValidator, RelayOrderValidator, V4OrderValidator } from '@uniswap/uniswapx-sdk'
 import { ChainId } from '../util/chain'
 
-export class OnChainValidatorMap<T extends OrderValidator | RelayOrderValidator> {
+export class OnChainValidatorMap<T extends OrderValidator | RelayOrderValidator | V4OrderValidator> {
   private chainIdToValidators: Map<ChainId, T> = new Map()
 
   constructor(initial: Array<[ChainId, T]> = []) {
@@ -17,6 +17,10 @@ export class OnChainValidatorMap<T extends OrderValidator | RelayOrderValidator>
     }
 
     return validator
+  }
+
+  has(chainId: ChainId): boolean {
+    return this.chainIdToValidators.has(chainId)
   }
 
   set(chainId: ChainId, validator: T): void {
