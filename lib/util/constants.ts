@@ -44,6 +44,8 @@ export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
   Sigma: -9.21034,
 })
 export const UNIMIND_UPDATE_THRESHOLD = 25
+export const UNIMIND_CIRCUIT_BREAKER_MAX_BATCH = 5 // Circuit breaker active for batches 0-5
+export const UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS = 5 // Order count to begin checking circuit breaker
 export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
 // Direct pi and tau to use for curve; Not intrinsicValues
 export const PUBLIC_STATIC_PARAMETERS = {
@@ -53,7 +55,7 @@ export const PUBLIC_STATIC_PARAMETERS = {
   algorithmVersion: -1, // -1 indicates not using Unimind algorithm
 }
 export const UNIMIND_MAX_TAU_BPS = 25
-export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 2 // 2% price impact threshold
+export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 1.25 // 1.25% price impact threshold
 
 // When pi = 0, AMM will be favored over Dutch Auction
 export const USE_CLASSIC_PARAMETERS = {

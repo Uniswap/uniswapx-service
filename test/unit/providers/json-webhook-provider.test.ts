@@ -1,3 +1,4 @@
+import { OrderType } from '@uniswap/uniswapx-sdk'
 import { JsonWebhookProvider } from '../../../lib/providers/json-webhook-provider'
 
 describe('JsonWebHookProvider test', () => {
@@ -18,6 +19,26 @@ describe('JsonWebHookProvider test', () => {
         offerer: '0x2',
       } as any)
     ).toEqual([{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }, { url: 'webhook.com/4' }])
+  })
+
+  it('should return endpoints for limit orders', async () => {
+    const webhookProvider = JsonWebhookProvider.create({
+      filter: {
+        filler: {
+          '0x1': [{ url: 'webhook.com/1' }],
+        },
+        orderStatus: { open: [{ url: 'webhook.com/2' }] },
+        offerer: { '0x2': [{ url: 'webhook.com/3' }] },
+      },
+    } as any)
+    expect(
+      await webhookProvider.getEndpoints({
+        filler: '0x1',
+        orderStatus: 'open',
+        offerer: '0x2',
+        orderType: OrderType.Limit,
+      } as any)
+    ).toEqual([{ url: 'webhook.com/1' }, { url: 'webhook.com/2' }, { url: 'webhook.com/3' }])
   })
 })
 
