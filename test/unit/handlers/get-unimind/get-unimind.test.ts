@@ -14,6 +14,12 @@ import { ChainId } from '@uniswap/sdk-core'
 import { V4BaseActionsParser } from '@uniswap/v4-sdk'
 import { UR_EXECUTE_WITH_DEADLINE_SELECTOR, UR_FUNCTION_SIGNATURES } from '../../../../lib/handlers/constants'
 import { PriceImpactStrategy } from '../../../../lib/unimind/priceImpactStrategy'
+import { unimindTradeFilter } from '../../../../lib/util/unimind'
+
+jest.mock('../../../../lib/util/unimind', () => ({
+  ...jest.requireActual('../../../../lib/util/unimind'),
+  unimindTradeFilter: jest.fn(),
+}))
 
 const SAMPLE_ROUTE = {
   quote: "1234",
@@ -59,6 +65,7 @@ describe('Testing get unimind handler', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    ;(unimindTradeFilter as jest.Mock).mockReturnValue(true)
   })
 
   it('Testing correct request and response', async () => {
@@ -577,8 +584,9 @@ describe('Testing get unimind handler', () => {
     const NOT_ON_LIST_PAIR = '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123'
 
     it('Both tokens on list → always uses Unimind (no sampling)', async () => {
+      ;(unimindTradeFilter as jest.Mock).mockReturnValue(false) // Should not matter - tokens on list bypass filter
       const quoteMetadata = {
-        quoteId: 'test-on-list-quote', // Any quoteId should work for tokens on list
+        quoteId: 'test-quote-id',
         pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
         referencePrice: '4221.21',
         priceImpact: 0.01,
@@ -631,9 +639,10 @@ describe('Testing get unimind handler', () => {
       )
     })
 
-    it('Not on list + passes filter (66%) → uses Unimind', async () => {
+    it('Not on list + passes filter → uses Unimind', async () => {
+      ;(unimindTradeFilter as jest.Mock).mockReturnValue(true)
       const quoteMetadata = {
-        quoteId: 'test-quote-0', // This quoteId passes unimindTradeFilter
+        quoteId: 'test-quote-id',
         pair: NOT_ON_LIST_PAIR,
         referencePrice: '4221.21',
         priceImpact: 0.01,
@@ -686,9 +695,10 @@ describe('Testing get unimind handler', () => {
       )
     })
 
-    it('Not on list + fails filter (34%) → uses PUBLIC_STATIC_PARAMETERS', async () => {
+    it('Not on list + fails filter → uses PUBLIC_STATIC_PARAMETERS', async () => {
+      ;(unimindTradeFilter as jest.Mock).mockReturnValue(false)
       const quoteMetadata = {
-        quoteId: 'test-quote-fail-filter', // This should fail the filter
+        quoteId: 'test-quote-id',
         pair: NOT_ON_LIST_PAIR,
         referencePrice: '4221.21',
         priceImpact: 0.01,

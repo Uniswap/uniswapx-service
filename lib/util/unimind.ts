@@ -5,7 +5,7 @@ import { UnimindStatistics } from '../crons/unimind-algorithm'
 import { QuoteMetadata } from '../repositories/quote-metadata-repository'
 import { UnimindParameters } from '../repositories/unimind-parameters-repository'
 
-export const UNIMIND_TRADE_SAMPLE_PERCENT = 66
+export const UNIMIND_TRADE_SAMPLE_PERCENT = 100
 
 export function unimindTradeFilter(quoteId: string): boolean {
   // Hash the quoteId for deterministic, consistent sampling
