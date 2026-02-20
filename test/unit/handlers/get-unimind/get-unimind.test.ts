@@ -65,7 +65,8 @@ describe('Testing get unimind handler', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(unimindTradeFilter as jest.Mock).mockReturnValue(true)
+    const mockFilter = unimindTradeFilter as jest.Mock
+    mockFilter.mockReturnValue(true)
   })
 
   it('Testing correct request and response', async () => {
@@ -584,7 +585,8 @@ describe('Testing get unimind handler', () => {
     const NOT_ON_LIST_PAIR = '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123'
 
     it('Both tokens on list → always uses Unimind (no sampling)', async () => {
-      ;(unimindTradeFilter as jest.Mock).mockReturnValue(false) // Should not matter - tokens on list bypass filter
+      const mockFilter = unimindTradeFilter as jest.Mock
+      mockFilter.mockReturnValue(false) // Should not matter - tokens on list bypass filter
       const quoteMetadata = {
         quoteId: 'test-quote-id',
         pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
@@ -640,7 +642,8 @@ describe('Testing get unimind handler', () => {
     })
 
     it('Not on list + passes filter → uses Unimind', async () => {
-      ;(unimindTradeFilter as jest.Mock).mockReturnValue(true)
+      const mockFilter = unimindTradeFilter as jest.Mock
+      mockFilter.mockReturnValue(true)
       const quoteMetadata = {
         quoteId: 'test-quote-id',
         pair: NOT_ON_LIST_PAIR,
@@ -696,7 +699,8 @@ describe('Testing get unimind handler', () => {
     })
 
     it('Not on list + fails filter → uses PUBLIC_STATIC_PARAMETERS', async () => {
-      ;(unimindTradeFilter as jest.Mock).mockReturnValue(false)
+      const mockFilter = unimindTradeFilter as jest.Mock
+      mockFilter.mockReturnValue(false)
       const quoteMetadata = {
         quoteId: 'test-quote-id',
         pair: NOT_ON_LIST_PAIR,
