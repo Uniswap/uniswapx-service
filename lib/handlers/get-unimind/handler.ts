@@ -67,9 +67,9 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
           reason: 'both_tokens_on_unimind_list'
         }, 'Trade assigned to treatment group (both tokens on Unimind list)');
       } else {
-        // Either one or both tokens NOT on list: apply sampling (2/3 Unimind, 1/3 control)
+        // Either one or both tokens NOT on list: apply sampling
         if (!unimindTradeFilter(quoteMetadata.quoteId)) {
-          // Assigned to control group (1/3)
+          // Assigned to control group (Default parameters)
           log.info({
             quoteId: quoteMetadata.quoteId,
             swapper,
@@ -93,7 +93,7 @@ export class GetUnimindHandler extends APIGLambdaHandler<ContainerInjected, Requ
           }
         }
 
-        // Assigned to treatment group (2/3)
+        // Assigned to treatment group (Unimind)
         log.info({
           quoteId: quoteMetadata.quoteId,
           swapper,
