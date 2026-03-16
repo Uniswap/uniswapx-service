@@ -33,6 +33,53 @@ describe('Testing each field on the FieldValidator class.', () => {
     })
   })
 
+  describe('Testing orderStatuses (comma-separated) field.', () => {
+    it('should validate a single status.', async () => {
+      expect(FieldValidator.isValidOrderStatuses().validate('open')).toEqual({ value: 'open' })
+    })
+
+    it('should validate comma-separated statuses.', async () => {
+      expect(FieldValidator.isValidOrderStatuses().validate('open,insufficient-funds')).toEqual({
+        value: 'open,insufficient-funds',
+      })
+    })
+
+    it('should validate all statuses combined.', async () => {
+      const allStatuses = 'open,filled,cancelled,expired,error,insufficient-funds'
+      expect(FieldValidator.isValidOrderStatuses().validate(allStatuses)).toEqual({ value: allStatuses })
+    })
+
+    it('should invalidate a single bad status.', async () => {
+      const validatedField = FieldValidator.isValidOrderStatuses().validate('NOT_VALID')
+      expect(validatedField.error).toBeTruthy()
+    })
+
+    it('should invalidate when one status in the list is invalid.', async () => {
+      const validatedField = FieldValidator.isValidOrderStatuses().validate('open,bad_status')
+      expect(validatedField.error).toBeTruthy()
+    })
+
+    it('should invalidate a bare comma.', async () => {
+      const validatedField = FieldValidator.isValidOrderStatuses().validate(',')
+      expect(validatedField.error).toBeTruthy()
+    })
+
+    it('should invalidate a trailing comma.', async () => {
+      const validatedField = FieldValidator.isValidOrderStatuses().validate('open,')
+      expect(validatedField.error).toBeTruthy()
+    })
+
+    it('should invalidate a leading comma.', async () => {
+      const validatedField = FieldValidator.isValidOrderStatuses().validate(',open')
+      expect(validatedField.error).toBeTruthy()
+    })
+
+    it('should invalidate an empty string.', async () => {
+      const validatedField = FieldValidator.isValidOrderStatuses().validate('')
+      expect(validatedField.error).toBeTruthy()
+    })
+  })
+
   describe('Testing orderHash field.', () => {
     it('should validate field.', async () => {
       const orderHash = '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3'

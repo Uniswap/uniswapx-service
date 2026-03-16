@@ -158,6 +158,11 @@ export abstract class GenericOrdersRepository<
     cursor?: string,
     filters: { or: boolean; attr: string; eq: string }[] = []
   ): Promise<QueryResult<T>> {
+    // If orderStatus is an array, fan out parallel queries (one per status) and merge
+    if (Array.isArray(queryFilters.orderStatus)) {
+      return this.getOrdersForMultipleStatuses(limit, queryFilters, filters)
+    }
+
     const requestedParams = this.getRequestedParams(queryFilters)
     // Query Orders table based on the requested params
     const compoundIndex = this.indexMapper.getIndexFromParams(queryFilters)
@@ -196,6 +201,34 @@ export abstract class GenericOrdersRepository<
           'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]'
         )
       }
+    }
+  }
+
+  private async getOrdersForMultipleStatuses(
+    limit: number,
+    queryFilters: GetOrdersQueryParams,
+    filters: { or: boolean; attr: string; eq: string }[] = []
+  ): Promise<QueryResult<T>> {
+    const statuses = queryFilters.orderStatus as string[]
+    const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
+
+    const results = await Promise.all(
+      statuses.map((status) =>
+        this.getOrdersWithFilters(
+          effectiveLimit,
+          { ...queryFilters, orderStatus: status },
+          undefined,
+          filters
+        )
+      )
+    )
+
+    const allOrders = results.flatMap((r) => r.orders)
+    // Sort by createdAt descending (consistent with default query behavior)
+    allOrders.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+
+    return {
+      orders: allOrders.slice(0, effectiveLimit),
     }
   }
 
