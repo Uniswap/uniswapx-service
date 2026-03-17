@@ -25,7 +25,7 @@ export const GetOrdersQueryParamsJoi = Joi.object({
   chainId: FieldValidator.isValidChainId(),
   filler: FieldValidator.isValidEthAddress(),
   swapper: FieldValidator.isValidEthAddress(),
-  orderStatus: FieldValidator.isValidOrderStatus(),
+  orderStatus: FieldValidator.isValidOrderStatuses(),
   desc: Joi.boolean(),
   orderType: FieldValidator.isValidGetQueryParamOrderType(),
   executeAddress: FieldValidator.isValidEthAddress(),
@@ -49,7 +49,6 @@ export const GetOrdersQueryParamsJoi = Joi.object({
 
 export type SharedGetOrdersQueryParams = {
   limit?: number
-  orderStatus?: string
   orderHash?: string
   sortKey?: SORT_FIELDS
   sort?: string
@@ -62,10 +61,12 @@ export type SharedGetOrdersQueryParams = {
   pair?: string
 }
 export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
+  orderStatus?: string
   swapper?: string
   orderHashes: string
 }
 export type GetOrdersQueryParams = SharedGetOrdersQueryParams & {
+  orderStatus?: string | string[]
   offerer?: string
   orderHashes?: string[]
 }

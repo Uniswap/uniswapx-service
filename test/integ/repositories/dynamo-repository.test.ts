@@ -426,6 +426,44 @@ describe('OrdersRepository getOrders test', () => {
     await ordersRepository.deleteOrders([MOCK_ORDER_6.orderHash])
   })
 
+  it('should successfully get orders given multiple orderStatuses', async () => {
+    const queryResult = await ordersRepository.getOrders(50, { orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED] })
+    // Should return both OPEN and FILLED orders
+    expect(queryResult.orders.length).toBeGreaterThanOrEqual(2)
+    const statuses = new Set(queryResult.orders.map((o) => o.orderStatus))
+    expect(statuses).toContain(ORDER_STATUS.OPEN)
+    expect(statuses).toContain(ORDER_STATUS.FILLED)
+  })
+
+  it('should return no orders for multiple orderStatuses that have no matches', async () => {
+    const queryResult = await ordersRepository.getOrders(10, {
+      orderStatus: [ORDER_STATUS.INSUFFICIENT_FUNDS, ORDER_STATUS.CANCELLED],
+    })
+    expect(queryResult.orders).toEqual([])
+  })
+
+  it('should respect limit when querying multiple orderStatuses', async () => {
+    const queryResult = await ordersRepository.getOrders(2, { orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED] })
+    expect(queryResult.orders.length).toBeLessThanOrEqual(2)
+  })
+
+  it('should return results sorted by createdAt descending for multiple statuses', async () => {
+    const queryResult = await ordersRepository.getOrders(50, { orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED] })
+    for (let i = 0; i < queryResult.orders.length - 1; i++) {
+      expect(queryResult.orders[i].createdAt).toBeGreaterThanOrEqual(queryResult.orders[i + 1].createdAt!)
+    }
+  })
+
+  it('should successfully get orders given chainId and multiple orderStatuses', async () => {
+    const queryResult = await ordersRepository.getOrders(50, {
+      chainId: 137,
+      orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED],
+    })
+    expect(queryResult.orders).toHaveLength(2)
+    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_3))
+  })
+
   it('should successfully get orders given chainId, order status, and empty cursor', async () => {
     try {
       await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_5 as UniswapXOrderEntity)

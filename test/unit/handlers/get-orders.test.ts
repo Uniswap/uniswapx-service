@@ -3,6 +3,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
 import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
+import { parseGetQueryParams } from '../../../lib/handlers/shared/get'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { HeaderExpectation } from '../../HeaderExpectation'
@@ -290,7 +291,11 @@ describe('Testing get orders handler.', () => {
         'Invalid input. Expected comma-separated order hashes, with a maximum of 50, each matching the pattern \\"^0x[0-9a-zA-Z]64$\\".","errorCode":"VALIDATION_ERROR"',
       ],
       [{ swapper: '0xbad_address' }, 'VALIDATION ERROR: Invalid address'],
-      [{ orderStatus: 'bad_status' }, 'must be one of [open, filled, cancelled, expired, error, insufficient-funds]'],
+      [{ orderStatus: 'bad_status' }, 'contains an invalid value'],
+      [{ orderStatus: ',' }, 'contains an invalid value'],
+      [{ orderStatus: 'open,' }, 'contains an invalid value'],
+      [{ orderStatus: ',open' }, 'contains an invalid value'],
+      [{ orderStatus: 'open,bad_status' }, 'contains an invalid value'],
       [{ limit: 'bad_limit' }, 'must be a number'],
       [{ filler: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
       [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
@@ -581,6 +586,33 @@ describe('Testing get orders handler.', () => {
         })
         expect(result.error).toBeDefined()
       })
+    })
+  })
+
+  describe('parseGetQueryParams multi-status parsing', () => {
+    it('parses a single orderStatus as a string', () => {
+      const result = parseGetQueryParams({ orderStatus: 'open' } as any)
+      expect(result.queryFilters.orderStatus).toEqual('open')
+    })
+
+    it('parses comma-separated orderStatus into an array', () => {
+      const result = parseGetQueryParams({ orderStatus: 'open,insufficient-funds' } as any)
+      expect(result.queryFilters.orderStatus).toEqual(['open', 'insufficient-funds'])
+    })
+
+    it('parses three comma-separated statuses into an array', () => {
+      const result = parseGetQueryParams({ orderStatus: 'open,filled,expired' } as any)
+      expect(result.queryFilters.orderStatus).toEqual(['open', 'filled', 'expired'])
+    })
+
+    it('does not split a single status with no comma', () => {
+      const result = parseGetQueryParams({ orderStatus: 'insufficient-funds' } as any)
+      expect(result.queryFilters.orderStatus).toEqual('insufficient-funds')
+    })
+
+    it('omits orderStatus when not provided', () => {
+      const result = parseGetQueryParams({ chainId: 1 } as any)
+      expect(result.queryFilters.orderStatus).toBeUndefined()
     })
   })
 })

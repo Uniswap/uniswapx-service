@@ -65,6 +65,27 @@ export default class FieldValidator {
     ORDER_STATUS.ERROR,
     ORDER_STATUS.INSUFFICIENT_FUNDS
   )
+
+  private static readonly VALID_ORDER_STATUSES = new Set([
+    ORDER_STATUS.OPEN,
+    ORDER_STATUS.FILLED,
+    ORDER_STATUS.CANCELLED,
+    ORDER_STATUS.EXPIRED,
+    ORDER_STATUS.ERROR,
+    ORDER_STATUS.INSUFFICIENT_FUNDS,
+  ])
+
+  private static readonly ORDER_STATUSES_JOI = Joi.string().custom(
+    (value: string, helpers: CustomHelpers<any>) => {
+      const statuses = value.split(',')
+      for (const status of statuses) {
+        if (!FieldValidator.VALID_ORDER_STATUSES.has(status as ORDER_STATUS)) {
+          return helpers.error('any.invalid')
+        }
+      }
+      return value
+    }
+  )
   private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
 
@@ -101,6 +122,10 @@ export default class FieldValidator {
 
   public static isValidOrderStatus(): StringSchema {
     return this.ORDER_STATUS_JOI
+  }
+
+  public static isValidOrderStatuses(): StringSchema {
+    return this.ORDER_STATUSES_JOI
   }
 
   public static isValidEthAddress(): StringSchema {

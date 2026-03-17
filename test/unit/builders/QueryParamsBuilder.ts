@@ -14,7 +14,7 @@ export class QueryParamsBuilder {
     return this
   }
 
-  withOrderStatus(value?: string) {
+  withOrderStatus(value?: string | string[]) {
     this.params.orderStatus = value || 'open'
     return this
   }

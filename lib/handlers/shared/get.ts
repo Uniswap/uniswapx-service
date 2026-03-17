@@ -62,7 +62,8 @@ export const parseGetQueryParams = (
 ): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; orderType?: string, executeAddress?: string } => {
   // default to no limit
   const limit = requestQueryParams?.limit ?? 0
-  const orderStatus = requestQueryParams?.orderStatus
+  const rawOrderStatus = requestQueryParams?.orderStatus
+  const orderStatus = rawOrderStatus?.includes(',') ? rawOrderStatus.split(',') : rawOrderStatus
   const orderHash = requestQueryParams?.orderHash?.toLowerCase()
   // externally we use swapper
   const offerer = requestQueryParams?.swapper?.toLowerCase()
