@@ -437,7 +437,7 @@ describe('OrdersRepository getOrders test', () => {
 
   it('should return no orders for multiple orderStatuses that have no matches', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
-      orderStatus: [ORDER_STATUS.INSUFFICIENT_FUNDS, ORDER_STATUS.ERROR],
+      orderStatus: [ORDER_STATUS.INSUFFICIENT_FUNDS, ORDER_STATUS.CANCELLED],
     })
     expect(queryResult.orders).toEqual([])
   })
