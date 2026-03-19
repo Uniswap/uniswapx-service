@@ -22,6 +22,7 @@ import {
   UNIMIND_UPDATE_THRESHOLD,
   UNIMIND_CIRCUIT_BREAKER_MAX_BATCH,
   UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS,
+  UNIMIND_CIRCUIT_BREAKER_FILL_RATE_THRESHOLD,
 } from '../util/constants'
 import { median } from '../util/unimind'
 
@@ -156,11 +157,11 @@ export async function updateParameters(
         const statistics = getStatistics(pairOrders.orders, log)
         const batchMetrics = calculateBatchMetrics(statistics)
 
-        // Check circuit breaker: early batches with zero fill rate
-        const circuitBreakerTriggered = shouldCheckCircuitBreaker && batchMetrics.fillRate === 0
+        // Check circuit breaker: early batches with low fill rate
+        const circuitBreakerTriggered = shouldCheckCircuitBreaker && batchMetrics.fillRate <= UNIMIND_CIRCUIT_BREAKER_FILL_RATE_THRESHOLD
         if (circuitBreakerTriggered) {
           log.info(
-            `Unimind updateParameters: Circuit breaker triggered for pair ${pairKey} (batch ${pairData.batchNumber}) - fillRate is 0 after ${totalCount} orders`
+            `Unimind updateParameters: Circuit breaker triggered for pair ${pairKey} (batch ${pairData.batchNumber}) - fillRate ${batchMetrics.fillRate} <= ${UNIMIND_CIRCUIT_BREAKER_FILL_RATE_THRESHOLD} after ${totalCount} orders`
           )
         }
 
@@ -218,7 +219,7 @@ export async function updateParameters(
           log.info(
             `Unimind updateParameters: Circuit breaker not triggered for pair ${pairKey} - fillRate ${batchMetrics.fillRate.toFixed(
               3
-            )} > 0, not updating parameters yet`
+            )} > ${UNIMIND_CIRCUIT_BREAKER_FILL_RATE_THRESHOLD}, not updating parameters yet`
           )
           // Update the count only
           await unimindParametersRepo.put({
