@@ -54,6 +54,7 @@ describe('/dutch-auction/order', () => {
   let QUOTE_URL: string
   let PARAM_URL: string
   let COSIGNER_ADDRESS: string
+  let QUOTE_API_KEY: string | undefined
   const testChainId: number = ChainId.MAINNET
   // Token contracts
   const wethAddress = WETH
@@ -69,8 +70,11 @@ describe('/dutch-auction/order', () => {
     if (!process.env.UNISWAPX_SERVICE_URL) {
       throw new Error('UNISWAPX_SERVICE_URL not set')
     }
-    if (!process.env.URA_SERVICE_URL) {
-      throw new Error('URA_SERVICE_URL not set')
+    if (!process.env.TAPI_QUOTE_URL) {
+      throw new Error('TAPI_QUOTE_URL not set')
+    }
+    if (!process.env.TAPI_API_KEY) {
+      throw new Error('TAPI_API_KEY not set')
     }
     if (!process.env.GPA_SERVICE_URL) {
       throw new Error('GPA_SERVICE_URL not set')
@@ -88,9 +92,10 @@ describe('/dutch-auction/order', () => {
       throw new Error('COSIGNER_ADDRESS not set')
     }
     URL = process.env.UNISWAPX_SERVICE_URL
-    QUOTE_URL = process.env.URA_SERVICE_URL
+    QUOTE_URL = process.env.TAPI_QUOTE_URL
     PARAM_URL = process.env.GPA_SERVICE_URL
     COSIGNER_ADDRESS = process.env.COSIGNER_ADDRESS
+    QUOTE_API_KEY = process.env.TAPI_API_KEY
 
     provider = new ethers.providers.StaticJsonRpcProvider({
       url: process.env.RPC_1,
@@ -245,39 +250,30 @@ describe('/dutch-auction/order', () => {
     }
   }
 
-  const getDutchv2OrderFromURA = async (
+  const getDutchv2OrderFromQuoteAPI = async (
     swapper: string,
     amount: BigNumber,
-    deadlineSeconds: number,
     inputToken: string,
     outputToken: string
   ): Promise<{ order: UnsignedV2DutchOrder, quoteId: string; encodedOrder: string; signature: string; chainId: ChainId }> => {
-
-    const routingType = 'DUTCH_V2';
+    const routingType = 'DUTCH_V2'
     const exactInQuoteReq = {
+      swapper,
       tokenInChainId: testChainId,
       tokenIn: inputToken,
       tokenOutChainId: testChainId,
       tokenOut: outputToken,
-      amount: amount.sub(1).toString(),
+      amount: amount.toString(),
       type: 'EXACT_INPUT',
-      configs: [
-        {
-          routingType,
-          swapper,
-          recipient: swapper,
-          useSyntheticQuotes: true,
-          deadlineSeconds,
-          forceOpenOrder: true
-        }
-      ],
-      useUniswapX: true
+      routingPreference: 'BEST_PRICE',
+      autoSlippage: 'DEFAULT',
     }
       try {
-        const quoteResponse = await axios.post<any>(`${QUOTE_URL}/quote`, exactInQuoteReq, {
+        const quoteResponse = await axios.post<any>(QUOTE_URL, exactInQuoteReq, {
           headers: {
             accept: 'application/json, text/plain, */*',
-            'content-type': 'application/json'
+            'content-type': 'application/json',
+            ...(QUOTE_API_KEY && { 'x-api-key': QUOTE_API_KEY }),
           },
         })
         const { data, status } = quoteResponse
@@ -312,6 +308,7 @@ describe('/dutch-auction/order', () => {
     
         return { order, quoteId: quote.quoteId, encodedOrder: encodedOrder, signature: signature, chainId: testChainId }
       } catch (err: any) {
+        console.log('quote api error response', err.response?.data)
         console.log(err.message)
         throw err
       }
@@ -454,8 +451,13 @@ describe('/dutch-auction/order', () => {
     /**
      * Currently the only test that runs
      */
-    it('2xx with an order from URA', async () => {
-      const unsignedOrderResult = await getDutchv2OrderFromURA(aliceAddress, amount, DEFAULT_DEADLINE_SECONDS, uniAddress, wethAddress)
+    it('2xx with an order from quote API', async () => {
+      const unsignedOrderResult = await getDutchv2OrderFromQuoteAPI(
+        aliceAddress,
+        amount,
+        uniAddress,
+        wethAddress
+      )
       await submitV2Order({...unsignedOrderResult})
     })
 
