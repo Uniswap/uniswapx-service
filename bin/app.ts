@@ -287,11 +287,11 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TAPI_QUOTE_URL: {
-            value: `${stage}/gouda-service/integ-test/tapi_url`,
+            value: `${stage}/gouda-service/integ-test:tapi_url`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TAPI_API_KEY: {
-            value: `${stage}/gouda-service/integ-test/tapi_api_key`,
+            value: `${stage}/gouda-service/integ-test:tapi_api_key`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           GPA_SERVICE_URL: {
