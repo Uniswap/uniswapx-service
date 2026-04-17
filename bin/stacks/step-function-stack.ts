@@ -53,6 +53,7 @@ export class StepFunctionStack extends cdk.NestedStack {
         ...props.envVars,
         stage: stage,
       },
+      logRetention: aws_logs.RetentionDays.ONE_MONTH,
     })
     this.checkStatusFunction = checkStatusFunction
 

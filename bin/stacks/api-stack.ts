@@ -74,7 +74,9 @@ export class APIStack extends cdk.Stack {
       chatbotSNSArn,
     })
 
-    const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
+    const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`, {
+      retention: aws_logs.RetentionDays.ONE_MONTH,
+    })
 
     const api = new aws_apigateway.RestApi(this, `${SERVICE_NAME}`, {
       restApiName: `${SERVICE_NAME}`,

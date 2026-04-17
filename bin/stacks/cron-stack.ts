@@ -35,6 +35,7 @@ export class CronStack extends cdk.NestedStack {
       environment: {
         NODE_OPTIONS: '--enable-source-maps',
       },
+      logRetention: aws_logs.RetentionDays.ONE_MONTH,
     })
 
     new aws_events.Rule(this, `${SERVICE_NAME}UnimindAlgorithmCron`, {
