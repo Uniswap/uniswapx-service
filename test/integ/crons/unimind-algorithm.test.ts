@@ -5,7 +5,7 @@ import { DynamoUnimindParametersRepository } from '../../../lib/repositories/uni
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { DutchV3OrderEntity, ORDER_STATUS } from '../../../lib/entities'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_UPDATE_THRESHOLD } from '../../../lib/util/constants'
+import { DEFAULT_UNIMIND_PARAMETERS, UNIMIND_ALGORITHM_VERSION, UNIMIND_DEV_SWAPPER_ADDRESS, UNIMIND_UPDATE_THRESHOLD, UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS } from '../../../lib/util/constants'
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -279,6 +279,90 @@ describe('updateParameters Test', () => {
       expect(pairData?.batchNumber).toBe(1) // Should start at 1 when undefined
       expect(pairData?.count).toBe(0)
       expect(pairData?.lastUpdatedAt).toBeDefined()
+    })
+
+    it('should not trigger circuit breaker when fill rate is above threshold', async () => {
+      const cbPair = '0xCB01-0xCB02-42161'
+      const filledOrder: DutchV3OrderEntity = {
+        ...mockOrder,
+        pair: cbPair,
+        orderStatus: ORDER_STATUS.FILLED,
+        fillBlock: 315641562,
+        cosignerData: {
+          ...mockOrder.cosignerData,
+          decayStartBlock: 315641558,
+        },
+        priceImpact: 0.5,
+        usedUnimind: true,
+      }
+
+      // Insert UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS filled orders
+      const orders: DutchV3OrderEntity[] = []
+      for (let i = 0; i < UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS; i++) {
+        const order = { ...filledOrder, orderHash: `0xCB_FILLED_${i}` }
+        orders.push(order)
+        await ordersTable.putOrderAndUpdateNonceTransaction(order)
+      }
+
+      // Pair exists in early batch, no orders counted yet
+      await unimindParametersRepository.put({
+        pair: cbPair,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        count: 0,
+        version: UNIMIND_ALGORITHM_VERSION,
+        batchNumber: 2, // Within circuit breaker window (<= 5)
+        lastUpdatedAt: Math.floor(Date.now() / 1000),
+      })
+
+      await updateParameters(unimindParametersRepository, ordersTable, log)
+
+      const pairData = await unimindParametersRepository.getByPair(cbPair)
+      // Fill rate is 1.0 (100%), well above 25% threshold — circuit breaker should NOT fire
+      expect(pairData?.batchNumber).toBe(2) // Unchanged — no update triggered
+      expect(pairData?.count).toBe(UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS) // Just incremented
+
+      // Cleanup
+      await ordersTable.deleteOrders(orders.map((o) => o.orderHash))
+    })
+
+    it('should trigger circuit breaker when fill rate is below threshold', async () => {
+      const cbPair = '0xCB03-0xCB04-42161'
+      const expiredOrder: DutchV3OrderEntity = {
+        ...mockOrder,
+        pair: cbPair,
+        orderStatus: ORDER_STATUS.EXPIRED,
+        fillBlock: undefined as any,
+        priceImpact: 0.5,
+        usedUnimind: true,
+      }
+
+      // Insert UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS expired orders
+      const orders: DutchV3OrderEntity[] = []
+      for (let i = 0; i < UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS; i++) {
+        const order = { ...expiredOrder, orderHash: `0xCB_EXPIRED_${i}` }
+        orders.push(order)
+        await ordersTable.putOrderAndUpdateNonceTransaction(order)
+      }
+
+      // Pair exists in early batch, no orders counted yet
+      await unimindParametersRepository.put({
+        pair: cbPair,
+        intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
+        count: 0,
+        version: UNIMIND_ALGORITHM_VERSION,
+        batchNumber: 2,
+        lastUpdatedAt: Math.floor(Date.now() / 1000),
+      })
+
+      await updateParameters(unimindParametersRepository, ordersTable, log)
+
+      const pairData = await unimindParametersRepository.getByPair(cbPair)
+      // Fill rate is 0.0, below 25% threshold — circuit breaker SHOULD fire
+      expect(pairData?.batchNumber).toBe(3) // Incremented — update was triggered
+      expect(pairData?.count).toBe(0) // Reset after update
+
+      // Cleanup
+      await ordersTable.deleteOrders(orders.map((o) => o.orderHash))
     })
 
     it('should reset batchNumber to 0 on version mismatch', async () => {
