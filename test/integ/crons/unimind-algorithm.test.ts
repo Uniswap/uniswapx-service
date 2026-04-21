@@ -285,7 +285,6 @@ describe('updateParameters Test', () => {
       const cbPair = '0xCB01-0xCB02-42161'
       const filledOrder: DutchV3OrderEntity = {
         ...mockOrder,
-        orderHash: '0xCB_FILLED',
         pair: cbPair,
         orderStatus: ORDER_STATUS.FILLED,
         fillBlock: 315641562,
@@ -297,43 +296,39 @@ describe('updateParameters Test', () => {
         usedUnimind: true,
       }
 
-      // Seed UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS - 1 filled orders so adding one more hits the min
-      const seedOrders: DutchV3OrderEntity[] = []
-      for (let i = 0; i < UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS - 1; i++) {
-        const order = { ...filledOrder, orderHash: `0xCB_SEED_${i}` }
-        seedOrders.push(order)
+      // Insert UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS filled orders
+      const orders: DutchV3OrderEntity[] = []
+      for (let i = 0; i < UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS; i++) {
+        const order = { ...filledOrder, orderHash: `0xCB_FILLED_${i}` }
+        orders.push(order)
         await ordersTable.putOrderAndUpdateNonceTransaction(order)
       }
 
-      // Set up pair in early batch with count just below the min orders threshold
+      // Pair exists in early batch, no orders counted yet
       await unimindParametersRepository.put({
         pair: cbPair,
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
-        count: UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS - 1,
+        count: 0,
         version: UNIMIND_ALGORITHM_VERSION,
         batchNumber: 2, // Within circuit breaker window (<= 5)
         lastUpdatedAt: Math.floor(Date.now() / 1000),
       })
 
-      // Add one more filled order — all orders are filled so fillRate = 1.0
-      await ordersTable.putOrderAndUpdateNonceTransaction(filledOrder)
       await updateParameters(unimindParametersRepository, ordersTable, log)
 
       const pairData = await unimindParametersRepository.getByPair(cbPair)
       // Fill rate is 1.0 (100%), well above 25% threshold — circuit breaker should NOT fire
-      // Parameters should NOT be updated, only the count should increment
       expect(pairData?.batchNumber).toBe(2) // Unchanged — no update triggered
       expect(pairData?.count).toBe(UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS) // Just incremented
 
       // Cleanup
-      await ordersTable.deleteOrders([filledOrder.orderHash, ...seedOrders.map((o) => o.orderHash)])
+      await ordersTable.deleteOrders(orders.map((o) => o.orderHash))
     })
 
     it('should trigger circuit breaker when fill rate is below threshold', async () => {
       const cbPair = '0xCB03-0xCB04-42161'
       const expiredOrder: DutchV3OrderEntity = {
         ...mockOrder,
-        orderHash: '0xCB_EXPIRED',
         pair: cbPair,
         orderStatus: ORDER_STATUS.EXPIRED,
         fillBlock: undefined as any,
@@ -341,25 +336,24 @@ describe('updateParameters Test', () => {
         usedUnimind: true,
       }
 
-      // Seed UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS - 1 expired orders
-      const seedOrders: DutchV3OrderEntity[] = []
-      for (let i = 0; i < UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS - 1; i++) {
-        const order = { ...expiredOrder, orderHash: `0xCB_EXPIRED_SEED_${i}` }
-        seedOrders.push(order)
+      // Insert UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS expired orders
+      const orders: DutchV3OrderEntity[] = []
+      for (let i = 0; i < UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS; i++) {
+        const order = { ...expiredOrder, orderHash: `0xCB_EXPIRED_${i}` }
+        orders.push(order)
         await ordersTable.putOrderAndUpdateNonceTransaction(order)
       }
 
+      // Pair exists in early batch, no orders counted yet
       await unimindParametersRepository.put({
         pair: cbPair,
         intrinsicValues: DEFAULT_UNIMIND_PARAMETERS,
-        count: UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS - 1,
+        count: 0,
         version: UNIMIND_ALGORITHM_VERSION,
         batchNumber: 2,
         lastUpdatedAt: Math.floor(Date.now() / 1000),
       })
 
-      // Add one more expired order — all orders expired so fillRate = 0.0
-      await ordersTable.putOrderAndUpdateNonceTransaction(expiredOrder)
       await updateParameters(unimindParametersRepository, ordersTable, log)
 
       const pairData = await unimindParametersRepository.getByPair(cbPair)
@@ -368,7 +362,7 @@ describe('updateParameters Test', () => {
       expect(pairData?.count).toBe(0) // Reset after update
 
       // Cleanup
-      await ordersTable.deleteOrders([expiredOrder.orderHash, ...seedOrders.map((o) => o.orderHash)])
+      await ordersTable.deleteOrders(orders.map((o) => o.orderHash))
     })
 
     it('should reset batchNumber to 0 on version mismatch', async () => {
