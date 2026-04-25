@@ -38,7 +38,7 @@ export class EventWatcherMap<T extends UniswapXEventWatcher | RelayEventWatcher>
         new RelayEventWatcher(new ethers.providers.StaticJsonRpcProvider({
           url: CONFIG.rpcUrls.get(chainId),
           headers: RPC_HEADERS
-        }), address)
+        }, chainId), address)
       )
     }
     return map

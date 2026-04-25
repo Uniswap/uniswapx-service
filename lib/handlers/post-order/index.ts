@@ -40,7 +40,7 @@ for (const chainId of SUPPORTED_CHAINS) {
   const provider = new ethers.providers.StaticJsonRpcProvider({
         url: CONFIG.rpcUrls.get(chainId),
         headers: RPC_HEADERS,
-  })
+  }, chainId)
   onChainValidatorMap.set(chainId, new OnChainOrderValidator(provider, chainId))
   if (OnChainV4QuoterMapping[chainId]) {
     onChainV4ValidatorMap.set(chainId, new OnChainV4OrderValidator(provider, chainId))
@@ -55,7 +55,7 @@ for (const chainId of SUPPORTED_CHAINS) {
     new ethers.providers.StaticJsonRpcProvider({
       url: CONFIG.rpcUrls.get(chainId),
       headers: RPC_HEADERS,
-    })
+    }, chainId)
   )
 }
 
@@ -94,7 +94,7 @@ for (const chainId of SUPPORTED_CHAINS) {
       new ethers.providers.StaticJsonRpcProvider({
         url: CONFIG.rpcUrls.get(chainId),
         headers: RPC_HEADERS,
-      }),
+      }, chainId),
       chainId
     )
   )
