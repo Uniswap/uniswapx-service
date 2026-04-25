@@ -29,7 +29,7 @@ for (const chainId of SUPPORTED_CHAINS) {
     new OnChainRelayOrderValidator(new ethers.providers.StaticJsonRpcProvider({
       url: CONFIG.rpcUrls.get(chainId),
       headers: RPC_HEADERS
-    }), chainId)
+    }, chainId), chainId)
   )
 }
 

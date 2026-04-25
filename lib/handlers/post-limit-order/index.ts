@@ -34,7 +34,7 @@ for (const chainId of SUPPORTED_CHAINS) {
     new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider({
       url: CONFIG.rpcUrls.get(chainId),
       headers: RPC_HEADERS
-    }), chainId)
+    }, chainId), chainId)
   )
 }
 
@@ -44,7 +44,7 @@ for (const chainId of SUPPORTED_CHAINS) {
   providerMap.set(chainId, new ethers.providers.StaticJsonRpcProvider({
     url: CONFIG.rpcUrls.get(chainId),
     headers: RPC_HEADERS
-  }))
+  }, chainId))
 }
 
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_YEAR_IN_SECONDS, {
@@ -76,7 +76,7 @@ for (const chainId of SUPPORTED_CHAINS) {
     new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider({
       url: CONFIG.rpcUrls.get(chainId),
       headers: RPC_HEADERS
-    }), chainId)
+    }, chainId), chainId)
   )
 }
 const relayOrderService = new RelayOrderService(
