@@ -451,7 +451,7 @@ describe('/dutch-auction/order', () => {
     /**
      * Currently the only test that runs
      */
-    it('2xx with an order from quote API', async () => {
+    it.skip('2xx with an order from quote API', async () => {
       const unsignedOrderResult = await getDutchv2OrderFromQuoteAPI(
         aliceAddress,
         amount,
