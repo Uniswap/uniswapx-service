@@ -581,6 +581,77 @@ export class LambdaStack extends cdk.NestedStack {
       sev3PostOrder4xxRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
     }
 
+    // 5xx error-rate alarms per endpoint. Each endpoint emits a `<Endpoint>Request` counter
+    // and a `<Endpoint>Status5XX` counter via embedded metrics in the handler's afterResponseHook.
+    // Two-tier alarm so we get both a slow-burn and a fast catastrophic signal:
+    //   - sustained:    > 10% for 20 min (4 of 4 5-min datapoints) — would have caught the
+    //                   noNetwork-from-bad-RPC incident that blocked PostOrder for ~24h silently
+    //   - catastrophic: > 90% for 10 min (2 of 2 5-min datapoints) — fires faster on hard outages
+    //
+    // Coverage note for adjacent handlers:
+    //   - `post-limit-order` reuses the `PostOrderHandler` class, so its responses already
+    //     increment `PostOrderRequest` / `PostOrderStatus5XX` and are covered by the PostOrder
+    //     alarm below — adding a separate entry would double-monitor the same metric.
+    //   - `check-order-status` is an SfnLambdaHandler invoked by Step Functions, not API Gateway;
+    //     it has no HTTP status code and emits no `*Status5XX` metric. Failures there surface
+    //     via the Lambda error metric and step function alarms.
+    //   - `hard-quote` is not a separate handler in this repo — `HardQuote` is a request body
+    //     variant parsed by PostOrderBodyParser and served through the post-order endpoint.
+    const endpointsForFiveXxAlarms: { name: string; requestMetric: string; errorMetric: string }[] = [
+      { name: 'PostOrder', requestMetric: 'PostOrderRequest', errorMetric: 'PostOrderStatus5XX' },
+      { name: 'GetOrders', requestMetric: 'GetOrdersRequest', errorMetric: 'GetOrdersStatus5XX' },
+      { name: 'GetNonce', requestMetric: 'GetNonceRequest', errorMetric: 'GetNonceStatus5XX' },
+      { name: 'GetUnimind', requestMetric: 'GetUnimindRequest', errorMetric: 'GetUnimindStatus5XX' },
+    ]
+
+    for (const { name, requestMetric, errorMetric } of endpointsForFiveXxAlarms) {
+      const fiveXxRateMetric = new MathExpression({
+        expression: '(errors/requests) * 100',
+        period: Duration.minutes(5),
+        usingMetrics: {
+          requests: new Metric({
+            namespace: 'Uniswap',
+            metricName: requestMetric,
+            dimensionsMap: { Service: 'UniswapXService' },
+            unit: cdk.aws_cloudwatch.Unit.COUNT,
+            statistic: 'sum',
+          }),
+          errors: new Metric({
+            namespace: 'Uniswap',
+            metricName: errorMetric,
+            dimensionsMap: { Service: 'UniswapXService' },
+            unit: cdk.aws_cloudwatch.Unit.COUNT,
+            statistic: 'sum',
+          }),
+        },
+      })
+
+      const sustainedAlarm = new Alarm(this, `${SERVICE_NAME}-SEV2-5XX-${name}`, {
+        alarmName: `${SERVICE_NAME}-SEV2-5XX-${name}`,
+        metric: fiveXxRateMetric,
+        threshold: 10,
+        evaluationPeriods: 4,
+        datapointsToAlarm: 4,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      })
+
+      const catastrophicAlarm = new Alarm(this, `${SERVICE_NAME}-SEV2-5XX-${name}-Catastrophic`, {
+        alarmName: `${SERVICE_NAME}-SEV2-5XX-${name}-Catastrophic`,
+        metric: fiveXxRateMetric,
+        threshold: 90,
+        evaluationPeriods: 2,
+        datapointsToAlarm: 2,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      })
+
+      if (chatBotTopic) {
+        sustainedAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+        catastrophicAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+      }
+    }
+
     for (const chainId of SUPPORTED_CHAINS) {
       const orderNotificationErrorRateMetric = new MathExpression({
         expression: '100*(errors/attempts)',
