@@ -48,7 +48,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       },
       timeout: Duration.minutes(5),
       environment: {
-        VERSION: '3',
+        VERSION: '4',
         NODE_OPTIONS: '--enable-source-maps',
         ...props.envVars,
         stage: stage,
