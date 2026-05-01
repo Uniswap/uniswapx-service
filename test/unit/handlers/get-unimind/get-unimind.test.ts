@@ -1081,5 +1081,68 @@ describe('Correctly modify URA calldata for Artemis support', () => {
       expect(result.pi).toBeCloseTo(0.999764, 5)
       expect(result.tau).toBeCloseTo(15.000235519, 5)
     })
+
+    it('defaults batchNumber to 0 when missing from legacy DynamoDB records', () => {
+      const strategy = new PriceImpactStrategy()
+      const unimindParameters = {
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0,
+        // batchNumber intentionally omitted to simulate legacy DynamoDB record
+      } as any
+
+      const quoteMetadata = {
+        quoteId: 'test-quote-id',
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: 0.01,
+        route: SAMPLE_ROUTE,
+        blockNumber: 12345,
+        usedUnimind: true
+      }
+
+      const result = calculateParameters(strategy, unimindParameters, quoteMetadata)
+
+      expect(result.batchNumber).toBe(0)
+      expect(result.pi).toBeCloseTo(0.999764, 5)
+      expect(result.tau).toBeCloseTo(15.000235519, 5)
+    })
+
+    it('defaults batchNumber to 0 when missing from legacy record and guardrail triggers', () => {
+      const strategy = new PriceImpactStrategy()
+      const unimindParameters = {
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        intrinsicValues: JSON.stringify({
+          lambda1: 0,
+          lambda2: 8,
+          Sigma: Math.log(0.00005)
+        }),
+        version: UNIMIND_ALGORITHM_VERSION,
+        count: 0,
+        // batchNumber intentionally omitted
+      } as any
+
+      const quoteMetadata = {
+        quoteId: 'test-quote-id',
+        pair: SAMPLE_SUPPORTED_UNIMIND_PAIR,
+        referencePrice: '4221.21',
+        priceImpact: UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD + 0.5,
+        route: SAMPLE_ROUTE,
+        blockNumber: 12345,
+        usedUnimind: true
+      }
+
+      const result = calculateParameters(strategy, unimindParameters, quoteMetadata, mockLog)
+
+      expect(result.pi).toBe(0)
+      expect(result.tau).toBe(0)
+      expect(result.batchNumber).toBe(0)
+      expect(result.algorithmVersion).toBe(UNIMIND_ALGORITHM_VERSION)
+    })
   })
 })

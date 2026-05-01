@@ -249,11 +249,11 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
     metrics.putMetric('UnimindGuardrailLambda2Negative', 1)
     return {
       ...USE_CLASSIC_PARAMETERS,
-      batchNumber: unimindParameters.batchNumber,
+      batchNumber: unimindParameters.batchNumber ?? 0,
       algorithmVersion: unimindParameters.version
     }
   }
-  
+
   // Guardrail 2: Disallow large price impact
   if (extrinsicValues.priceImpact > UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD) {
     if (log) {
@@ -269,7 +269,7 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
     metrics.putMetric('UnimindGuardrailPriceImpactHigh', 1)
     return {
       ...USE_CLASSIC_PARAMETERS,
-      batchNumber: unimindParameters.batchNumber,
+      batchNumber: unimindParameters.batchNumber ?? 0,
       algorithmVersion: unimindParameters.version
     }
   }
@@ -287,7 +287,7 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
     metrics.putMetric('UnimindGuardrailExactOutNotAllowed', 1)
     return {
       ...USE_CLASSIC_PARAMETERS,
-      batchNumber: unimindParameters.batchNumber,
+      batchNumber: unimindParameters.batchNumber ?? 0,
       algorithmVersion: unimindParameters.version
     }
   }
@@ -299,7 +299,7 @@ export function calculateParameters(strategy: IUnimindAlgorithm<PriceImpactIntri
   return {
     pi,
     tau,
-    batchNumber: unimindParameters.batchNumber,
+    batchNumber: unimindParameters.batchNumber ?? 0,
     algorithmVersion: unimindParameters.version
   }
 }
