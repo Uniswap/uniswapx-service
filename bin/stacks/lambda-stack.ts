@@ -601,7 +601,6 @@ export class LambdaStack extends cdk.NestedStack {
       { name: 'PostOrder', requestMetric: 'PostOrderRequest', errorMetric: 'PostOrderStatus5XX' },
       { name: 'GetOrders', requestMetric: 'GetOrdersRequest', errorMetric: 'GetOrdersStatus5XX' },
       { name: 'GetNonce', requestMetric: 'GetNonceRequest', errorMetric: 'GetNonceStatus5XX' },
-      { name: 'GetUnimind', requestMetric: 'GetUnimindRequest', errorMetric: 'GetUnimindStatus5XX' },
     ]
 
     for (const { name, requestMetric, errorMetric } of endpointsForFiveXxAlarms) {
