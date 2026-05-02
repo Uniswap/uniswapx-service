@@ -15,12 +15,14 @@ export const OLDEST_BLOCK_BY_CHAIN = {
   [ChainId.ARBITRUM_ONE]: 253597707,
   [ChainId.BASE]: 22335646,
   [ChainId.UNICHAIN]: 6747397,
+  [ChainId.TEMPO]: 17850000,
 }
 export const BLOCK_TIME_MS_BY_CHAIN = {
   [ChainId.MAINNET]: 12000,
   [ChainId.ARBITRUM_ONE]: 250,
   [ChainId.BASE]: 2000,
   [ChainId.UNICHAIN]: 1000,
+  [ChainId.TEMPO]: 500,
 }
 export const BLOCKS_IN_24_HOURS = (chainId: ChainId) => {
   const dayInMs = 24 * 60 * 60 * 1000

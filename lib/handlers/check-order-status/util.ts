@@ -252,6 +252,11 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
       return 1
     case ChainId.BASE:
       return 2
+    case ChainId.TEMPO:
+      // Tempo blocks are ~500ms. Reported in seconds as a fractional value
+      // for accurate block-number arithmetic (see timestampToBlockNumber).
+      // Step Functions retry waits floor this via MIN_RETRY_WAIT_SECONDS.
+      return 0.5
     case ChainId.POLYGON:
       // Keep this at the default 12 for now since we would have to do more retries
       // if it was at 2 seconds
@@ -332,14 +337,31 @@ export function getValidator(provider: ethers.providers.StaticJsonRpcProvider, c
 }
 
 /*
+ * Minimum wait between Step Functions retries.
+ *
+ * Step Functions Wait state granularity is whole seconds, and each retry
+ * iteration adds multiple events (TaskStateEntered/Exited, WaitState*, etc.)
+ * to the execution history. Sub-second block times (e.g. Tempo at 0.5s) would
+ * either round down to 0 (effectively a hot loop) or — even at 1s per retry —
+ * burn through the 25,000-event execution-history limit far too quickly.
+ *
+ * 2 seconds keeps the first-hour-polling phase well under the event limit
+ * (300 retries * ~7 events ≈ 2,100) while still being responsive enough to
+ * detect fills promptly on fast chains.
+ */
+export const MIN_RETRY_WAIT_SECONDS = 2
+
+/*
  * In the first hour of order submission, we check the order status roughly every block.
  * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
  * All subsequent retries are at 6 hour intervals.
  */
 export function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
-  return retryCount <= 300
-    ? AVERAGE_BLOCK_TIME(chainId)
-    : retryCount <= 450
-    ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
-    : 18000
+  const calculated =
+    retryCount <= 300
+      ? AVERAGE_BLOCK_TIME(chainId)
+      : retryCount <= 450
+      ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
+      : 18000
+  return Math.max(MIN_RETRY_WAIT_SECONDS, calculated)
 }

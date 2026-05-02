@@ -7,6 +7,7 @@ export enum ChainId {
   POLYGON = 137,
   SEPOLIA = 11155111,
   UNICHAIN_SEPOLIA = 1301,
+  TEMPO = 4217,
 }
 
 // If you update SUPPORTED_CHAINS, ensure you add a corresponding RPC_${chainId} environment variable.
@@ -19,4 +20,5 @@ export const SUPPORTED_CHAINS = [
   ChainId.BASE,
   ChainId.UNICHAIN,
   ChainId.UNICHAIN_SEPOLIA,
+  ChainId.TEMPO,
 ]

@@ -24,6 +24,7 @@ export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.POLYGON]: 3,
   [ChainId.SEPOLIA]: 3,
   [ChainId.UNICHAIN_SEPOLIA]: 4,
+  [ChainId.TEMPO]: 4,
 }
 
 // Hybrid orders use target block to determine when the price curve starts
@@ -36,6 +37,7 @@ export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.POLYGON]: 3,
   [ChainId.SEPOLIA]: 3,
   [ChainId.UNICHAIN_SEPOLIA]: 4,
+  [ChainId.TEMPO]: 4,
 }
 
 export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20
