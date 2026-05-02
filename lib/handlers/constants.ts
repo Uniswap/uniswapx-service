@@ -24,7 +24,13 @@ export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.POLYGON]: 3,
   [ChainId.SEPOLIA]: 3,
   [ChainId.UNICHAIN_SEPOLIA]: 4,
-  [ChainId.TEMPO]: 4,
+  // Tempo does not support priority/hybrid orders; this entry exists only to
+  // satisfy Record<ChainId, number> typing and should never be reached.
+  // Priority orders for Tempo are rejected upstream because REACTOR_ADDRESS_MAPPING
+  // (in @uniswap/uniswapx-sdk) has no priority reactor for chainId 4217, so
+  // OffChainUniswapXOrderValidator.validateReactorAddress fails before this
+  // buffer is consulted.
+  [ChainId.TEMPO]: 0,
 }
 
 // Hybrid orders use target block to determine when the price curve starts
@@ -37,7 +43,13 @@ export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.POLYGON]: 3,
   [ChainId.SEPOLIA]: 3,
   [ChainId.UNICHAIN_SEPOLIA]: 4,
-  [ChainId.TEMPO]: 4,
+  // Tempo does not support priority/hybrid orders; this entry exists only to
+  // satisfy Record<ChainId, number> typing and should never be reached.
+  // Hybrid orders for Tempo are rejected upstream because REACTOR_ADDRESS_MAPPING
+  // (in @uniswap/uniswapx-sdk) has no hybrid reactor for chainId 4217, so
+  // OffChainUniswapXOrderValidator.validateReactorAddress fails before this
+  // buffer is consulted.
+  [ChainId.TEMPO]: 0,
 }
 
 export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20
