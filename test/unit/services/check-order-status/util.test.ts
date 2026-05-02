@@ -1,7 +1,9 @@
+import { ethers } from 'ethers'
 import {
   AVERAGE_BLOCK_TIME,
   calculateDutchRetryWaitSeconds,
   MIN_RETRY_WAIT_SECONDS_TEMPO,
+  timestampToBlockNumber,
 } from '../../../../lib/handlers/check-order-status/util'
 import { ChainId } from '../../../../lib/util/chain'
 import { BLOCK_TIME_MS_BY_CHAIN } from '../../../../lib/util/constants'
@@ -72,5 +74,22 @@ describe('chain registration sanity', () => {
   it('has BLOCK_TIME_MS_BY_CHAIN defined for Tempo', () => {
     expect(BLOCK_TIME_MS_BY_CHAIN[ChainId.TEMPO]).toBeDefined()
     expect(BLOCK_TIME_MS_BY_CHAIN[ChainId.TEMPO]).toEqual(500)
+  })
+})
+
+describe('timestampToBlockNumber', () => {
+  it('handles fractional Tempo block time (0.5s) — 30s wallclock => 60 blocks', () => {
+    // Tempo's AVERAGE_BLOCK_TIME is 0.5s; 30s of wallclock should map to
+    // 60 blocks. This locks in correct fractional handling so we don't
+    // accidentally round to 30 (treating it like a 1s-block chain).
+    const refBlockNumber = 1000
+    const refTimestamp = 1_700_000_000
+    const referenceBlock = {
+      number: refBlockNumber,
+      timestamp: refTimestamp,
+    } as ethers.providers.Block
+
+    const result = timestampToBlockNumber(referenceBlock, refTimestamp + 30, ChainId.TEMPO)
+    expect(result - refBlockNumber).toEqual(60)
   })
 })
