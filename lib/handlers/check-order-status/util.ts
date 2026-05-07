@@ -252,6 +252,26 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
       return 1
     case ChainId.BASE:
       return 2
+    case ChainId.OPTIMISM:
+      return 2
+    case ChainId.BNB:
+      return 3
+    case ChainId.MONAD:
+      return 1
+    case ChainId.XLAYER:
+      return 3
+    case ChainId.WORLDCHAIN:
+      return 2
+    case ChainId.SONEIUM:
+      return 2
+    case ChainId.AVALANCHE:
+      return 2
+    case ChainId.BLAST:
+      return 2
+    case ChainId.ZORA:
+      return 2
+    case ChainId.CELO:
+      return 5
     case ChainId.TEMPO:
       // Tempo blocks are ~500ms. Reported in seconds as a fractional value
       // for accurate block-number arithmetic (see timestampToBlockNumber).

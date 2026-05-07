@@ -10,19 +10,47 @@ export const SCALING_FACTOR_MASK = BigNumber.from(1).shl(240).sub(1)
 export const ONE_HOUR_IN_SECONDS = 60 * 60
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24
 export const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
+// Per-chain "oldest block worth scanning" used by the GS reaper to floor its
+// 1-week lookback window. Pre-existing entries (Mainnet/Arbitrum/Base/Unichain/
+// Tempo) are unchanged. New entries for the V3 multi-chain rollout are seeded
+// just below each chain's V3DutchOrderReactor deploy block (see x-contracts
+// deployments.md / broadcast/DeployDutchV3.s.sol/<chainId>/run-latest.json),
+// which is the earliest block any V3 fill could possibly appear on.
 export const OLDEST_BLOCK_BY_CHAIN = {
   [ChainId.MAINNET]: 20120259,
-  [ChainId.ARBITRUM_ONE]: 253597707,
-  [ChainId.BASE]: 22335646,
+  [ChainId.OPTIMISM]: 151283000,
+  [ChainId.BNB]: 96919000,
   [ChainId.UNICHAIN]: 6747397,
+  [ChainId.POLYGON]: 86529000,
+  [ChainId.MONAD]: 73051000,
+  [ChainId.XLAYER]: 59397000,
+  [ChainId.WORLDCHAIN]: 29415000,
+  [ChainId.SONEIUM]: 22515000,
   [ChainId.TEMPO]: 17850000,
+  [ChainId.BASE]: 22335646,
+  [ChainId.ARBITRUM_ONE]: 253597707,
+  [ChainId.CELO]: 66266000,
+  [ChainId.AVALANCHE]: 84833000,
+  [ChainId.BLAST]: 34678000,
+  [ChainId.ZORA]: 45736000,
 }
 export const BLOCK_TIME_MS_BY_CHAIN = {
   [ChainId.MAINNET]: 12000,
-  [ChainId.ARBITRUM_ONE]: 250,
-  [ChainId.BASE]: 2000,
+  [ChainId.OPTIMISM]: 2000,
+  [ChainId.BNB]: 3000,
   [ChainId.UNICHAIN]: 1000,
+  [ChainId.POLYGON]: 2000,
+  [ChainId.MONAD]: 1000,
+  [ChainId.XLAYER]: 3000,
+  [ChainId.WORLDCHAIN]: 2000,
+  [ChainId.SONEIUM]: 2000,
   [ChainId.TEMPO]: 500,
+  [ChainId.BASE]: 2000,
+  [ChainId.ARBITRUM_ONE]: 250,
+  [ChainId.CELO]: 5000,
+  [ChainId.AVALANCHE]: 2000,
+  [ChainId.BLAST]: 2000,
+  [ChainId.ZORA]: 2000,
 }
 export const BLOCKS_IN_24_HOURS = (chainId: ChainId) => {
   const dayInMs = 24 * 60 * 60 * 1000
