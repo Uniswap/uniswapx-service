@@ -19,8 +19,9 @@ export enum ChainId {
   ZORA = 7777777,
 }
 
-// If you update SUPPORTED_CHAINS, ensure you add a corresponding RPC_${chainId} environment variable.
-// lib/config.py will require it to be defined.
+// Each chain in SUPPORTED_CHAINS needs an RPC URL resolvable by
+// getRpcUrl(chainId) (Config.ts) — either RPC_PREFIX_URL covering the
+// chain or a per-chain RPC_<chainId> override.
 export const SUPPORTED_CHAINS = [
   ChainId.MAINNET,
   ChainId.OPTIMISM,

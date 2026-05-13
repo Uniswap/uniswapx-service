@@ -9,6 +9,7 @@ import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, Dutc
 import { parseOrder } from '../../handlers/OrderParser'
 import { getSettledAmounts } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
+import { getRpcUrl } from '../../Config'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { Permit2Validator } from '../../util/Permit2Validator'
@@ -88,12 +89,8 @@ export class GSReaper {
   private initializeProviders() {
     for (const chainIdKey of Object.keys(OLDEST_BLOCK_BY_CHAIN)) {
       const chainId = Number(chainIdKey) as keyof typeof OLDEST_BLOCK_BY_CHAIN
-      const rpcURL = process.env[`RPC_${chainId}`]
-      if (!rpcURL) {
-        throw new Error(`RPC_${chainId} not set`)
-      }
       const provider = new ethers.providers.StaticJsonRpcProvider({
-        url: rpcURL,
+        url: getRpcUrl(chainId),
         headers: RPC_HEADERS
       }, chainId)
       this.providers.set(chainId, provider)
