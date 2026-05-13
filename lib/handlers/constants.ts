@@ -15,13 +15,12 @@ export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const DEFAULT_MAX_OPEN_LIMIT_ORDERS = 100
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-// V3-rollout chains (BNB/Monad/XLayer/Worldchain/Soneium/Celo/Avalanche/Blast/Zora)
-// register Dutch_V3 only — they have no priority/hybrid reactor in
-// @uniswap/uniswapx-sdk's REACTOR_ADDRESS_MAPPING, so
-// OffChainUniswapXOrderValidator.validateReactorAddress rejects priority/hybrid
-// orders for those chainIds before these buffers are consulted. The sentinel-0
-// entries exist only to satisfy Record<ChainId, number> typing and are
-// unreachable in practice. Tempo follows the same pattern (see ECO-365 phase 1b).
+// Chains that register Dutch_V3 only (no priority/hybrid reactor in
+// @uniswap/uniswapx-sdk's REACTOR_ADDRESS_MAPPING) get sentinel-0 entries
+// here to satisfy Record<ChainId, number> typing.
+// OffChainUniswapXOrderValidator.validateReactorAddress rejects
+// priority/hybrid orders for those chainIds before these buffers are
+// consulted, so the values are unreachable in practice.
 export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.MAINNET]: 3,
   [ChainId.UNICHAIN]: 4,

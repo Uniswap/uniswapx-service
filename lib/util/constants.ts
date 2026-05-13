@@ -11,11 +11,8 @@ export const ONE_HOUR_IN_SECONDS = 60 * 60
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24
 export const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
 // Per-chain "oldest block worth scanning" used by the GS reaper to floor its
-// 1-week lookback window. Pre-existing entries (Mainnet/Arbitrum/Base/Unichain/
-// Tempo) are unchanged. New entries for the V3 multi-chain rollout are seeded
-// just below each chain's V3DutchOrderReactor deploy block (see x-contracts
-// deployments.md / broadcast/DeployDutchV3.s.sol/<chainId>/run-latest.json),
-// which is the earliest block any V3 fill could possibly appear on.
+// 1-week lookback window. Values are seeded just below each chain's earliest
+// reactor deploy block — the earliest block any UniswapX fill could appear on.
 export const OLDEST_BLOCK_BY_CHAIN = {
   [ChainId.MAINNET]: 20120259,
   [ChainId.OPTIMISM]: 151283000,
