@@ -2,7 +2,7 @@ import { ethers } from 'ethers'
 import {
   AVERAGE_BLOCK_TIME,
   calculateDutchRetryWaitSeconds,
-  MIN_RETRY_WAIT_SECONDS_TEMPO,
+  MIN_RETRY_WAIT_SECONDS,
   timestampToBlockNumber,
 } from '../../../../lib/handlers/check-order-status/util'
 import { ChainId } from '../../../../lib/util/chain'
@@ -24,34 +24,31 @@ describe('calculateDutchRetryWaitSeconds', () => {
     expect(response).toEqual(18000)
   })
 
-  describe('Tempo floor', () => {
-    it('floors first-hour polling waits at MIN_RETRY_WAIT_SECONDS_TEMPO (Tempo block time = 0.5s)', () => {
-      // Without the floor, AVERAGE_BLOCK_TIME(TEMPO) = 0.5 would round down
-      // to 0 in Step Functions Wait granularity.
+  describe('sub-second-block floor', () => {
+    it(`floors sub-second block-time chains at MIN_RETRY_WAIT_SECONDS (${1}s)`, () => {
+      // AVERAGE_BLOCK_TIME(TEMPO) = 0.5 would round down to 0 in Step
+      // Functions Wait granularity without the floor.
       for (const retryCount of [1, 50, 150, 299, 300]) {
-        const response = calculateDutchRetryWaitSeconds(ChainId.TEMPO, retryCount)
-        expect(response).toBeGreaterThanOrEqual(MIN_RETRY_WAIT_SECONDS_TEMPO)
+        expect(calculateDutchRetryWaitSeconds(ChainId.TEMPO, retryCount)).toEqual(MIN_RETRY_WAIT_SECONDS)
       }
     })
 
     it('keeps the floor across the exponential backoff range', () => {
       for (const retryCount of [301, 350, 400, 450, 500]) {
         const response = calculateDutchRetryWaitSeconds(ChainId.TEMPO, retryCount)
-        expect(response).toBeGreaterThanOrEqual(MIN_RETRY_WAIT_SECONDS_TEMPO)
+        expect(response).toBeGreaterThanOrEqual(MIN_RETRY_WAIT_SECONDS)
       }
     })
   })
 
-  describe('non-Tempo chains are unaffected by the Tempo floor', () => {
-    // The Tempo floor must NOT change behavior for chains whose AVERAGE_BLOCK_TIME
-    // is already >= 1s. These expectations match the pre-floor base math.
-    it('returns AVERAGE_BLOCK_TIME for Arbitrum during the first-hour polling phase (1s, not 2s)', () => {
+  describe('chains with AVERAGE_BLOCK_TIME >= floor are unaffected', () => {
+    it('returns AVERAGE_BLOCK_TIME for Arbitrum during the first-hour polling phase (1s)', () => {
       for (const retryCount of [1, 50, 150, 299, 300]) {
         expect(calculateDutchRetryWaitSeconds(ChainId.ARBITRUM_ONE, retryCount)).toEqual(1)
       }
     })
 
-    it('returns AVERAGE_BLOCK_TIME for Unichain during the first-hour polling phase (1s, not 2s)', () => {
+    it('returns AVERAGE_BLOCK_TIME for Unichain during the first-hour polling phase (1s)', () => {
       for (const retryCount of [1, 50, 150, 299, 300]) {
         expect(calculateDutchRetryWaitSeconds(ChainId.UNICHAIN, retryCount)).toEqual(1)
       }

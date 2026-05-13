@@ -274,10 +274,10 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
     case ChainId.CELO:
       return 5
     case ChainId.TEMPO:
-      // Tempo blocks are ~500ms. Reported in seconds as a fractional value
-      // for accurate block-number arithmetic (see timestampToBlockNumber).
-      // Step Functions retry waits floor this via MIN_RETRY_WAIT_SECONDS_TEMPO
-      // in calculateDutchRetryWaitSeconds.
+      // Reported in seconds as a fractional value for accurate block-number
+      // arithmetic (see timestampToBlockNumber); calculateDutchRetryWaitSeconds
+      // floors retry waits at MIN_RETRY_WAIT_SECONDS so Step Functions Wait
+      // state doesn't round to zero.
       return 0.5
     case ChainId.POLYGON:
       // Keep this at the default 12 for now since we would have to do more retries
@@ -355,21 +355,12 @@ export function getValidator(provider: ethers.providers.StaticJsonRpcProvider, c
 }
 
 /*
- * Minimum wait between Step Functions retries on Tempo.
- *
- * Step Functions Wait state granularity is whole seconds, and Tempo's ~500ms
- * block time (AVERAGE_BLOCK_TIME = 0.5) would round down to 0 — effectively a
- * hot loop. Even at 1s per retry, 300 first-hour retries with ~7 history
- * events each would chew through the 25,000-event execution-history limit.
- *
- * 2 seconds keeps the first-hour-polling phase well under the event limit
- * (300 retries * ~7 events ≈ 2,100) while still being responsive enough to
- * detect fills promptly on Tempo.
- *
- * This floor is intentionally scoped to Tempo only so we don't change
- * behavior on chains like Arbitrum/Unichain where 1-second waits are fine.
+ * Minimum wait between Step Functions retries. Wait state granularity is
+ * whole seconds, so any sub-second block time would round to zero and
+ * hot-loop the state machine. Floor is one second — Step Functions' minimum
+ * representable wait.
  */
-export const MIN_RETRY_WAIT_SECONDS_TEMPO = 2
+export const MIN_RETRY_WAIT_SECONDS = 1
 
 /*
  * In the first hour of order submission, we check the order status roughly every block.
@@ -383,8 +374,5 @@ export function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: num
       : retryCount <= 450
       ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
       : 18000
-  if (chainId === ChainId.TEMPO) {
-    return Math.max(MIN_RETRY_WAIT_SECONDS_TEMPO, calculated)
-  }
-  return calculated
+  return Math.max(MIN_RETRY_WAIT_SECONDS, calculated)
 }
