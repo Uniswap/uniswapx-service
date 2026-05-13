@@ -256,11 +256,16 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
     case ChainId.OPTIMISM:
       return 2
     case ChainId.BNB:
-      return 3
+      // Post-Maxwell hardfork; calculateDutchRetryWaitSeconds floors retry
+      // waits at MIN_RETRY_WAIT_SECONDS so Step Functions Wait doesn't round
+      // to zero.
+      return 0.5
     case ChainId.MONAD:
-      return 1
+      // Sub-second; calculateDutchRetryWaitSeconds floors retry waits at
+      // MIN_RETRY_WAIT_SECONDS so Step Functions Wait doesn't round to zero.
+      return 0.5
     case ChainId.XLAYER:
-      return 3
+      return 1
     case ChainId.WORLDCHAIN:
       return 2
     case ChainId.SONEIUM:
@@ -272,7 +277,7 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
     case ChainId.ZORA:
       return 2
     case ChainId.CELO:
-      return 5
+      return 1
     case ChainId.TEMPO:
       // Reported in seconds as a fractional value for accurate block-number
       // arithmetic (see timestampToBlockNumber); calculateDutchRetryWaitSeconds
