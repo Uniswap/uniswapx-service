@@ -285,9 +285,7 @@ export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
       // state doesn't round to zero.
       return 0.5
     case ChainId.POLYGON:
-      // Keep this at the default 12 for now since we would have to do more retries
-      // if it was at 2 seconds
-      return 12
+      return 2
     default:
       return 12
   }
