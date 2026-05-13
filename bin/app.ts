@@ -170,6 +170,9 @@ export class APIPipeline extends Stack {
     })
 
     const jsonRpcUrls: { [chain: string]: string } = {}
+    // Shared prefix the Lambda's getRpcUrl appends the chainId to. Per-chain
+    // RPC_<chainId> entries below override it where set.
+    jsonRpcUrls['RPC_PREFIX_URL'] = jsonRpcProvidersSecret.secretValueFromJson('RPC_PREFIX_URL').toString()
     Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
       const key = `RPC_${chainId}`
       jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
@@ -352,6 +355,7 @@ const app = new cdk.App()
 // Local dev stack
 const envVars: { [key: string]: string } = {}
 
+envVars['RPC_PREFIX_URL'] = process.env['RPC_PREFIX_URL'] || ''
 Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
   envVars[`RPC_${chainId}`] = process.env[`RPC_${chainId}`] || ''
 })
