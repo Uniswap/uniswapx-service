@@ -1,3 +1,4 @@
+import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
 import { ChainId } from './chain'
 import { BigNumber } from 'ethers'
 import { z } from 'zod'
@@ -31,27 +32,8 @@ export const OLDEST_BLOCK_BY_CHAIN = {
   [ChainId.BLAST]: 34678000,
   [ChainId.ZORA]: 45736000,
 }
-export const BLOCK_TIME_MS_BY_CHAIN = {
-  [ChainId.MAINNET]: 12000,
-  [ChainId.OPTIMISM]: 2000,
-  [ChainId.BNB]: 500,
-  [ChainId.UNICHAIN]: 1000,
-  [ChainId.POLYGON]: 2000,
-  [ChainId.MONAD]: 500,
-  [ChainId.XLAYER]: 1000,
-  [ChainId.WORLDCHAIN]: 2000,
-  [ChainId.SONEIUM]: 2000,
-  [ChainId.TEMPO]: 500,
-  [ChainId.BASE]: 2000,
-  [ChainId.ARBITRUM_ONE]: 250,
-  [ChainId.CELO]: 1000,
-  [ChainId.AVALANCHE]: 2000,
-  [ChainId.BLAST]: 2000,
-  [ChainId.ZORA]: 2000,
-}
-export const BLOCKS_IN_24_HOURS = (chainId: ChainId) => {
-  const dayInMs = 24 * 60 * 60 * 1000
-  return Math.floor(dayInMs / (BLOCK_TIME_MS_BY_CHAIN[chainId as keyof typeof BLOCK_TIME_MS_BY_CHAIN] ?? 12000))
+export const BLOCKS_IN_24_HOURS = (chainId: ChainId): number => {
+  return Math.floor(ONE_DAY_IN_SECONDS / getAverageBlockTimeSecs(chainId))
 }
 export const BLOCK_RANGE = 10000
 export const REAPER_MAX_ATTEMPTS = 10

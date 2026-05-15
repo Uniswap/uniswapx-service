@@ -6,7 +6,6 @@ import {
   timestampToBlockNumber,
 } from '../../../../lib/handlers/check-order-status/util'
 import { ChainId } from '../../../../lib/util/chain'
-import { BLOCK_TIME_MS_BY_CHAIN } from '../../../../lib/util/constants'
 
 describe('calculateDutchRetryWaitSeconds', () => {
   it('should do exponential backoff when retry count > 300', async () => {
@@ -64,13 +63,6 @@ describe('calculateDutchRetryWaitSeconds', () => {
 describe('AVERAGE_BLOCK_TIME', () => {
   it('returns 0.5 for Tempo (chainId 4217)', () => {
     expect(AVERAGE_BLOCK_TIME(ChainId.TEMPO)).toEqual(0.5)
-  })
-})
-
-describe('chain registration sanity', () => {
-  it('has BLOCK_TIME_MS_BY_CHAIN defined for Tempo', () => {
-    expect(BLOCK_TIME_MS_BY_CHAIN[ChainId.TEMPO]).toBeDefined()
-    expect(BLOCK_TIME_MS_BY_CHAIN[ChainId.TEMPO]).toEqual(500)
   })
 })
 
