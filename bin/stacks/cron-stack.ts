@@ -7,9 +7,11 @@ import { Construct } from 'constructs'
 import path from 'path'
 
 import { SERVICE_NAME, UNIMIND_ALGORITHM_CRON_INTERVAL, FILTER_PATTERNS } from '../constants'
+import { STAGE, logRetentionDays } from '../../lib/util/stage'
 
 export interface CronStackProps extends cdk.NestedStackProps {
   lambdaRole: aws_iam.Role
+  stage: STAGE
   chatbotSNSArn?: string
   envVars?: { [key: string]: string }
 }
@@ -35,7 +37,7 @@ export class CronStack extends cdk.NestedStack {
       environment: {
         NODE_OPTIONS: '--enable-source-maps',
       },
-      logRetention: aws_logs.RetentionDays.ONE_MONTH,
+      logRetention: logRetentionDays(props.stage),
     })
 
     new aws_events.Rule(this, `${SERVICE_NAME}UnimindAlgorithmCron`, {
