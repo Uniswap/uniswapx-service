@@ -182,9 +182,7 @@ export class APIPipeline extends Stack {
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
-      // Temporarily disabled to diagnose PostOrderLiveAlias PC FAILED on deploy.
-      // Restore to 2 once root cause is identified.
-      provisionedConcurrency: 0,
+      provisionedConcurrency: 2,
       internalApiKey: internalApiKey.secretValue.toString(),
       stage: STAGE.BETA,
       envVars: {
