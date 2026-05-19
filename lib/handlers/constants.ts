@@ -15,13 +15,10 @@ export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const DEFAULT_MAX_OPEN_LIMIT_ORDERS = 100
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-// Chains that register Dutch_V3 only (no priority/hybrid reactor in
-// @uniswap/uniswapx-sdk's REACTOR_ADDRESS_MAPPING) get sentinel-0 entries
-// here to satisfy Record<ChainId, number> typing.
 // OffChainUniswapXOrderValidator.validateReactorAddress rejects
-// priority/hybrid orders for those chainIds before these buffers are
-// consulted, so the values are unreachable in practice.
-export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
+// priority/hybrid orders for chains not listed here before these buffers
+// are consulted, so callers can safely treat a missing entry as unreachable.
+export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Partial<Record<ChainId, number>> = {
   [ChainId.MAINNET]: 3,
   [ChainId.UNICHAIN]: 4,
   [ChainId.BASE]: 3,
@@ -30,23 +27,9 @@ export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.POLYGON]: 3,
   [ChainId.SEPOLIA]: 3,
   [ChainId.UNICHAIN_SEPOLIA]: 4,
-  // V3-rollout chains: priority orders unreachable (see comment above).
-  [ChainId.TEMPO]: 0,
-  [ChainId.BNB]: 0,
-  [ChainId.MONAD]: 0,
-  [ChainId.XLAYER]: 0,
-  [ChainId.WORLDCHAIN]: 0,
-  [ChainId.SONEIUM]: 0,
-  [ChainId.CELO]: 0,
-  [ChainId.AVALANCHE]: 0,
-  [ChainId.BLAST]: 0,
-  [ChainId.ZORA]: 0,
 }
 
-// Hybrid orders use target block to determine when the price curve starts.
-// Same reasoning as PRIORITY_ORDER_TARGET_BLOCK_BUFFER above: V3-rollout chains
-// have no hybrid reactor, so the entries below are unreachable sentinel-0s.
-export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
+export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Partial<Record<ChainId, number>> = {
   [ChainId.MAINNET]: 3,
   [ChainId.UNICHAIN]: 4,
   [ChainId.BASE]: 3,
@@ -55,17 +38,6 @@ export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.POLYGON]: 3,
   [ChainId.SEPOLIA]: 3,
   [ChainId.UNICHAIN_SEPOLIA]: 4,
-  // V3-rollout chains: hybrid orders unreachable (see comment above).
-  [ChainId.TEMPO]: 0,
-  [ChainId.BNB]: 0,
-  [ChainId.MONAD]: 0,
-  [ChainId.XLAYER]: 0,
-  [ChainId.WORLDCHAIN]: 0,
-  [ChainId.SONEIUM]: 0,
-  [ChainId.CELO]: 0,
-  [ChainId.AVALANCHE]: 0,
-  [ChainId.BLAST]: 0,
-  [ChainId.ZORA]: 0,
 }
 
 export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20

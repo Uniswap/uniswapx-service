@@ -174,7 +174,7 @@ export class CheckOrderStatusService {
               fillTimeBlocks = fillBlock - order.cosignerData.decayStartBlock;
               break;
             case OrderType.Priority: { // Approximation
-              const orderCreationBlock = order.cosignerData.auctionTargetBlock - PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId];
+              const orderCreationBlock = order.cosignerData.auctionTargetBlock - (PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId] ?? 0);
               fillTimeBlocks = fillBlock - orderCreationBlock;
               break;
             }

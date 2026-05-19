@@ -158,9 +158,11 @@ export class HybridOrder extends Order {
     // If the difference is more than 75% of the block time, add an extra block
     const extraBlock = timeDifference > blockTimeSeconds * 0.75 ? 1 : 0
 
-    const targetBlock = BigNumber.from(block.number)
-      .add(HYBRID_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId])
-      .add(extraBlock)
+    const buffer = HYBRID_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId]
+    if (buffer === undefined) {
+      throw new Error(`HYBRID_ORDER_TARGET_BLOCK_BUFFER missing for chainId ${this.chainId}`)
+    }
+    const targetBlock = BigNumber.from(block.number).add(buffer).add(extraBlock)
 
     const scaleWorse = process.env['SCALE_WORSE'] === 'true'
 
