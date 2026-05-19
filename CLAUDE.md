@@ -42,7 +42,7 @@ cdk deploy GoudaServiceStack  # Deploy to AWS
 ## Environment Variables
 
 Required for deployment:
-- `RPC_PREFIX_URL` - Base RPC URL; `getRpcUrl(chainId)` in `lib/Config.ts` appends `/<chainId>`. Per-chain `RPC_<chainId>` overrides take precedence when set.
+- `RPC_PREFIX_URL` - Base RPC URL; `getRpcUrl(chainId)` in `lib/Config.ts` appends `/<chainId>`.
 - `FAILED_EVENT_DESTINATION_ARN` - Failed event SNS ARN
 
 For tests:

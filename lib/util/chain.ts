@@ -20,8 +20,8 @@ export enum ChainId {
 }
 
 // Each chain in SUPPORTED_CHAINS needs an RPC URL resolvable by
-// getRpcUrl(chainId) (Config.ts) — either RPC_PREFIX_URL covering the
-// chain or a per-chain RPC_<chainId> override.
+// getRpcUrl(chainId) (Config.ts), which appends the chainId to
+// RPC_PREFIX_URL.
 export const SUPPORTED_CHAINS = [
   ChainId.MAINNET,
   ChainId.OPTIMISM,

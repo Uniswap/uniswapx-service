@@ -168,10 +168,7 @@ describe('GSReaper', () => {
   let reaper: GSReaper
 
   beforeEach(async () => {
-    // Set up RPC URLs for each chain
-    Object.keys(OLDEST_BLOCK_BY_CHAIN).forEach(chainId => {
-      process.env[`RPC_${chainId}`] = `https://dummy-rpc-${chainId}.example.com`
-    })
+    process.env.RPC_PREFIX_URL = 'https://dummy-rpc.example.com'
 
     // Add test order to repository
     await mockOrdersRepository.addOrder(MOCK_ORDER_ENTITY)
