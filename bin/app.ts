@@ -222,7 +222,9 @@ export class APIPipeline extends Stack {
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
       env: { account: '316116520258', region: 'us-east-2' },
-      provisionedConcurrency: 5,
+      // Temporarily disabled to diagnose PostOrderLiveAlias PC FAILED on deploy.
+      // Restore to 5 once root cause is identified.
+      provisionedConcurrency: 0,
       internalApiKey: internalApiKey.secretValue.toString(),
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
