@@ -12,7 +12,7 @@ import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
-import { STAGE } from '../../lib/util/stage'
+import { STAGE, logRetentionDays } from '../../lib/util/stage'
 import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
 import { CronStack } from './cron-stack'
 import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
@@ -146,6 +146,7 @@ export class LambdaStack extends cdk.NestedStack {
       },
       environment: getOrdersEnv,
       tracing: aws_lambda.Tracing.ACTIVE,
+      logRetention: logRetentionDays(props.stage),
     })
 
     this.orderNotificationLambda = new aws_lambda_nodejs.NodejsFunction(this, `OrderNotification${lambdaName}`, {
@@ -171,6 +172,7 @@ export class LambdaStack extends cdk.NestedStack {
       vpcSubnets: {
         subnets: [...vpc.privateSubnets],
       },
+      logRetention: logRetentionDays(props.stage),
     })
 
     const notificationConfig = {
@@ -228,6 +230,7 @@ export class LambdaStack extends cdk.NestedStack {
       },
       environment: postOrderEnv,
       tracing: aws_lambda.Tracing.ACTIVE,
+      logRetention: logRetentionDays(props.stage),
     })
 
     this.postLimitOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostLimitOrder${lambdaName}`, {
@@ -245,6 +248,7 @@ export class LambdaStack extends cdk.NestedStack {
       },
       environment: postOrderEnv,
       tracing: aws_lambda.Tracing.ACTIVE,
+      logRetention: logRetentionDays(props.stage),
     })
 
     this.getLimitOrdersLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetLimitOrders${lambdaName}`, {
@@ -259,6 +263,7 @@ export class LambdaStack extends cdk.NestedStack {
         sourceMap: true,
       },
       environment: getOrdersEnv,
+      logRetention: logRetentionDays(props.stage),
     })
 
     this.getNonceLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetNonce${lambdaName}`, {
@@ -280,6 +285,7 @@ export class LambdaStack extends cdk.NestedStack {
         NODE_OPTIONS: '--enable-source-maps',
       },
       tracing: aws_lambda.Tracing.ACTIVE,
+      logRetention: logRetentionDays(props.stage),
     })
 
     this.getDocsLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocs${lambdaName}`, {
@@ -299,6 +305,7 @@ export class LambdaStack extends cdk.NestedStack {
         VERSION: '6',
         NODE_OPTIONS: '--enable-source-maps',
       },
+      logRetention: logRetentionDays(props.stage),
     })
 
     this.getDocsUILambda = new aws_lambda_nodejs.NodejsFunction(this, `GetDocsUI${lambdaName}`, {
@@ -318,6 +325,7 @@ export class LambdaStack extends cdk.NestedStack {
         VERSION: '6',
         NODE_OPTIONS: '--enable-source-maps',
       },
+      logRetention: logRetentionDays(props.stage),
     })
 
     this.getUnimindLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetUnimind${lambdaName}`, {
@@ -333,6 +341,7 @@ export class LambdaStack extends cdk.NestedStack {
       },
       environment: postOrderEnv,
       tracing: aws_lambda.Tracing.ACTIVE,
+      logRetention: logRetentionDays(props.stage),
     })
 
     if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
@@ -707,6 +716,7 @@ export class LambdaStack extends cdk.NestedStack {
     /* cron stack */
     new CronStack(this, `${SERVICE_NAME}CronStack`, {
       lambdaRole,
+      stage: props.stage,
       envVars: props.envVars,
       chatbotSNSArn: props.chatbotSNSArn,
     })
