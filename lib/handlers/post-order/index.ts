@@ -35,28 +35,18 @@ import { PostOrderBodyParser } from './PostOrderBodyParser'
 
 const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
 const onChainV4ValidatorMap = new OnChainValidatorMap<OnChainV4OrderValidator>()
+const providerMap: ProviderMap = new Map()
 
 for (const chainId of SUPPORTED_CHAINS) {
-  const provider = new ethers.providers.StaticJsonRpcProvider({
-        url: CONFIG.rpcUrls.get(chainId),
-        headers: RPC_HEADERS,
-  }, chainId)
+  const provider = new ethers.providers.StaticJsonRpcProvider(
+    { url: CONFIG.rpcUrls.get(chainId), headers: RPC_HEADERS },
+    chainId
+  )
+  providerMap.set(chainId, provider)
   onChainValidatorMap.set(chainId, new OnChainOrderValidator(provider, chainId))
   if (OnChainV4QuoterMapping[chainId]) {
     onChainV4ValidatorMap.set(chainId, new OnChainV4OrderValidator(provider, chainId))
   }
-}
-
-const providerMap: ProviderMap = new Map()
-
-for (const chainId of SUPPORTED_CHAINS) {
-  providerMap.set(
-    chainId,
-    new ethers.providers.StaticJsonRpcProvider({
-      url: CONFIG.rpcUrls.get(chainId),
-      headers: RPC_HEADERS,
-    }, chainId)
-  )
 }
 
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
@@ -88,16 +78,7 @@ const uniswapXOrderService = new UniswapXOrderService(
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
 for (const chainId of SUPPORTED_CHAINS) {
-  relayOrderValidatorMap.set(
-    chainId,
-    new OnChainRelayOrderValidator(
-      new ethers.providers.StaticJsonRpcProvider({
-        url: CONFIG.rpcUrls.get(chainId),
-        headers: RPC_HEADERS,
-      }, chainId),
-      chainId
-    )
-  )
+  relayOrderValidatorMap.set(chainId, new OnChainRelayOrderValidator(providerMap.get(chainId)!, chainId))
 }
 
 const relayOrderService = new RelayOrderService(

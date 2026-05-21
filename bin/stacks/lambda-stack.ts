@@ -221,8 +221,6 @@ export class LambdaStack extends cdk.NestedStack {
       entry: path.join(__dirname, '../../lib/handlers/post-order/index.ts'),
       handler: 'postOrderHandler',
       timeout: Duration.seconds(29),
-      // Module-load builds StaticJsonRpcProvider + OrderValidator (+ V4) maps
-      // for every SUPPORTED_CHAIN; 512 MB OOMs at cold-start past ~16 chains.
       memorySize: 1024,
       bundling: {
         minify: true,
@@ -239,8 +237,6 @@ export class LambdaStack extends cdk.NestedStack {
       entry: path.join(__dirname, '../../lib/handlers/post-limit-order/index.ts'),
       handler: 'postLimitOrderHandler',
       timeout: Duration.seconds(29),
-      // Same per-chain map construction as PostOrder above — bumped to avoid
-      // cold-start OOM as the supported-chain list grew.
       memorySize: 1024,
       bundling: {
         minify: true,
