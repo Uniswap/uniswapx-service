@@ -182,9 +182,7 @@ export class APIPipeline extends Stack {
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
-      // Temporarily 0 (was 2) to break PC deadlock in beta only.
-      // Prod left at 5 until beta confirms clean deploy. See #658, #663.
-      provisionedConcurrency: 0,
+      provisionedConcurrency: 2,
       internalApiKey: internalApiKey.secretValue.toString(),
       stage: STAGE.BETA,
       envVars: {
