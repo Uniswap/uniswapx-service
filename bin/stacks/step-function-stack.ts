@@ -7,7 +7,7 @@ import { Construct } from 'constructs'
 import path from 'path'
 import { checkDefined } from '../../lib/preconditions/preconditions'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
-import { STAGE } from '../../lib/util/stage'
+import { STAGE, logRetentionDays } from '../../lib/util/stage'
 import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
 import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.json'
 
@@ -53,6 +53,7 @@ export class StepFunctionStack extends cdk.NestedStack {
         ...props.envVars,
         stage: stage,
       },
+      logRetention: logRetentionDays(stage),
     })
     this.checkStatusFunction = checkStatusFunction
 
