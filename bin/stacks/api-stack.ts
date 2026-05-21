@@ -9,7 +9,7 @@ import * as aws_logs from 'aws-cdk-lib/aws-logs'
 import * as aws_sns from 'aws-cdk-lib/aws-sns'
 import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
 import { Construct } from 'constructs'
-import { STAGE, logRetentionDays } from '../../lib/util/stage'
+import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
@@ -74,9 +74,7 @@ export class APIStack extends cdk.Stack {
       chatbotSNSArn,
     })
 
-    const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`, {
-      retention: logRetentionDays(stage as STAGE),
-    })
+    const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`)
 
     const api = new aws_apigateway.RestApi(this, `${SERVICE_NAME}`, {
       restApiName: `${SERVICE_NAME}`,
