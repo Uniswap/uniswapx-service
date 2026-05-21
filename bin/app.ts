@@ -182,9 +182,8 @@ export class APIPipeline extends Stack {
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
-      // Temporarily set to 0 so the 1024 MB memory fix (PostOrder/PostLimitOrder)
-      // can land without PC stabilization failing on cold-start OOM.
-      // Restore to 2 once this deploy succeeds. See #658.
+      // Temporarily 0 (was 2) to break PC deadlock in beta only.
+      // Prod left at 5 until beta confirms clean deploy. See #658, #663.
       provisionedConcurrency: 0,
       internalApiKey: internalApiKey.secretValue.toString(),
       stage: STAGE.BETA,
@@ -223,10 +222,7 @@ export class APIPipeline extends Stack {
     // Prod us-east-2
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
       env: { account: '316116520258', region: 'us-east-2' },
-      // Temporarily set to 0 so the 1024 MB memory fix (PostOrder/PostLimitOrder)
-      // can land without PC stabilization failing on cold-start OOM.
-      // Restore to 5 once this deploy succeeds. See #658.
-      provisionedConcurrency: 0,
+      provisionedConcurrency: 5,
       internalApiKey: internalApiKey.secretValue.toString(),
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,
