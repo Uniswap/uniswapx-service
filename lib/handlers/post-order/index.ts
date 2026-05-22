@@ -37,17 +37,17 @@ const isSupportedChain = (chainId: ChainId) => supportedChainSet.has(chainId)
 const providerMap = new LazyProviderMap()
 
 const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>([], {
-  factory: (chainId) => new OnChainOrderValidator(providerMap.get(chainId)!, chainId),
+  factory: (chainId) => new OnChainOrderValidator(providerMap.getOrThrow(chainId), chainId),
   isSupported: isSupportedChain,
 })
 
 const onChainV4ValidatorMap = new OnChainValidatorMap<OnChainV4OrderValidator>([], {
-  factory: (chainId) => new OnChainV4OrderValidator(providerMap.get(chainId)!, chainId),
+  factory: (chainId) => new OnChainV4OrderValidator(providerMap.getOrThrow(chainId), chainId),
   isSupported: (chainId) => isSupportedChain(chainId) && !!OnChainV4QuoterMapping[chainId],
 })
 
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>([], {
-  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId)!, chainId),
+  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.getOrThrow(chainId), chainId),
   isSupported: isSupportedChain,
 })
 

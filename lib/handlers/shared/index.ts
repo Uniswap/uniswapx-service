@@ -28,4 +28,15 @@ export class LazyProviderMap implements ProviderMap {
     }
     return provider
   }
+
+  // Strict variant for callers (e.g. validator factories) that must receive a
+  // provider. Throws if the chainId is outside this map's supported set
+  // instead of returning undefined.
+  getOrThrow(chainId: ChainId): StaticJsonRpcProvider {
+    const provider = this.get(chainId)
+    if (!provider) {
+      throw new Error(`No RPC provider configured for chain ${chainId}`)
+    }
+    return provider
+  }
 }

@@ -24,7 +24,7 @@ const providerMap = new LazyProviderMap()
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>([], {
-  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId)!, chainId),
+  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.getOrThrow(chainId), chainId),
   isSupported: (chainId) => supportedChainSet.has(chainId),
 })
 

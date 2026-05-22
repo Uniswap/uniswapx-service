@@ -30,12 +30,12 @@ const isSupportedChain = (chainId: ChainId) => supportedChainSet.has(chainId)
 const providerMap = new LazyProviderMap()
 
 const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>([], {
-  factory: (chainId) => new OnChainOrderValidator(providerMap.get(chainId)!, chainId),
+  factory: (chainId) => new OnChainOrderValidator(providerMap.getOrThrow(chainId), chainId),
   isSupported: isSupportedChain,
 })
 
 const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>([], {
-  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId)!, chainId),
+  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.getOrThrow(chainId), chainId),
   isSupported: isSupportedChain,
 })
 
