@@ -5,8 +5,6 @@ import {
   UNISWAPX_V4_ORDER_QUOTER_MAPPING as OnChainV4QuoterMapping
 } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
-import { ethers } from 'ethers'
-import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
@@ -20,34 +18,38 @@ import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provi
 import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
 import { STAGE } from '../../util/stage'
 import { checkDefined } from '../../preconditions/preconditions'
-import { SUPPORTED_CHAINS } from '../../util/chain'
-import { ONE_DAY_IN_SECONDS, RPC_HEADERS } from '../../util/constants'
+import { ChainId, SUPPORTED_CHAINS } from '../../util/chain'
+import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
-import { ProviderMap } from '../shared/'
+import { LazyProviderMap } from '../shared/'
 import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
 
-const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
-const onChainV4ValidatorMap = new OnChainValidatorMap<OnChainV4OrderValidator>()
-const providerMap: ProviderMap = new Map()
+const supportedChainSet = new Set<ChainId>(SUPPORTED_CHAINS)
+const isSupportedChain = (chainId: ChainId) => supportedChainSet.has(chainId)
 
-for (const chainId of SUPPORTED_CHAINS) {
-  const provider = new ethers.providers.StaticJsonRpcProvider(
-    { url: CONFIG.rpcUrls.get(chainId), headers: RPC_HEADERS },
-    chainId
-  )
-  providerMap.set(chainId, provider)
-  onChainValidatorMap.set(chainId, new OnChainOrderValidator(provider, chainId))
-  if (OnChainV4QuoterMapping[chainId]) {
-    onChainV4ValidatorMap.set(chainId, new OnChainV4OrderValidator(provider, chainId))
-  }
-}
+const providerMap = new LazyProviderMap()
+
+const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>([], {
+  factory: (chainId) => new OnChainOrderValidator(providerMap.get(chainId)!, chainId),
+  isSupported: isSupportedChain,
+})
+
+const onChainV4ValidatorMap = new OnChainValidatorMap<OnChainV4OrderValidator>([], {
+  factory: (chainId) => new OnChainV4OrderValidator(providerMap.get(chainId)!, chainId),
+  isSupported: (chainId) => isSupportedChain(chainId) && !!OnChainV4QuoterMapping[chainId],
+})
+
+const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>([], {
+  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId)!, chainId),
+  isSupported: isSupportedChain,
+})
 
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 
@@ -76,10 +78,6 @@ const uniswapXOrderService = new UniswapXOrderService(
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
-const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
-for (const chainId of SUPPORTED_CHAINS) {
-  relayOrderValidatorMap.set(chainId, new OnChainRelayOrderValidator(providerMap.get(chainId)!, chainId))
-}
 
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
