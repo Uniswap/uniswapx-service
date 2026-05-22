@@ -1,26 +1,21 @@
 import { OrderValidator, RelayOrderValidator, V4OrderValidator } from '@uniswap/uniswapx-sdk'
 import { ChainId } from '../util/chain'
 
-export interface OnChainValidatorMapOptions<T> {
-  factory: (chainId: ChainId) => T
-  isSupported: (chainId: ChainId) => boolean
-}
-
 export class OnChainValidatorMap<T extends OrderValidator | RelayOrderValidator | V4OrderValidator> {
   private chainIdToValidators: Map<ChainId, T> = new Map()
-  private readonly options?: OnChainValidatorMapOptions<T>
+  private readonly factory?: (chainId: ChainId) => T
 
-  constructor(initial: Array<[ChainId, T]> = [], options?: OnChainValidatorMapOptions<T>) {
+  constructor(initial: Array<[ChainId, T]> = [], factory?: (chainId: ChainId) => T) {
     for (const [chainId, validator] of initial) {
       this.chainIdToValidators.set(chainId, validator)
     }
-    this.options = options
+    this.factory = factory
   }
 
   get(chainId: ChainId): T {
     let validator = this.chainIdToValidators.get(chainId)
-    if (!validator && this.options && this.options.isSupported(chainId)) {
-      validator = this.options.factory(chainId)
+    if (!validator && this.factory) {
+      validator = this.factory(chainId)
       this.chainIdToValidators.set(chainId, validator)
     }
     if (!validator) {
@@ -28,11 +23,6 @@ export class OnChainValidatorMap<T extends OrderValidator | RelayOrderValidator 
     }
 
     return validator
-  }
-
-  has(chainId: ChainId): boolean {
-    if (this.chainIdToValidators.has(chainId)) return true
-    return !!this.options && this.options.isSupported(chainId)
   }
 
   set(chainId: ChainId, validator: T): void {

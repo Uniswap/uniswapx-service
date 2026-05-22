@@ -7,7 +7,6 @@ import { LimitOrdersRepository } from '../../repositories/limit-orders-repositor
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { RelayOrderService } from '../../services/RelayOrderService'
-import { ChainId, SUPPORTED_CHAINS } from '../../util/chain'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
 import { calculateDutchRetryWaitSeconds, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
@@ -19,14 +18,13 @@ import { CheckOrderStatusHandler } from './handler'
 import { CheckOrderStatusInjector } from './injector'
 import { CheckOrderStatusService, CheckOrderStatusUtils } from './service'
 
-const supportedChainSet = new Set<ChainId>(SUPPORTED_CHAINS)
 const providerMap = new LazyProviderMap()
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
-const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>([], {
-  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.getOrThrow(chainId), chainId),
-  isSupported: (chainId) => supportedChainSet.has(chainId),
-})
+const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>(
+  [],
+  (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId), chainId)
+)
 
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,

@@ -10,7 +10,6 @@ import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
-import { ChainId, SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
@@ -24,20 +23,17 @@ import { LazyProviderMap } from '../shared'
 import { getMaxLimitOpenOrders, PostLimitOrderInjector } from './injector'
 import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 
-const supportedChainSet = new Set<ChainId>(SUPPORTED_CHAINS)
-const isSupportedChain = (chainId: ChainId) => supportedChainSet.has(chainId)
-
 const providerMap = new LazyProviderMap()
 
-const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>([], {
-  factory: (chainId) => new OnChainOrderValidator(providerMap.getOrThrow(chainId), chainId),
-  isSupported: isSupportedChain,
-})
+const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
+  [],
+  (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
+)
 
-const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>([], {
-  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.getOrThrow(chainId), chainId),
-  isSupported: isSupportedChain,
-})
+const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>(
+  [],
+  (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId), chainId)
+)
 
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_YEAR_IN_SECONDS, {
   SkipDecayStartTimeValidation: true,

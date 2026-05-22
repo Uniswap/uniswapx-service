@@ -2,7 +2,6 @@ import {
   OrderValidator as OnChainOrderValidator,
   RelayOrderValidator as OnChainRelayOrderValidator,
   V4OrderValidator as OnChainV4OrderValidator,
-  UNISWAPX_V4_ORDER_QUOTER_MAPPING as OnChainV4QuoterMapping
 } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { log } from '../../Logging'
@@ -18,7 +17,6 @@ import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provi
 import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
 import { STAGE } from '../../util/stage'
 import { checkDefined } from '../../preconditions/preconditions'
-import { ChainId, SUPPORTED_CHAINS } from '../../util/chain'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
@@ -31,25 +29,22 @@ import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
 
-const supportedChainSet = new Set<ChainId>(SUPPORTED_CHAINS)
-const isSupportedChain = (chainId: ChainId) => supportedChainSet.has(chainId)
-
 const providerMap = new LazyProviderMap()
 
-const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>([], {
-  factory: (chainId) => new OnChainOrderValidator(providerMap.getOrThrow(chainId), chainId),
-  isSupported: isSupportedChain,
-})
+const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
+  [],
+  (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
+)
 
-const onChainV4ValidatorMap = new OnChainValidatorMap<OnChainV4OrderValidator>([], {
-  factory: (chainId) => new OnChainV4OrderValidator(providerMap.getOrThrow(chainId), chainId),
-  isSupported: (chainId) => isSupportedChain(chainId) && !!OnChainV4QuoterMapping[chainId],
-})
+const onChainV4ValidatorMap = new OnChainValidatorMap<OnChainV4OrderValidator>(
+  [],
+  (chainId) => new OnChainV4OrderValidator(providerMap.get(chainId), chainId)
+)
 
-const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>([], {
-  factory: (chainId) => new OnChainRelayOrderValidator(providerMap.getOrThrow(chainId), chainId),
-  isSupported: isSupportedChain,
-})
+const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>(
+  [],
+  (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId), chainId)
+)
 
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 

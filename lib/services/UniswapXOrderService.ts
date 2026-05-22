@@ -12,6 +12,7 @@ import {
   OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
   V4OrderValidator as OnChainV4OrderValidator,
+  UNISWAPX_V4_ORDER_QUOTER_MAPPING as OnChainV4QuoterMapping,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
@@ -208,7 +209,7 @@ export class UniswapXOrderService {
 
       // Use V4 quoter for Hybrid orders if available on this chain
       if (order instanceof CosignedHybridOrder) {
-        if (this.onChainV4ValidatorMap?.has(chainId)) {
+        if (this.onChainV4ValidatorMap && OnChainV4QuoterMapping[chainId]) {
           const onChainV4Validator = this.onChainV4ValidatorMap.get(chainId)
           onChainValidationResult = await onChainV4Validator.validate({ order: order, signature: signature })
         } else {
