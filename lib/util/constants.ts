@@ -1,3 +1,4 @@
+import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
 import { ChainId } from './chain'
 import { BigNumber } from 'ethers'
 import { z } from 'zod'
@@ -10,21 +11,29 @@ export const SCALING_FACTOR_MASK = BigNumber.from(1).shl(240).sub(1)
 export const ONE_HOUR_IN_SECONDS = 60 * 60
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24
 export const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
+// Per-chain "oldest block worth scanning" used by the GS reaper to floor its
+// 1-week lookback window. Values are seeded just below each chain's earliest
+// reactor deploy block — the earliest block any UniswapX fill could appear on.
 export const OLDEST_BLOCK_BY_CHAIN = {
   [ChainId.MAINNET]: 20120259,
-  [ChainId.ARBITRUM_ONE]: 253597707,
-  [ChainId.BASE]: 22335646,
+  [ChainId.OPTIMISM]: 151283000,
+  [ChainId.BNB]: 96919000,
   [ChainId.UNICHAIN]: 6747397,
+  [ChainId.POLYGON]: 86529000,
+  [ChainId.MONAD]: 73051000,
+  [ChainId.XLAYER]: 59397000,
+  [ChainId.WORLDCHAIN]: 29415000,
+  [ChainId.SONEIUM]: 22515000,
+  [ChainId.TEMPO]: 17850000,
+  [ChainId.BASE]: 22335646,
+  [ChainId.ARBITRUM_ONE]: 253597707,
+  [ChainId.CELO]: 66266000,
+  [ChainId.AVALANCHE]: 84833000,
+  [ChainId.BLAST]: 34678000,
+  [ChainId.ZORA]: 45736000,
 }
-export const BLOCK_TIME_MS_BY_CHAIN = {
-  [ChainId.MAINNET]: 12000,
-  [ChainId.ARBITRUM_ONE]: 250,
-  [ChainId.BASE]: 2000,
-  [ChainId.UNICHAIN]: 1000,
-}
-export const BLOCKS_IN_24_HOURS = (chainId: ChainId) => {
-  const dayInMs = 24 * 60 * 60 * 1000
-  return Math.floor(dayInMs / (BLOCK_TIME_MS_BY_CHAIN[chainId as keyof typeof BLOCK_TIME_MS_BY_CHAIN] ?? 12000))
+export const BLOCKS_IN_24_HOURS = (chainId: ChainId): number => {
+  return Math.floor(ONE_DAY_IN_SECONDS / getAverageBlockTimeSecs(chainId))
 }
 export const BLOCK_RANGE = 10000
 export const REAPER_MAX_ATTEMPTS = 10

@@ -1,3 +1,4 @@
+import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
 import {
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
@@ -15,6 +16,7 @@ import { BigNumber, ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount } from '../../entities'
 import { ChainId } from '../../util/chain'
 import { NATIVE_ADDRESS, RPC_HEADERS } from '../../util/constants'
+import { getRpcUrl } from '../../Config'
 
 export interface FillMetadata {
   timestamp: number
@@ -242,24 +244,11 @@ export function getRelaySettledAmounts(fill: FillInfo, parsedOrder: RelayOrder):
   return settledAmounts
 }
 
-export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
-  switch (chainId) {
-    case ChainId.MAINNET:
-      return 12
-    case ChainId.ARBITRUM_ONE:
-      return 1
-    case ChainId.UNICHAIN:
-      return 1
-    case ChainId.BASE:
-      return 2
-    case ChainId.POLYGON:
-      // Keep this at the default 12 for now since we would have to do more retries
-      // if it was at 2 seconds
-      return 12
-    default:
-      return 12
-  }
-}
+// Re-exports the sdk-core per-chain block time so callers and the
+// `calculateDutchRetryWaitSeconds` floor stay correct as chain cadence
+// changes. Sub-second values are intentional for accurate block-number
+// arithmetic in `timestampToBlockNumber`.
+export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => getAverageBlockTimeSecs(chainId)
 
 // Approximate block number from timestamp
 export function timestampToBlockNumber(
@@ -310,13 +299,9 @@ export function getWatcher(
 
 const providersMap = new Map<number, ethers.providers.StaticJsonRpcProvider>()
 export function getProvider(chainId: number): ethers.providers.StaticJsonRpcProvider {
-  const rpcURL = process.env[`RPC_${chainId}`]
-  if (!rpcURL) {
-    throw new Error(`rpcURL not defined for ${chainId}`)
-  }
   if (!providersMap.get(chainId)) {
     providersMap.set(chainId, new ethers.providers.StaticJsonRpcProvider({
-      url: rpcURL,
+      url: getRpcUrl(chainId),
       headers: RPC_HEADERS
     }, chainId))
   }
@@ -332,14 +317,24 @@ export function getValidator(provider: ethers.providers.StaticJsonRpcProvider, c
 }
 
 /*
+ * Minimum wait between Step Functions retries. Wait state granularity is
+ * whole seconds, so any sub-second block time would round to zero and
+ * hot-loop the state machine. Floor is one second — Step Functions' minimum
+ * representable wait.
+ */
+export const MIN_RETRY_WAIT_SECONDS = 1
+
+/*
  * In the first hour of order submission, we check the order status roughly every block.
  * We then do exponential backoff on the wait time until the interval reaches roughly 6 hours.
  * All subsequent retries are at 6 hour intervals.
  */
 export function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: number): number {
-  return retryCount <= 300
-    ? AVERAGE_BLOCK_TIME(chainId)
-    : retryCount <= 450
-    ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
-    : 18000
+  const calculated =
+    retryCount <= 300
+      ? AVERAGE_BLOCK_TIME(chainId)
+      : retryCount <= 450
+      ? Math.ceil(AVERAGE_BLOCK_TIME(chainId) * Math.pow(1.05, retryCount - 300))
+      : 18000
+  return Math.max(MIN_RETRY_WAIT_SECONDS, calculated)
 }

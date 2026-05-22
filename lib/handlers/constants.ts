@@ -15,7 +15,10 @@ export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const DEFAULT_MAX_OPEN_LIMIT_ORDERS = 100
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
+// OffChainUniswapXOrderValidator.validateReactorAddress rejects
+// priority/hybrid orders for chains not listed here before these buffers
+// are consulted, so callers can safely treat a missing entry as unreachable.
+export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Partial<Record<ChainId, number>> = {
   [ChainId.MAINNET]: 3,
   [ChainId.UNICHAIN]: 4,
   [ChainId.BASE]: 3,
@@ -26,8 +29,7 @@ export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
   [ChainId.UNICHAIN_SEPOLIA]: 4,
 }
 
-// Hybrid orders use target block to determine when the price curve starts
-export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Record<ChainId, number> = {
+export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Partial<Record<ChainId, number>> = {
   [ChainId.MAINNET]: 3,
   [ChainId.UNICHAIN]: 4,
   [ChainId.BASE]: 3,

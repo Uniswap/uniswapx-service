@@ -1,0 +1,28 @@
+import { getRpcUrl } from '../../lib/Config'
+
+describe('getRpcUrl', () => {
+  const savedEnv = { ...process.env }
+
+  beforeEach(() => {
+    delete process.env.RPC_PREFIX_URL
+  })
+
+  afterAll(() => {
+    process.env = savedEnv
+  })
+
+  it('appends the chainId to RPC_PREFIX_URL', () => {
+    process.env.RPC_PREFIX_URL = 'https://example.com/rpc'
+    expect(getRpcUrl(1)).toEqual('https://example.com/rpc/1')
+    expect(getRpcUrl(4217)).toEqual('https://example.com/rpc/4217')
+  })
+
+  it('tolerates a trailing slash on RPC_PREFIX_URL', () => {
+    process.env.RPC_PREFIX_URL = 'https://example.com/rpc/'
+    expect(getRpcUrl(8453)).toEqual('https://example.com/rpc/8453')
+  })
+
+  it('throws when RPC_PREFIX_URL is not set', () => {
+    expect(() => getRpcUrl(143)).toThrow(/No RPC for chain 143/)
+  })
+})

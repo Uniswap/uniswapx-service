@@ -10,6 +10,7 @@ import { DutchOrdersRepository } from '../../repositories/dutch-orders-repositor
 import { setGlobalMetrics } from '../../util/metrics'
 import { SfnInjector, SfnStateInputOutput } from '../base/index'
 import { getWatcher } from './util'
+import { getRpcUrl } from '../../Config'
 import { RPC_HEADERS } from '../../util/constants'
 
 export interface RequestInjected {
@@ -54,12 +55,8 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
     })
 
     const chainId = checkDefined(event.chainId, 'chainId not defined') as number
-    const rpcURL = process.env[`RPC_${chainId}`]
-    if (!rpcURL) {
-      throw new Error(`RPC_${chainId} not set`)
-    }
     const provider = new ethers.providers.StaticJsonRpcProvider({
-      url: rpcURL,
+      url: getRpcUrl(chainId),
       headers: RPC_HEADERS
     }, chainId)
     const quoter = new OrderValidator(provider, chainId)

@@ -9,7 +9,6 @@ import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pip
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
 import 'source-map-support/register'
-import { SUPPORTED_CHAINS } from '../lib/util/chain'
 import { STAGE } from '../lib/util/stage'
 import { PROD_TABLE_CAPACITY } from './config'
 import { SERVICE_NAME } from './constants'
@@ -169,11 +168,10 @@ export class APIPipeline extends Stack {
         'arn:aws:secretsmanager:us-east-2:644039819003:secret:prod-priority-labs-cosigner-address-iarU6E',
     })
 
-    const jsonRpcUrls: { [chain: string]: string } = {}
-    Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
-      const key = `RPC_${chainId}`
-      jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
-    })
+    // Shared prefix the Lambda's getRpcUrl appends the chainId to.
+    const jsonRpcUrls: { [chain: string]: string } = {
+      RPC_PREFIX_URL: jsonRpcProvidersSecret.secretValueFromJson('RPC_PREFIX_URL').toString(),
+    }
 
     new CfnOutput(this, 'jsonRpcUrls', {
       value: JSON.stringify(jsonRpcUrls),
@@ -302,7 +300,7 @@ export class APIPipeline extends Stack {
             value: `${stage}/gouda-service/integ-test/cosigner`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          RPC_1: {
+          RPC_PREFIX_URL: {
             value: 'all/gouda-service/integ-test/rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
@@ -324,7 +322,7 @@ export class APIPipeline extends Stack {
         'echo "TAPI_API_KEY=${TAPI_API_KEY}" >> .env',
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
         'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" >> .env',
-        'echo "RPC_1=${RPC_1}" >> .env',
+        'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
@@ -352,14 +350,9 @@ const app = new cdk.App()
 // Local dev stack
 const envVars: { [key: string]: string } = {}
 
-Object.values(SUPPORTED_CHAINS).forEach((chainId) => {
-  envVars[`RPC_${chainId}`] = process.env[`RPC_${chainId}`] || ''
-})
+envVars['RPC_PREFIX_URL'] = process.env['RPC_PREFIX_URL'] || ''
 
 envVars['RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
-envVars['RPC_1'] = process.env[`RPC_1`] || ''
-envVars['RPC_8453'] = process.env[`RPC_8453`] || ''
-envVars['RPC_130'] = process.env[`RPC_130`] || ''
 envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''

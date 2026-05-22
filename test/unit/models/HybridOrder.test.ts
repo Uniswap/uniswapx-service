@@ -143,7 +143,7 @@ describe('HybridOrder Model', () => {
 
         await order.reparameterizeAndCosign(mockProvider, mockCosigner)
 
-        const expectedTargetBlock = MOCK_LATEST_BLOCK + HYBRID_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET]
+        const expectedTargetBlock = MOCK_LATEST_BLOCK + HYBRID_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET]!
         expect(order.inner.info.cosignerData.auctionTargetBlock.toNumber()).toEqual(expectedTargetBlock)
       })
 
@@ -165,7 +165,7 @@ describe('HybridOrder Model', () => {
         await order.reparameterizeAndCosign(mockProvider, mockCosigner)
 
         // Should add extra block due to stale timestamp
-        const expectedTargetBlock = MOCK_LATEST_BLOCK + HYBRID_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET] + 1
+        const expectedTargetBlock = MOCK_LATEST_BLOCK + HYBRID_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET]! + 1
         expect(order.inner.info.cosignerData.auctionTargetBlock.toNumber()).toEqual(expectedTargetBlock)
       })
     })
@@ -309,7 +309,7 @@ describe('HybridOrder Model', () => {
 
         await order.reparameterizeAndCosign(mockProvider, mockCosigner)
 
-        const expectedTargetBlock = MOCK_LATEST_BLOCK + HYBRID_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET]
+        const expectedTargetBlock = MOCK_LATEST_BLOCK + HYBRID_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET]!
         expect(order.inner.info.cosignerData.auctionTargetBlock.toNumber()).toEqual(expectedTargetBlock)
         expect(order.inner.info.cosignerData.supplementalPriceCurve).toEqual([])
       })

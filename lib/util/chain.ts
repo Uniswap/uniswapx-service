@@ -1,22 +1,27 @@
-export enum ChainId {
-  MAINNET = 1,
-  UNICHAIN = 130,
-  BASE = 8453,
-  OPTIMISM = 10,
-  ARBITRUM_ONE = 42161,
-  POLYGON = 137,
-  SEPOLIA = 11155111,
-  UNICHAIN_SEPOLIA = 1301,
-}
+import { ChainId } from '@uniswap/sdk-core'
 
-// If you update SUPPORTED_CHAINS, ensure you add a corresponding RPC_${chainId} environment variable.
-// lib/config.py will require it to be defined.
+export { ChainId }
+
+// Each chain in SUPPORTED_CHAINS needs an RPC URL resolvable by
+// getRpcUrl(chainId) (Config.ts), which appends the chainId to
+// RPC_PREFIX_URL.
 export const SUPPORTED_CHAINS = [
   ChainId.MAINNET,
-  ChainId.POLYGON,
-  ChainId.SEPOLIA,
-  ChainId.ARBITRUM_ONE,
-  ChainId.BASE,
+  ChainId.OPTIMISM,
+  ChainId.BNB,
   ChainId.UNICHAIN,
+  ChainId.POLYGON,
+  ChainId.MONAD,
+  ChainId.XLAYER,
+  ChainId.WORLDCHAIN,
+  ChainId.SEPOLIA,
   ChainId.UNICHAIN_SEPOLIA,
+  ChainId.SONEIUM,
+  ChainId.TEMPO,
+  ChainId.BASE,
+  ChainId.ARBITRUM_ONE,
+  ChainId.CELO,
+  ChainId.AVALANCHE,
+  ChainId.BLAST,
+  ChainId.ZORA,
 ]

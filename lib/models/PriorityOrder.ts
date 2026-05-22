@@ -121,10 +121,12 @@ export class PriorityOrder extends Order {
     // If the difference is more than 75% of the block time, add an extra block
     const extraBlock = timeDifference > blockTimeSeconds * 0.75 ? 1 : 0
     
+    const buffer = PRIORITY_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId]
+    if (buffer === undefined) {
+      throw new Error(`PRIORITY_ORDER_TARGET_BLOCK_BUFFER missing for chainId ${this.chainId}`)
+    }
     this.inner.info.cosignerData = {
-      auctionTargetBlock: BigNumber.from(block.number)
-      .add(PRIORITY_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId])
-      .add(extraBlock),
+      auctionTargetBlock: BigNumber.from(block.number).add(buffer).add(extraBlock),
     }
 
     this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash(this.inner.info.cosignerData))

@@ -336,7 +336,7 @@ describe('Testing post order handler.', () => {
       // cosignature and cosignerData gets overwritten within the handler
       order.inner.info.cosignature = COSIGNATURE
       order.inner.info.cosignerData = {
-        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]), // No extra block since timestamp difference should be 0
+        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]!), // No extra block since timestamp difference should be 0
       }
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
@@ -349,7 +349,7 @@ describe('Testing post order handler.', () => {
           cosignature: COSIGNATURE,
           cosignerData: {
             // MOCK_LATEST_BLOCK + 3
-            auctionTargetBlock: MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId],
+            auctionTargetBlock: MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]!,
           },
         })
       )
@@ -467,7 +467,7 @@ describe('Testing post order handler.', () => {
 
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
-      const expectedBuffer = PRIORITY_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET]
+      const expectedBuffer = PRIORITY_ORDER_TARGET_BLOCK_BUFFER[ChainId.MAINNET]!
       const expectedTargetBlock = MOCK_LATEST_BLOCK + expectedBuffer + 1 // +1 for extra block
 
       expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(
