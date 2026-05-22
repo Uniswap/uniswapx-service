@@ -3,8 +3,6 @@ import {
   RelayOrderValidator as OnChainRelayOrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
-import { ethers } from 'ethers'
-import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
@@ -12,8 +10,7 @@ import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
-import { SUPPORTED_CHAINS } from '../../util/chain'
-import { ONE_YEAR_IN_SECONDS, RPC_HEADERS } from '../../util/constants'
+import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
@@ -22,30 +19,21 @@ import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from '../post-order/handler'
 import { PostOrderBodyParser } from '../post-order/PostOrderBodyParser'
-import { ProviderMap } from '../shared'
+import { LazyProviderMap } from '../shared'
 import { getMaxLimitOpenOrders, PostLimitOrderInjector } from './injector'
 import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 
-const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>()
+const providerMap = new LazyProviderMap()
 
-for (const chainId of SUPPORTED_CHAINS) {
-  onChainValidatorMap.set(
-    chainId,
-    new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider({
-      url: CONFIG.rpcUrls.get(chainId),
-      headers: RPC_HEADERS
-    }, chainId), chainId)
-  )
-}
+const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
+  [],
+  (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
+)
 
-const providerMap: ProviderMap = new Map()
-
-for (const chainId of SUPPORTED_CHAINS) {
-  providerMap.set(chainId, new ethers.providers.StaticJsonRpcProvider({
-    url: CONFIG.rpcUrls.get(chainId),
-    headers: RPC_HEADERS
-  }, chainId))
-}
+const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>(
+  [],
+  (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId), chainId)
+)
 
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_YEAR_IN_SECONDS, {
   SkipDecayStartTimeValidation: true,
@@ -68,17 +56,7 @@ const uniswapXOrderService = new UniswapXOrderService(
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
-const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
 
-for (const chainId of SUPPORTED_CHAINS) {
-  onChainValidatorMap.set(
-    chainId,
-    new OnChainOrderValidator(new ethers.providers.StaticJsonRpcProvider({
-      url: CONFIG.rpcUrls.get(chainId),
-      headers: RPC_HEADERS
-    }, chainId), chainId)
-  )
-}
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,

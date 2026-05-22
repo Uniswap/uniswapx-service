@@ -215,13 +215,15 @@ export class LambdaStack extends cdk.NestedStack {
       postOrderEnv[`STATE_MACHINE_ARN_${chainId}`] = sfnStack.chainIdToStatusTrackingStateMachineArn[chainId]
     })
 
+    const postOrderMemorySize = props.stage === STAGE.PROD ? 2048 : 1024
+
     this.postOrderLambda = new aws_lambda_nodejs.NodejsFunction(this, `PostOrder${lambdaName}`, {
       role: lambdaRole,
       runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/post-order/index.ts'),
       handler: 'postOrderHandler',
       timeout: Duration.seconds(29),
-      memorySize: 1024,
+      memorySize: postOrderMemorySize,
       bundling: {
         minify: true,
         sourceMap: true,
@@ -237,7 +239,7 @@ export class LambdaStack extends cdk.NestedStack {
       entry: path.join(__dirname, '../../lib/handlers/post-limit-order/index.ts'),
       handler: 'postLimitOrderHandler',
       timeout: Duration.seconds(29),
-      memorySize: 1024,
+      memorySize: postOrderMemorySize,
       bundling: {
         minify: true,
         sourceMap: true,

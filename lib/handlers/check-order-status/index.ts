@@ -1,37 +1,30 @@
 import { OrderType, RelayOrderValidator as OnChainRelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import { ethers } from 'ethers'
-import { CONFIG } from '../../Config'
 import { log } from '../../Logging'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { RelayOrderService } from '../../services/RelayOrderService'
-import { SUPPORTED_CHAINS } from '../../util/chain'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
 import { calculateDutchRetryWaitSeconds, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
+import { LazyProviderMap } from '../shared'
 import { getMaxOpenOrders } from '../post-order/injector'
 import { CheckOrderStatusHandler } from './handler'
 import { CheckOrderStatusInjector } from './injector'
 import { CheckOrderStatusService, CheckOrderStatusUtils } from './service'
-import { RPC_HEADERS } from '../../util/constants'
+
+const providerMap = new LazyProviderMap()
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
-const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>()
-for (const chainId of SUPPORTED_CHAINS) {
-  relayOrderValidatorMap.set(
-    chainId,
-    new OnChainRelayOrderValidator(new ethers.providers.StaticJsonRpcProvider({
-      url: CONFIG.rpcUrls.get(chainId),
-      headers: RPC_HEADERS
-    }, chainId), chainId)
-  )
-}
+const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>(
+  [],
+  (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId), chainId)
+)
 
 const relayOrderService = new RelayOrderService(
   relayOrderValidator,
