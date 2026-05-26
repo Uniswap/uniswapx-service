@@ -284,7 +284,7 @@ export function getWatcher(
   orderType: OrderType
 ): UniswapXEventWatcher {
   const reactorType = orderType === OrderType.Limit ? OrderType.Dutch : orderType
-  const address = REACTOR_ADDRESS_MAPPING[chainId][reactorType]
+  const address = REACTOR_ADDRESS_MAPPING[chainId]?.[reactorType]
   if (!address) {
     throw new Error(`No Reactor Address Defined in UniswapX SDK for chainId:${chainId}, orderType:${reactorType}`)
   }

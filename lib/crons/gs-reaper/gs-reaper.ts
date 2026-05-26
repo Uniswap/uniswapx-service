@@ -266,8 +266,13 @@ async function processBlockRange(
 ): Promise<{ updates: Record<string, OrderUpdate>, remainingHashes: Set<string> }> {
   const orderUpdates = { ...existingUpdates }
   
-  for (const orderType of Object.keys(REACTOR_ADDRESS_MAPPING[chainId])) {
-    const reactorAddress = REACTOR_ADDRESS_MAPPING[chainId][orderType as OrderType]
+  const reactorMap = REACTOR_ADDRESS_MAPPING[chainId]
+  if (!reactorMap) {
+    log.info(`No reactor mapping for chainId ${chainId}, skipping block range`)
+    return { updates: orderUpdates, remainingHashes: orderHashSet }
+  }
+  for (const orderType of Object.keys(reactorMap)) {
+    const reactorAddress = reactorMap[orderType as OrderType]
     if (!reactorAddress || reactorAddress === "0x0000000000000000000000000000000000000000") continue
     log.info(`Processing block range ${fromBlock} to ${toBlock} for chainId ${chainId} orderType ${orderType}`)
     

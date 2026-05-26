@@ -29,9 +29,9 @@ export class EventWatcherMap<T extends UniswapXEventWatcher | RelayEventWatcher>
   public static createRelayEventWatcherMap() {
     const map = new EventWatcherMap<RelayEventWatcher>()
     for (const chainId of SUPPORTED_CHAINS) {
-      const address = REACTOR_ADDRESS_MAPPING[chainId][OrderType.Relay]
+      const address = REACTOR_ADDRESS_MAPPING[chainId]?.[OrderType.Relay]
       if (!address) {
-        throw new Error(`No Reactor Address Configured for ${chainId}, ${OrderType.Relay}`)
+        continue
       }
       map.set(
         chainId,
