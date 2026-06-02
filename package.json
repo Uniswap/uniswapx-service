@@ -7,6 +7,9 @@
   "license": "GPL",
   "type": "commonjs",
   "repository": "https://github.com/Uniswap/uniswapx-service",
+  "resolutions": {
+    "elliptic": "6.6.1"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist cdk.out",
