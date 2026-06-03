@@ -248,7 +248,16 @@ export function getRelaySettledAmounts(fill: FillInfo, parsedOrder: RelayOrder):
 // `calculateDutchRetryWaitSeconds` floor stay correct as chain cadence
 // changes. Sub-second values are intentional for accurate block-number
 // arithmetic in `timestampToBlockNumber`.
-export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => getAverageBlockTimeSecs(chainId)
+// Falls back to 12 s (Ethereum PoS slot time) for chains not yet registered
+// in sdk-core (e.g. Sepolia, new L2s added via SUPPORTED_CHAINS before the
+// SDK is updated).
+export const AVERAGE_BLOCK_TIME = (chainId: ChainId): number => {
+  try {
+    return getAverageBlockTimeSecs(chainId)
+  } catch {
+    return 12
+  }
+}
 
 // Approximate block number from timestamp
 export function timestampToBlockNumber(
