@@ -308,7 +308,7 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           RPC_PREFIX_URL: {
-            value: 'all/gouda-service/integ-test/rpc',
+            value: 'gouda-service-rpc-urls-2:RPC_PREFIX_URL',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           RPC_HEADER_SECRET: {
