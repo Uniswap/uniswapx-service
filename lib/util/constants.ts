@@ -95,9 +95,13 @@ export const USE_CLASSIC_PARAMETERS = {
   // batchNumber and algorithmVersion are added dynamically
 }
 
-export const RPC_HEADERS = {
+export const RPC_HEADERS: { [key: string]: string } = {
   'x-uni-service-id': 'x_order_service',
-} as const
+  // Authenticate RPC requests against internal providers. The value is provided
+  // via the RPC_HEADER_SECRET env var (sourced from Secrets Manager); omitted
+  // when unset (e.g. local dev / unit tests).
+  ...(process.env.RPC_HEADER_SECRET ? { 'x-internal-service-secret': process.env.RPC_HEADER_SECRET } : {}),
+}
 
 export enum TradeType {
   EXACT_INPUT = 'EXACT_INPUT',
