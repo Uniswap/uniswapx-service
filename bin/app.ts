@@ -308,11 +308,7 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           RPC_PREFIX_URL: {
-            value: 'gouda-service-rpc-urls-2:RPC_PREFIX_URL',
-            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
-          },
-          RPC_HEADER_SECRET: {
-            value: 'gouda-service-rpc-urls-2:RPC_HEADER_SECRET',
+            value: 'all/gouda-service/integ-test/rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TEST_WALLET_PK: {
@@ -334,7 +330,6 @@ export class APIPipeline extends Stack {
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
         'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" >> .env',
         'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
-        'echo "RPC_HEADER_SECRET=${RPC_HEADER_SECRET}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
