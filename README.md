@@ -47,12 +47,9 @@ To test your changes you must redeploy your service. The dev cycle is thus:
 
 ```
 FAILED_EVENT_DESTINATION_ARN=<>
-# Per-chain RPC URLs: one variable per supported chain (see lib/util/chain.ts).
-RPC_1=<>
-RPC_130=<>
-RPC_8453=<>
-RPC_42161=<>
-# ...etc.
+RPC_PREFIX_URL=<>
+# Optional: sent as the `x-internal-service-secret` header on all RPC requests.
+RPC_HEADER_SECRET=<>
 
 # Only need these if testing against custom contract deployments
 DL_REACTOR_TENDERLY=<>

@@ -6,16 +6,15 @@ type Config = {
 }
 
 /**
- * Resolve the RPC URL for a given chainId from the per-chain env var
- * `RPC_<chainId>` (e.g. RPC_1, RPC_130, RPC_8453). Throws if it is unset.
+ * Resolve the RPC URL for a given chainId by appending it to RPC_PREFIX_URL.
+ * Throws if the prefix is not set.
  */
 export const getRpcUrl = (chainId: number): string => {
-  const envVar = `RPC_${chainId}`
-  const url = process.env[envVar]
-  if (!url) {
-    throw new Error(`No RPC for chain ${chainId}: set ${envVar}`)
+  const prefix = process.env.RPC_PREFIX_URL
+  if (!prefix) {
+    throw new Error(`No RPC for chain ${chainId}: set RPC_PREFIX_URL`)
   }
-  return url
+  return `${prefix.replace(/\/$/, '')}/${chainId}`
 }
 
 /**

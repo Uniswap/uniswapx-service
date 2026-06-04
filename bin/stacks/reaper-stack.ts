@@ -4,9 +4,8 @@ import { Cluster, ContainerImage } from "aws-cdk-lib/aws-ecs";
 import { Construct } from "constructs";
 import { SERVICE_NAME } from "../constants";
 
-// Expect per-chain RPC env vars (`RPC_<chainId>`, e.g. RPC_1, RPC_130) to be
-// set in environmentVariables; the reaper calls getRpcUrl(chainId) which reads
-// the corresponding `RPC_<chainId>` variable.
+// Expect RPC_PREFIX_URL to be set in environmentVariables; the reaper calls
+// getRpcUrl(chainId) which appends the chainId to it.
 export interface ReaperStackProps extends StackProps {
   environmentVariables: { [key: string]: string };
 }

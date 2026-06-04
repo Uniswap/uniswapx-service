@@ -9,7 +9,6 @@ import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pip
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
 import 'source-map-support/register'
-import { SUPPORTED_CHAINS } from '../lib/util/chain'
 import { STAGE } from '../lib/util/stage'
 import { PROD_TABLE_CAPACITY } from './config'
 import { SERVICE_NAME } from './constants'
@@ -169,18 +168,19 @@ export class APIPipeline extends Stack {
         'arn:aws:secretsmanager:us-east-2:644039819003:secret:prod-priority-labs-cosigner-address-iarU6E',
     })
 
-    // Per-chain RPC URLs. The Lambda's getRpcUrl(chainId) reads `RPC_<chainId>`
-    // from the environment; the secret is a JSON map keyed the same way
-    // (e.g. RPC_1, RPC_130, RPC_8453).
-    const jsonRpcUrls: { [chain: string]: string } = {}
-    for (const chainId of SUPPORTED_CHAINS) {
-      const key = `RPC_${chainId}`
-      jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
+    // Shared prefix the Lambda's getRpcUrl appends the chainId to.
+    const jsonRpcUrls: { [chain: string]: string } = {
+      RPC_PREFIX_URL: jsonRpcProvidersSecret.secretValueFromJson('RPC_PREFIX_URL').toString(),
     }
 
     new CfnOutput(this, 'jsonRpcUrls', {
       value: JSON.stringify(jsonRpcUrls),
     })
+
+    // Authenticates outbound RPC requests via the `x-internal-service-secret`
+    // header (see RPC_HEADERS in lib/util/constants.ts). Kept out of the
+    // CfnOutput above so the secret is not exposed in CloudFormation outputs.
+    const rpcHeaderSecret = jsonRpcProvidersSecret.secretValueFromJson('RPC_HEADER_SECRET').toString()
 
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
@@ -190,6 +190,7 @@ export class APIPipeline extends Stack {
       stage: STAGE.BETA,
       envVars: {
         ...jsonRpcUrls,
+        RPC_HEADER_SECRET: rpcHeaderSecret,
         QUOTER_TENDERLY: tenderlySecrets.secretValueFromJson('QUOTER_TENDERLY').toString(),
         DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
@@ -229,6 +230,7 @@ export class APIPipeline extends Stack {
       stage: STAGE.PROD,
       envVars: {
         ...jsonRpcUrls,
+        RPC_HEADER_SECRET: rpcHeaderSecret,
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
         ACTIVE_ORDER_EVENT_DESTINATION_ARN: resourceArnSecret
           .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_PROD')
@@ -305,8 +307,12 @@ export class APIPipeline extends Stack {
             value: `${stage}/gouda-service/integ-test/cosigner`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          RPC_1: {
-            value: 'all/gouda-service/integ-test/rpc:RPC_1',
+          RPC_PREFIX_URL: {
+            value: 'gouda-service-rpc-urls-2:RPC_PREFIX_URL',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          RPC_HEADER_SECRET: {
+            value: 'gouda-service-rpc-urls-2:RPC_HEADER_SECRET',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TEST_WALLET_PK: {
@@ -327,7 +333,8 @@ export class APIPipeline extends Stack {
         'echo "TAPI_API_KEY=${TAPI_API_KEY}" >> .env',
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
         'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" >> .env',
-        'echo "RPC_1=${RPC_1}" >> .env',
+        'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
+        'echo "RPC_HEADER_SECRET=${RPC_HEADER_SECRET}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
@@ -355,10 +362,8 @@ const app = new cdk.App()
 // Local dev stack
 const envVars: { [key: string]: string } = {}
 
-for (const chainId of SUPPORTED_CHAINS) {
-  const key = `RPC_${chainId}`
-  envVars[key] = process.env[key] || ''
-}
+envVars['RPC_PREFIX_URL'] = process.env['RPC_PREFIX_URL'] || ''
+envVars['RPC_HEADER_SECRET'] = process.env['RPC_HEADER_SECRET'] || ''
 
 envVars['RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
 envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''
