@@ -5,6 +5,7 @@ import { BuildEnvironmentVariableType, BuildSpec, ComputeType } from 'aws-cdk-li
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 
 import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
@@ -272,6 +273,18 @@ export class APIPipeline extends Stack {
     const testAction = new CodeBuildStep(`${SERVICE_NAME}-IntegTests-${apiStage.stageName}`, {
       projectName: `${SERVICE_NAME}-IntegTests-${apiStage.stageName}`,
       input: sourceArtifact,
+      // RPC_PREFIX_URL / RPC_HEADER_SECRET are read from gouda-service-rpc-urls-2,
+      // which is encrypted with a customer-managed KMS key. Allow this build's role
+      // to decrypt Secrets Manager values so the SECRETS_MANAGER env vars resolve.
+      rolePolicyStatements: [
+        new PolicyStatement({
+          actions: ['kms:Decrypt'],
+          resources: ['*'],
+          conditions: {
+            StringEquals: { 'kms:ViaService': `secretsmanager.${this.region}.amazonaws.com` },
+          },
+        }),
+      ],
       envFromCfnOutputs: {
         UNISWAP_API: apiStage.url,
       },
