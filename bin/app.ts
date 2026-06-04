@@ -5,6 +5,7 @@ import { BuildEnvironmentVariableType, BuildSpec, ComputeType } from 'aws-cdk-li
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 
 import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pipelines'
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
@@ -272,6 +273,18 @@ export class APIPipeline extends Stack {
     const testAction = new CodeBuildStep(`${SERVICE_NAME}-IntegTests-${apiStage.stageName}`, {
       projectName: `${SERVICE_NAME}-IntegTests-${apiStage.stageName}`,
       input: sourceArtifact,
+      // Several beta/prod integ-test secrets (gpa_url, tapi_api_key, tapi_url,
+      // cosigner) are encrypted with a shared customer-managed KMS key. CDK
+      // auto-grants secretsmanager:GetSecretValue for the env-var secrets but
+      // not kms:Decrypt, so without this the build fails resolving them with
+      // "AccessDeniedException: Access to KMS is not allowed". The key policy
+      // delegates to IAM, so this IAM grant is sufficient (no key-policy edit).
+      rolePolicyStatements: [
+        new PolicyStatement({
+          actions: ['kms:Decrypt'],
+          resources: ['arn:aws:kms:us-east-2:644039819003:key/2df28f63-7535-49e9-892a-8ea0471366bf'],
+        }),
+      ],
       envFromCfnOutputs: {
         UNISWAP_API: apiStage.url,
       },
