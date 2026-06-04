@@ -9,6 +9,7 @@ import { CodeBuildStep, CodePipeline, CodePipelineSource } from 'aws-cdk-lib/pip
 import { Construct } from 'constructs'
 import dotenv from 'dotenv'
 import 'source-map-support/register'
+import { SUPPORTED_CHAINS } from '../lib/util/chain'
 import { STAGE } from '../lib/util/stage'
 import { PROD_TABLE_CAPACITY } from './config'
 import { SERVICE_NAME } from './constants'
@@ -168,9 +169,13 @@ export class APIPipeline extends Stack {
         'arn:aws:secretsmanager:us-east-2:644039819003:secret:prod-priority-labs-cosigner-address-iarU6E',
     })
 
-    // Shared prefix the Lambda's getRpcUrl appends the chainId to.
-    const jsonRpcUrls: { [chain: string]: string } = {
-      RPC_PREFIX_URL: jsonRpcProvidersSecret.secretValueFromJson('RPC_PREFIX_URL').toString(),
+    // Per-chain RPC URLs. The Lambda's getRpcUrl(chainId) reads `RPC_<chainId>`
+    // from the environment; the secret is a JSON map keyed the same way
+    // (e.g. RPC_1, RPC_130, RPC_8453).
+    const jsonRpcUrls: { [chain: string]: string } = {}
+    for (const chainId of SUPPORTED_CHAINS) {
+      const key = `RPC_${chainId}`
+      jsonRpcUrls[key] = jsonRpcProvidersSecret.secretValueFromJson(key).toString()
     }
 
     new CfnOutput(this, 'jsonRpcUrls', {
@@ -300,8 +305,8 @@ export class APIPipeline extends Stack {
             value: `${stage}/gouda-service/integ-test/cosigner`,
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          RPC_PREFIX_URL: {
-            value: 'all/gouda-service/integ-test/rpc',
+          RPC_1: {
+            value: 'all/gouda-service/integ-test/rpc:RPC_1',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TEST_WALLET_PK: {
@@ -322,7 +327,7 @@ export class APIPipeline extends Stack {
         'echo "TAPI_API_KEY=${TAPI_API_KEY}" >> .env',
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
         'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" >> .env',
-        'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
+        'echo "RPC_1=${RPC_1}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
@@ -350,7 +355,10 @@ const app = new cdk.App()
 // Local dev stack
 const envVars: { [key: string]: string } = {}
 
-envVars['RPC_PREFIX_URL'] = process.env['RPC_PREFIX_URL'] || ''
+for (const chainId of SUPPORTED_CHAINS) {
+  const key = `RPC_${chainId}`
+  envVars[key] = process.env[key] || ''
+}
 
 envVars['RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
 envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''

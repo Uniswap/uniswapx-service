@@ -79,8 +79,8 @@ describe('/dutch-auction/order', () => {
     if (!process.env.GPA_SERVICE_URL) {
       throw new Error('GPA_SERVICE_URL not set')
     }
-    if (!process.env.RPC_PREFIX_URL) {
-      throw new Error('RPC_PREFIX_URL not set')
+    if (!process.env.RPC_1) {
+      throw new Error('RPC_1 not set')
     }
     if (!process.env.TEST_WALLET_PK) {
       throw new Error('TEST_WALLET_PK not set')
@@ -98,7 +98,7 @@ describe('/dutch-auction/order', () => {
     QUOTE_API_KEY = process.env.TAPI_API_KEY
 
     provider = new ethers.providers.StaticJsonRpcProvider({
-      url: `${process.env.RPC_PREFIX_URL.replace(/\/$/, '')}/1`,
+      url: process.env.RPC_1,
       headers: RPC_HEADERS
     })
     alice = new ethers.Wallet(process.env.TEST_WALLET_PK).connect(provider)
