@@ -177,6 +177,11 @@ export class APIPipeline extends Stack {
       value: JSON.stringify(jsonRpcUrls),
     })
 
+    // Authenticates outbound RPC requests via the `x-internal-service-secret`
+    // header (see RPC_HEADERS in lib/util/constants.ts). Kept out of the
+    // CfnOutput above so the secret is not exposed in CloudFormation outputs.
+    const rpcHeaderSecret = jsonRpcProvidersSecret.secretValueFromJson('RPC_HEADER_SECRET').toString()
+
     // Beta us-east-2
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
@@ -185,6 +190,7 @@ export class APIPipeline extends Stack {
       stage: STAGE.BETA,
       envVars: {
         ...jsonRpcUrls,
+        RPC_HEADER_SECRET: rpcHeaderSecret,
         QUOTER_TENDERLY: tenderlySecrets.secretValueFromJson('QUOTER_TENDERLY').toString(),
         DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
@@ -224,6 +230,7 @@ export class APIPipeline extends Stack {
       stage: STAGE.PROD,
       envVars: {
         ...jsonRpcUrls,
+        RPC_HEADER_SECRET: rpcHeaderSecret,
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
         ACTIVE_ORDER_EVENT_DESTINATION_ARN: resourceArnSecret
           .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_PROD')
@@ -301,7 +308,11 @@ export class APIPipeline extends Stack {
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           RPC_PREFIX_URL: {
-            value: 'all/gouda-service/integ-test/rpc',
+            value: 'gouda-service-rpc-urls-2:RPC_PREFIX_URL',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
+          RPC_HEADER_SECRET: {
+            value: 'gouda-service-rpc-urls-2:RPC_HEADER_SECRET',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
           TEST_WALLET_PK: {
@@ -323,6 +334,7 @@ export class APIPipeline extends Stack {
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
         'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" >> .env',
         'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
+        'echo "RPC_HEADER_SECRET=${RPC_HEADER_SECRET}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
         'yarn install --network-concurrency 1 --skip-integrity-check',
@@ -351,6 +363,7 @@ const app = new cdk.App()
 const envVars: { [key: string]: string } = {}
 
 envVars['RPC_PREFIX_URL'] = process.env['RPC_PREFIX_URL'] || ''
+envVars['RPC_HEADER_SECRET'] = process.env['RPC_HEADER_SECRET'] || ''
 
 envVars['RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
 envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''

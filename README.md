@@ -48,6 +48,8 @@ To test your changes you must redeploy your service. The dev cycle is thus:
 ```
 FAILED_EVENT_DESTINATION_ARN=<>
 RPC_PREFIX_URL=<>
+# Optional: sent as the `x-internal-service-secret` header on all RPC requests.
+RPC_HEADER_SECRET=<>
 
 # Only need these if testing against custom contract deployments
 DL_REACTOR_TENDERLY=<>
