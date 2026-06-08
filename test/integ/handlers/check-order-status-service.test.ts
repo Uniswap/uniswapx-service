@@ -309,8 +309,8 @@ describe('checkOrderStatusService', () => {
                 swapper: '0x123',
                 blockNumber: fillBlock,
                 txHash: '0x1244345323',
-                inputs: [{ token: v3OrderEntity.input.token, amount: BigNumber.from(v3OrderEntity.input.startAmount) }],
-                outputs: [{ token: v3OrderEntity.outputs[0].token, amount: BigNumber.from(v3OrderEntity.outputs[0].startAmount) }],
+                inputs: [{ token: v3Order.inner.info.input.token, amount: v3Order.inner.info.input.startAmount }],
+                outputs: [{ token: v3Order.inner.info.outputs[0].token, amount: v3Order.inner.info.outputs[0].startAmount }],
               },
             ]
           }
