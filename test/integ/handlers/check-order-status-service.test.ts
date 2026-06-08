@@ -13,7 +13,10 @@ import {
   FILL_EVENT_LOOKBACK_BLOCKS_ON,
 } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
-import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH, MOCK_V2_ORDER_ENTITY } from '../../test-data'
+import { DutchV3Order } from '../../../lib/models/DutchV3Order'
+import { ChainId } from '../../../lib/util/chain'
+import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
+import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH, MOCK_SIGNATURE, MOCK_V2_ORDER_ENTITY } from '../../test-data'
 
 jest.mock('../../../lib/handlers/check-order-status/util', () => {
   const original = jest.requireActual('../../../lib/handlers/check-order-status/util')
@@ -275,6 +278,62 @@ describe('checkOrderStatusService', () => {
         expect(result).toEqual(
           expect.objectContaining({
             orderStatus: 'cancelled',
+          })
+        )
+      })
+
+      it('backfills from decayStartBlock before terminalizing Dutch_V3 orders', async () => {
+        const v3Order = new DutchV3Order(
+          SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+            cosignerData: {
+              decayStartBlock: 420,
+            },
+          }),
+          MOCK_SIGNATURE,
+          ChainId.ARBITRUM_ONE
+        )
+        const v3OrderEntity = v3Order.toEntity(ORDER_STATUS.OPEN)
+        ordersRepositoryMock.getByHash.mockResolvedValue(v3OrderEntity)
+
+        providerMock.getBlockNumber.mockResolvedValue(500)
+        const fillBlock = 450
+        getFillInfoMock.mockImplementation((fromBlock: number, toBlock: number) => {
+          // Simulates a case where the normal window misses the fill but a
+          // one-time reconciliation from decayStartBlock can still recover it.
+          if (fromBlock <= fillBlock && toBlock >= fillBlock) {
+            return [
+              {
+                orderHash: v3OrderEntity.orderHash,
+                filler: '0x123',
+                nonce: BigNumber.from(1),
+                swapper: '0x123',
+                blockNumber: fillBlock,
+                txHash: '0x1244345323',
+                inputs: [{ token: v3OrderEntity.input.token, amount: BigNumber.from(v3OrderEntity.input.startAmount) }],
+                outputs: [{ token: v3OrderEntity.outputs[0].token, amount: BigNumber.from(v3OrderEntity.outputs[0].startAmount) }],
+              },
+            ]
+          }
+          return []
+        })
+
+        const result = await checkOrderStatusService.handleRequest({
+          ...openOrderRequest,
+          chainId: ChainId.ARBITRUM_ONE,
+          orderHash: v3OrderEntity.orderHash,
+          getFillLogAttempts: 1,
+          startingBlockNumber: 490,
+          orderType: OrderType.Dutch_V3,
+        })
+
+        expect(getFillInfoMock).toHaveBeenCalledTimes(1)
+        expect(getFillInfoMock).toHaveBeenNthCalledWith(1, 420, 500)
+        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
+        expect(result).toEqual(
+          expect.objectContaining({
+            orderStatus: 'filled',
+            txHash: '0x1244345323',
+            fillBlock,
           })
         )
       })

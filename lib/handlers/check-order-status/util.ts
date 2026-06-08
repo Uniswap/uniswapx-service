@@ -277,6 +277,19 @@ export const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
   }
 }
 
+export const FILL_CHECK_OVERLAP_BLOCKS_ON = (chainId: ChainId): number => {
+  switch (chainId) {
+    case ChainId.MAINNET:
+      return 20
+    case ChainId.BASE:
+      return 20
+    case ChainId.ARBITRUM_ONE:
+      return 50
+    default:
+      return 20
+  }
+}
+
 const watcherMap = new Map<string, UniswapXEventWatcher>()
 export function getWatcher(
   provider: ethers.providers.StaticJsonRpcProvider,
