@@ -110,11 +110,12 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
         let log: Logger = bunyan.createLogger({
           name: this.handlerName,
           serializers: bunyan.stdSerializers,
-          level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 : bunyan.INFO,
+          level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 :
+            process.env.NODE_ENV == 'debug' ? bunyan.DEBUG : bunyan.INFO,
           requestId: context.awsRequestId,
         })
 
-        log.info({ event, context }, 'Request started.')
+        log.debug({ event, context }, 'Request started.')
 
         let requestBody: ReqBody
         let requestQueryParams: ReqQueryParams
@@ -180,7 +181,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
               body: response,
             }
           } else {
-            log.info({ requestBody, requestQueryParams }, 'Handler returned 200')
+            log.debug({ requestBody, requestQueryParams }, 'Handler returned 200')
             ;({ headers, body, statusCode } = handleRequestResult)
           }
         } catch (err) {
@@ -202,7 +203,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
           return INTERNAL_ERROR(id)
         }
 
-        log.info({ statusCode, response }, `Request ended. ${statusCode}`)
+        log.debug({ statusCode, response }, `Request ended. ${statusCode}`)
         const responseBody =
           headers && Object.keys(headers).includes('Content-Type') && headers['Content-Type'] == 'text/html'
             ? (response as string)
