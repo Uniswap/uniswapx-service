@@ -5,7 +5,7 @@ import { HeaderExpectation } from '../../HeaderExpectation'
 describe('Testing get api docs json handler.', () => {
   // Creating mocks for all the handler dependencies.
   const requestInjectedMock = {
-    log: { info: () => jest.fn(), error: () => jest.fn() },
+    log: { info: () => jest.fn(), error: () => jest.fn(), debug: () => jest.fn() },
   }
   const injectorPromiseMock: any = {
     getContainerInjected: () => {

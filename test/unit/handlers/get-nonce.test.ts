@@ -12,7 +12,7 @@ describe('Testing get nonce handler.', () => {
   const requestInjectedMock = {
     address: MOCK_ADDRESS,
     chainId: 1,
-    log: { info: () => jest.fn(), error: () => jest.fn() },
+    log: { info: () => jest.fn(), error: () => jest.fn(), debug: () => jest.fn() },
   }
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
