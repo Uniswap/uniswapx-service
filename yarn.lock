@@ -4657,14 +4657,6 @@
   resolved "https://registry.yarnpkg.com/@uniswap/lib/-/lib-4.0.1-alpha.tgz#2881008e55f075344675b3bca93f020b028fbd02"
   integrity sha512-f6UIliwBbRsgVLxIaBANF6w09tYqc6Y/qXdsrbEmXHyFA7ILiKrIwRFXe1yOg8M3cksgVsO9N7yuL2DdCGQKBA==
 
-"@uniswap/permit2-sdk@^1.2.1":
-  version "1.3.1"
-  resolved "https://registry.npmjs.org/@uniswap/permit2-sdk/-/permit2-sdk-1.3.1.tgz#831ced0240e2f9f323c53b9a0366e92ae351b2b8"
-  integrity sha512-Eq2by4zVEVSZL3PJ1Yuf5+AZ/yE1GOuksWzPXPoxr5WRm3hqh34jKEqtyTImHqwuPrdILG8i02xJmgGLTH1QfA==
-  dependencies:
-    ethers "^5.7.0"
-    tiny-invariant "^1.1.0"
-
 "@uniswap/permit2-sdk@^1.3.0":
   version "1.3.0"
   resolved "https://registry.yarnpkg.com/@uniswap/permit2-sdk/-/permit2-sdk-1.3.0.tgz#b54124e570f0adbaca9d39b2de3054fd7d3798a1"
@@ -4697,6 +4689,23 @@
   version "7.14.0"
   resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.14.0.tgz#be134de267352be14c61a8ec982ca9657f1beb44"
   integrity sha512-uJe0YmufRXFBKj5qDRS9Nfzo0O3GrhxpIDS9OMJqRUG5yzYtXL+HdUv8kr/byJfWoGyAJUsURte4NAT/04w0zA==
+  dependencies:
+    "@ethersproject/address" "^5.0.2"
+    "@ethersproject/bignumber" "^5.5.0"
+    "@ethersproject/bytes" "^5.7.0"
+    "@ethersproject/keccak256" "5.7.0"
+    "@ethersproject/strings" "5.7.0"
+    big.js "^5.2.2"
+    decimal.js-light "^2.5.0"
+    jsbi "^3.1.4"
+    tiny-invariant "^1.1.0"
+    toformat "^2.0.0"
+    tslib "^2.3.0"
+
+"@uniswap/sdk-core@^7.17.0":
+  version "7.17.0"
+  resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.17.0.tgz#7be02563c1fb9e8fe45b934a55783aea71d6e8de"
+  integrity sha512-5maoaZMcGpvxfg6ZG4hpG8eJYakrFh8y75NhDKB40xenQAnSQt/xz1JMbY6+GGkXMvY+z3pT5mmKYxjGU0S5Bw==
   dependencies:
     "@ethersproject/address" "^5.0.2"
     "@ethersproject/bignumber" "^5.5.0"
@@ -4746,16 +4755,18 @@
     dotenv "^14.2.0"
     hardhat-watcher "^2.1.1"
 
-"@uniswap/uniswapx-sdk@3.0.0-beta.14":
-  version "3.0.0-beta.14"
-  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.0-beta.14.tgz#2c7345cd1155819e6f5c0b62abadc5690d01379e"
-  integrity sha512-EN0rbwwgCnIRymRa3KdbQ1IPrecJGSCbjiZEzz2i9HClRzCENuxE8qukwdHqt1jrAB2WmtM3vN0uN3Sk65Ursw==
+"@uniswap/uniswapx-sdk@3.0.8":
+  version "3.0.8"
+  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.8.tgz#32e3ff23288f2e6ec15fd197dd06d59527d68160"
+  integrity sha512-/e4jgppX5YMcfw8UGdFgaayVMXAKdXjKXiugdL9ouP0db5DSXa3w5PYsOwDxVnm7w3AnQDGg05VaoOEXNgbBWw==
   dependencies:
+    "@ethersproject/abi" "^5.5.0"
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"
-    "@uniswap/permit2-sdk" "^1.2.1"
-    "@uniswap/sdk-core" "^7.5.0"
+    "@uniswap/permit2-sdk" "^1.4.0"
+    "@uniswap/sdk-core" "^7.17.0"
     ethers "^5.7.0"
+    tiny-invariant "^1.1.0"
 
 "@uniswap/universal-router-sdk@^4.18.1":
   version "4.18.1"
@@ -5710,20 +5721,7 @@ electron-to-chromium@^1.4.284:
   resolved "https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.4.385.tgz"
   integrity sha512-L9zlje9bIw0h+CwPQumiuVlfMcV4boxRjFIWDcLfFqTZNbkwOExBzfmswytHawObQX4OUhtNv8gIiB21kOurIg==
 
-elliptic@6.5.4:
-  version "6.5.4"
-  resolved "https://registry.npmjs.org/elliptic/-/elliptic-6.5.4.tgz#da37cebd31e79a1367e941b592ed1fbebd58abbb"
-  integrity sha512-iLhC6ULemrljPZb+QutR5TQGB+pdW6KGD5RSegS+8sorOZT+rdQFbsQFJgvN3eRqNALqJer4oQ16YvJHlU8hzQ==
-  dependencies:
-    bn.js "^4.11.9"
-    brorand "^1.1.0"
-    hash.js "^1.0.0"
-    hmac-drbg "^1.0.1"
-    inherits "^2.0.4"
-    minimalistic-assert "^1.0.1"
-    minimalistic-crypto-utils "^1.0.1"
-
-elliptic@6.6.1:
+elliptic@6.5.4, elliptic@6.6.1:
   version "6.6.1"
   resolved "https://registry.npmjs.org/elliptic/-/elliptic-6.6.1.tgz#3b8ffb02670bf69e382c7f65bf524c97c5405c06"
   integrity sha512-RaddvvMatK2LJHqFJ+YA4WysVN5Ita9E35botqIYspQ4TkRAlCicdzKOjlyv/1Za5RyTNn7di//eEV0uTAfe3g==

@@ -69,7 +69,7 @@
     "@uniswap/permit2-sdk": "^1.4.0",
     "@uniswap/sdk-core": "^7.14.0",
     "@uniswap/signer": "^0.0.4",
-    "@uniswap/uniswapx-sdk": "3.0.0-beta.14",
+    "@uniswap/uniswapx-sdk": "3.0.8",
     "@uniswap/universal-router-sdk": "^4.18.1",
     "aws-cdk-lib": "2.200.1",
     "aws-embedded-metrics": "^4.1.0",
