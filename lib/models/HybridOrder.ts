@@ -2,7 +2,7 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { KmsSigner } from '@uniswap/signer'
 import { CosignedHybridOrder as SDKHybridOrder, HybridCosignerData, OrderType } from '@uniswap/uniswapx-sdk'
-import { BigNumber } from 'ethers'
+import { BigNumber, constants } from 'ethers'
 import { ORDER_STATUS } from '../entities'
 import { HybridOrderEntity, UniswapXOrderEntity } from '../entities/Order'
 import { CosigningError } from '../errors/CosigningError'
@@ -198,10 +198,18 @@ export class HybridOrder extends Order {
   }
 
   private generateCosignerData(targetBlock: BigNumber, scaleWorse: boolean, hardQuote?: HardQuote): HybridCosignerData {
+    // Defaulting to the SDK's empty values
+    const exclusivityDefaults = {
+      exclusiveFiller: constants.AddressZero,
+      exclusivityOverrideBps: BigNumber.from(0),
+      exclusivityEndBlock: BigNumber.from(0),
+    }
+
     if (this.inner.info.priceCurve.length == 0) {
       return {
         auctionTargetBlock: BigNumber.from(0),
         supplementalPriceCurve: [],
+        ...exclusivityDefaults,
       }
     }
 
@@ -210,6 +218,7 @@ export class HybridOrder extends Order {
       return {
         auctionTargetBlock: targetBlock,
         supplementalPriceCurve: [],
+        ...exclusivityDefaults,
       }
     }
 
@@ -219,6 +228,7 @@ export class HybridOrder extends Order {
       return {
         auctionTargetBlock: targetBlock,
         supplementalPriceCurve: [],
+        ...exclusivityDefaults,
       }
     }
 
@@ -226,6 +236,7 @@ export class HybridOrder extends Order {
       return {
         auctionTargetBlock: targetBlock,
         supplementalPriceCurve: [],
+        ...exclusivityDefaults,
       }
     }
 
@@ -236,6 +247,7 @@ export class HybridOrder extends Order {
         return {
           auctionTargetBlock: targetBlock,
           supplementalPriceCurve: [],
+          ...exclusivityDefaults,
         }
       }
     }
@@ -245,6 +257,7 @@ export class HybridOrder extends Order {
     return {
       auctionTargetBlock: targetBlock,
       supplementalPriceCurve,
+      ...exclusivityDefaults,
     }
   }
 
