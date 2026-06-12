@@ -21,13 +21,16 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import { getSettledAmounts, IS_TERMINAL_STATE, timestampToBlockNumber } from './util'
+import {
+  FILL_CHECK_OVERLAP_BLOCKS_ON,
+  getSettledAmounts,
+  IS_TERMINAL_STATE,
+  timestampToBlockNumber,
+} from './util'
 import { parseOrder } from '../OrderParser'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../constants'
 import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { Permit2Validator } from '../../util/Permit2Validator'
-
-const FILL_CHECK_OVERLAP_BLOCK = 20
 
 // Type for legacy orders that have input at the info level
 type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
@@ -145,10 +148,21 @@ export class CheckOrderStatusService {
     // if validation is NonceUsed or Expired it might be filled or unfilled
     // so check for a fillEvent
     // if no fill event, process in the unfilled path
+    const overlapBlocks = FILL_CHECK_OVERLAP_BLOCKS_ON(chainId as ChainId)
+    let fillSearchFromBlock = Math.max(0, fromBlock - overlapBlocks)
+    if (
+      getFillLogAttempts > 0 &&
+      (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) &&
+      order.type === OrderType.Dutch_V3
+    ) {
+      // Minimal reconciliation: avoid false terminal states for V3 by looking
+      // back to the auction start block before concluding cancelled/expired.
+      fillSearchFromBlock = Math.max(0, Math.min(fillSearchFromBlock, order.cosignerData.decayStartBlock))
+    }
     if (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) {
       const fillEvent = await this.getFillEventForOrder(
         orderHash,
-        fromBlock - FILL_CHECK_OVERLAP_BLOCK,
+        fillSearchFromBlock,
         curBlockNumber,
         orderWatcher
       )
