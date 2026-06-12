@@ -1,5 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { KMSClient } from '@aws-sdk/client-kms'
+import { Unit } from 'aws-embedded-metrics'
 import { KmsSigner } from '@uniswap/signer'
 import {
   CosignedHybridOrder,
@@ -41,6 +42,7 @@ import { WebhookProvider } from '../providers/base'
 import { BaseOrdersRepository } from '../repositories/base'
 import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
 import { hasExclusiveFiller } from '../util/address'
+import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
@@ -65,6 +67,14 @@ export class UniswapXOrderService {
   async createOrder(
     order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order | HybridOrder
   ): Promise<string> {
+    // Start the open-order count alongside validation; both must pass before the
+    // order is accepted but neither depends on the other. All order entities
+    // store offerer as the lowercased swapper address.
+    const canPlaceNewOrderPromise = this.userCanPlaceNewOrder(order.inner.info.swapper.toLowerCase())
+    // If validation throws first, keep the still-pending count from surfacing as
+    // an unhandled rejection; the real result is awaited below.
+    canPlaceNewOrderPromise.catch(() => undefined)
+
     let orderEntity: UniswapXOrderEntity
     if (order instanceof DutchV1Order || order instanceof LimitOrder) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
@@ -118,50 +128,61 @@ export class UniswapXOrderService {
       throw new Error('unsupported OrderType')
     }
 
-    const canPlaceNewOrder = await this.userCanPlaceNewOrder(orderEntity.offerer)
+    const canPlaceNewOrder = await canPlaceNewOrderPromise
     if (!canPlaceNewOrder) {
       throw new TooManyOpenOrdersError()
     }
 
     await this.persistOrder(orderEntity)
 
-    const realOrderType = order.orderType
-    await this.logOrderCreatedEvent(orderEntity, realOrderType)
+    // From here on the signed order is durably stored and fillable, so a thrown
+    // error would make the caller report an accepted order as rejected
+    // (SWAP-2839). Log and alarm instead of throwing.
+    try {
+      const realOrderType = order.orderType
+      await this.logOrderCreatedEvent(orderEntity, realOrderType)
 
-    // Send immediate notification to exclusive filler if present
-    if (this.webhookProvider && hasExclusiveFiller(orderEntity.filler)) {
-      // Create properly typed webhook order data
-      const exclusiveFillerOrder: ExclusiveFillerWebhookOrder = {
-        orderHash: orderEntity.orderHash,
-        createdAt: orderEntity.createdAt ?? Date.now(),
-        signature: orderEntity.signature,
-        offerer: orderEntity.offerer,
-        orderStatus: orderEntity.orderStatus,
-        encodedOrder: orderEntity.encodedOrder,
-        chainId: orderEntity.chainId,
-        quoteId: orderEntity.quoteId,
-        filler: orderEntity.filler,
-        orderType: realOrderType,
+      // Send immediate notification to exclusive filler if present
+      if (this.webhookProvider && hasExclusiveFiller(orderEntity.filler)) {
+        // Create properly typed webhook order data
+        const exclusiveFillerOrder: ExclusiveFillerWebhookOrder = {
+          orderHash: orderEntity.orderHash,
+          createdAt: orderEntity.createdAt ?? Date.now(),
+          signature: orderEntity.signature,
+          offerer: orderEntity.offerer,
+          orderStatus: orderEntity.orderStatus,
+          encodedOrder: orderEntity.encodedOrder,
+          chainId: orderEntity.chainId,
+          quoteId: orderEntity.quoteId,
+          filler: orderEntity.filler,
+          orderType: realOrderType,
+        }
+
+        // Don't await to minimize latency-add to order posting flow
+        sendImmediateExclusiveFillerNotification(
+          exclusiveFillerOrder,
+          realOrderType,
+          this.webhookProvider,
+          this.logger
+        ).catch((error) => {
+          this.logger.warn({
+            orderHash: orderEntity.orderHash,
+            error: error.message || error,
+            message: 'Immediate webhook notification failed, will rely on DynamoDB stream',
+          })
+        })
       }
 
-      // Don't await to minimize latency-add to order posting flow
-      sendImmediateExclusiveFillerNotification(
-        exclusiveFillerOrder,
-        realOrderType,
-        this.webhookProvider,
-        this.logger
-      ).catch((error) => {
-        this.logger.warn({
-          orderHash: orderEntity.orderHash,
-          error: error.message || error,
-          message: 'Immediate webhook notification failed, will rely on DynamoDB stream',
-        })
+      // TODO: cleanup with generic order model
+      const quoteId = 'quoteId' in order ? order.quoteId : undefined
+      await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, realOrderType)
+    } catch (err) {
+      this.logger.error('Post-persist processing failed for accepted order', {
+        orderHash: orderEntity.orderHash,
+        err,
       })
+      metrics.putMetric('PostOrderPostPersistFailure', 1, Unit.Count)
     }
-
-    // TODO: cleanup with generic order model
-    const quoteId = 'quoteId' in order ? order.quoteId : undefined
-    await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, realOrderType)
 
     return orderEntity.orderHash
   }

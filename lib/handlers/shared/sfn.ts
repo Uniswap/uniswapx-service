@@ -14,14 +14,18 @@ export type OrderTrackingSfnInput = {
   runIndex?: number
 }
 
+// Reuse a single client across invocations: constructing an SFNClient per
+// order pays a fresh TLS handshake on the post-order latency-critical path.
+let sfnClient: SFNClient | undefined
+
 export async function kickoffOrderTrackingSfn(
   sfnInput: OrderTrackingSfnInput,
   stateMachineArn: string
 ) {
   log.info('starting state machine')
   const region = checkDefined(process.env['REGION'], 'REGION is undefined')
-  const sfnClient = new SFNClient({ region: region })
-  
+  sfnClient = sfnClient ?? new SFNClient({ region: region })
+
   // Use runIndex if provided, otherwise fall back to random number
   const BIG_NUMBER = 1000000000000
   const rand = Math.floor(Math.random() * BIG_NUMBER)

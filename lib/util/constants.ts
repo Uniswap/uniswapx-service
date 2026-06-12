@@ -95,6 +95,11 @@ export const USE_CLASSIC_PARAMETERS = {
   // batchNumber and algorithmVersion are added dynamically
 }
 
+// Bound RPC calls well below the post-order Lambda's 29s budget so a hung
+// provider fails the request before the order is accepted, instead of the
+// ethers default of 120s.
+export const RPC_PROVIDER_TIMEOUT_MS = 5_000
+
 export const RPC_HEADERS: { [key: string]: string } = {
   'x-uni-service-id': 'x_order_service',
   // Authenticate RPC requests against internal providers. The value is provided
