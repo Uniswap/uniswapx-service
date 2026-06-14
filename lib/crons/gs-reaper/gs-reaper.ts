@@ -38,6 +38,11 @@ type ChainState = {
   orderUpdates: Record<string, OrderUpdate>
   orderHashes: string[]
   stage: ReaperStage
+  // False if fill-event scanning failed for any block range this run. A used
+  // nonce is consistent with BOTH a fill and a cancellation, so we must not
+  // conclude an order was cancelled when our fill-event visibility is
+  // incomplete -- doing so misclassifies filled orders as CANCELLED.
+  fillScanComplete: boolean
 }
 
 const MAX_ORDERS_PER_CHAIN = 1000
@@ -116,7 +121,8 @@ export class GSReaper {
       earliestBlock,
       orderUpdates: {},
       orderHashes: [],
-      stage: ReaperStage.GET_OPEN_ORDERS
+      stage: ReaperStage.GET_OPEN_ORDERS,
+      fillScanComplete: true
     }
   }
   
@@ -153,12 +159,13 @@ export class GSReaper {
       case ReaperStage.PROCESS_BLOCKS: {
         let currentBlock = state.currentBlock
         let orderUpdates = state.orderUpdates
+        let fillScanComplete = state.fillScanComplete
         const orderHashSet = new Set(state.orderHashes)
-        
+
         for (let i = 0; i < REAPER_RANGES_PER_RUN; i++) {
           const nextBlock = currentBlock - BLOCK_RANGE
           this.log.info(`PROCESS_BLOCKS for chainId ${state.chainId} blocks ${currentBlock} to ${nextBlock}`)
-          const { updates, remainingHashes } = await processBlockRange(
+          const { updates, remainingHashes, fillScanFailed } = await processBlockRange(
             currentBlock,
             nextBlock,
             state.chainId,
@@ -168,15 +175,22 @@ export class GSReaper {
             orderUpdates,
             this.log
           )
-          
+
           orderUpdates = updates
           state.orderHashes = Array.from(remainingHashes)
+          // If we couldn't read fill events for a range, our fill visibility is
+          // incomplete; remember this so CHECK_CANCELLED doesn't mistake a
+          // filled order (whose nonce is used) for a cancelled one.
+          if (fillScanFailed) {
+            fillScanComplete = false
+          }
           currentBlock = nextBlock
           if (currentBlock <= state.earliestBlock) {
             return {
               ...state,
               currentBlock,
               orderUpdates,
+              fillScanComplete,
               stage: ReaperStage.CHECK_CANCELLED
             }
           }
@@ -186,6 +200,7 @@ export class GSReaper {
           ...state,
           currentBlock,
           orderUpdates,
+          fillScanComplete,
           stage: ReaperStage.PROCESS_BLOCKS
         }
       }
@@ -198,7 +213,8 @@ export class GSReaper {
           this.repo,
           provider,
           state.chainId,
-          this.log
+          this.log,
+          state.fillScanComplete
         )
         
         return {
@@ -263,13 +279,13 @@ async function processBlockRange(
   provider: ethers.providers.StaticJsonRpcProvider,
   existingUpdates: Record<string, OrderUpdate>,
   log: Logger
-): Promise<{ updates: Record<string, OrderUpdate>, remainingHashes: Set<string> }> {
+): Promise<{ updates: Record<string, OrderUpdate>, remainingHashes: Set<string>, fillScanFailed: boolean }> {
   const orderUpdates = { ...existingUpdates }
-  
+
   const reactorMap = REACTOR_ADDRESS_MAPPING[chainId]
   if (!reactorMap) {
     log.info(`No reactor mapping for chainId ${chainId}, skipping block range`)
-    return { updates: orderUpdates, remainingHashes: orderHashSet }
+    return { updates: orderUpdates, remainingHashes: orderHashSet, fillScanFailed: false }
   }
   for (const orderType of Object.keys(reactorMap)) {
     const reactorAddress = reactorMap[orderType as OrderType]
@@ -320,14 +336,16 @@ async function processBlockRange(
         recentErrors++
         if (attempts === REAPER_MAX_ATTEMPTS) {
           log.error({ error }, `Failed to get fill events after ${attempts} attempts for blocks ${toBlock} to ${fromBlock}`)
-          // Return the updates and remaining hashes so we can continue processing
-          return { updates: orderUpdates, remainingHashes: orderHashSet }
+          // Return the updates and remaining hashes so we can continue processing.
+          // Flag the scan as failed: we could not see fills in this range, so any
+          // remaining order with a used nonce must NOT be assumed cancelled.
+          return { updates: orderUpdates, remainingHashes: orderHashSet, fillScanFailed: true }
         }
       }
     }
   }
-  
-  return { updates: orderUpdates, remainingHashes: orderHashSet }
+
+  return { updates: orderUpdates, remainingHashes: orderHashSet, fillScanFailed: false }
 }
 
 async function checkCancelledOrders(
@@ -337,10 +355,11 @@ async function checkCancelledOrders(
   provider: ethers.providers.StaticJsonRpcProvider,
   chainId: number,
   log: Logger,
+  fillScanComplete: boolean,
 ): Promise<Record<string, OrderUpdate>> {
   const orderUpdates = { ...existingUpdates }
   const quoter = new OrderValidator(provider, chainId)
-  
+
   for (const orderHash of orderHashes) {
     if (!orderUpdates[orderHash]) {
       try {
@@ -359,6 +378,14 @@ async function checkCancelledOrders(
           })
 
         if (validation === OrderValidation.NonceUsed) {
+          // A used nonce means the order was EITHER filled or cancelled. If our
+          // fill-event scan was incomplete this run, we cannot tell which --
+          // marking it CANCELLED here would misclassify a filled order. Leave it
+          // unresolved so a future run (with full fill visibility) can resolve it.
+          if (!fillScanComplete) {
+            log.info(`Order ${orderHash} has a used nonce but fill scan was incomplete; deferring cancellation`)
+            continue
+          }
           log.info(`Order ${orderHash} has been cancelled`)
           orderUpdates[orderHash] = {
             status: ORDER_STATUS.CANCELLED,

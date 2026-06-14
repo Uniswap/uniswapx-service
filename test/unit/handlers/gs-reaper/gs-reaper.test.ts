@@ -214,6 +214,7 @@ describe('GSReaper', () => {
       
       const result = await openReaper.processChainState({
         ...state,
+        fillScanComplete: true,
         stage: ReaperStage.GET_OPEN_ORDERS
       })
 
@@ -239,6 +240,7 @@ describe('GSReaper', () => {
       
       const result = await insufficientFundsReaper.processChainState({
         ...state,
+        fillScanComplete: true,
         stage: ReaperStage.GET_OPEN_ORDERS
       })
 
@@ -258,6 +260,7 @@ describe('GSReaper', () => {
         earliestBlock: currentBlock - (BLOCKS_IN_24_HOURS(ChainId.MAINNET) * 7),
         orderUpdates: {},
         orderHashes: [],
+        fillScanComplete: true,
         stage: ReaperStage.GET_OPEN_ORDERS
       })
     })
@@ -269,6 +272,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [],
+        fillScanComplete: true,
         stage: ReaperStage.GET_OPEN_ORDERS
       }
 
@@ -287,6 +291,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
         stage: ReaperStage.PROCESS_BLOCKS
       }
 
@@ -307,6 +312,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
         stage: ReaperStage.CHECK_CANCELLED
       }
 
@@ -324,6 +330,54 @@ describe('GSReaper', () => {
       expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.CANCELLED)
     })
 
+    it('does NOT mark a used-nonce order CANCELLED when the fill scan was incomplete', async () => {
+      // Regression: a used nonce is consistent with both a fill and a cancel.
+      // When fill-event scanning failed for any range (fillScanComplete=false),
+      // we must defer rather than misclassify a filled order as CANCELLED.
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: false,
+        stage: ReaperStage.CHECK_CANCELLED
+      }
+
+      const { OrderValidation } = jest.requireActual('@uniswap/uniswapx-sdk')
+      const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
+      mockOrderValidator.mockImplementation(() => ({
+        validate: jest.fn().mockResolvedValue(OrderValidation.NonceUsed)
+      }))
+
+      const result = await reaper.processChainState(state)
+
+      expect(result?.stage).toBe(ReaperStage.UPDATE_DB)
+      // Order is left unresolved (no update) so a later run with full fill
+      // visibility can resolve it correctly.
+      expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
+    })
+
+    it('marks PROCESS_BLOCKS fillScanComplete=false when a range scan exhausts retries', async () => {
+      // If getFillEvents fails all attempts for a range, the run must flag
+      // incomplete fill visibility so CHECK_CANCELLED defers cancellations.
+      mockWatcher.getFillEvents.mockRejectedValue(new Error('limit exceeded'))
+
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
+        stage: ReaperStage.PROCESS_BLOCKS
+      }
+
+      const result = await reaper.processChainState(state)
+
+      expect(result?.fillScanComplete).toBe(false)
+    })
+
     it('processes UPDATE_DB stage and moves to next chain', async () => {
       const state = {
         chainId: ChainId.MAINNET,
@@ -337,6 +391,7 @@ describe('GSReaper', () => {
           }
         },
         orderHashes: [],
+        fillScanComplete: true,
         stage: ReaperStage.UPDATE_DB
       }
 
@@ -364,6 +419,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[lastChainId],
         orderUpdates: {},
         orderHashes: [],
+        fillScanComplete: true,
         stage: ReaperStage.UPDATE_DB
       }
 
@@ -380,6 +436,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
         stage: ReaperStage.PROCESS_BLOCKS
       }
 
@@ -405,6 +462,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
         stage: ReaperStage.PROCESS_BLOCKS
       }
 
@@ -427,6 +485,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
         stage: ReaperStage.PROCESS_BLOCKS
       }
 
@@ -448,6 +507,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
         stage: ReaperStage.CHECK_CANCELLED
       }
 
@@ -468,6 +528,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
         stage: ReaperStage.CHECK_CANCELLED
       }
 
@@ -504,6 +565,7 @@ describe('GSReaper', () => {
         earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
         orderUpdates: {},
         orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        fillScanComplete: true,
         stage: ReaperStage.CHECK_CANCELLED
       }
 
