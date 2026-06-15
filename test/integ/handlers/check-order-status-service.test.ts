@@ -278,6 +278,25 @@ describe('checkOrderStatusService', () => {
           })
         )
       })
+
+      it('should NOT cancel when the fill lookup fails, even at getFillLogAttempts = 1', async () => {
+        // Regression: a used nonce is consistent with a fill. If we can't read
+        // fill events (e.g. RPC getLogs range/rate limit), we must not finalize
+        // CANCELLED on incomplete info -- stay open and resolve on a later poll.
+        getFillInfoMock.mockRejectedValue(new Error('limit exceeded'))
+
+        const result = await checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
+
+        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(analyticsMock.logCancelled).not.toHaveBeenCalled()
+        // open == lastStatus, so no terminal write happens
+        expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
+        expect(result).toEqual(
+          expect.objectContaining({
+            orderStatus: 'open',
+          })
+        )
+      })
     })
 
     describe('OrderValidation.InsufficientFunds', () => {
@@ -343,17 +362,49 @@ describe('checkOrderStatusService', () => {
         validatorMock.validate.mockResolvedValue(OrderValidation.UnknownError)
       })
 
-      it('should update status with error', async () => {
+      it('should keep order open (not terminal error) on an ambiguous/transient UnknownError', async () => {
         const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
-        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
+        // open == lastStatus, so no terminal write happens
+        expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
         expect(result).toEqual(
           expect.objectContaining({
-            orderStatus: 'error',
+            orderStatus: 'open',
           })
         )
+      })
+    })
+
+    describe('fill-search window anchoring (getFillSearchFromBlock)', () => {
+      // FILL_CHECK_OVERLAP_BLOCK in the service
+      const OVERLAP = 20
+
+      it('anchors Dutch_V3 to decayStartBlock so early fills stay in range', () => {
+        const order: any = { type: OrderType.Dutch_V3, cosignerData: { decayStartBlock: 1000 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        // min(rolling - overlap, decayStartBlock - overlap) = min(4980, 980)
+        expect(fromBlock).toBe(980)
+      })
+
+      it('never shrinks coverage below the rolling window', () => {
+        const order: any = { type: OrderType.Dutch_V3, cosignerData: { decayStartBlock: 1000 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 500)
+        // rolling - overlap (480) is already below the anchor, so it wins
+        expect(fromBlock).toBe(480)
+      })
+
+      it('keeps the rolling window for timestamp-based types (Dutch)', () => {
+        const order: any = { type: OrderType.Dutch }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        expect(fromBlock).toBe(5000 - OVERLAP)
+      })
+
+      it('anchors Priority to its auction target block', () => {
+        const order: any = { type: OrderType.Priority, cosignerData: { auctionTargetBlock: 1000 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        expect(fromBlock).toBeLessThanOrEqual(1000 - OVERLAP)
       })
     })
 

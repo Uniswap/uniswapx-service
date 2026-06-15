@@ -146,12 +146,36 @@ export class CheckOrderStatusService {
     // so check for a fillEvent
     // if no fill event, process in the unfilled path
     if (validation === OrderValidation.NonceUsed || validation === OrderValidation.Expired) {
-      const fillEvent = await this.getFillEventForOrder(
-        orderHash,
-        fromBlock - FILL_CHECK_OVERLAP_BLOCK,
-        curBlockNumber,
-        orderWatcher
-      )
+      // Anchor the lower bound of the fill search to the order's decay/auction
+      // start when we know it exactly. Fills can settle at or just before that
+      // block (open and exclusive fills don't have to wait for decay), so a
+      // rolling lookback window anchored at the first poll can sit entirely
+      // after the fill -- the fill is then never found and the used nonce gets
+      // misread as a cancellation.
+      const fillSearchFromBlock = this.getFillSearchFromBlock(order, chainId, fromBlock)
+
+      let fillEvent: FillInfo | undefined
+      let fillLookupFailed = false
+      try {
+        fillEvent = await this.getFillEventForOrder(
+          orderHash,
+          fillSearchFromBlock,
+          curBlockNumber,
+          orderWatcher
+        )
+      } catch (e) {
+        // Could not read fill events (e.g. an RPC getLogs range/rate limit).
+        // A used nonce is equally consistent with a fill, so we must NOT fall
+        // through to the unfilled path and finalize CANCELLED/EXPIRED on
+        // incomplete information. Stay OPEN and let a later poll resolve it.
+        log.error('error fetching fill events; deferring unfilled status resolution', {
+          error: e,
+          orderHash,
+          chainId,
+        })
+        fillLookupFailed = true
+      }
+
       if (fillEvent) {
         try {
           const [tx, block] = await Promise.all([
@@ -223,6 +247,12 @@ export class CheckOrderStatusService {
             settledAmounts: [],
           }
         }
+      } else if (fillLookupFailed) {
+        // Fill visibility was incomplete this poll -- keep the order OPEN rather
+        // than concluding CANCELLED/EXPIRED from the used nonce / expiry.
+        extraUpdateInfo = {
+          orderStatus: ORDER_STATUS.OPEN,
+        }
       }
     }
 
@@ -240,6 +270,42 @@ export class CheckOrderStatusService {
     }
 
     return this.checkOrderStatusUtils.updateStatusAndReturn(updateObject)
+  }
+
+  /**
+   * Lower bound (inclusive) for the fill-event search. When the order's
+   * decay/auction start block is known exactly (Dutch V3, Hybrid, Priority) we
+   * anchor to it so fills that land at or just before it are always in range,
+   * regardless of when polling first ran. For timestamp-based order types
+   * (Dutch, Dutch V2) we keep the rolling lookback window. Always at least
+   * FILL_CHECK_OVERLAP_BLOCK below the rolling window so coverage never shrinks.
+   */
+  private getFillSearchFromBlock(
+    order: UniswapXOrderEntity,
+    chainId: number,
+    rollingFromBlock: number
+  ): number {
+    let anchorBlock: number | undefined
+    switch (order.type) {
+      case OrderType.Dutch_V3:
+        anchorBlock = order.cosignerData?.decayStartBlock
+        break
+      case OrderType.Hybrid:
+        anchorBlock = order.cosignerData?.auctionTargetBlock
+        break
+      case OrderType.Priority:
+        anchorBlock =
+          order.cosignerData?.auctionTargetBlock !== undefined
+            ? order.cosignerData.auctionTargetBlock - (PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId] ?? 0)
+            : undefined
+        break
+    }
+
+    const rollingLowerBound = rollingFromBlock - FILL_CHECK_OVERLAP_BLOCK
+    if (anchorBlock === undefined) {
+      return rollingLowerBound
+    }
+    return Math.min(rollingLowerBound, anchorBlock - FILL_CHECK_OVERLAP_BLOCK)
   }
 
   private async getFillEventForOrder(
@@ -366,8 +432,12 @@ export class CheckOrderStatusUtils {
         }
       case OrderValidation.InvalidSignature:
       case OrderValidation.InvalidOrderFields:
-      case OrderValidation.UnknownError:
         return { orderStatus: ORDER_STATUS.ERROR }
+      case OrderValidation.UnknownError:
+        // Ambiguous/transient validator result (e.g. an unrecognized revert or a
+        // flaky RPC). Don't finalize as terminal ERROR -- the order may be valid
+        // or already filled. Keep polling so a later run can resolve it.
+        return { orderStatus: ORDER_STATUS.OPEN }
       case OrderValidation.NonceUsed: {
         return {
           orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,

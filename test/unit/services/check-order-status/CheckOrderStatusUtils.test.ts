@@ -73,14 +73,16 @@ describe('CheckOrderStatusUtils', () => {
       expect(response).toEqual({ orderStatus: 'insufficient-funds' })
     })
 
-    test('it returns error when validation iserror', () => {
+    test('it returns open (not terminal error) when validation is UnknownError', () => {
+      // UnknownError is ambiguous/transient -- the order may be valid or already
+      // filled. We must not finalize it as terminal ERROR; keep polling instead.
       const service = buildService({})
       const response = service.getUnfilledStatusFromValidation({
         validation: OrderValidation.UnknownError,
         getFillLogAttempts: 1,
       })
 
-      expect(response).toEqual({ orderStatus: 'error' })
+      expect(response).toEqual({ orderStatus: 'open' })
     })
 
     test('it returns error when validation is InvalidOrderFields', () => {
