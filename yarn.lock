@@ -4685,10 +4685,10 @@
     "@uniswap/v3-sdk" "^3.24.0"
     "@uniswap/v4-sdk" "^1.19.4"
 
-"@uniswap/sdk-core@^7.14.0":
-  version "7.14.0"
-  resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.14.0.tgz#be134de267352be14c61a8ec982ca9657f1beb44"
-  integrity sha512-uJe0YmufRXFBKj5qDRS9Nfzo0O3GrhxpIDS9OMJqRUG5yzYtXL+HdUv8kr/byJfWoGyAJUsURte4NAT/04w0zA==
+"@uniswap/sdk-core@^7.17.0":
+  version "7.17.0"
+  resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.17.0.tgz#7be02563c1fb9e8fe45b934a55783aea71d6e8de"
+  integrity sha512-5maoaZMcGpvxfg6ZG4hpG8eJYakrFh8y75NhDKB40xenQAnSQt/xz1JMbY6+GGkXMvY+z3pT5mmKYxjGU0S5Bw==
   dependencies:
     "@ethersproject/address" "^5.0.2"
     "@ethersproject/bignumber" "^5.5.0"
@@ -4702,10 +4702,10 @@
     toformat "^2.0.0"
     tslib "^2.3.0"
 
-"@uniswap/sdk-core@^7.17.0":
-  version "7.17.0"
-  resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.17.0.tgz#7be02563c1fb9e8fe45b934a55783aea71d6e8de"
-  integrity sha512-5maoaZMcGpvxfg6ZG4hpG8eJYakrFh8y75NhDKB40xenQAnSQt/xz1JMbY6+GGkXMvY+z3pT5mmKYxjGU0S5Bw==
+"@uniswap/sdk-core@^7.18.0":
+  version "7.18.0"
+  resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.18.0.tgz#a93f6d67dd8c31415eabf748349c2134cfdfadb1"
+  integrity sha512-Fy/U/yEweEYbGZi1cOpFBRTE0rwrueBesG8MPRlfhVXwutLn5OXZe5TjFSdIrjp7vqrNqgdmKIHIwg9k6MMSLQ==
   dependencies:
     "@ethersproject/address" "^5.0.2"
     "@ethersproject/bignumber" "^5.5.0"

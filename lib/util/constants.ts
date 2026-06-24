@@ -31,6 +31,8 @@ export const OLDEST_BLOCK_BY_CHAIN = {
   [ChainId.AVALANCHE]: 84833000,
   [ChainId.BLAST]: 34678000,
   [ChainId.ZORA]: 45736000,
+  [ChainId.ROBINHOOD]: 53000,
+  [ChainId.ARC]: 4852000,
 }
 export const BLOCKS_IN_24_HOURS = (chainId: ChainId): number => {
   return Math.floor(ONE_DAY_IN_SECONDS / getAverageBlockTimeSecs(chainId))

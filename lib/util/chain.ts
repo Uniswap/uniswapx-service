@@ -24,4 +24,6 @@ export const SUPPORTED_CHAINS = [
   ChainId.AVALANCHE,
   ChainId.BLAST,
   ChainId.ZORA,
+  ChainId.ROBINHOOD,
+  ChainId.ARC,
 ]
