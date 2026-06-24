@@ -4685,23 +4685,6 @@
     "@uniswap/v3-sdk" "^3.24.0"
     "@uniswap/v4-sdk" "^1.19.4"
 
-"@uniswap/sdk-core@^7.17.0":
-  version "7.17.0"
-  resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.17.0.tgz#7be02563c1fb9e8fe45b934a55783aea71d6e8de"
-  integrity sha512-5maoaZMcGpvxfg6ZG4hpG8eJYakrFh8y75NhDKB40xenQAnSQt/xz1JMbY6+GGkXMvY+z3pT5mmKYxjGU0S5Bw==
-  dependencies:
-    "@ethersproject/address" "^5.0.2"
-    "@ethersproject/bignumber" "^5.5.0"
-    "@ethersproject/bytes" "^5.7.0"
-    "@ethersproject/keccak256" "5.7.0"
-    "@ethersproject/strings" "5.7.0"
-    big.js "^5.2.2"
-    decimal.js-light "^2.5.0"
-    jsbi "^3.1.4"
-    tiny-invariant "^1.1.0"
-    toformat "^2.0.0"
-    tslib "^2.3.0"
-
 "@uniswap/sdk-core@^7.18.0":
   version "7.18.0"
   resolved "https://registry.yarnpkg.com/@uniswap/sdk-core/-/sdk-core-7.18.0.tgz#a93f6d67dd8c31415eabf748349c2134cfdfadb1"
@@ -4755,16 +4738,16 @@
     dotenv "^14.2.0"
     hardhat-watcher "^2.1.1"
 
-"@uniswap/uniswapx-sdk@3.0.8":
-  version "3.0.8"
-  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.8.tgz#32e3ff23288f2e6ec15fd197dd06d59527d68160"
-  integrity sha512-/e4jgppX5YMcfw8UGdFgaayVMXAKdXjKXiugdL9ouP0db5DSXa3w5PYsOwDxVnm7w3AnQDGg05VaoOEXNgbBWw==
+"@uniswap/uniswapx-sdk@3.0.10":
+  version "3.0.10"
+  resolved "https://registry.yarnpkg.com/@uniswap/uniswapx-sdk/-/uniswapx-sdk-3.0.10.tgz#6fdb915b06fa98b4bccd11aa4a1df3c3ffb1d099"
+  integrity sha512-SBEAKsNQFFm3WB9sZs6bqAFnyOLVV0YNqBTknYm/4tJdtBYXUKdRMaHjk20Xh9gzf/QFhM+IsxBhv0pnuHpBFQ==
   dependencies:
     "@ethersproject/abi" "^5.5.0"
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/providers" "^5.7.0"
     "@uniswap/permit2-sdk" "^1.4.0"
-    "@uniswap/sdk-core" "^7.17.0"
+    "@uniswap/sdk-core" "^7.18.0"
     ethers "^5.7.0"
     tiny-invariant "^1.1.0"
 
