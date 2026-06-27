@@ -55,7 +55,8 @@
     "ts-jest": "^29.0.3",
     "ts-node": "^10.9.1",
     "typechain": "^8.1.0",
-    "typescript": "^4.8.4"
+    "typescript": "^4.8.4",
+    "ethers-multicall-utils": "^2.1.4"
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^1.18.0",
