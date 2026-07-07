@@ -5,6 +5,7 @@ import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
+import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { DutchV1Order, DutchV2Order } from '../../../lib/models'
@@ -90,6 +91,84 @@ describe('UniswapXOrderService', () => {
       },
       undefined
     )
+  })
+
+  test('createOrder returns the order hash when post-persist tracking kickoff fails', async () => {
+    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
+    mockOrderValidator.validate.mockReturnValue({ valid: true })
+
+    const onChainValidator = mock<OrderValidator>()
+    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
+
+    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
+    onChainValidatorMap.get.mockReturnValue(onChainValidator)
+
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    const logger = mock<Logger>()
+    const analyticsService = mock<AnalyticsService>()
+
+    const service = new UniswapXOrderService(
+      mockOrderValidator,
+      onChainValidatorMap,
+      repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
+      mock<QuoteMetadataRepository>(),
+      logger,
+      () => {
+        return 10
+      },
+      analyticsService,
+      MOCK_PROVIDER_MAP
+    )
+
+    const order = SDKDutchOrderFactory.buildLimitOrder()
+    ;(kickoffOrderTrackingSfn as jest.Mock).mockRejectedValueOnce(new Error('sfn unavailable'))
+
+    // The order is persisted before tracking starts; the caller must still
+    // receive the hash or an accepted order is misreported as rejected.
+    const response = await service.createOrder(new LimitOrder(order, '0x00', 1))
+
+    expect(response).not.toBeNull()
+    expect(repository.putOrderAndUpdateNonceTransaction).toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledWith(
+      'Post-persist processing failed for accepted order',
+      expect.objectContaining({ orderHash: response })
+    )
+  })
+
+  test('createOrder throws TooManyOpenOrdersError and does not persist when open order limit is reached', async () => {
+    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
+    mockOrderValidator.validate.mockReturnValue({ valid: true })
+
+    const onChainValidator = mock<OrderValidator>()
+    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
+
+    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
+    onChainValidatorMap.get.mockReturnValue(onChainValidator)
+
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    repository.countOrdersByOffererAndStatus.mockResolvedValue(11)
+    const logger = mock<Logger>()
+    const analyticsService = mock<AnalyticsService>()
+
+    const service = new UniswapXOrderService(
+      mockOrderValidator,
+      onChainValidatorMap,
+      repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
+      mock<QuoteMetadataRepository>(),
+      logger,
+      () => {
+        return 10
+      },
+      analyticsService,
+      MOCK_PROVIDER_MAP
+    )
+
+    const order = SDKDutchOrderFactory.buildLimitOrder()
+
+    await expect(service.createOrder(new LimitOrder(order, '0x00', 1))).rejects.toThrow(TooManyOpenOrdersError)
+    expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
   })
 
   test('createOrder with PriorityOrder, propagates correct type', async () => {
