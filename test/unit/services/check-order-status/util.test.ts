@@ -38,6 +38,14 @@ describe('calculateDutchRetryWaitSeconds', () => {
         expect(response).toBeGreaterThanOrEqual(MIN_RETRY_WAIT_SECONDS)
       }
     })
+
+    // Arc (0.48s) and Robinhood (0.1s) are both sub-second; the global floor
+    // prevents the Step Functions Wait granularity from rounding to 0.
+    it.each([ChainId.ARC, ChainId.ROBINHOOD])('floors chainId %d at MIN_RETRY_WAIT_SECONDS', (chainId) => {
+      for (const retryCount of [1, 50, 150, 299, 300]) {
+        expect(calculateDutchRetryWaitSeconds(chainId, retryCount)).toEqual(MIN_RETRY_WAIT_SECONDS)
+      }
+    })
   })
 
   describe('chains with AVERAGE_BLOCK_TIME >= floor are unaffected', () => {

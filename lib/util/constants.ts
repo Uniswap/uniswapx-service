@@ -31,6 +31,8 @@ export const OLDEST_BLOCK_BY_CHAIN = {
   [ChainId.AVALANCHE]: 84833000,
   [ChainId.BLAST]: 34678000,
   [ChainId.ZORA]: 45736000,
+  [ChainId.ROBINHOOD]: 53000,
+  [ChainId.ARC]: 4852000,
 }
 export const BLOCKS_IN_24_HOURS = (chainId: ChainId): number => {
   return Math.floor(ONE_DAY_IN_SECONDS / getAverageBlockTimeSecs(chainId))
@@ -94,6 +96,11 @@ export const USE_CLASSIC_PARAMETERS = {
   tau: 0,
   // batchNumber and algorithmVersion are added dynamically
 }
+
+// Bound RPC calls well below the post-order Lambda's 29s budget so a hung
+// provider fails the request before the order is accepted, instead of the
+// ethers default of 120s.
+export const RPC_PROVIDER_TIMEOUT_MS = 5_000
 
 export const RPC_HEADERS: { [key: string]: string } = {
   'x-uni-service-id': 'x_order_service',
