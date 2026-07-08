@@ -138,6 +138,9 @@ export class CheckOrderStatusService {
       chainId,
       lastStatus: orderStatus,
       validation,
+      // Echoed into the SFN state so the handler can stop respawning
+      // executions for orders long past their deadline.
+      deadline: order.deadline,
     }
 
     let extraUpdateInfo = undefined
@@ -173,6 +176,8 @@ export class CheckOrderStatusService {
           orderHash,
           chainId,
         })
+        metrics.putMetric(`OrderSfn-FillLookupFailed`, 1)
+        metrics.putMetric(`OrderSfn-FillLookupFailed-chain-${chainId}`, 1)
         fillLookupFailed = true
       }
 
@@ -250,8 +255,11 @@ export class CheckOrderStatusService {
       } else if (fillLookupFailed) {
         // Fill visibility was incomplete this poll -- keep the order OPEN rather
         // than concluding CANCELLED/EXPIRED from the used nonce / expiry.
+        // Carry the grace-poll counter through unchanged: omitting it would
+        // reset it to 0 on the next poll (injector default).
         extraUpdateInfo = {
           orderStatus: ORDER_STATUS.OPEN,
+          getFillLogAttempts,
         }
       }
     }
@@ -347,6 +355,7 @@ export class CheckOrderStatusUtils {
     settledAmounts?: SettledAmount[]
     getFillLogAttempts?: number
     runIndex?: number
+    deadline?: number
   }): Promise<SfnStateInputOutput> {
     const {
       orderHash,
@@ -362,6 +371,7 @@ export class CheckOrderStatusUtils {
       getFillLogAttempts,
       validation,
       runIndex,
+      deadline,
     } = params
 
     // Avoid updating the order if the status is unchanged.
@@ -409,6 +419,7 @@ export class CheckOrderStatusUtils {
       ...(txHash && { txHash }),
       ...(fillBlock && { fillBlock }),
       ...(getFillLogAttempts && { getFillLogAttempts }),
+      ...(deadline && { deadline }),
     }
   }
 

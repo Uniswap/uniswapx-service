@@ -294,6 +294,8 @@ describe('checkOrderStatusService', () => {
         expect(result).toEqual(
           expect.objectContaining({
             orderStatus: 'open',
+            // the grace-poll counter is preserved, not advanced or reset
+            getFillLogAttempts: 1,
           })
         )
       })

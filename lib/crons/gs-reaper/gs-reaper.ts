@@ -359,6 +359,7 @@ async function checkCancelledOrders(
 ): Promise<Record<string, OrderUpdate>> {
   const orderUpdates = { ...existingUpdates }
   const quoter = new OrderValidator(provider, chainId)
+  let deferredCancellations = 0
 
   for (const orderHash of orderHashes) {
     if (!orderUpdates[orderHash]) {
@@ -384,6 +385,7 @@ async function checkCancelledOrders(
           // unresolved so a future run (with full fill visibility) can resolve it.
           if (!fillScanComplete) {
             log.info(`Order ${orderHash} has a used nonce but fill scan was incomplete; deferring cancellation`)
+            deferredCancellations++
             continue
           }
           log.info(`Order ${orderHash} has been cancelled`)
@@ -402,7 +404,18 @@ async function checkCancelledOrders(
       }
     }
   }
-  
+
+  // A chain whose fill scan never completes (e.g. an RPC that rejects the
+  // getLogs window) defers the same orders every run; surface that as a
+  // structured warning so it can be alerted on rather than only found by
+  // reading per-order logs.
+  if (deferredCancellations > 0) {
+    log.warn(
+      { chainId, deferredCancellations },
+      `Deferred ${deferredCancellations} used-nonce cancellations for chainId ${chainId} due to incomplete fill scan`
+    )
+  }
+
   return orderUpdates
 }
 

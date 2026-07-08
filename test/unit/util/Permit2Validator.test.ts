@@ -85,6 +85,35 @@ describe('Permit2Validator', () => {
       })
     })
 
+    it('should return NonceUsed over Expired for a past-deadline order whose nonce was used', async () => {
+      // Regression: fills also consume the nonce. Checking expiry before the
+      // nonce would report a filled order as Expired, letting callers finalize
+      // EXPIRED without ever checking for a fill.
+      testOrder.info.deadline = Math.floor(Date.now() / 1000) - 3600
+      mockSignatureProvider.validatePermit.mockResolvedValue({
+        isUsed: true,
+        isExpired: true,
+        isValid: false
+      })
+
+      const result = await validator.validate(testOrder)
+
+      expect(result).toBe(OrderValidation.NonceUsed)
+    })
+
+    it('should return Expired for a past-deadline order whose nonce is unused', async () => {
+      testOrder.info.deadline = Math.floor(Date.now() / 1000) - 3600
+      mockSignatureProvider.validatePermit.mockResolvedValue({
+        isUsed: false,
+        isExpired: false,
+        isValid: true
+      })
+
+      const result = await validator.validate(testOrder)
+
+      expect(result).toBe(OrderValidation.Expired)
+    })
+
     it('should return OK when permit is valid', async () => {
       mockSignatureProvider.validatePermit.mockResolvedValue({
         isUsed: false,

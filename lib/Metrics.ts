@@ -16,6 +16,7 @@ export const OnChainStatusCheckerMetricNames = {
 const CheckOrderStatusHandlerPrefix = 'CheckOrderStatusHandler-'
 export const CheckOrderStatusHandlerMetricNames = {
   StepFunctionKickedOffCount: CheckOrderStatusHandlerPrefix + 'StepFunctionKickedOffCount',
+  OrderTrackingAbandonedCount: CheckOrderStatusHandlerPrefix + 'OrderTrackingAbandonedCount',
   GetFromDynamoTime: CheckOrderStatusHandlerPrefix + 'GetFromDynamoTime',
   GetBlockNumberTime: CheckOrderStatusHandlerPrefix + 'GetBlockNumberTime',
   GetValidationTime: CheckOrderStatusHandlerPrefix + 'GetValidationTime',
