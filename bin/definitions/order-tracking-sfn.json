@@ -13,7 +13,8 @@
           ],
           "IntervalSeconds": 2,
           "MaxAttempts": 100,
-          "BackoffRate": 2
+          "BackoffRate": 2,
+          "MaxDelaySeconds": 300
         }
       ],
       "Catch": [

@@ -56,6 +56,9 @@ type ChainState = {
 
 const MAX_ORDERS_PER_CHAIN = 1000
 const SLEEP_TIME_MS = 1000 // 1 second between iterations
+// Don't finalize a used-nonce/expired order whose deadline is ahead or this
+// fresh: its fill may have landed after the run's fill-scan snapshot.
+const RECENT_DEADLINE_DEFER_SECONDS = 15 * 60
 
 /**
  * This handler processes orphaned orders across multiple chains to update their statuses in the database.
@@ -299,11 +302,12 @@ async function processBlockRange(
     log.info(`No reactor mapping for chainId ${chainId}, skipping block range`)
     return { updates: orderUpdates, remainingHashes: orderHashSet, fillScanFailed: false }
   }
+  let eventProcessingFailed = false
   for (const orderType of Object.keys(reactorMap)) {
     const reactorAddress = reactorMap[orderType as OrderType]
     if (!reactorAddress || reactorAddress === "0x0000000000000000000000000000000000000000") continue
     log.info(`Processing block range ${fromBlock} to ${toBlock} for chainId ${chainId} orderType ${orderType}`)
-    
+
     const watcher = new UniswapXEventWatcher(provider, reactorAddress)
     let attempts = 0
     let recentErrors = 0
@@ -312,7 +316,7 @@ async function processBlockRange(
       try {
         const fillEvents = await watcher.getFillEvents(toBlock, fromBlock)
         recentErrors = Math.max(0, recentErrors - 1)
-        
+
         for (const e of fillEvents) {
           if (orderHashSet.has(e.orderHash)) {
             log.info(`Fill event found for order ${e.orderHash}`)
@@ -320,7 +324,7 @@ async function processBlockRange(
               const { order } = await getOrderByHash(repo, e.orderHash)
               const fillInfo = await watcher.getFillInfo(toBlock, fromBlock)
               const fillEvent = fillInfo.find((f) => f.orderHash === e.orderHash)
-              
+
               if (fillEvent) {
                 const orderFillInfo = await getOrderFillInfo(provider, fillEvent, order)
                 orderUpdates[e.orderHash] = {
@@ -337,6 +341,12 @@ async function processBlockRange(
               }
               orderHashSet.delete(e.orderHash)
             } catch (error) {
+              // The order's fill event was OBSERVED in this range but we could
+              // not record it. Flag the range as failed so CHECK_CANCELLED
+              // defers this order instead of reading its used nonce as a
+              // cancellation -- the exact misclassification this cron guards
+              // against.
+              eventProcessingFailed = true
               log.error({ error }, `Failed to process fill event for order ${e.orderHash}`)
             }
           }
@@ -357,16 +367,17 @@ async function processBlockRange(
     }
   }
 
-  return { updates: orderUpdates, remainingHashes: orderHashSet, fillScanFailed: false }
+  return { updates: orderUpdates, remainingHashes: orderHashSet, fillScanFailed: eventProcessingFailed }
 }
 
 /**
  * Estimated block range in which this order's fill could have landed: from
  * order creation through its deadline (the reactor enforces the deadline
  * onchain). Estimated from wall-clock age at average block cadence, widened by
- * 25% of the age plus a fixed slack so cadence drift over long ages cannot
- * shrink it below the true window. Returns undefined when the entity lacks the
- * timestamps needed to bound it.
+ * 50% of the age plus a fixed slack -- the cadence registry is a
+ * hand-maintained constant, so drift over long ages must not shrink the window
+ * below the true one. Returns undefined when the entity lacks the timestamps
+ * needed to bound it.
  */
 export function estimateFillWindow(
   order: UniswapXOrderEntity,
@@ -380,7 +391,7 @@ export function estimateFillWindow(
   const blockTime = AVERAGE_BLOCK_TIME(chainId)
   const toBlocksAgo = (timestamp: number) => {
     const ageSeconds = Math.max(0, nowSeconds - timestamp)
-    return { estimate: Math.ceil(ageSeconds / blockTime), slack: Math.ceil((0.25 * ageSeconds) / blockTime) + 1000 }
+    return { estimate: Math.ceil(ageSeconds / blockTime), slack: Math.ceil((0.5 * ageSeconds) / blockTime) + 1000 }
   }
   const created = toBlocksAgo(order.createdAt)
   const deadline = toBlocksAgo(order.deadline)
@@ -437,6 +448,15 @@ async function checkCancelledOrders(
     return failedFillScanRanges.some((failedRange) => rangesOverlap(failedRange, fillWindow))
   }
 
+  // The fill scan walks block ranges captured before this validation runs, so
+  // a fill landing near (or after) the scan snapshot is invisible this run.
+  // Fills can land any time up to the deadline; if the deadline is still ahead
+  // or passed only moments ago, wait for a run whose scan provably covers the
+  // order's whole fill window.
+  const deadlineTooRecentToResolve = (order: UniswapXOrderEntity): boolean => {
+    return Boolean(order.deadline) && order.deadline > nowSeconds - RECENT_DEADLINE_DEFER_SECONDS
+  }
+
   for (const orderHash of orderHashes) {
     if (!orderUpdates[orderHash]) {
       try {
@@ -456,12 +476,13 @@ async function checkCancelledOrders(
 
         if (validation === OrderValidation.NonceUsed) {
           // A used nonce means the order was EITHER filled or cancelled. If a
-          // failed scan range overlaps this order's possible fill window, we
-          // cannot tell which -- marking it CANCELLED would misclassify a
-          // filled order. Leave it unresolved so a future run (with full fill
-          // visibility over the window) can resolve it.
-          if (fillMayBeHidden(entity)) {
-            log.info(`Order ${orderHash} has a used nonce but its fill window overlaps a failed scan range; deferring cancellation`)
+          // failed scan range overlaps this order's possible fill window, or
+          // the fill may postdate this run's scan snapshot, we cannot tell
+          // which -- marking it CANCELLED would misclassify a filled order.
+          // Leave it unresolved so a future run (with full fill visibility
+          // over the window) can resolve it.
+          if (fillMayBeHidden(entity) || deadlineTooRecentToResolve(entity)) {
+            log.info(`Order ${orderHash} has a used nonce but fill visibility over its window is incomplete; deferring cancellation`)
             deferredResolutions++
             continue
           }
@@ -474,10 +495,11 @@ async function checkCancelledOrders(
           // Both validators report NonceUsed ahead of Expired (fills consume
           // the nonce), so Expired should already imply the order was never
           // filled. The window check is defense-in-depth for the same
-          // misclassification class: don't finalize a terminal status while a
-          // failed scan range could be hiding this order's fill.
-          if (fillMayBeHidden(entity)) {
-            log.info(`Order ${orderHash} is expired but its fill window overlaps a failed scan range; deferring expiry`)
+          // misclassification class: don't finalize a terminal status while
+          // this order's fill could be hiding in a failed scan range or past
+          // the scan snapshot.
+          if (fillMayBeHidden(entity) || deadlineTooRecentToResolve(entity)) {
+            log.info(`Order ${orderHash} is expired but fill visibility over its window is incomplete; deferring expiry`)
             deferredResolutions++
             continue
           }

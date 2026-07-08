@@ -81,6 +81,7 @@ describe('CheckOrderStatusUtils', () => {
     test('it keeps the current status (not terminal error) when validation is UnknownError', () => {
       // UnknownError is ambiguous/transient -- the order may be valid or already
       // filled. We must not finalize it as terminal ERROR; keep polling instead.
+      // The grace-poll counter is carried through unchanged, not reset or advanced.
       const service = buildService({})
       const response = service.getUnfilledStatusFromValidation({
         validation: OrderValidation.UnknownError,
@@ -88,7 +89,7 @@ describe('CheckOrderStatusUtils', () => {
         lastStatus: ORDER_STATUS.OPEN,
       })
 
-      expect(response).toEqual({ orderStatus: 'open' })
+      expect(response).toEqual({ orderStatus: 'open', getFillLogAttempts: 1 })
     })
 
     test('it does not overwrite insufficient-funds when validation is UnknownError', () => {
@@ -103,7 +104,7 @@ describe('CheckOrderStatusUtils', () => {
         lastStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
       })
 
-      expect(response).toEqual({ orderStatus: 'insufficient-funds' })
+      expect(response).toEqual({ orderStatus: 'insufficient-funds', getFillLogAttempts: 0 })
     })
 
     test('it returns error when validation is InvalidOrderFields', () => {

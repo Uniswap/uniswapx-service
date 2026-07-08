@@ -449,6 +449,15 @@ describe('checkOrderStatusService', () => {
         const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, 1000, 500_000)
         expect(toBlock).toBe(500_000)
       })
+
+      it('uses the current head on chains without a registered block time (testnets)', () => {
+        // getAverageBlockTimeSecs throws for chains missing from its registry
+        // (e.g. Sepolia); the cap must degrade to the old uncapped behavior
+        // instead of failing the poll before the fill lookup.
+        const order: any = { createdAt: 1_000_000, deadline: 1_000_120 }
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 11155111, 1000, 500_000)
+        expect(toBlock).toBe(500_000)
+      })
     })
 
     describe('Other Validations', () => {

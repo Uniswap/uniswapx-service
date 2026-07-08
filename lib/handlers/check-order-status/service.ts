@@ -196,10 +196,12 @@ export class CheckOrderStatusService {
         // A used nonce is equally consistent with a fill, so we must NOT fall
         // through to the unfilled path and finalize CANCELLED/EXPIRED on
         // incomplete information. Rethrow instead: the state machine's Retry
-        // re-polls the transient case, and if the failure persists its Catch
-        // fails the execution -- feeding the ExecutionsFailed alarm -- with the
-        // order left non-terminal for the reaper to resolve. Swallowing the
-        // error here would turn a visible failure into an invisible one.
+        // re-polls the transient case, and once retries exhaust its Catch
+        // fails the execution (ExecutionsFailed) with the order left
+        // non-terminal for the reaper to resolve. Chronic failures surface on
+        // the FillLookupFailed metric below well before the Retry ladder
+        // exhausts. Swallowing the error here would turn a visible failure
+        // into an invisible one.
         log.error('error fetching fill events', {
           error: e,
           orderHash,
@@ -339,8 +341,19 @@ export class CheckOrderStatusService {
     if (!order.createdAt || !order.deadline || order.deadline <= order.createdAt) {
       return curBlockNumber
     }
-    const lifespanBlocks = Math.ceil((order.deadline - order.createdAt) / AVERAGE_BLOCK_TIME(chainId))
-    return Math.min(curBlockNumber, searchFromBlock + 2 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS)
+    // getAverageBlockTimeSecs throws for chains it doesn't know (testnets);
+    // fall back to the uncapped window rather than failing the poll.
+    let averageBlockTime: number
+    try {
+      averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
+    } catch {
+      return curBlockNumber
+    }
+    // 3x, not a snug bound: the registry is a hand-maintained constant, and a
+    // chain speeding up past it shrinks this window in real blocks -- the
+    // multiplier is headroom against that drift.
+    const lifespanBlocks = Math.ceil((order.deadline - order.createdAt) / averageBlockTime)
+    return Math.min(curBlockNumber, searchFromBlock + 3 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS)
   }
 
   private async getFillEventForOrder(
@@ -480,8 +493,10 @@ export class CheckOrderStatusUtils {
         // be valid or already filled), and don't write OPEN either -- that
         // would ping-pong with statuses like INSUFFICIENT_FUNDS across polls,
         // emitting a DB write and a downstream webhook on every flip. Polling
-        // continues either way, bounded by the tracking abandon gate.
-        return { orderStatus: lastStatus }
+        // continues either way, bounded by the tracking abandon gate. Carry
+        // the grace-poll counter through unchanged: omitting it would reset it
+        // to 0 on the next poll (injector default).
+        return { orderStatus: lastStatus, getFillLogAttempts }
       case OrderValidation.NonceUsed: {
         return {
           orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,

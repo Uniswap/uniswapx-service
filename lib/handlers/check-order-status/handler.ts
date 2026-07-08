@@ -63,6 +63,11 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
         powertoolsMetric
           .singleMetric()
           .addMetric(CheckOrderStatusHandlerMetricNames.OrderTrackingAbandonedCount, MetricUnits.Count, 1)
+        if (exhaustedRunsWithoutDeadline) {
+          powertoolsMetric
+            .singleMetric()
+            .addMetric(CheckOrderStatusHandlerMetricNames.OrderTrackingAbandonedNoBackstopCount, MetricUnits.Count, 1)
+        }
       } else {
         const stateMachineArn = input.requestInjected.stateMachineArn
         const nextRunIndex = currentRunIndex + 1
