@@ -170,7 +170,10 @@ export class CheckOrderStatusService {
             case OrderType.Dutch_V2: // Approximation
               fillTimeBlocks = fillBlock - timestampToBlockNumber(block, order.cosignerData.decayStartTime, chainId);
               break;
-            case OrderType.Dutch_V3: // Exact
+            // Exact. NOTE: fillTimeBlocks for V3 is consumed by the RFQ circuit breaker
+            // in x-parameterization-api, which treats fillTimeBlocks >= 0 (filled on/after
+            // decayStartBlock) as a fade. Changing this calculation affects filler fade scoring.
+            case OrderType.Dutch_V3:
               fillTimeBlocks = fillBlock - order.cosignerData.decayStartBlock;
               break;
             case OrderType.Priority: { // Approximation
