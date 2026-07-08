@@ -21,16 +21,46 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import { getSettledAmounts, IS_TERMINAL_STATE, timestampToBlockNumber } from './util'
+import { AVERAGE_BLOCK_TIME, getSettledAmounts, IS_TERMINAL_STATE, timestampToBlockNumber } from './util'
 import { parseOrder } from '../OrderParser'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../constants'
 import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { Permit2Validator } from '../../util/Permit2Validator'
 
 const FILL_CHECK_OVERLAP_BLOCK = 20
+// Fixed slack added to the fill-search upper bound on top of double the
+// order's estimated lifetime in blocks, absorbing block-cadence variance and
+// the gap between order creation and the first poll.
+const FILL_SEARCH_SLACK_BLOCKS = 500
 
 // Type for legacy orders that have input at the info level
 type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
+
+/**
+ * The block at which the order's auction/decay starts, for order types that
+ * encode it as a block number (Dutch V3, Hybrid, Priority). Returns undefined
+ * for timestamp-based order types and for missing or non-positive values -- a
+ * zero here is an absent field's default, not a real block, and anchoring a
+ * search to block zero turns it into an unbounded getLogs.
+ */
+export function getAuctionStartBlock(order: UniswapXOrderEntity, chainId: number): number | undefined {
+  let block: number | undefined
+  switch (order.type) {
+    case OrderType.Dutch_V3:
+      block = order.cosignerData?.decayStartBlock
+      break
+    case OrderType.Hybrid:
+      block = order.cosignerData?.auctionTargetBlock
+      break
+    case OrderType.Priority:
+      block =
+        order.cosignerData?.auctionTargetBlock !== undefined
+          ? order.cosignerData.auctionTargetBlock - (PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId] ?? 0)
+          : undefined
+      break
+  }
+  return block !== undefined && block > 0 ? block : undefined
+}
    
 export type CheckOrderStatusRequest = {
   chainId: number
@@ -156,29 +186,28 @@ export class CheckOrderStatusService {
       // after the fill -- the fill is then never found and the used nonce gets
       // misread as a cancellation.
       const fillSearchFromBlock = this.getFillSearchFromBlock(order, chainId, fromBlock)
+      const fillSearchToBlock = this.getFillSearchToBlock(order, chainId, fillSearchFromBlock, curBlockNumber)
 
       let fillEvent: FillInfo | undefined
-      let fillLookupFailed = false
       try {
-        fillEvent = await this.getFillEventForOrder(
-          orderHash,
-          fillSearchFromBlock,
-          curBlockNumber,
-          orderWatcher
-        )
+        fillEvent = await this.getFillEventForOrder(orderHash, fillSearchFromBlock, fillSearchToBlock, orderWatcher)
       } catch (e) {
         // Could not read fill events (e.g. an RPC getLogs range/rate limit).
         // A used nonce is equally consistent with a fill, so we must NOT fall
         // through to the unfilled path and finalize CANCELLED/EXPIRED on
-        // incomplete information. Stay OPEN and let a later poll resolve it.
-        log.error('error fetching fill events; deferring unfilled status resolution', {
+        // incomplete information. Rethrow instead: the state machine's Retry
+        // re-polls the transient case, and if the failure persists its Catch
+        // fails the execution -- feeding the ExecutionsFailed alarm -- with the
+        // order left non-terminal for the reaper to resolve. Swallowing the
+        // error here would turn a visible failure into an invisible one.
+        log.error('error fetching fill events', {
           error: e,
           orderHash,
           chainId,
         })
         metrics.putMetric(`OrderSfn-FillLookupFailed`, 1)
         metrics.putMetric(`OrderSfn-FillLookupFailed-chain-${chainId}`, 1)
-        fillLookupFailed = true
+        throw e
       }
 
       if (fillEvent) {
@@ -190,6 +219,7 @@ export class CheckOrderStatusService {
 
           let fillTimeBlocks: number | undefined = undefined;
           const fillBlock = block.number;
+          const auctionStartBlock = getAuctionStartBlock(order, chainId);
           switch (order.type) {
             case OrderType.Dutch: // Approximation
               if (order.decayStartTime) {
@@ -200,17 +230,12 @@ export class CheckOrderStatusService {
               fillTimeBlocks = fillBlock - timestampToBlockNumber(block, order.cosignerData.decayStartTime, chainId);
               break;
             case OrderType.Dutch_V3: // Exact
-              fillTimeBlocks = fillBlock - order.cosignerData.decayStartBlock;
+            case OrderType.Priority: // Approximation
+            case OrderType.Hybrid: // Exact
+              if (auctionStartBlock !== undefined) {
+                fillTimeBlocks = fillBlock - auctionStartBlock;
+              }
               break;
-            case OrderType.Priority: { // Approximation
-              const orderCreationBlock = order.cosignerData.auctionTargetBlock - (PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId] ?? 0);
-              fillTimeBlocks = fillBlock - orderCreationBlock;
-              break;
-            }
-            case OrderType.Hybrid: { // Exact
-              fillTimeBlocks = fillBlock - order.cosignerData.auctionTargetBlock;
-              break;
-            }
           }
 
           const settledAmounts = getSettledAmounts(
@@ -252,15 +277,6 @@ export class CheckOrderStatusService {
             settledAmounts: [],
           }
         }
-      } else if (fillLookupFailed) {
-        // Fill visibility was incomplete this poll -- keep the order OPEN rather
-        // than concluding CANCELLED/EXPIRED from the used nonce / expiry.
-        // Carry the grace-poll counter through unchanged: omitting it would
-        // reset it to 0 on the next poll (injector default).
-        extraUpdateInfo = {
-          orderStatus: ORDER_STATUS.OPEN,
-          getFillLogAttempts,
-        }
       }
     }
 
@@ -269,6 +285,7 @@ export class CheckOrderStatusService {
       extraUpdateInfo = this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
         validation,
         getFillLogAttempts,
+        lastStatus: orderStatus,
       })
     }
 
@@ -293,37 +310,47 @@ export class CheckOrderStatusService {
     chainId: number,
     rollingFromBlock: number
   ): number {
-    let anchorBlock: number | undefined
-    switch (order.type) {
-      case OrderType.Dutch_V3:
-        anchorBlock = order.cosignerData?.decayStartBlock
-        break
-      case OrderType.Hybrid:
-        anchorBlock = order.cosignerData?.auctionTargetBlock
-        break
-      case OrderType.Priority:
-        anchorBlock =
-          order.cosignerData?.auctionTargetBlock !== undefined
-            ? order.cosignerData.auctionTargetBlock - (PRIORITY_ORDER_TARGET_BLOCK_BUFFER[chainId as ChainId] ?? 0)
-            : undefined
-        break
-    }
+    const anchorBlock = getAuctionStartBlock(order, chainId)
 
-    const rollingLowerBound = rollingFromBlock - FILL_CHECK_OVERLAP_BLOCK
+    const rollingLowerBound = Math.max(0, rollingFromBlock - FILL_CHECK_OVERLAP_BLOCK)
     if (anchorBlock === undefined) {
       return rollingLowerBound
     }
-    return Math.min(rollingLowerBound, anchorBlock - FILL_CHECK_OVERLAP_BLOCK)
+    return Math.max(0, Math.min(rollingLowerBound, anchorBlock - FILL_CHECK_OVERLAP_BLOCK))
+  }
+
+  /**
+   * Upper bound (inclusive) for the fill-event search. A fill can only land
+   * between order creation and the order's deadline (the reactor enforces the
+   * deadline onchain), so the search never needs to extend more than the
+   * order's lifetime past its lower bound. Without this cap, a lower bound
+   * that is anchored to the auction start -- and survives execution restarts --
+   * makes the getLogs span grow with tracking age until RPCs reject it. The
+   * estimate is deliberately generous (double the average-cadence lifetime
+   * plus fixed slack) so block-time variance cannot truncate real coverage;
+   * young orders are unaffected because the current head is smaller.
+   */
+  private getFillSearchToBlock(
+    order: UniswapXOrderEntity,
+    chainId: number,
+    searchFromBlock: number,
+    curBlockNumber: number
+  ): number {
+    if (!order.createdAt || !order.deadline || order.deadline <= order.createdAt) {
+      return curBlockNumber
+    }
+    const lifespanBlocks = Math.ceil((order.deadline - order.createdAt) / AVERAGE_BLOCK_TIME(chainId))
+    return Math.min(curBlockNumber, searchFromBlock + 2 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS)
   }
 
   private async getFillEventForOrder(
     orderHash: string,
     fromBlock: number,
-    curBlockNumber: number,
+    toBlock: number,
     orderWatcher: UniswapXEventWatcher
   ): Promise<FillInfo | undefined> {
     const fillEvents = await wrapWithTimerMetric(
-      orderWatcher.getFillInfo(fromBlock, curBlockNumber),
+      orderWatcher.getFillInfo(fromBlock, toBlock),
       CheckOrderStatusHandlerMetricNames.GetFillEventsTime
     )
 
@@ -426,9 +453,11 @@ export class CheckOrderStatusUtils {
   public getUnfilledStatusFromValidation({
     validation,
     getFillLogAttempts,
+    lastStatus,
   }: {
     validation: OrderValidation
     getFillLogAttempts: number
+    lastStatus: ORDER_STATUS
   }): ExtraUpdateInfo {
     switch (validation) {
       case OrderValidation.Expired: {
@@ -445,10 +474,14 @@ export class CheckOrderStatusUtils {
       case OrderValidation.InvalidOrderFields:
         return { orderStatus: ORDER_STATUS.ERROR }
       case OrderValidation.UnknownError:
-        // Ambiguous/transient validator result (e.g. an unrecognized revert or a
-        // flaky RPC). Don't finalize as terminal ERROR -- the order may be valid
-        // or already filled. Keep polling so a later run can resolve it.
-        return { orderStatus: ORDER_STATUS.OPEN }
+        // Ambiguous/transient validator result (e.g. an unrecognized revert or
+        // a flaky RPC): this poll learned nothing about the order, so keep the
+        // status it already has. Don't finalize terminal ERROR (the order may
+        // be valid or already filled), and don't write OPEN either -- that
+        // would ping-pong with statuses like INSUFFICIENT_FUNDS across polls,
+        // emitting a DB write and a downstream webhook on every flip. Polling
+        // continues either way, bounded by the tracking abandon gate.
+        return { orderStatus: lastStatus }
       case OrderValidation.NonceUsed: {
         return {
           orderStatus: getFillLogAttempts === 0 ? ORDER_STATUS.OPEN : ORDER_STATUS.CANCELLED,

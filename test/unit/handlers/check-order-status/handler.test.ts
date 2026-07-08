@@ -2,6 +2,7 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import { ORDER_STATUS } from '../../../../lib/entities'
 import {
   CheckOrderStatusHandler,
+  MAX_ORDER_TRACKING_RUNS_WITHOUT_DEADLINE,
   ORDER_TRACKING_ABANDON_GRACE_SECONDS,
 } from '../../../../lib/handlers/check-order-status/handler'
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
@@ -71,6 +72,33 @@ describe('CheckOrderStatusHandler step function restarts', () => {
 
   it('still restarts when the deadline is unknown (executions started before this field existed)', async () => {
     const requestInjected = { ...baseRequestInjected, deadline: undefined }
+
+    await handler.handleRequest({ containerInjected: {} as any, requestInjected: requestInjected as any })
+
+    expect(kickoffOrderTrackingSfn).toHaveBeenCalled()
+  })
+
+  it('stops restarting deadline-less state at the run cap (no infinite respawn for Relay/UnknownError zombies)', async () => {
+    // Without a deadline the grace gate can never fire, so the run cap is the
+    // only bound on the respawn loop.
+    const requestInjected = {
+      ...baseRequestInjected,
+      deadline: undefined,
+      runIndex: MAX_ORDER_TRACKING_RUNS_WITHOUT_DEADLINE,
+    }
+
+    await handler.handleRequest({ containerInjected: {} as any, requestInjected: requestInjected as any })
+
+    expect(kickoffOrderTrackingSfn).not.toHaveBeenCalled()
+  })
+
+  it('keeps restarting deadline-carrying state beyond the deadline-less run cap while inside the grace period', async () => {
+    // The run cap applies only when there is no deadline to bound tracking;
+    // long-lived orders (e.g. Limit) legitimately respawn many times.
+    const requestInjected = {
+      ...baseRequestInjected,
+      runIndex: MAX_ORDER_TRACKING_RUNS_WITHOUT_DEADLINE + 10,
+    }
 
     await handler.handleRequest({ containerInjected: {} as any, requestInjected: requestInjected as any })
 

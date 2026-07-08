@@ -1,3 +1,4 @@
+import { createMetricsLogger, Unit } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
@@ -7,7 +8,7 @@ import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_
 import { ethers } from 'ethers'
 import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, CosignedHybridOrder, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../../handlers/OrderParser'
-import { getSettledAmounts } from '../../handlers/check-order-status/util'
+import { AVERAGE_BLOCK_TIME, getSettledAmounts } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
 import { getRpcUrl } from '../../Config'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
@@ -24,6 +25,12 @@ type OrderUpdate = {
   settledAmounts?: SettledAmount[]
 }
 
+// Inclusive block range, lowBlock <= highBlock.
+export type BlockRange = {
+  lowBlock: number
+  highBlock: number
+}
+
 export enum ReaperStage {
   GET_OPEN_ORDERS = 'GET_OPEN_ORDERS',
   PROCESS_BLOCKS = 'PROCESS_BLOCKS',
@@ -38,11 +45,13 @@ type ChainState = {
   orderUpdates: Record<string, OrderUpdate>
   orderHashes: string[]
   stage: ReaperStage
-  // False if fill-event scanning failed for any block range this run. A used
-  // nonce is consistent with BOTH a fill and a cancellation, so we must not
-  // conclude an order was cancelled when our fill-event visibility is
-  // incomplete -- doing so misclassifies filled orders as CANCELLED.
-  fillScanComplete: boolean
+  // Block ranges whose fill-event scan failed this run. A used nonce is
+  // consistent with BOTH a fill and a cancellation, so an order whose possible
+  // fill window overlaps a failed range must not be concluded cancelled --
+  // doing so misclassifies filled orders as CANCELLED. Tracking the ranges
+  // (rather than a single flag) lets one bad range defer only the orders it
+  // could actually be hiding, instead of every used-nonce order on the chain.
+  failedFillScanRanges: BlockRange[]
 }
 
 const MAX_ORDERS_PER_CHAIN = 1000
@@ -122,7 +131,7 @@ export class GSReaper {
       orderUpdates: {},
       orderHashes: [],
       stage: ReaperStage.GET_OPEN_ORDERS,
-      fillScanComplete: true
+      failedFillScanRanges: []
     }
   }
   
@@ -159,7 +168,7 @@ export class GSReaper {
       case ReaperStage.PROCESS_BLOCKS: {
         let currentBlock = state.currentBlock
         let orderUpdates = state.orderUpdates
-        let fillScanComplete = state.fillScanComplete
+        const failedFillScanRanges = [...state.failedFillScanRanges]
         const orderHashSet = new Set(state.orderHashes)
 
         for (let i = 0; i < REAPER_RANGES_PER_RUN; i++) {
@@ -179,10 +188,13 @@ export class GSReaper {
           orderUpdates = updates
           state.orderHashes = Array.from(remainingHashes)
           // If we couldn't read fill events for a range, our fill visibility is
-          // incomplete; remember this so CHECK_CANCELLED doesn't mistake a
-          // filled order (whose nonce is used) for a cancelled one.
+          // incomplete there; remember the range so CHECK_CANCELLED doesn't
+          // mistake a filled order (whose nonce is used) for a cancelled one.
           if (fillScanFailed) {
-            fillScanComplete = false
+            failedFillScanRanges.push({
+              lowBlock: Math.min(currentBlock, nextBlock),
+              highBlock: Math.max(currentBlock, nextBlock),
+            })
           }
           currentBlock = nextBlock
           if (currentBlock <= state.earliestBlock) {
@@ -190,7 +202,7 @@ export class GSReaper {
               ...state,
               currentBlock,
               orderUpdates,
-              fillScanComplete,
+              failedFillScanRanges,
               stage: ReaperStage.CHECK_CANCELLED
             }
           }
@@ -200,7 +212,7 @@ export class GSReaper {
           ...state,
           currentBlock,
           orderUpdates,
-          fillScanComplete,
+          failedFillScanRanges,
           stage: ReaperStage.PROCESS_BLOCKS
         }
       }
@@ -214,7 +226,7 @@ export class GSReaper {
           provider,
           state.chainId,
           this.log,
-          state.fillScanComplete
+          state.failedFillScanRanges
         )
         
         return {
@@ -348,6 +360,40 @@ async function processBlockRange(
   return { updates: orderUpdates, remainingHashes: orderHashSet, fillScanFailed: false }
 }
 
+/**
+ * Estimated block range in which this order's fill could have landed: from
+ * order creation through its deadline (the reactor enforces the deadline
+ * onchain). Estimated from wall-clock age at average block cadence, widened by
+ * 25% of the age plus a fixed slack so cadence drift over long ages cannot
+ * shrink it below the true window. Returns undefined when the entity lacks the
+ * timestamps needed to bound it.
+ */
+export function estimateFillWindow(
+  order: UniswapXOrderEntity,
+  chainHeadBlock: number,
+  chainId: number,
+  nowSeconds: number
+): BlockRange | undefined {
+  if (!order.createdAt || !order.deadline || order.deadline < order.createdAt) {
+    return undefined
+  }
+  const blockTime = AVERAGE_BLOCK_TIME(chainId)
+  const toBlocksAgo = (timestamp: number) => {
+    const ageSeconds = Math.max(0, nowSeconds - timestamp)
+    return { estimate: Math.ceil(ageSeconds / blockTime), slack: Math.ceil((0.25 * ageSeconds) / blockTime) + 1000 }
+  }
+  const created = toBlocksAgo(order.createdAt)
+  const deadline = toBlocksAgo(order.deadline)
+  return {
+    lowBlock: Math.max(0, chainHeadBlock - created.estimate - created.slack),
+    highBlock: Math.max(0, chainHeadBlock - deadline.estimate + deadline.slack),
+  }
+}
+
+function rangesOverlap(a: BlockRange, b: BlockRange): boolean {
+  return a.lowBlock <= b.highBlock && b.lowBlock <= a.highBlock
+}
+
 async function checkCancelledOrders(
   orderHashes: string[],
   existingUpdates: Record<string, OrderUpdate>,
@@ -355,21 +401,51 @@ async function checkCancelledOrders(
   provider: ethers.providers.StaticJsonRpcProvider,
   chainId: number,
   log: Logger,
-  fillScanComplete: boolean,
+  failedFillScanRanges: BlockRange[],
 ): Promise<Record<string, OrderUpdate>> {
   const orderUpdates = { ...existingUpdates }
   const quoter = new OrderValidator(provider, chainId)
-  let deferredCancellations = 0
+  let deferredResolutions = 0
+
+  // Reference for estimating orders' fill windows; only needed when some
+  // ranges failed. If even this lookup fails, treat visibility as unknown and
+  // defer every used-nonce/expired resolution this run.
+  let chainHeadBlock: number | undefined
+  if (failedFillScanRanges.length > 0) {
+    try {
+      chainHeadBlock = await provider.getBlockNumber()
+    } catch (error) {
+      log.error({ error }, `Failed to get chain head block for chainId ${chainId}`)
+    }
+  }
+  const nowSeconds = Math.floor(Date.now() / 1000)
+
+  // A fill this order could have received may be hiding inside a block range
+  // whose scan failed. When we cannot bound the order's fill window, assume
+  // it overlaps.
+  const fillMayBeHidden = (order: UniswapXOrderEntity): boolean => {
+    if (failedFillScanRanges.length === 0) {
+      return false
+    }
+    if (chainHeadBlock === undefined) {
+      return true
+    }
+    const fillWindow = estimateFillWindow(order, chainHeadBlock, chainId, nowSeconds)
+    if (!fillWindow) {
+      return true
+    }
+    return failedFillScanRanges.some((failedRange) => rangesOverlap(failedRange, fillWindow))
+  }
 
   for (const orderHash of orderHashes) {
     if (!orderUpdates[orderHash]) {
       try {
-        const { order, signature } = await getOrderByHash(repo, orderHash)
+        const { order, signature, entity } = await getOrderByHash(repo, orderHash)
         // We only check for nonce used and expired for permissioned tokens
         // since the order quoter can't move input tokens
         // For v4 orders like Hybrid, input is at a different level
-        const inputToken = order instanceof CosignedHybridOrder 
-          ? order.info.input.token 
+        const inputToken = order instanceof CosignedHybridOrder
+          ? order.info.input.token
           : (order as LegacyUniswapXOrder).info.input.token
         const validation = PermissionedTokenValidator.isPermissionedToken(inputToken, chainId)
           ? await new Permit2Validator(provider, chainId).validate(order)
@@ -379,13 +455,14 @@ async function checkCancelledOrders(
           })
 
         if (validation === OrderValidation.NonceUsed) {
-          // A used nonce means the order was EITHER filled or cancelled. If our
-          // fill-event scan was incomplete this run, we cannot tell which --
-          // marking it CANCELLED here would misclassify a filled order. Leave it
-          // unresolved so a future run (with full fill visibility) can resolve it.
-          if (!fillScanComplete) {
-            log.info(`Order ${orderHash} has a used nonce but fill scan was incomplete; deferring cancellation`)
-            deferredCancellations++
+          // A used nonce means the order was EITHER filled or cancelled. If a
+          // failed scan range overlaps this order's possible fill window, we
+          // cannot tell which -- marking it CANCELLED would misclassify a
+          // filled order. Leave it unresolved so a future run (with full fill
+          // visibility over the window) can resolve it.
+          if (fillMayBeHidden(entity)) {
+            log.info(`Order ${orderHash} has a used nonce but its fill window overlaps a failed scan range; deferring cancellation`)
+            deferredResolutions++
             continue
           }
           log.info(`Order ${orderHash} has been cancelled`)
@@ -394,6 +471,16 @@ async function checkCancelledOrders(
           }
         }
         if (validation === OrderValidation.Expired) {
+          // Both validators report NonceUsed ahead of Expired (fills consume
+          // the nonce), so Expired should already imply the order was never
+          // filled. The window check is defense-in-depth for the same
+          // misclassification class: don't finalize a terminal status while a
+          // failed scan range could be hiding this order's fill.
+          if (fillMayBeHidden(entity)) {
+            log.info(`Order ${orderHash} is expired but its fill window overlaps a failed scan range; deferring expiry`)
+            deferredResolutions++
+            continue
+          }
           log.info(`Order ${orderHash} has expired`)
           orderUpdates[orderHash] = {
             status: ORDER_STATUS.EXPIRED,
@@ -407,16 +494,38 @@ async function checkCancelledOrders(
 
   // A chain whose fill scan never completes (e.g. an RPC that rejects the
   // getLogs window) defers the same orders every run; surface that as a
-  // structured warning so it can be alerted on rather than only found by
-  // reading per-order logs.
-  if (deferredCancellations > 0) {
+  // structured warning and metrics so a permanently-deferring chain is
+  // distinguishable from a healthy one.
+  if (deferredResolutions > 0) {
     log.warn(
-      { chainId, deferredCancellations },
-      `Deferred ${deferredCancellations} used-nonce cancellations for chainId ${chainId} due to incomplete fill scan`
+      { chainId, deferredResolutions, failedFillScanRanges },
+      `Deferred ${deferredResolutions} used-nonce/expired resolutions for chainId ${chainId} due to failed fill scan ranges`
     )
   }
+  await emitReaperMetrics(chainId, deferredResolutions, failedFillScanRanges.length, log)
 
   return orderUpdates
+}
+
+// The reaper runs on Fargate with AWS_EMF_ENVIRONMENT=Local, so EMF metric
+// blobs written to stdout land in CloudWatch Logs and are extracted into
+// metrics -- same pipeline the lambdas use, no agent required.
+async function emitReaperMetrics(
+  chainId: number,
+  deferredResolutions: number,
+  failedFillScanRangeCount: number,
+  log: Logger
+): Promise<void> {
+  try {
+    const metrics = createMetricsLogger()
+    metrics.setNamespace('Uniswap')
+    metrics.setDimensions({ Service: 'GSReaper', ChainId: chainId.toString() })
+    metrics.putMetric('DeferredTerminalResolutions', deferredResolutions, Unit.Count)
+    metrics.putMetric('FailedFillScanRanges', failedFillScanRangeCount, Unit.Count)
+    await metrics.flush()
+  } catch (error) {
+    log.error({ error }, 'Failed to emit reaper metrics')
+  }
 }
 
 async function updateOrders(
@@ -498,10 +607,11 @@ async function getUnresolvedOrderHashes(
   }
 }
 
-type OrderWithSignature = 
+type OrderWithSignature =
 {
   order: UniswapXOrder,
-  signature: string
+  signature: string,
+  entity: UniswapXOrderEntity
 }
 
 async function getOrderByHash(repo: BaseOrdersRepository<UniswapXOrderEntity>, orderHash: string): Promise<OrderWithSignature> {
@@ -512,6 +622,7 @@ async function getOrderByHash(repo: BaseOrdersRepository<UniswapXOrderEntity>, o
   return {
     order: parseOrder(order, order.chainId),
     signature: order.signature,
+    entity: order,
   }
 }
 

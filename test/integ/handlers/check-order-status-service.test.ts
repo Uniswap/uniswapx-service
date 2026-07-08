@@ -282,22 +282,18 @@ describe('checkOrderStatusService', () => {
       it('should NOT cancel when the fill lookup fails, even at getFillLogAttempts = 1', async () => {
         // Regression: a used nonce is consistent with a fill. If we can't read
         // fill events (e.g. RPC getLogs range/rate limit), we must not finalize
-        // CANCELLED on incomplete info -- stay open and resolve on a later poll.
+        // CANCELLED on incomplete info. The error propagates so the state
+        // machine's Retry re-polls it and, if it persists, its Catch fails the
+        // execution loudly instead of this poll quietly writing a status.
         getFillInfoMock.mockRejectedValue(new Error('limit exceeded'))
 
-        const result = await checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
+        await expect(
+          checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
+        ).rejects.toThrow('limit exceeded')
 
         expect(watcherMock.getFillInfo).toHaveBeenCalled()
         expect(analyticsMock.logCancelled).not.toHaveBeenCalled()
-        // open == lastStatus, so no terminal write happens
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
-        expect(result).toEqual(
-          expect.objectContaining({
-            orderStatus: 'open',
-            // the grace-poll counter is preserved, not advanced or reset
-            getFillLogAttempts: 1,
-          })
-        )
       })
     })
 
@@ -407,6 +403,51 @@ describe('checkOrderStatusService', () => {
         const order: any = { type: OrderType.Priority, cosignerData: { auctionTargetBlock: 1000 } }
         const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
         expect(fromBlock).toBeLessThanOrEqual(1000 - OVERLAP)
+      })
+
+      it('falls back to the rolling window when the anchor is zero (absent-field default)', () => {
+        // Regression: a Hybrid order with auctionTargetBlock=0 must not anchor
+        // the search to block zero -- that turns the lookup into an unbounded
+        // getLogs from genesis. Zero is an absent field's default, not a block.
+        const order: any = { type: OrderType.Hybrid, cosignerData: { auctionTargetBlock: 0 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        expect(fromBlock).toBe(5000 - OVERLAP)
+      })
+
+      it('falls back to the rolling window when the Priority anchor computes non-positive', () => {
+        const order: any = { type: OrderType.Priority, cosignerData: { auctionTargetBlock: 0 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        expect(fromBlock).toBe(5000 - OVERLAP)
+      })
+
+      it('never returns a negative lower bound', () => {
+        const order: any = { type: OrderType.Dutch }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5)
+        expect(fromBlock).toBe(0)
+      })
+    })
+
+    describe('fill-search window capping (getFillSearchToBlock)', () => {
+      it('caps the upper bound by the order lifetime so anchored searches cannot grow unbounded', () => {
+        // Mainnet ~12s blocks: a 120s-lived order needs ~10 blocks; the cap is
+        // from + 2*lifespan + slack, far below a head that has drifted 100k
+        // blocks past the anchor.
+        const order: any = { createdAt: 1_000_000, deadline: 1_000_120 }
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, 1000, 101_000)
+        expect(toBlock).toBeLessThan(101_000)
+        expect(toBlock).toBeGreaterThan(1000)
+      })
+
+      it('uses the current head for young orders', () => {
+        const order: any = { createdAt: 1_000_000, deadline: 1_000_120 }
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, 1000, 1100)
+        expect(toBlock).toBe(1100)
+      })
+
+      it('uses the current head when lifetime cannot be bounded', () => {
+        const order: any = { createdAt: undefined, deadline: 1_000_120 }
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, 1000, 500_000)
+        expect(toBlock).toBe(500_000)
       })
     })
 

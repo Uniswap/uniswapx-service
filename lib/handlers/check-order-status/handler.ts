@@ -17,6 +17,14 @@ import { log } from '../../Logging'
 // respawns executions forever.
 export const ORDER_TRACKING_ABANDON_GRACE_SECONDS = 2 * 60 * 60
 
+// Hard cap on execution respawns for state that carries no deadline (today:
+// Relay orders). The deadline grace above cannot fire without a deadline, so
+// this cap is the only bound between a never-terminal order (e.g. one whose
+// validation keeps returning UnknownError) and an infinite chain of restarted
+// executions. Each run is ~300 polls, so this still gives short-lived orders
+// hours of tracking before we abandon.
+export const MAX_ORDER_TRACKING_RUNS_WITHOUT_DEADLINE = 5
+
 export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected, RequestInjected> {
   constructor(
     handlerName: string,
@@ -36,23 +44,27 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     const retryCount = input.requestInjected?.retryCount ?? 0
     if (retryCount > 300) {
       // Only the Dutch and Limit services echo `deadline` into the SFN state,
-      // so this gate can only fire for order types the GS reaper can later
-      // resolve. If Relay orders (no reaper backstop) ever carry a deadline,
-      // exempt them here.
+      // so the deadline gate can only fire for order types the GS reaper can
+      // later resolve. State without a deadline (Relay orders) is bounded by
+      // the run-count cap instead.
       const deadline = input.requestInjected.deadline
       const nowSec = Math.floor(Date.now() / 1000)
-      if (deadline && nowSec > deadline + ORDER_TRACKING_ABANDON_GRACE_SECONDS) {
-        log.warn('Not restarting step function: order is past its deadline grace period; leaving resolution to the reaper', {
+      const currentRunIndex = input.requestInjected.runIndex || 0
+      const pastDeadlineGrace = Boolean(deadline) && nowSec > (deadline as number) + ORDER_TRACKING_ABANDON_GRACE_SECONDS
+      const exhaustedRunsWithoutDeadline = !deadline && currentRunIndex >= MAX_ORDER_TRACKING_RUNS_WITHOUT_DEADLINE
+      if (pastDeadlineGrace || exhaustedRunsWithoutDeadline) {
+        log.warn('Not restarting step function: abandoning order tracking', {
           orderHash: input.requestInjected.orderHash,
           retryCount,
           deadline,
+          runIndex: currentRunIndex,
+          reason: pastDeadlineGrace ? 'past deadline grace period; leaving resolution to the reaper' : 'run cap reached for deadline-less order',
         })
         powertoolsMetric
           .singleMetric()
           .addMetric(CheckOrderStatusHandlerMetricNames.OrderTrackingAbandonedCount, MetricUnits.Count, 1)
       } else {
         const stateMachineArn = input.requestInjected.stateMachineArn
-        const currentRunIndex = input.requestInjected.runIndex || 0
         const nextRunIndex = currentRunIndex + 1
 
         log.info('Restarting step function due to retry limit', {
