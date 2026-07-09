@@ -23,6 +23,7 @@ export interface RequestInjected {
   getFillLogAttempts: number
   retryCount: number
   runIndex: number
+  deadline?: number
   provider: ethers.providers.StaticJsonRpcProvider
   orderWatcher: UniswapXEventWatcher
   orderQuoter: OrderValidator
@@ -74,6 +75,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       getFillLogAttempts: event.getFillLogAttempts ? (event.getFillLogAttempts as number) : 0,
       retryCount: event.retryCount ? (event.retryCount as number) : 0,
       runIndex: event.runIndex ? (event.runIndex as number) : 0,
+      deadline: event.deadline ? (event.deadline as number) : undefined,
       provider: provider,
       orderWatcher: watcher,
       orderQuoter: quoter,

@@ -278,6 +278,23 @@ describe('checkOrderStatusService', () => {
           })
         )
       })
+
+      it('should NOT cancel when the fill lookup fails, even at getFillLogAttempts = 1', async () => {
+        // Regression: a used nonce is consistent with a fill. If we can't read
+        // fill events (e.g. RPC getLogs range/rate limit), we must not finalize
+        // CANCELLED on incomplete info. The error propagates so the state
+        // machine's Retry re-polls it and, if it persists, its Catch fails the
+        // execution loudly instead of this poll quietly writing a status.
+        getFillInfoMock.mockRejectedValue(new Error('limit exceeded'))
+
+        await expect(
+          checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
+        ).rejects.toThrow('limit exceeded')
+
+        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(analyticsMock.logCancelled).not.toHaveBeenCalled()
+        expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
+      })
     })
 
     describe('OrderValidation.InsufficientFunds', () => {
@@ -343,17 +360,103 @@ describe('checkOrderStatusService', () => {
         validatorMock.validate.mockResolvedValue(OrderValidation.UnknownError)
       })
 
-      it('should update status with error', async () => {
+      it('should keep order open (not terminal error) on an ambiguous/transient UnknownError', async () => {
         const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
-        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
+        // open == lastStatus, so no terminal write happens
+        expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
         expect(result).toEqual(
           expect.objectContaining({
-            orderStatus: 'error',
+            orderStatus: 'open',
           })
         )
+      })
+    })
+
+    describe('fill-search window anchoring (getFillSearchFromBlock)', () => {
+      // FILL_CHECK_OVERLAP_BLOCK in the service
+      const OVERLAP = 20
+
+      it('anchors Dutch_V3 to decayStartBlock so early fills stay in range', () => {
+        const order: any = { type: OrderType.Dutch_V3, cosignerData: { decayStartBlock: 1000 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        // min(rolling - overlap, decayStartBlock - overlap) = min(4980, 980)
+        expect(fromBlock).toBe(980)
+      })
+
+      it('never shrinks coverage below the rolling window', () => {
+        const order: any = { type: OrderType.Dutch_V3, cosignerData: { decayStartBlock: 1000 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 500)
+        // rolling - overlap (480) is already below the anchor, so it wins
+        expect(fromBlock).toBe(480)
+      })
+
+      it('keeps the rolling window for timestamp-based types (Dutch)', () => {
+        const order: any = { type: OrderType.Dutch }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        expect(fromBlock).toBe(5000 - OVERLAP)
+      })
+
+      it('anchors Priority to its auction target block', () => {
+        const order: any = { type: OrderType.Priority, cosignerData: { auctionTargetBlock: 1000 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        expect(fromBlock).toBeLessThanOrEqual(1000 - OVERLAP)
+      })
+
+      it('falls back to the rolling window when the anchor is zero (absent-field default)', () => {
+        // Regression: a Hybrid order with auctionTargetBlock=0 must not anchor
+        // the search to block zero -- that turns the lookup into an unbounded
+        // getLogs from genesis. Zero is an absent field's default, not a block.
+        const order: any = { type: OrderType.Hybrid, cosignerData: { auctionTargetBlock: 0 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        expect(fromBlock).toBe(5000 - OVERLAP)
+      })
+
+      it('falls back to the rolling window when the Priority anchor computes non-positive', () => {
+        const order: any = { type: OrderType.Priority, cosignerData: { auctionTargetBlock: 0 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
+        expect(fromBlock).toBe(5000 - OVERLAP)
+      })
+
+      it('never returns a negative lower bound', () => {
+        const order: any = { type: OrderType.Dutch }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5)
+        expect(fromBlock).toBe(0)
+      })
+    })
+
+    describe('fill-search window capping (getFillSearchToBlock)', () => {
+      it('caps the upper bound by the order lifetime so anchored searches cannot grow unbounded', () => {
+        // Mainnet ~12s blocks: a 120s-lived order needs ~10 blocks; the cap is
+        // from + 2*lifespan + slack, far below a head that has drifted 100k
+        // blocks past the anchor.
+        const order: any = { createdAt: 1_000_000, deadline: 1_000_120 }
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, 1000, 101_000)
+        expect(toBlock).toBeLessThan(101_000)
+        expect(toBlock).toBeGreaterThan(1000)
+      })
+
+      it('uses the current head for young orders', () => {
+        const order: any = { createdAt: 1_000_000, deadline: 1_000_120 }
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, 1000, 1100)
+        expect(toBlock).toBe(1100)
+      })
+
+      it('uses the current head when lifetime cannot be bounded', () => {
+        const order: any = { createdAt: undefined, deadline: 1_000_120 }
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, 1000, 500_000)
+        expect(toBlock).toBe(500_000)
+      })
+
+      it('uses the current head on chains without a registered block time (testnets)', () => {
+        // getAverageBlockTimeSecs throws for chains missing from its registry
+        // (e.g. Sepolia); the cap must degrade to the old uncapped behavior
+        // instead of failing the poll before the fill lookup.
+        const order: any = { createdAt: 1_000_000, deadline: 1_000_120 }
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 11155111, 1000, 500_000)
+        expect(toBlock).toBe(500_000)
       })
     })
 

@@ -12,6 +12,12 @@ export type OrderTrackingSfnInput = {
   orderType: OrderType
   stateMachineArn: string
   runIndex?: number
+  // Carried across execution restarts so a respawned run keeps the original
+  // fill-search coverage and grace-poll progress instead of resetting them --
+  // a reset window can permanently hide an already-landed fill.
+  startingBlockNumber?: number
+  getFillLogAttempts?: number
+  deadline?: number
 }
 
 // Reuse a single client across invocations: constructing an SFNClient per

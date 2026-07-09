@@ -224,6 +224,7 @@ export class RelayOrderService {
       extraUpdateInfo = this.checkOrderStatusUtils.getUnfilledStatusFromValidation({
         validation,
         getFillLogAttempts,
+        lastStatus: orderStatus,
       })
     }
 

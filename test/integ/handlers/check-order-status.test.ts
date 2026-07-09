@@ -369,7 +369,13 @@ describe('Testing check order status handler', () => {
         .mockReturnValueOnce(OrderValidation.InvalidSignature)
         .mockReturnValueOnce(OrderValidation.InvalidOrderFields)
 
-      for (let i = 0; i < 3; i++) {
+      // UnknownError is ambiguous/transient -- the order stays open instead of
+      // finalizing as terminal error
+      expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
+        orderStatus: ORDER_STATUS.OPEN,
+      })
+      // Genuine InvalidSignature/InvalidOrderFields still map to terminal error
+      for (let i = 0; i < 2; i++) {
         expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
           orderStatus: ORDER_STATUS.ERROR,
         })
@@ -413,6 +419,7 @@ describe('Testing check order status handler', () => {
         chainId: 1,
         startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
         orderType: OrderType.Dutch,
+        deadline: MOCK_ORDER_ENTITY.deadline,
       })
     })
 
@@ -476,6 +483,7 @@ describe('Testing check order status handler', () => {
         chainId: 1,
         startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
         orderType: OrderType.Dutch,
+        deadline: MOCK_ORDER_ENTITY.deadline,
       })
     })
 
@@ -526,6 +534,7 @@ describe('Testing check order status handler', () => {
         chainId: 1,
         startingBlockNumber: mockedBlockNumber - FILL_EVENT_LOOKBACK_BLOCKS_ON(1),
         orderType: OrderType.Dutch,
+        deadline: MOCK_ORDER_ENTITY.deadline,
       })
     })
 

@@ -45,13 +45,6 @@ export class Permit2Validator {
   public async validate(
     order: UniswapXOrder
   ): Promise<OrderValidation> {
-
-    // Check if order deadline has passed
-    const currentTimestamp = Math.floor(Date.now() / 1000)
-    if (currentTimestamp > order.info.deadline) {
-      return OrderValidation.Expired
-    }
-
     const address = permit2Address(this.chainId)
     const signatureProvider = new SignatureProvider(this.provider, address)
     // Get input token from the order (handles both legacy and v4 orders)
@@ -70,6 +63,10 @@ export class Permit2Validator {
 
       const permitValidation = await signatureProvider.validatePermit(permitTransferFrom)
 
+      // A used nonce must win over expiry: fills also consume the nonce, so
+      // reporting an old filled order as Expired would let callers finalize
+      // EXPIRED without ever checking for a fill (mirrors the SDK quoter's
+      // checkTerminalStates semantics).
       if (permitValidation.isUsed) {
         return OrderValidation.NonceUsed
       }
@@ -77,6 +74,12 @@ export class Permit2Validator {
       if (permitValidation.isExpired) {
         return OrderValidation.Expired
       }
+
+    // Check if order deadline has passed
+    const currentTimestamp = Math.floor(Date.now() / 1000)
+    if (currentTimestamp > order.info.deadline) {
+      return OrderValidation.Expired
+    }
 
     return OrderValidation.OK
   }
