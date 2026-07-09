@@ -7,6 +7,7 @@ import {
   CheckOrderStatusRequest,
   CheckOrderStatusService,
   CheckOrderStatusUtils,
+  getFillCheckOverlapBlocks,
 } from '../../../lib/handlers/check-order-status/service'
 import {
   calculateDutchRetryWaitSeconds,
@@ -424,6 +425,56 @@ describe('checkOrderStatusService', () => {
         const order: any = { type: OrderType.Dutch }
         const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5)
         expect(fromBlock).toBe(0)
+      })
+
+      it('covers exclusivity fills landing well before decayStartBlock on sub-second chains', () => {
+        // Regression (prod incident, chain 4663 / Robinhood, 2026-07-09): order
+        // 0xf52c2467... was filled at block 5344391, 22 blocks before its
+        // decayStartBlock 5344413. With the fixed 20-block pad (~5s on a 0.1s
+        // chain) the fill sat below the search window on every poll and the
+        // used nonce was misread as a cancellation. The pad must be
+        // time-denominated: 240s at 0.1s/block = 2400 blocks.
+        const order: any = { type: OrderType.Dutch_V3, cosignerData: { decayStartBlock: 5344413 } }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 4663, 5344418)
+        expect(fromBlock).toBeLessThanOrEqual(5344391)
+        expect(fromBlock).toBe(5344413 - 2400)
+      })
+
+      it('keeps the legacy 20-block pad on mainnet and on chains without a registered cadence', () => {
+        const order: any = { type: OrderType.Dutch }
+        // mainnet: 240s / 12s = exactly the old 20 blocks
+        expect((checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)).toBe(5000 - 20)
+        // unregistered chain (Sepolia): falls back to 20 rather than throwing
+        expect((checkOrderStatusService as any).getFillSearchFromBlock(order, 11155111, 5000)).toBe(5000 - 20)
+      })
+
+      it('computes the pad per chain', () => {
+        expect(getFillCheckOverlapBlocks(1)).toBe(20) // 240s / 12s
+        expect(getFillCheckOverlapBlocks(42161)).toBe(960) // 240s / 0.25s
+        expect(getFillCheckOverlapBlocks(4663)).toBe(2400) // 240s / 0.1s
+        expect(getFillCheckOverlapBlocks(11155111)).toBe(20) // unregistered -> legacy pad
+      })
+
+      it('keeps the fill inside BOTH bounds for a short-lived order on a sub-second chain', () => {
+        // The enlarged pad lowers fromBlock; the toBlock cap is computed
+        // relative to fromBlock, so without adding the pad back into the cap a
+        // 60s Robinhood order's window would end BELOW its own auction start --
+        // moving the incident fill from below the window to above it. Replay
+        // the incident numbers with a 60s lifespan and assert the fill is
+        // inside [fromBlock, toBlock].
+        const FILL_BLOCK = 5344391
+        const order: any = {
+          type: OrderType.Dutch_V3,
+          cosignerData: { decayStartBlock: 5344413 },
+          createdAt: 1783612838,
+          deadline: 1783612898, // 60s lifespan
+        }
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 4663, 5344418)
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 4663, fromBlock, 5350000)
+        expect(fromBlock).toBeLessThanOrEqual(FILL_BLOCK)
+        expect(toBlock).toBeGreaterThanOrEqual(FILL_BLOCK)
+        // and the whole possible fill range [anchor, ~deadline] stays covered
+        expect(toBlock).toBeGreaterThanOrEqual(5344413 + Math.ceil(60 / 0.1))
       })
     })
 

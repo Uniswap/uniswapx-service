@@ -28,10 +28,26 @@ import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { Permit2Validator } from '../../util/Permit2Validator'
 
 const FILL_CHECK_OVERLAP_BLOCK = 20
+// Wall-clock coverage below the fill-search lower bound. Exclusivity fills
+// land between order posting and the decay/auction start, so the pad under
+// the anchor must be measured in time, not blocks: 20 blocks is ~4 minutes on
+// mainnet but ~5 seconds on sub-second chains like Robinhood, where winning
+// fills routinely land 20+ blocks before decayStartBlock and were being
+// misread as cancellations. 240s keeps mainnet at exactly the old 20-block pad.
+const FILL_CHECK_OVERLAP_SECONDS = 240
 // Fixed slack added to the fill-search upper bound on top of double the
 // order's estimated lifetime in blocks, absorbing block-cadence variance and
 // the gap between order creation and the first poll.
 const FILL_SEARCH_SLACK_BLOCKS = 500
+
+export function getFillCheckOverlapBlocks(chainId: number): number {
+  try {
+    return Math.max(FILL_CHECK_OVERLAP_BLOCK, Math.ceil(FILL_CHECK_OVERLAP_SECONDS / AVERAGE_BLOCK_TIME(chainId)))
+  } catch {
+    // Chains without a registered cadence (testnets) keep the legacy pad.
+    return FILL_CHECK_OVERLAP_BLOCK
+  }
+}
 
 // Type for legacy orders that have input at the info level
 type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
@@ -304,8 +320,9 @@ export class CheckOrderStatusService {
    * decay/auction start block is known exactly (Dutch V3, Hybrid, Priority) we
    * anchor to it so fills that land at or just before it are always in range,
    * regardless of when polling first ran. For timestamp-based order types
-   * (Dutch, Dutch V2) we keep the rolling lookback window. Always at least
-   * FILL_CHECK_OVERLAP_BLOCK below the rolling window so coverage never shrinks.
+   * (Dutch, Dutch V2) we keep the rolling lookback window. The pad below the
+   * bound is time-based (FILL_CHECK_OVERLAP_SECONDS) so exclusivity fills that
+   * settle before the auction start stay in range on fast chains.
    */
   private getFillSearchFromBlock(
     order: UniswapXOrderEntity,
@@ -313,12 +330,13 @@ export class CheckOrderStatusService {
     rollingFromBlock: number
   ): number {
     const anchorBlock = getAuctionStartBlock(order, chainId)
+    const overlapBlocks = getFillCheckOverlapBlocks(chainId)
 
-    const rollingLowerBound = Math.max(0, rollingFromBlock - FILL_CHECK_OVERLAP_BLOCK)
+    const rollingLowerBound = Math.max(0, rollingFromBlock - overlapBlocks)
     if (anchorBlock === undefined) {
       return rollingLowerBound
     }
-    return Math.max(0, Math.min(rollingLowerBound, anchorBlock - FILL_CHECK_OVERLAP_BLOCK))
+    return Math.max(0, Math.min(rollingLowerBound, anchorBlock - overlapBlocks))
   }
 
   /**
@@ -351,9 +369,16 @@ export class CheckOrderStatusService {
     }
     // 3x, not a snug bound: the registry is a hand-maintained constant, and a
     // chain speeding up past it shrinks this window in real blocks -- the
-    // multiplier is headroom against that drift.
+    // multiplier is headroom against that drift. The overlap pad is added
+    // back because searchFromBlock already sits that far BELOW the anchor;
+    // without it, enlarging the pad on fast chains would drag the cap below
+    // the order's fill range and re-create the misclassification the pad
+    // exists to prevent.
     const lifespanBlocks = Math.ceil((order.deadline - order.createdAt) / averageBlockTime)
-    return Math.min(curBlockNumber, searchFromBlock + 3 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS)
+    return Math.min(
+      curBlockNumber,
+      searchFromBlock + getFillCheckOverlapBlocks(chainId) + 3 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS
+    )
   }
 
   private async getFillEventForOrder(
