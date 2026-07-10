@@ -229,7 +229,8 @@ export class GSReaper {
           provider,
           state.chainId,
           this.log,
-          state.failedFillScanRanges
+          state.failedFillScanRanges,
+          this.unresolvedOrderStatus
         )
         
         return {
@@ -413,6 +414,7 @@ async function checkCancelledOrders(
   chainId: number,
   log: Logger,
   failedFillScanRanges: BlockRange[],
+  unresolvedOrderStatus: ORDER_STATUS,
 ): Promise<Record<string, OrderUpdate>> {
   const orderUpdates = { ...existingUpdates }
   const quoter = new OrderValidator(provider, chainId)
@@ -461,6 +463,16 @@ async function checkCancelledOrders(
     if (!orderUpdates[orderHash]) {
       try {
         const { order, signature, entity } = await getOrderByHash(repo, orderHash)
+        // Another writer (e.g. the check-order-status state machine) may have
+        // resolved this order since the run's GET_OPEN_ORDERS snapshot -- most
+        // importantly to FILLED, which a used nonce is also consistent with.
+        // Only resolve orders whose DB status still matches the snapshot.
+        if (entity.orderStatus !== unresolvedOrderStatus) {
+          log.info(
+            `Order ${orderHash} status is now ${entity.orderStatus} (no longer ${unresolvedOrderStatus}); skipping resolution`
+          )
+          continue
+        }
         // We only check for nonce used and expired for permissioned tokens
         // since the order quoter can't move input tokens
         // For v4 orders like Hybrid, input is at a different level

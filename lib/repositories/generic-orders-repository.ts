@@ -14,6 +14,16 @@ import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
 import { IndexMapper } from './IndexMappers/IndexMapper'
 
 export const MAX_ORDERS = 50
+
+function isConditionalCheckFailed(e: unknown): boolean {
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    ((e as { code?: string }).code === 'ConditionalCheckFailedException' ||
+      (e as { name?: string }).name === 'ConditionalCheckFailedException')
+  )
+}
+
 // Shared implementation for Dutch and Limit orders
 // will work for orders with the same GSIs
 export abstract class GenericOrdersRepository<
@@ -114,14 +124,29 @@ export abstract class GenericOrdersRepository<
         `cannot find order by hash when updating order status, hash: ${orderHash}`
       )
 
-      await this.entity.update({
-        [TABLE_KEY.ORDER_HASH]: orderHash,
-        ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
-        ...(txHash && { txHash }),
-        ...(fillBlock && { fillBlock }),
-        ...(settledAmounts && { settledAmounts })
-      })
+      await this.entity.update(
+        {
+          [TABLE_KEY.ORDER_HASH]: orderHash,
+          ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
+          ...(txHash && { txHash }),
+          ...(fillBlock && { fillBlock }),
+          ...(settledAmounts && { settledAmounts })
+        },
+        // FILLED is terminal: once an order is recorded as filled, no writer may
+        // downgrade it to another status (e.g. a reaper run whose fill scan
+        // predates the fill misreading its used nonce as a cancellation).
+        // Enforced as a DynamoDB condition so the check is atomic with the write.
+        status === ORDER_STATUS.FILLED
+          ? {}
+          : { conditions: [{ attr: TABLE_KEY.ORDER_STATUS, ne: ORDER_STATUS.FILLED }] }
+      )
     } catch (e) {
+      if (isConditionalCheckFailed(e)) {
+        // The order reached FILLED between our read and this write; the update
+        // would downgrade a terminal status, so skip it rather than retry.
+        log.warn('skipping updateOrderStatus: order is already in terminal status FILLED', { orderHash, status })
+        return
+      }
       log.error('updateOrderStatus error', { error: e })
       throw e
     }
