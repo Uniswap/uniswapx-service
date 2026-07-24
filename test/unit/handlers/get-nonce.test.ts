@@ -1,6 +1,12 @@
 import { GetNonceHandler } from '../../../lib/handlers/get-nonce/handler'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
+import { findUnusedNonce } from '../../../lib/util/nonce'
 import { HeaderExpectation } from '../../HeaderExpectation'
+
+jest.mock('../../../lib/util/nonce', () => ({
+  ...jest.requireActual('../../../lib/util/nonce'),
+  findUnusedNonce: jest.fn(),
+}))
 
 describe('Testing get nonce handler.', () => {
   const MOCK_ADDRESS = '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa'
@@ -8,17 +14,23 @@ describe('Testing get nonce handler.', () => {
 
   // Creating mocks for all the handler dependencies.
   const getNonceByAddressMock = jest.fn()
+  const providerMapGetMock = jest.fn()
+  const findUnusedNonceMock = findUnusedNonce as jest.Mock
+  const mockProvider = { _isProvider: true }
 
   const requestInjectedMock = {
     address: MOCK_ADDRESS,
     chainId: 1,
-    log: { info: () => jest.fn(), error: () => jest.fn(), debug: () => jest.fn() },
+    log: { info: () => jest.fn(), warn: () => jest.fn(), error: () => jest.fn(), debug: () => jest.fn() },
   }
   const injectorPromiseMock: any = {
     getContainerInjected: () => {
       return {
         dbInterface: {
           getNonceByAddressAndChain: getNonceByAddressMock,
+        },
+        providerMap: {
+          get: providerMapGetMock,
         },
       }
     },
@@ -36,6 +48,11 @@ describe('Testing get nonce handler.', () => {
 
   beforeAll(async () => {
     getNonceByAddressMock.mockReturnValue(MOCK_NONCE)
+    providerMapGetMock.mockReturnValue(mockProvider)
+    // by default the on-chain check finds the stored nonce still unused and returns it unchanged
+    findUnusedNonceMock.mockImplementation(
+      async (_provider: unknown, _chainId: number, _address: string, lastUsedNonce: string) => lastUsedNonce
+    )
   })
 
   afterEach(() => {
@@ -45,6 +62,7 @@ describe('Testing get nonce handler.', () => {
   it('Testing valid request and response.', async () => {
     const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
     expect(getNonceByAddressMock).toBeCalledWith(requestInjectedMock.address.toLowerCase(), 1)
+    expect(findUnusedNonceMock).toBeCalledWith(mockProvider, 1, MOCK_ADDRESS, MOCK_NONCE)
     expect(getNonceResponse).toMatchObject({
       body: JSON.stringify({ nonce: MOCK_NONCE }),
       statusCode: 200,
@@ -53,6 +71,49 @@ describe('Testing get nonce handler.', () => {
     expect(getNonceResponse.headers).not.toBeUndefined()
     const headerExpectation = new HeaderExpectation(getNonceResponse.headers)
     headerExpectation.toAllowAllOrigin().toAllowCredentials().toReturnJsonContentType()
+  })
+
+  describe('Testing on-chain nonce check.', () => {
+    it('Returns the on-chain adjusted nonce when the stored nonce is stale.', async () => {
+      const adjustedNonce = '456'
+      findUnusedNonceMock.mockResolvedValueOnce(adjustedNonce)
+      const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
+      expect(getNonceResponse).toMatchObject({
+        body: JSON.stringify({ nonce: adjustedNonce }),
+        statusCode: 200,
+      })
+    })
+
+    it('Falls back to the stored nonce when the on-chain check fails.', async () => {
+      findUnusedNonceMock.mockRejectedValueOnce(new Error('rpc error'))
+      const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
+      expect(getNonceResponse).toMatchObject({
+        body: JSON.stringify({ nonce: MOCK_NONCE }),
+        statusCode: 200,
+      })
+    })
+
+    it('Falls back to the stored nonce when no provider is available for the chain.', async () => {
+      providerMapGetMock.mockReturnValueOnce(undefined)
+      const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
+      expect(findUnusedNonceMock).not.toHaveBeenCalled()
+      expect(getNonceResponse).toMatchObject({
+        body: JSON.stringify({ nonce: MOCK_NONCE }),
+        statusCode: 200,
+      })
+    })
+
+    it('Falls back to the stored nonce when building the provider throws.', async () => {
+      providerMapGetMock.mockImplementationOnce(() => {
+        throw new Error('RPC_PREFIX_URL not set')
+      })
+      const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
+      expect(findUnusedNonceMock).not.toHaveBeenCalled()
+      expect(getNonceResponse).toMatchObject({
+        body: JSON.stringify({ nonce: MOCK_NONCE }),
+        statusCode: 200,
+      })
+    })
   })
 
   describe('Testing invalid nonce request validation.', () => {

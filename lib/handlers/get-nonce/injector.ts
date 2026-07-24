@@ -8,6 +8,7 @@ import { DutchOrdersRepository } from '../../repositories/dutch-orders-repositor
 import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
+import { LazyProviderMap, ProviderMap } from '../shared'
 import { GetNonceQueryParams } from './schema/index'
 
 export interface RequestInjected extends ApiRInj {
@@ -17,12 +18,14 @@ export interface RequestInjected extends ApiRInj {
 
 export interface ContainerInjected {
   dbInterface: BaseOrdersRepository<UniswapXOrderEntity>
+  providerMap: ProviderMap
 }
 
 export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInjected, void, GetNonceQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
       dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
+      providerMap: new LazyProviderMap(),
     }
   }
 
