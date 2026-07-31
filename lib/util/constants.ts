@@ -104,8 +104,9 @@ export const RPC_PROVIDER_TIMEOUT_MS = 5_000
 
 // GET /nonce sits on the hot quote path, so bound its on-chain nonceBitmap
 // check more aggressively than RPC_PROVIDER_TIMEOUT_MS; on timeout the
-// handler falls back to the stored nonce instead of failing the request.
-export const ONCHAIN_NONCE_CHECK_TIMEOUT_MS = 2_000
+// handler falls back to the stored nonce instead of failing the request,
+// so a degraded RPC costs at most 1s of added latency per request.
+export const ONCHAIN_NONCE_CHECK_TIMEOUT_MS = 1_000
 
 export const RPC_HEADERS: { [key: string]: string } = {
   'x-uni-service-id': 'x_order_service',

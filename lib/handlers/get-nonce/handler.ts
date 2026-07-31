@@ -6,7 +6,7 @@ import { ONCHAIN_NONCE_CHECK_TIMEOUT_MS } from '../../util/constants'
 import { metrics } from '../../util/metrics'
 import { findUnusedNonce, generateRandomNonce } from '../../util/nonce'
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base/index'
-import { ProviderMap } from '../shared'
+import type { ProviderMap } from '../shared'
 import { ContainerInjected, RequestInjected } from './injector'
 import { GetNonceQueryParams, GetNonceQueryParamsJoi, GetNonceResponse, GetNonceResponseJoi } from './schema/index'
 
@@ -74,7 +74,7 @@ export class GetNonceHandler extends APIGLambdaHandler<
       if (!provider) {
         throw new Error(`no provider found for chainId: ${chainId}`)
       }
-      return await Promise.race([
+      const adjustedNonce = await Promise.race([
         findUnusedNonce(provider, chainId, address, lastUsedNonce),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(
@@ -83,6 +83,14 @@ export class GetNonceHandler extends APIGLambdaHandler<
           )
         }),
       ])
+      if (adjustedNonce !== lastUsedNonce) {
+        log.info(
+          { address, chainId, storedNonce: lastUsedNonce, adjustedNonce },
+          'On-chain nonce check advanced past the stored nonce'
+        )
+        metrics.putMetric('GetNonceOnChainAdvance', 1, Unit.Count)
+      }
+      return adjustedNonce
     } catch (e: unknown) {
       log.warn({ e, address, chainId }, 'On-chain nonce check failed; falling back to stored nonce')
       metrics.putMetric('GetNonceOnChainCheckFallback', 1, Unit.Count)

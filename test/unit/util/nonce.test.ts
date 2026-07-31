@@ -17,7 +17,9 @@ describe('random nonce generation test', () => {
 describe('findUnusedNonce', () => {
   const CHAIN_ID = 1
   const ADDRESS = '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa'
-  const WORD = ethers.BigNumber.from(generateRandomNonce()).div(256)
+  // Fixed uniswapx-prefixed word (same shape as generateRandomNonce() >> 8, i.e. the
+  // 0x046832 prefix in the top bits) so any failure is reproducible run-to-run.
+  const WORD = ethers.BigNumber.from('0x046832').shl(224)
 
   const mockProvider = (bitmap: ethers.BigNumber) => {
     const call = jest.fn().mockResolvedValue(ethers.utils.defaultAbiCoder.encode(['uint256'], [bitmap]))

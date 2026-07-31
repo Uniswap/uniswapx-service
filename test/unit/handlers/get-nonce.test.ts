@@ -1,5 +1,8 @@
+import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { GetNonceHandler } from '../../../lib/handlers/get-nonce/handler'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
+import { ONCHAIN_NONCE_CHECK_TIMEOUT_MS } from '../../../lib/util/constants'
+import { NullMetrics, setGlobalMetrics } from '../../../lib/util/metrics'
 import { findUnusedNonce } from '../../../lib/util/nonce'
 import { HeaderExpectation } from '../../HeaderExpectation'
 
@@ -45,14 +48,20 @@ describe('Testing get nonce handler.', () => {
   }
 
   const getNonceHandler = new GetNonceHandler('get-nonce', injectorPromiseMock)
+  const putMetricMock = jest.fn()
 
   beforeAll(async () => {
+    setGlobalMetrics({ putMetric: putMetricMock })
     getNonceByAddressMock.mockReturnValue(MOCK_NONCE)
     providerMapGetMock.mockReturnValue(mockProvider)
     // by default the on-chain check finds the stored nonce still unused and returns it unchanged
     findUnusedNonceMock.mockImplementation(
       async (_provider: unknown, _chainId: number, _address: string, lastUsedNonce: string) => lastUsedNonce
     )
+  })
+
+  afterAll(() => {
+    setGlobalMetrics(new NullMetrics())
   })
 
   afterEach(() => {
@@ -96,6 +105,14 @@ describe('Testing get nonce handler.', () => {
         body: JSON.stringify({ nonce: adjustedNonce }),
         statusCode: 200,
       })
+      expect(putMetricMock).toHaveBeenCalledWith('GetNonceOnChainAdvance', 1, expect.anything())
+      expect(putMetricMock).not.toHaveBeenCalledWith('GetNonceOnChainCheckFallback', 1, expect.anything())
+    })
+
+    it('Does not emit the advance metric when the stored nonce is still unused.', async () => {
+      const getNonceResponse = await getNonceHandler.handler(event as unknown as APIGatewayProxyEvent, {} as Context)
+      expect(getNonceResponse.statusCode).toEqual(200)
+      expect(putMetricMock).not.toHaveBeenCalledWith('GetNonceOnChainAdvance', 1, expect.anything())
     })
 
     it('Falls back to the stored nonce when the on-chain check fails.', async () => {
@@ -105,6 +122,31 @@ describe('Testing get nonce handler.', () => {
         body: JSON.stringify({ nonce: MOCK_NONCE }),
         statusCode: 200,
       })
+      expect(putMetricMock).toHaveBeenCalledWith('GetNonceOnChainCheckFallback', 1, expect.anything())
+    })
+
+    it('Falls back to the stored nonce when the on-chain check times out.', async () => {
+      jest.useFakeTimers()
+      try {
+        // simulate a hung RPC: findUnusedNonce never settles
+        findUnusedNonceMock.mockImplementationOnce(() => new Promise(() => undefined))
+        const responsePromise = getNonceHandler.handler(event as unknown as APIGatewayProxyEvent, {} as Context)
+        // flush microtasks until the handler reaches the race (the timeout timer is
+        // registered synchronously right after findUnusedNonce is invoked)
+        for (let i = 0; i < 50 && findUnusedNonceMock.mock.calls.length === 0; i++) {
+          await Promise.resolve()
+        }
+        expect(findUnusedNonceMock).toHaveBeenCalled()
+        jest.advanceTimersByTime(ONCHAIN_NONCE_CHECK_TIMEOUT_MS)
+        const getNonceResponse = await responsePromise
+        expect(getNonceResponse).toMatchObject({
+          body: JSON.stringify({ nonce: MOCK_NONCE }),
+          statusCode: 200,
+        })
+        expect(putMetricMock).toHaveBeenCalledWith('GetNonceOnChainCheckFallback', 1, expect.anything())
+      } finally {
+        jest.useRealTimers()
+      }
     })
 
     it('Falls back to the stored nonce when no provider is available for the chain.', async () => {
@@ -115,6 +157,7 @@ describe('Testing get nonce handler.', () => {
         body: JSON.stringify({ nonce: MOCK_NONCE }),
         statusCode: 200,
       })
+      expect(putMetricMock).toHaveBeenCalledWith('GetNonceOnChainCheckFallback', 1, expect.anything())
     })
 
     it('Falls back to the stored nonce when building the provider throws.', async () => {
@@ -127,6 +170,7 @@ describe('Testing get nonce handler.', () => {
         body: JSON.stringify({ nonce: MOCK_NONCE }),
         statusCode: 200,
       })
+      expect(putMetricMock).toHaveBeenCalledWith('GetNonceOnChainCheckFallback', 1, expect.anything())
     })
   })
 
