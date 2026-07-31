@@ -4,7 +4,7 @@ import Logger from 'bunyan'
 import Joi from 'joi'
 import { ONCHAIN_NONCE_CHECK_TIMEOUT_MS } from '../../util/constants'
 import { metrics } from '../../util/metrics'
-import { findUnusedNonce } from '../../util/nonce'
+import { findUnusedNonce, generateRandomNonce } from '../../util/nonce'
 import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base/index'
 import { ProviderMap } from '../shared'
 import { ContainerInjected, RequestInjected } from './injector'
@@ -28,6 +28,16 @@ export class GetNonceHandler extends APIGLambdaHandler<
     try {
       log.info({ address: address }, 'Getting nonce for address')
       const lastUsedNonce = await dbInterface.getNonceByAddressAndChain(address.toLowerCase(), chainId)
+      if (lastUsedNonce === undefined) {
+        // Never-seen address: a fresh random nonce lands on an untouched 248-bit word, so the
+        // chance of an on-chain collision is negligible — skip the RPC check entirely.
+        return {
+          statusCode: 200,
+          body: {
+            nonce: generateRandomNonce(),
+          },
+        }
+      }
       const nonce = await this.verifyNonceOnChain(lastUsedNonce, address, chainId, providerMap, log)
       return {
         statusCode: 200,

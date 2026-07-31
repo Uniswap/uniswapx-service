@@ -2,20 +2,10 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities/Order'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
-import { generateRandomNonce } from '../../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
 import { deleteAllRepoEntries } from './deleteAllRepoEntries'
 
 jest.mock('../../../lib/util/time')
-
-jest.mock('../../../lib/util/nonce', () => {
-  const originalModule = jest.requireActual('../../../lib/util/nonce')
-
-  return {
-    ...originalModule,
-    generateRandomNonce: jest.fn(originalModule.generateRandomNonce),
-  }
-})
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -499,10 +489,9 @@ describe('OrdersRepository get nonce test', () => {
     expect(nonce).toEqual('2')
   })
 
-  it('should generate random nonce for new address', async () => {
+  it('should return undefined for new address', async () => {
     const res = await ordersRepository.getNonceByAddressAndChain('random.eth', 1)
-    expect(res).not.toBeUndefined()
-    expect(generateRandomNonce).toHaveBeenCalled()
+    expect(res).toBeUndefined()
   })
 
   it('should track nonce for the same address on different chains separately', async () => {

@@ -8,7 +8,6 @@ import { log } from '../Logging'
 import { checkDefined } from '../preconditions/preconditions'
 import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
-import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
 import { IndexMapper } from './IndexMappers/IndexMapper'
@@ -58,7 +57,11 @@ export abstract class GenericOrdersRepository<
     return res.Item as T
   }
 
-  public async getNonceByAddressAndChain(address: string, chainId: number): Promise<string> {
+  /**
+   * Returns the last used nonce for the address on the given chain, or undefined
+   * if the address has never posted an order through this service.
+   */
+  public async getNonceByAddressAndChain(address: string, chainId: number): Promise<string | undefined> {
     const res = await this.nonceEntity.query(`${address}-${chainId}`, {
       limit: 1,
       reverse: true,
@@ -68,7 +71,7 @@ export abstract class GenericOrdersRepository<
     if (res.Items && res.Items.length > 0) {
       return res.Items[0].nonce
     }
-    return generateRandomNonce()
+    return undefined
   }
 
   public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {

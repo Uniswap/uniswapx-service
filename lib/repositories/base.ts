@@ -34,7 +34,7 @@ export interface BaseOrdersRepository<T extends OrderEntityType> {
     sort?: string,
     desc?: boolean
   ) => Promise<QueryResult<T>>
-  getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string>
+  getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string | undefined>
   updateOrderStatus: (
     orderHash: string,
     status: ORDER_STATUS,

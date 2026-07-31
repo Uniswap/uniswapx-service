@@ -74,6 +74,20 @@ describe('Testing get nonce handler.', () => {
   })
 
   describe('Testing on-chain nonce check.', () => {
+    it('Short circuits with a fresh random nonce when the DB has no nonce for the address.', async () => {
+      getNonceByAddressMock.mockReturnValueOnce(undefined)
+      const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
+      // the empty-DB path must not touch the provider or make any on-chain call
+      expect(providerMapGetMock).not.toHaveBeenCalled()
+      expect(findUnusedNonceMock).not.toHaveBeenCalled()
+      expect(getNonceResponse.statusCode).toEqual(200)
+      const { nonce } = JSON.parse(getNonceResponse.body)
+      // a fresh random nonce is word-aligned (low 8 bits zero) and numeric
+      expect(BigInt(nonce) % BigInt(256)).toEqual(BigInt(0))
+      expect(BigInt(nonce) > BigInt(0)).toEqual(true)
+    })
+
+
     it('Returns the on-chain adjusted nonce when the stored nonce is stale.', async () => {
       const adjustedNonce = '456'
       findUnusedNonceMock.mockResolvedValueOnce(adjustedNonce)
