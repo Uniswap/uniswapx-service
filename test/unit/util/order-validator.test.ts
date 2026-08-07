@@ -1,4 +1,4 @@
-import { DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import { CosignedV2DutchOrder, DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import dotenv from 'dotenv'
 import { BigNumber } from 'ethers'
 import { ChainId } from '../../../lib/util/chain'
@@ -7,6 +7,8 @@ import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswa
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
+import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
+import { Tokens } from '../fixtures'
 
 dotenv.config()
 
@@ -540,6 +542,152 @@ describe('Testing off chain validation', () => {
     expect(validationResp).toEqual({
       valid: false,
       errorString: 'Invalid outputOverride < startAmount',
+    })
+  })
+
+  it('Should throw when outputs pay different tokens', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      outputs: [{ token: Tokens.ARBITRUM_ONE.WETH }, { token: Tokens.ARBITRUM_ONE.USDC }],
+      cosignerData: { outputOverrides: [BigInt(0), BigInt(0)] },
+    })
+    order.info.deadline = CURRENT_TIME + ONE_DAY
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: `Invalid output token ${Tokens.ARBITRUM_ONE.USDC}: all outputs must use ${Tokens.ARBITRUM_ONE.WETH}`,
+    })
+  })
+
+  it('Should throw when outputOverrides length does not match outputs', () => {
+    const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+      cosigner: process.env.LABS_COSIGNER,
+      outputs: [{}, {}],
+      cosignerData: { outputOverrides: [BigInt(0), BigInt(0)] },
+    })
+    order.info.cosignerData.outputOverrides = [BigNumber.from(0)]
+    order.info.deadline = CURRENT_TIME + ONE_DAY
+    const validationResp = validationProvider.validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: 'Invalid outputOverrides length 1: expected 2',
+    })
+  })
+})
+
+// The SDK types outputs as readonly. Parsing an attacker-supplied encodedOrder yields the
+// same shapes with none of the builder's invariants, so mutation is the closest fixture.
+const mutableOutputs = (order: CosignedV2DutchOrder) =>
+  order.info.outputs as unknown as { token: string; startAmount: BigNumber; endAmount: BigNumber }[]
+
+// A CosignedV2DutchOrder is classified as Dutch_V2, so it used to fall through every
+// output branch of the validator and reach the repository unvalidated.
+describe('Testing v2 order validation', () => {
+  const v2ValidationProvider = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS)
+
+  const buildV2 = (overrides: Parameters<typeof SDKDutchOrderV2Factory.buildDutchV2Order>[1] = {}) =>
+    SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+      cosigner: process.env.LABS_COSIGNER,
+      ...overrides,
+    })
+
+  // A swapper output plus a fee output in the same token. V2DutchOrderBuilder rejects
+  // amounts the reactor accepts (zero overrides, endAmount > startAmount), so the invalid
+  // cases below mutate a built order, which is also what parsing an attacker-supplied
+  // encodedOrder produces.
+  const buildTwoOutputV2 = () =>
+    buildV2({
+      outputs: [
+        { token: Tokens.MAINNET.WETH, startAmount: '1000000000000000000', endAmount: '900000000000000000' },
+        { token: Tokens.MAINNET.WETH, startAmount: '1000000000000000', endAmount: '900000000000000' },
+      ],
+      cosignerData: { outputOverrides: ['1000000000000000000', '1000000000000000'] },
+    })
+
+  it('Should return valid for a fee output in the same token as the swapper output', () => {
+    expect(v2ValidationProvider.validate(buildTwoOutputV2())).toEqual({ valid: true })
+  })
+
+  it('Should return valid when a fee output override is left at zero', () => {
+    const order = buildTwoOutputV2()
+    order.info.cosignerData.outputOverrides = [order.info.outputs[0].startAmount, BigNumber.from(0)]
+    expect(v2ValidationProvider.validate(order)).toEqual({ valid: true })
+  })
+
+  it('Should throw when outputs pay different tokens', () => {
+    const order = buildTwoOutputV2()
+    mutableOutputs(order)[1].token = Tokens.MAINNET.USDC
+    expect(v2ValidationProvider.validate(order)).toEqual({
+      valid: false,
+      errorString: `Invalid output token ${Tokens.MAINNET.USDC}: all outputs must use ${Tokens.MAINNET.WETH}`,
+    })
+  })
+
+  it('Should throw invalid endAmount > startAmount', () => {
+    const order = buildV2()
+    mutableOutputs(order)[0].endAmount = order.info.outputs[0].startAmount.add(1)
+    expect(v2ValidationProvider.validate(order)).toEqual({
+      valid: false,
+      errorString: 'Invalid endAmount > startAmount',
+    })
+  })
+
+  it('Should throw invalid output token', () => {
+    const order = buildV2()
+    mutableOutputs(order)[0].token = '0xfoo'
+    expect(v2ValidationProvider.validate(order)).toEqual({
+      valid: false,
+      errorString: 'Invalid output token 0xfoo',
+    })
+  })
+
+  it('Should throw invalid output override if less than startAmount', () => {
+    const order = buildV2()
+    // The reactor reverts with InvalidCosignerOutput on this order
+    order.info.cosignerData.outputOverrides = [order.info.outputs[0].startAmount.sub(1)]
+    expect(v2ValidationProvider.validate(order)).toEqual({
+      valid: false,
+      errorString: 'Invalid outputOverride < startAmount',
+    })
+  })
+
+  it('Should throw when outputOverrides length does not match outputs', () => {
+    const order = buildV2()
+    order.info.cosignerData.outputOverrides = []
+    expect(v2ValidationProvider.validate(order)).toEqual({
+      valid: false,
+      errorString: 'Invalid outputOverrides length 0: expected 1',
+    })
+  })
+})
+
+describe('Testing output tokens across order types', () => {
+  it('Should throw for a v1 Dutch order whose outputs pay different tokens', () => {
+    const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+      outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
+    })
+    const validationResp = new OffChainUniswapXOrderValidator(
+      () => Date.now() / 1000,
+      ONE_DAY_IN_SECONDS
+    ).validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: `Invalid output token ${Tokens.MAINNET.USDC}: all outputs must use ${Tokens.MAINNET.WETH}`,
+    })
+  })
+
+  it('Should throw for a priority order whose outputs pay different tokens', () => {
+    const order = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, {
+      cosigner: process.env.LABS_PRIORITY_COSIGNER,
+      outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
+    })
+    const validationResp = new OffChainUniswapXOrderValidator(
+      () => Date.now() / 1000,
+      ONE_DAY_IN_SECONDS
+    ).validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: `Invalid output token ${Tokens.MAINNET.USDC}: all outputs must use ${Tokens.MAINNET.WETH}`,
     })
   })
 })

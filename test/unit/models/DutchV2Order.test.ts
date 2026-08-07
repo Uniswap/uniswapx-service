@@ -7,6 +7,8 @@ import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { MOCK_SIGNATURE } from '../../test-data'
 import { mock } from 'jest-mock-extended'
 import { Logger } from '@aws-lambda-powertools/logger'
+import { BigNumber } from 'ethers'
+import { Tokens } from '../fixtures'
 
 describe('DutchV2 Model', () => {
   const log = mock<Logger>()
@@ -79,5 +81,61 @@ describe('DutchV2 Model', () => {
       expect(o).toEqual(order.inner.info.cosignerData.outputOverrides[i].toString())
     })
     expect(order.createdAt).toEqual(100)
+  })
+
+  describe('toGetResponse effective amounts', () => {
+    // Fillers price off these fields, so they must report what the reactor moves rather
+    // than the signed base amounts. Overrides are only applied when non-zero.
+    const order = () =>
+      new DutchV2Order(
+        SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+          input: { token: Tokens.MAINNET.USDC, startAmount: '2000000', endAmount: '2000000' },
+          outputs: [
+            { token: Tokens.MAINNET.WETH, startAmount: '1000000000000000000', endAmount: '900000000000000000' },
+            { token: Tokens.MAINNET.WETH, startAmount: '1000000000000000', endAmount: '900000000000000' },
+          ],
+          cosignerData: {
+            inputOverride: '1500000',
+            outputOverrides: ['1100000000000000000', '1000000000000000'],
+          },
+        }),
+        MOCK_SIGNATURE,
+        ChainId.MAINNET,
+        ORDER_STATUS.OPEN
+      )
+
+    test('applies inputOverride and outputOverrides', () => {
+      const response = order().toGetResponse()
+
+      expect(response.effectiveInput).toEqual({
+        token: Tokens.MAINNET.USDC,
+        startAmount: '1500000',
+        endAmount: '2000000',
+      })
+      expect(response.effectiveOutputs?.map((o) => o.startAmount)).toEqual([
+        '1100000000000000000',
+        '1000000000000000',
+      ])
+      expect(response.effectiveOutputs?.map((o) => o.endAmount)).toEqual(['900000000000000000', '900000000000000'])
+    })
+
+    test('falls back to the signed amounts when an override is zero', () => {
+      const inner = order().inner
+      inner.info.cosignerData.inputOverride = BigNumber.from(0)
+      inner.info.cosignerData.outputOverrides = [BigNumber.from(0), BigNumber.from(0)]
+      const response = new DutchV2Order(inner, MOCK_SIGNATURE, ChainId.MAINNET, ORDER_STATUS.OPEN).toGetResponse()
+
+      expect(response.effectiveInput?.startAmount).toEqual(inner.info.input.startAmount.toString())
+      expect(response.effectiveOutputs?.map((o) => o.startAmount)).toEqual(
+        inner.info.outputs.map((o) => o.startAmount.toString())
+      )
+    })
+
+    test('leaves the signed input and outputs untouched', () => {
+      const response = order().toGetResponse()
+
+      expect(response.input.startAmount).toEqual('2000000')
+      expect(response.outputs.map((o) => o.startAmount)).toEqual(['1000000000000000000', '1000000000000000'])
+    })
   })
 })

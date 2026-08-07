@@ -209,7 +209,14 @@ export class OffChainUniswapXOrderValidator {
       if (!outputsValidation.valid) {
         return outputsValidation
       }
-    } else if (orderType == OrderType.Dutch && (order instanceof DutchOrder || order instanceof CosignedV2DutchOrder)) {
+    } else if (
+      // Dutch_V2 shares the DutchInput/DutchOutput shape with V1, so it validates here too.
+      // The V2 case used to be unreachable: a CosignedV2DutchOrder is classified as
+      // Dutch_V2 above, so `orderType == OrderType.Dutch` was never true for it and V2
+      // orders reached the repository with no output validation at all.
+      (orderType == OrderType.Dutch || orderType == OrderType.Dutch_V2) &&
+      (order instanceof DutchOrder || order instanceof CosignedV2DutchOrder)
+    ) {
       const input = order.info.input as DutchInput
       const inputStartAmountValidation = this.validateInputAmount(input.startAmount)
       if (!inputStartAmountValidation.valid) {
@@ -224,6 +231,16 @@ export class OffChainUniswapXOrderValidator {
       const outputsValidation = this.validateDutchOutputs(order.info.outputs as DutchOutput[])
       if (!outputsValidation.valid) {
         return outputsValidation
+      }
+
+      if (order instanceof CosignedV2DutchOrder) {
+        const outputOverridesValidation = this.validateV2OutputOverrides(
+          order.info.outputs as DutchOutput[],
+          order.info.cosignerData.outputOverrides
+        )
+        if (!outputOverridesValidation.valid) {
+          return outputOverridesValidation
+        }
       }
     }
 
@@ -397,6 +414,10 @@ export class OffChainUniswapXOrderValidator {
         errorString: `Invalid number of outputs: 0`,
       }
     }
+    const outputTokensValidation = this.validateOutputTokensMatch(outputs)
+    if (!outputTokensValidation.valid) {
+      return outputTokensValidation
+    }
     for (const output of outputs) {
       const { token, recipient, startAmount, endAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
@@ -444,6 +465,16 @@ export class OffChainUniswapXOrderValidator {
       return {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
+      }
+    }
+    const outputTokensValidation = this.validateOutputTokensMatch(outputs)
+    if (!outputTokensValidation.valid) {
+      return outputTokensValidation
+    }
+    if (outputOverrides.length != outputs.length) {
+      return {
+        valid: false,
+        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${outputs.length}`,
       }
     }
     for (let i = 0; i < outputs.length; i++) {
@@ -521,6 +552,10 @@ export class OffChainUniswapXOrderValidator {
         errorString: `Invalid number of outputs: 0`,
       }
     }
+    const outputTokensValidation = this.validateOutputTokensMatch(priorityOutputs)
+    if (!outputTokensValidation.valid) {
+      return outputTokensValidation
+    }
     for (const output of priorityOutputs) {
       const { token, recipient, amount, mpsPerPriorityFeeWei } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
@@ -563,6 +598,56 @@ export class OffChainUniswapXOrderValidator {
       return {
         valid: false,
         errorString: `Invalid orderHash: ${error}`,
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  /**
+   * Every output of an order must pay the same token.
+   *
+   * RFQ quotes an order as a single (tokenIn, tokenOut, amount) tuple where tokenOut is
+   * outputs[0].token, and the cosigner sums the output start amounts into one scalar to
+   * compare against the quote. An order whose outputs span multiple tokens is therefore
+   * priced against a total that mixes assets, and the filler is obligated to pay a token
+   * that was never quoted. Multi-output orders are still fine: fee outputs use the same
+   * token as the swapper output.
+   */
+  private validateOutputTokensMatch(outputs: { token: string }[]): OrderValidationResponse {
+    const expectedToken = outputs[0].token
+    for (const output of outputs) {
+      if (output.token.toLowerCase() != expectedToken.toLowerCase()) {
+        return {
+          valid: false,
+          errorString: `Invalid output token ${output.token}: all outputs must use ${expectedToken}`,
+        }
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  /**
+   * V2DutchOrderReactor._updateWithCosignerAmounts reverts with InvalidCosignerOutput when
+   * the override array length disagrees with the outputs, or when a non-zero override is
+   * below the signed startAmount. Reject here rather than storing an unfillable order.
+   */
+  private validateV2OutputOverrides(outputs: DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
+    if (outputOverrides.length != outputs.length) {
+      return {
+        valid: false,
+        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${outputs.length}`,
+      }
+    }
+    for (let i = 0; i < outputs.length; i++) {
+      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(outputs[i].startAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid outputOverride < startAmount`,
+        }
       }
     }
     return {
@@ -653,6 +738,10 @@ export class OffChainUniswapXOrderValidator {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
       }
+    }
+    const outputTokensValidation = this.validateOutputTokensMatch(outputs)
+    if (!outputTokensValidation.valid) {
+      return outputTokensValidation
     }
     for (const output of outputs) {
       const { token, recipient, minAmount } = output

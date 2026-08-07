@@ -7,6 +7,7 @@ import { MOCK_SIGNATURE } from '../../test-data'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { mock } from 'jest-mock-extended'
 import { Logger } from '@aws-lambda-powertools/logger'
+import { Tokens } from '../fixtures'
 
 describe('DutchV3 Model', () => {
   const log = mock<Logger>()
@@ -95,5 +96,53 @@ describe('DutchV3 Model', () => {
       expect(o).toEqual(order.inner.info.cosignerData.outputOverrides[i].toString())
     })
     expect(order.createdAt).toEqual(100)
+  })
+
+  describe('toGetResponse effective amounts', () => {
+    // Fillers price off these fields, so they must report what the reactor moves rather
+    // than the signed base amounts. Overrides are only applied when non-zero.
+    const order = (inputOverride: string, outputOverrides: bigint[]) =>
+      new DutchV3Order(
+        SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
+          input: { token: Tokens.ARBITRUM_ONE.USDC, startAmount: '2000000', maxAmount: '2000000' },
+          outputs: [
+            { token: Tokens.ARBITRUM_ONE.WETH, startAmount: '1000000000000000000', minAmount: '900000000000000000' },
+            { token: Tokens.ARBITRUM_ONE.WETH, startAmount: '1000000000000000', minAmount: '900000000000000' },
+          ],
+          cosignerData: { inputOverride, outputOverrides },
+        }),
+        MOCK_SIGNATURE,
+        ChainId.ARBITRUM_ONE,
+        ORDER_STATUS.OPEN
+      )
+
+    test('applies inputOverride and outputOverrides', () => {
+      const response = order('1500000', [BigInt('1100000000000000000'), BigInt('1000000000000000')]).toGetResponse()
+
+      expect(response.effectiveInput?.startAmount).toEqual('1500000')
+      expect(response.effectiveInput?.maxAmount).toEqual('2000000')
+      expect(response.effectiveOutputs?.map((o) => o.startAmount)).toEqual([
+        '1100000000000000000',
+        '1000000000000000',
+      ])
+      expect(response.effectiveOutputs?.map((o) => o.minAmount)).toEqual(['900000000000000000', '900000000000000'])
+    })
+
+    test('falls back to the signed amounts when an override is zero', () => {
+      const response = order('0', [BigInt(0), BigInt(0)]).toGetResponse()
+
+      expect(response.effectiveInput?.startAmount).toEqual('2000000')
+      expect(response.effectiveOutputs?.map((o) => o.startAmount)).toEqual([
+        '1000000000000000000',
+        '1000000000000000',
+      ])
+    })
+
+    test('leaves the signed input and outputs untouched', () => {
+      const response = order('1500000', [BigInt('1100000000000000000'), BigInt('1000000000000000')]).toGetResponse()
+
+      expect(response.input.startAmount).toEqual('2000000')
+      expect(response.outputs.map((o) => o.startAmount)).toEqual(['1000000000000000000', '1000000000000000'])
+    })
   })
 })
