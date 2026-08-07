@@ -7,6 +7,7 @@ import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswa
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
+import { SDKHybridOrderFactory } from '../../factories/SDKHybridOrderFactory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { Tokens } from '../fixtures'
 
@@ -214,6 +215,24 @@ describe('Testing off chain validation', () => {
         input: {
           token: INPUT_TOKEN_ADDRESS,
           startAmount: BigNumber.from(1).shl(256),
+          endAmount: BigNumber.from(1).shl(256),
+        },
+      })
+      const validationResp = validationProvider.validate(order)
+      expect(validationResp).toEqual({
+        errorString:
+          'Invalid input amount: 115792089237316195423570985008687907853269984665640564039457584007913129639936',
+        valid: false,
+      })
+    })
+
+    // A bad endAmount used to return the (valid) startAmount result, reporting the order
+    // as valid and skipping output, override and hash validation below it.
+    it('invalid amount: only endAmount too big', async () => {
+      const order = newOrder({
+        input: {
+          token: INPUT_TOKEN_ADDRESS,
+          startAmount: BigNumber.from(1),
           endAmount: BigNumber.from(1).shl(256),
         },
       })
@@ -666,6 +685,25 @@ describe('Testing output tokens across order types', () => {
     const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
     })
+    const validationResp = new OffChainUniswapXOrderValidator(
+      () => Date.now() / 1000,
+      ONE_DAY_IN_SECONDS
+    ).validate(order)
+    expect(validationResp).toEqual({
+      valid: false,
+      errorString: `Invalid output token ${Tokens.MAINNET.USDC}: all outputs must use ${Tokens.MAINNET.WETH}`,
+    })
+  })
+
+  it('Should throw for a hybrid order whose outputs pay different tokens', () => {
+    // Hybrid is only deployed on Unichain Sepolia, and the factory hardcodes a placeholder
+    // reactor that never matches REACTOR_ADDRESS_MAPPING, so point it at the real one.
+    const order = SDKHybridOrderFactory.buildHybridOrder(ChainId.UNICHAIN_SEPOLIA, {
+      outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
+    })
+    ;(order.info as { reactor: string }).reactor = REACTOR_ADDRESS_MAPPING[ChainId.UNICHAIN_SEPOLIA][
+      OrderType.Hybrid
+    ] as string
     const validationResp = new OffChainUniswapXOrderValidator(
       () => Date.now() / 1000,
       ONE_DAY_IN_SECONDS

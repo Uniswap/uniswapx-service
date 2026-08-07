@@ -225,7 +225,9 @@ export class OffChainUniswapXOrderValidator {
 
       const inputEndAmountValidation = this.validateInputAmount(input.endAmount)
       if (!inputEndAmountValidation.valid) {
-        return inputStartAmountValidation
+        // Returning inputStartAmountValidation here (known valid at this point) reported
+        // the whole order as valid and skipped every check below it.
+        return inputEndAmountValidation
       }
 
       const outputsValidation = this.validateDutchOutputs(order.info.outputs as DutchOutput[])
@@ -414,10 +416,6 @@ export class OffChainUniswapXOrderValidator {
         errorString: `Invalid number of outputs: 0`,
       }
     }
-    const outputTokensValidation = this.validateOutputTokensMatch(outputs)
-    if (!outputTokensValidation.valid) {
-      return outputTokensValidation
-    }
     for (const output of outputs) {
       const { token, recipient, startAmount, endAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
@@ -455,9 +453,7 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(outputs)
   }
 
   private validateV3DutchOutputs(outputs: V3DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
@@ -466,10 +462,6 @@ export class OffChainUniswapXOrderValidator {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
       }
-    }
-    const outputTokensValidation = this.validateOutputTokensMatch(outputs)
-    if (!outputTokensValidation.valid) {
-      return outputTokensValidation
     }
     if (outputOverrides.length != outputs.length) {
       return {
@@ -527,9 +519,7 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(outputs)
   }
 
   private validateMpsPerPriorityFeeWei(mpsPerPriorityFeeWei: BigNumber): OrderValidationResponse {
@@ -551,10 +541,6 @@ export class OffChainUniswapXOrderValidator {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
       }
-    }
-    const outputTokensValidation = this.validateOutputTokensMatch(priorityOutputs)
-    if (!outputTokensValidation.valid) {
-      return outputTokensValidation
     }
     for (const output of priorityOutputs) {
       const { token, recipient, amount, mpsPerPriorityFeeWei } = output
@@ -587,9 +573,7 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(priorityOutputs)
   }
 
   private validateHash(orderHash: string): OrderValidationResponse {
@@ -614,6 +598,9 @@ export class OffChainUniswapXOrderValidator {
    * priced against a total that mixes assets, and the filler is obligated to pay a token
    * that was never quoted. Multi-output orders are still fine: fee outputs use the same
    * token as the swapper output.
+   *
+   * Runs after each output's own token address is validated, so outputs[0].token is a
+   * real address before it becomes the token the others are compared against.
    */
   private validateOutputTokensMatch(outputs: { token: string }[]): OrderValidationResponse {
     const expectedToken = outputs[0].token
@@ -739,10 +726,6 @@ export class OffChainUniswapXOrderValidator {
         errorString: `Invalid number of outputs: 0`,
       }
     }
-    const outputTokensValidation = this.validateOutputTokensMatch(outputs)
-    if (!outputTokensValidation.valid) {
-      return outputTokensValidation
-    }
     for (const output of outputs) {
       const { token, recipient, minAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
@@ -766,8 +749,6 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(outputs)
   }
 }
