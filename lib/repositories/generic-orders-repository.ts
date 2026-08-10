@@ -14,6 +14,12 @@ import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
 import { IndexMapper } from './IndexMappers/IndexMapper'
 
 export const MAX_ORDERS = 50
+
+// aws-sdk v2 (used by dynamodb-toolbox here) sets both code and name to the error code
+function isConditionalCheckFailed(e: unknown): boolean {
+  return (e as { code?: string } | null)?.code === 'ConditionalCheckFailedException'
+}
+
 // Shared implementation for Dutch and Limit orders
 // will work for orders with the same GSIs
 export abstract class GenericOrdersRepository<
@@ -114,14 +120,27 @@ export abstract class GenericOrdersRepository<
         `cannot find order by hash when updating order status, hash: ${orderHash}`
       )
 
-      await this.entity.update({
-        [TABLE_KEY.ORDER_HASH]: orderHash,
-        ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
-        ...(txHash && { txHash }),
-        ...(fillBlock && { fillBlock }),
-        ...(settledAmounts && { settledAmounts })
-      })
+      // FILLED is terminal; the DynamoDB condition makes the no-downgrade check atomic with the write
+      const conditions =
+        status === ORDER_STATUS.FILLED
+          ? {}
+          : { conditions: [{ attr: TABLE_KEY.ORDER_STATUS, ne: ORDER_STATUS.FILLED }] }
+      await this.entity.update(
+        {
+          [TABLE_KEY.ORDER_HASH]: orderHash,
+          ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
+          ...(txHash && { txHash }),
+          ...(fillBlock && { fillBlock }),
+          ...(settledAmounts && { settledAmounts })
+        },
+        conditions
+      )
     } catch (e) {
+      if (isConditionalCheckFailed(e)) {
+        // the order was FILLED by another writer since our read; skip the downgrade rather than throw
+        log.warn('skipping updateOrderStatus: order is already in terminal status FILLED', { orderHash, status })
+        return
+      }
       log.error('updateOrderStatus error', { error: e })
       throw e
     }

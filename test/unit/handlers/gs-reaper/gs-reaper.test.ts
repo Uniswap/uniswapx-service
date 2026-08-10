@@ -352,6 +352,39 @@ describe('GSReaper', () => {
       expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.CANCELLED)
     })
 
+    it('does NOT resolve an order whose DB status is already terminal', async () => {
+      // Regression (PROTO-1201): another writer (e.g. the check-order-status
+      // state machine) can resolve the order to FILLED between the run's
+      // GET_OPEN_ORDERS snapshot and CHECK_CANCELLED. A used nonce is
+      // consistent with that fill, so the reaper must skip already-terminal
+      // orders instead of clobbering FILLED with CANCELLED.
+      await mockOrdersRepository.addOrder({
+        ...MOCK_ORDER_ENTITY,
+        orderStatus: ORDER_STATUS.FILLED,
+      })
+
+      const state = {
+        chainId: ChainId.MAINNET,
+        currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        failedFillScanRanges: [],
+        stage: ReaperStage.CHECK_CANCELLED
+      }
+
+      const { OrderValidation } = jest.requireActual('@uniswap/uniswapx-sdk')
+      const mockOrderValidator = jest.requireMock('@uniswap/uniswapx-sdk').OrderValidator
+      mockOrderValidator.mockImplementation(() => ({
+        validate: jest.fn().mockResolvedValue(OrderValidation.NonceUsed)
+      }))
+
+      const result = await reaper.processChainState(state)
+
+      expect(result?.stage).toBe(ReaperStage.UPDATE_DB)
+      expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toBeUndefined()
+    })
+
     it('does NOT mark a used-nonce order CANCELLED when a failed scan range may hide its fill', async () => {
       // Regression: a used nonce is consistent with both a fill and a cancel.
       // MOCK_ORDER_ENTITY has no createdAt, so its fill window cannot be
