@@ -15,13 +15,9 @@ import { IndexMapper } from './IndexMappers/IndexMapper'
 
 export const MAX_ORDERS = 50
 
+// aws-sdk v2 (used by dynamodb-toolbox here) sets both code and name to the error code
 function isConditionalCheckFailed(e: unknown): boolean {
-  return (
-    typeof e === 'object' &&
-    e !== null &&
-    ((e as { code?: string }).code === 'ConditionalCheckFailedException' ||
-      (e as { name?: string }).name === 'ConditionalCheckFailedException')
-  )
+  return (e as { code?: string } | null)?.code === 'ConditionalCheckFailedException'
 }
 
 // Shared implementation for Dutch and Limit orders
@@ -124,6 +120,11 @@ export abstract class GenericOrdersRepository<
         `cannot find order by hash when updating order status, hash: ${orderHash}`
       )
 
+      // FILLED is terminal; the DynamoDB condition makes the no-downgrade check atomic with the write
+      const conditions =
+        status === ORDER_STATUS.FILLED
+          ? {}
+          : { conditions: [{ attr: TABLE_KEY.ORDER_STATUS, ne: ORDER_STATUS.FILLED }] }
       await this.entity.update(
         {
           [TABLE_KEY.ORDER_HASH]: orderHash,
@@ -132,18 +133,11 @@ export abstract class GenericOrdersRepository<
           ...(fillBlock && { fillBlock }),
           ...(settledAmounts && { settledAmounts })
         },
-        // FILLED is terminal: once an order is recorded as filled, no writer may
-        // downgrade it to another status (e.g. a reaper run whose fill scan
-        // predates the fill misreading its used nonce as a cancellation).
-        // Enforced as a DynamoDB condition so the check is atomic with the write.
-        status === ORDER_STATUS.FILLED
-          ? {}
-          : { conditions: [{ attr: TABLE_KEY.ORDER_STATUS, ne: ORDER_STATUS.FILLED }] }
+        conditions
       )
     } catch (e) {
       if (isConditionalCheckFailed(e)) {
-        // The order reached FILLED between our read and this write; the update
-        // would downgrade a terminal status, so skip it rather than retry.
+        // the order was FILLED by another writer since our read; skip the downgrade rather than throw
         log.warn('skipping updateOrderStatus: order is already in terminal status FILLED', { orderHash, status })
         return
       }

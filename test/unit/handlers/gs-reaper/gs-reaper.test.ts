@@ -352,14 +352,12 @@ describe('GSReaper', () => {
       expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.CANCELLED)
     })
 
-    it('does NOT resolve an order whose DB status changed since the run snapshot', async () => {
-      // Regression (PROTO-1201): the run's order-hash snapshot is taken in
-      // GET_OPEN_ORDERS, but another writer (e.g. the check-order-status state
-      // machine) can resolve the order -- most importantly to FILLED -- before
-      // CHECK_CANCELLED validates it. A used nonce is consistent with that
-      // fill, so the reaper must re-check the CURRENT DB status and skip
-      // orders that already moved on, instead of clobbering FILLED with
-      // CANCELLED.
+    it('does NOT resolve an order whose DB status is already terminal', async () => {
+      // Regression (PROTO-1201): another writer (e.g. the check-order-status
+      // state machine) can resolve the order to FILLED between the run's
+      // GET_OPEN_ORDERS snapshot and CHECK_CANCELLED. A used nonce is
+      // consistent with that fill, so the reaper must skip already-terminal
+      // orders instead of clobbering FILLED with CANCELLED.
       await mockOrdersRepository.addOrder({
         ...MOCK_ORDER_ENTITY,
         orderStatus: ORDER_STATUS.FILLED,

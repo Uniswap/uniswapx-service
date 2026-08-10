@@ -8,7 +8,7 @@ import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_
 import { ethers } from 'ethers'
 import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, CosignedHybridOrder, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../../handlers/OrderParser'
-import { AVERAGE_BLOCK_TIME, getSettledAmounts } from '../../handlers/check-order-status/util'
+import { AVERAGE_BLOCK_TIME, getSettledAmounts, IS_TERMINAL_STATE } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
 import { getRpcUrl } from '../../Config'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
@@ -229,8 +229,7 @@ export class GSReaper {
           provider,
           state.chainId,
           this.log,
-          state.failedFillScanRanges,
-          this.unresolvedOrderStatus
+          state.failedFillScanRanges
         )
         
         return {
@@ -413,8 +412,7 @@ async function checkCancelledOrders(
   provider: ethers.providers.StaticJsonRpcProvider,
   chainId: number,
   log: Logger,
-  failedFillScanRanges: BlockRange[],
-  unresolvedOrderStatus: ORDER_STATUS,
+  failedFillScanRanges: BlockRange[]
 ): Promise<Record<string, OrderUpdate>> {
   const orderUpdates = { ...existingUpdates }
   const quoter = new OrderValidator(provider, chainId)
@@ -463,14 +461,10 @@ async function checkCancelledOrders(
     if (!orderUpdates[orderHash]) {
       try {
         const { order, signature, entity } = await getOrderByHash(repo, orderHash)
-        // Another writer (e.g. the check-order-status state machine) may have
-        // resolved this order since the run's GET_OPEN_ORDERS snapshot -- most
-        // importantly to FILLED, which a used nonce is also consistent with.
-        // Only resolve orders whose DB status still matches the snapshot.
-        if (entity.orderStatus !== unresolvedOrderStatus) {
-          log.info(
-            `Order ${orderHash} status is now ${entity.orderStatus} (no longer ${unresolvedOrderStatus}); skipping resolution`
-          )
+        // Another writer (e.g. check-order-status) may have resolved this order since
+        // the run's GET_OPEN_ORDERS snapshot; never re-resolve a terminal order.
+        if (IS_TERMINAL_STATE(entity.orderStatus)) {
+          log.info(`Order ${orderHash} is already terminal (${entity.orderStatus}); skipping resolution`)
           continue
         }
         // We only check for nonce used and expired for permissioned tokens
