@@ -26,4 +26,5 @@ export const SUPPORTED_CHAINS = [
   ChainId.ZORA,
   ChainId.ROBINHOOD,
   ChainId.ARC,
+  ChainId.INK,
 ]
