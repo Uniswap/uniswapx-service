@@ -108,6 +108,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       })
 
       this.chainIdToStatusTrackingStateMachineArn[chainId] = stateMachine.attrArn
+      this.chainIdToStatusTrackingStateMachineName[chainId] = stateMachine.attrName
 
       const METRIC_DIMENSION_MAP = {
         StateMachineArn: stateMachine.attrArn,
