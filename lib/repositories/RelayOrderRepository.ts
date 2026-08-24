@@ -5,12 +5,12 @@ import { Entity, Table } from 'dynamodb-toolbox'
 import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { RelayOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
-import { GenericOrdersRepository } from './generic-orders-repository'
+import { GenericOrdersRepository, OrdersQueryCache } from './generic-orders-repository'
 import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
 import { getTableIndices, TABLE_NAMES } from './util'
 
 export class RelayOrderRepository extends GenericOrdersRepository<string, string, null, RelayOrderEntity> {
-  static create(documentClient: DocumentClient): BaseOrdersRepository<RelayOrderEntity> {
+  static create(documentClient: DocumentClient, queryCache?: OrdersQueryCache): BaseOrdersRepository<RelayOrderEntity> {
     const log = Logger.createLogger({
       name: 'RelayOrdersRepository',
       serializers: Logger.stdSerializers,
@@ -76,7 +76,8 @@ export class RelayOrderRepository extends GenericOrdersRepository<string, string
       relayOrderEntity,
       nonceEntity,
       log,
-      new OffchainOrderIndexMapper<RelayOrderEntity>()
+      new OffchainOrderIndexMapper<RelayOrderEntity>(),
+      queryCache
     )
   }
 }

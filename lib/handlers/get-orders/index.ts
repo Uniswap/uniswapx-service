@@ -4,6 +4,7 @@ import { GetOrdersInjector } from './injector'
 import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { getOrdersQueryCache } from '../../repositories/generic-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
@@ -13,6 +14,7 @@ import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
+import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
@@ -20,10 +22,11 @@ import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
-import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 
-const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
-const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
+// This Lambda only reads, so its repositories share the sub-second query cache. Every
+// other entry point builds them without it -- see getOrdersQueryCache.
+const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache)
+const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache)
 const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
@@ -48,7 +51,7 @@ const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
   EventWatcherMap.createRelayEventWatcherMap(),
-  RelayOrderRepository.create(new DynamoDB.DocumentClient()),
+  RelayOrderRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache),
   log,
   getMaxOpenOrders,
   new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())

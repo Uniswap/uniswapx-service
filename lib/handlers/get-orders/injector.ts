@@ -5,6 +5,7 @@ import { default as Logger } from 'bunyan'
 import { UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { getOrdersQueryCache } from '../../repositories/generic-orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
 import { getSharedRequestInjected } from '../shared/get'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
@@ -25,7 +26,7 @@ export interface ContainerInjected {
 export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache),
     }
   }
 

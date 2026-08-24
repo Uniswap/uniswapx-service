@@ -1,6 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { KMSClient } from '@aws-sdk/client-kms'
-import { Unit } from 'aws-embedded-metrics'
 import { KmsSigner } from '@uniswap/signer'
 import {
   CosignedHybridOrder,
@@ -12,9 +11,10 @@ import {
   OrderValidation,
   OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
-  V4OrderValidator as OnChainV4OrderValidator,
   UNISWAPX_V4_ORDER_QUOTER_MAPPING as OnChainV4QuoterMapping,
+  V4OrderValidator as OnChainV4OrderValidator,
 } from '@uniswap/uniswapx-sdk'
+import { Unit } from 'aws-embedded-metrics'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
@@ -45,10 +45,13 @@ import { hasExclusiveFiller } from '../util/address'
 import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
-import { AnalyticsServiceInterface } from './analytics-service'
 import { getStateMachineArn } from '../util/stateMachineArn'
+import { AnalyticsServiceInterface } from './analytics-service'
 
-const MAX_QUERY_RETRY = 10
+// Each retry is another full-page read (up to MAX_ORDERS items, pre-filter) against the
+// same GSI partition, and pages that match no rows still cost full RCU. Kept low so one
+// request cannot fan out into double-digit reads on a hot key.
+export const MAX_QUERY_RETRY = 3
 
 export class UniswapXOrderService {
   constructor(

@@ -1,3 +1,4 @@
+import { Unit } from 'aws-embedded-metrics'
 import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
@@ -8,12 +9,36 @@ import { log } from '../Logging'
 import { checkDefined } from '../preconditions/preconditions'
 import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
+import { metrics } from '../util/metrics'
 import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
 import { IndexMapper } from './IndexMappers/IndexMapper'
+import { QueryCache } from './QueryCache'
 
 export const MAX_ORDERS = 50
+
+const DEFAULT_QUERY_CACHE_TTL_MS = 250
+
+// Sub-second cache over the list-query path. Fillers poll the same query shapes
+// continuously, so repeats inside this window are collapsed into a single read against
+// the hot GSI partition. Set GET_ORDERS_CACHE_TTL_MS=0 to disable without a code change.
+export const QUERY_CACHE_TTL_MS = ((): number => {
+  const raw = process.env.GET_ORDERS_CACHE_TTL_MS
+  if (!raw) {
+    return DEFAULT_QUERY_CACHE_TTL_MS
+  }
+  const configured = Number(raw)
+  return Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_QUERY_CACHE_TTL_MS
+})()
+
+// Opt-in, not a repository default: background jobs (the unimind cron, the reaper) write
+// orders and immediately re-read them expecting fresh data. Only the read-only API path
+// passes this in. Shared across the repositories that path builds so they pool hits -- the
+// table name is part of every key, so Orders/LimitOrders/RelayOrders never collide.
+export const getOrdersQueryCache = new QueryCache<QueryResult<OrderEntityType>>(QUERY_CACHE_TTL_MS)
+
+export type OrdersQueryCache = QueryCache<QueryResult<OrderEntityType>>
 
 // aws-sdk v2 (used by dynamodb-toolbox here) sets both code and name to the error code
 function isConditionalCheckFailed(e: unknown): boolean {
@@ -34,7 +59,8 @@ export abstract class GenericOrdersRepository<
     private readonly entity: Entity,
     private readonly nonceEntity: Entity,
     private readonly log: Logger,
-    private readonly indexMapper: IndexMapper<T>
+    private readonly indexMapper: IndexMapper<T>,
+    private readonly queryCache?: OrdersQueryCache
   ) {}
 
   public async getByOfferer(
@@ -131,7 +157,7 @@ export abstract class GenericOrdersRepository<
           ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
           ...(txHash && { txHash }),
           ...(fillBlock && { fillBlock }),
-          ...(settledAmounts && { settledAmounts })
+          ...(settledAmounts && { settledAmounts }),
         },
         conditions
       )
@@ -233,12 +259,7 @@ export abstract class GenericOrdersRepository<
 
     const results = await Promise.all(
       statuses.map((status) =>
-        this.getOrdersWithFilters(
-          effectiveLimit,
-          { ...queryFilters, orderStatus: status },
-          undefined,
-          filters
-        )
+        this.getOrdersWithFilters(effectiveLimit, { ...queryFilters, orderStatus: status }, undefined, filters)
       )
     )
 
@@ -266,12 +287,37 @@ export abstract class GenericOrdersRepository<
       comparison = parseComparisonFilter(sort)
     }
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
+    const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
+
+    // Every input that can change the result set is part of the key, so a hit is always
+    // the page the caller would have read anyway -- just up to QUERY_CACHE_TTL_MS stale.
+    const cacheKey = JSON.stringify([
+      this.table.name,
+      formattedIndex,
+      partitionKey,
+      effectiveLimit,
+      cursor ?? null,
+      sortKey ?? null,
+      sort ?? null,
+      desc,
+      filters,
+    ])
+    const now = Date.now()
+
+    if (this.queryCache) {
+      const cached = this.queryCache.get(cacheKey, now)
+      if (cached) {
+        metrics.putMetric('GetOrdersQueryCacheHit', 1, Unit.Count)
+        return this.copyQueryResult(cached as QueryResult<T>)
+      }
+      metrics.putMetric('GetOrdersQueryCacheMiss', 1, Unit.Count)
+    }
 
     const queryResult = await this.entity.query(partitionKey, {
       filters: filters,
       index: formattedIndex,
       execute: true,
-      limit: limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS,
+      limit: effectiveLimit,
       ...(sortKey &&
         comparison && {
           [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],
@@ -280,9 +326,20 @@ export abstract class GenericOrdersRepository<
       ...(cursor && { startKey: this.getStartKey(cursor, formattedIndex) }),
     })
 
-    return {
+    const result: QueryResult<T> = {
       orders: queryResult.Items as T[],
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
+    }
+
+    this.queryCache?.set(cacheKey, result as QueryResult<OrderEntityType>, now)
+    return this.copyQueryResult(result)
+  }
+
+  // Callers get their own array so downstream mutation can never reach a cached entry.
+  private copyQueryResult(result: QueryResult<T>): QueryResult<T> {
+    return {
+      orders: [...(result.orders ?? [])],
+      ...(result.cursor && { cursor: result.cursor }),
     }
   }
 

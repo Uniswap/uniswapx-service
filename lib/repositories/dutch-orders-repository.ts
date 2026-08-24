@@ -5,12 +5,15 @@ import { Entity, Table } from 'dynamodb-toolbox'
 import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { UniswapXOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
-import { GenericOrdersRepository } from './generic-orders-repository'
+import { GenericOrdersRepository, OrdersQueryCache } from './generic-orders-repository'
 import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
 import { getTableIndices, TABLE_NAMES } from './util'
 
 export class DutchOrdersRepository extends GenericOrdersRepository<string, string, null, UniswapXOrderEntity> {
-  static create(documentClient: DocumentClient): BaseOrdersRepository<UniswapXOrderEntity> {
+  static create(
+    documentClient: DocumentClient,
+    queryCache?: OrdersQueryCache
+  ): BaseOrdersRepository<UniswapXOrderEntity> {
     const log = Logger.createLogger({
       name: 'DutchOrdersRepository',
       serializers: Logger.stdSerializers,
@@ -46,7 +49,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         priceImpact: { type: DYNAMODB_TYPES.NUMBER },
         blockNumber: { type: DYNAMODB_TYPES.NUMBER },
         route: { type: DYNAMODB_TYPES.MAP },
-        usedUnimind: {type: DYNAMODB_TYPES.BOOLEAN},
+        usedUnimind: { type: DYNAMODB_TYPES.BOOLEAN },
         //on chain data
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
         offerer: { type: DYNAMODB_TYPES.STRING, required: true },
@@ -92,6 +95,13 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
       table: nonceTable,
     } as const)
 
-    return new DutchOrdersRepository(ordersTable, orderEntity, nonceEntity, log, new OffchainOrderIndexMapper())
+    return new DutchOrdersRepository(
+      ordersTable,
+      orderEntity,
+      nonceEntity,
+      log,
+      new OffchainOrderIndexMapper(),
+      queryCache
+    )
   }
 }
