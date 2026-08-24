@@ -2,12 +2,18 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
-import { getOrdersQueryCache, QUERY_CACHE_TTL_MS } from '../../../lib/repositories/generic-orders-repository'
+import { OrdersQueryCache } from '../../../lib/repositories/generic-orders-repository'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
+import { QueryCache } from '../../../lib/repositories/QueryCache'
+
+const TTL_MS = 250
 
 describe('GenericOrdersRepository query caching', () => {
   const mockDocumentClient = mock<DocumentClient>()
   let now: number
+  // Built per test rather than reaching for the exported singleton, whose TTL comes from
+  // GET_ORDERS_CACHE_TTL_MS -- these assertions must not depend on the ambient environment.
+  let cache: OrdersQueryCache
 
   const mockOrder = {
     orderHash: '0xhash',
@@ -27,7 +33,7 @@ describe('GenericOrdersRepository query caching', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    getOrdersQueryCache.clear()
+    cache = new QueryCache(TTL_MS)
     now = 1_700_000_000_000
     jest.spyOn(Date, 'now').mockImplementation(() => now)
   })
@@ -37,7 +43,7 @@ describe('GenericOrdersRepository query caching', () => {
   })
 
   it('serves a repeated identical query from cache', async () => {
-    const repository = DutchOrdersRepository.create(mockDocumentClient, getOrdersQueryCache)
+    const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
     mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
     const first = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
@@ -48,18 +54,38 @@ describe('GenericOrdersRepository query caching', () => {
   })
 
   it('re-reads once the TTL has elapsed', async () => {
-    const repository = DutchOrdersRepository.create(mockDocumentClient, getOrdersQueryCache)
+    const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
     mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
     await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
-    now += QUERY_CACHE_TTL_MS
+    now += TTL_MS
     await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
 
     expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
   })
 
+  it('dates an entry from when the query finished, not when it started', async () => {
+    // A throttled partition retries with backoff, so a query can outlast the TTL. Stamping
+    // from the query start would store an already-expired entry and silently disable the
+    // cache exactly under the load it exists to absorb.
+    const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+    mockDocumentClient.query.mockReturnValue({
+      promise: async () => {
+        now += TTL_MS + 50
+        return { Items: [mockOrder], Count: 1 }
+      },
+    } as any)
+
+    await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+
+    mockDocumentClient.query.mockReturnValue(mockQueryResponse())
+    await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+
+    expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
+  })
+
   it('does not share entries between different partition keys', async () => {
-    const repository = DutchOrdersRepository.create(mockDocumentClient, getOrdersQueryCache)
+    const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
     mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
     await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
@@ -69,7 +95,7 @@ describe('GenericOrdersRepository query caching', () => {
   })
 
   it('does not share entries between different limits', async () => {
-    const repository = DutchOrdersRepository.create(mockDocumentClient, getOrdersQueryCache)
+    const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
     mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
     await repository.getByOrderStatus(ORDER_STATUS.OPEN, 10)
@@ -79,8 +105,8 @@ describe('GenericOrdersRepository query caching', () => {
   })
 
   it('does not share entries between tables', async () => {
-    const dutchRepository = DutchOrdersRepository.create(mockDocumentClient, getOrdersQueryCache)
-    const limitRepository = LimitOrdersRepository.create(mockDocumentClient, getOrdersQueryCache)
+    const dutchRepository = DutchOrdersRepository.create(mockDocumentClient, cache)
+    const limitRepository = LimitOrdersRepository.create(mockDocumentClient, cache)
     mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
     await dutchRepository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
@@ -90,7 +116,7 @@ describe('GenericOrdersRepository query caching', () => {
   })
 
   it('hands each caller its own array so a cached entry cannot be mutated', async () => {
-    const repository = DutchOrdersRepository.create(mockDocumentClient, getOrdersQueryCache)
+    const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
     mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
     const first = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)

@@ -320,6 +320,18 @@ export class UniswapXOrderService {
     )
   }
 
+  /**
+   * The retry loop stops after MAX_QUERY_RETRY follow-up pages even when a cursor remains,
+   * so a sparse order type behind a dense partition can return short. Callers that follow
+   * the cursor still get everything; this counts the ones that would have to.
+   */
+  private recordRetryExhaustion(retryCount: number, orderType: string): void {
+    if (retryCount >= MAX_QUERY_RETRY) {
+      metrics.putMetric('GetOrdersRetryExhausted', 1, Unit.Count)
+      this.logger.info(`Get orders retry budget exhausted before filling limit`, { orderType })
+    }
+  }
+
   public async getDutchV2AndDutchOrders(
     limit: number,
     params: GetOrdersQueryParams,
@@ -364,6 +376,7 @@ export class UniswapXOrderService {
       dutchV2QueryResults.push(...queryResults.orders)
       retryCount++
     }
+    this.recordRetryExhaustion(retryCount, OrderType.Dutch_V2)
 
     const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
     for (let i = 0; i < dutchV2QueryResults.length; i++) {
@@ -395,6 +408,7 @@ export class UniswapXOrderService {
       dutchV3QueryResults.push(...queryResults.orders)
       retryCount++
     }
+    this.recordRetryExhaustion(retryCount, OrderType.Dutch_V3)
 
     const dutchV3OrderResponses: GetDutchV3OrderResponse[] = []
     for (let i = 0; i < dutchV3QueryResults.length; i++) {
@@ -431,6 +445,7 @@ export class UniswapXOrderService {
       dutchQueryResults.push(...queryResults.orders)
       retryCount++
     }
+    this.recordRetryExhaustion(retryCount, OrderType.Dutch)
 
     return { orders: dutchQueryResults, cursor: queryResults.cursor }
   }
@@ -455,6 +470,7 @@ export class UniswapXOrderService {
       priorityQueryResults.push(...queryResults.orders)
       retryCount++
     }
+    this.recordRetryExhaustion(retryCount, OrderType.Priority)
 
     const priorityOrderResponses: GetPriorityOrderResponse[] = []
     for (let i = 0; i < priorityQueryResults.length; i++) {
@@ -485,6 +501,7 @@ export class UniswapXOrderService {
       hybridQueryResults.push(...queryResults.orders)
       retryCount++
     }
+    this.recordRetryExhaustion(retryCount, OrderType.Hybrid)
 
     const hybridOrderResponses: GetHybridOrderResponse[] = []
     for (let i = 0; i < hybridQueryResults.length; i++) {

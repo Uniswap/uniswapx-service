@@ -302,10 +302,10 @@ export abstract class GenericOrdersRepository<
       desc,
       filters,
     ])
-    const now = Date.now()
+    const queryStartedAt = Date.now()
 
     if (this.queryCache) {
-      const cached = this.queryCache.get(cacheKey, now)
+      const cached = this.queryCache.get(cacheKey, queryStartedAt)
       if (cached) {
         metrics.putMetric('GetOrdersQueryCacheHit', 1, Unit.Count)
         return this.copyQueryResult(cached as QueryResult<T>)
@@ -331,11 +331,16 @@ export abstract class GenericOrdersRepository<
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
     }
 
-    this.queryCache?.set(cacheKey, result as QueryResult<OrderEntityType>, now)
+    // Stamped after the round trip, not before it. A throttled partition retries with
+    // backoff, so a query can outlast the TTL -- dating the entry from the query start
+    // would write it already expired, exactly when the cache is most needed.
+    this.queryCache?.set(cacheKey, result as QueryResult<OrderEntityType>, Date.now())
     return this.copyQueryResult(result)
   }
 
-  // Callers get their own array so downstream mutation can never reach a cached entry.
+  // Shallow: callers get their own array, so pushing or splicing cannot reach a cached
+  // entry. The order objects themselves are shared and must be treated as read-only --
+  // mutating one in place would poison every hit for the rest of the TTL.
   private copyQueryResult(result: QueryResult<T>): QueryResult<T> {
     return {
       orders: [...(result.orders ?? [])],
