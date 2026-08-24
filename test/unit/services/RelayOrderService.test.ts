@@ -47,7 +47,9 @@ describe('RelayOrderService', () => {
     )
 
     const order = SDKRelayOrderFactory.buildRelayOrder()
-    process.env[`STATE_MACHINE_ARN_1`] = 'defined'
+    process.env['STATE_MACHINE_NAMES'] = JSON.stringify({ 1: 'MOCK_SM_1' })
+    process.env['ACCOUNT_ID'] = '123456789012'
+    process.env['REGION'] = 'region'
 
     const response = await service.createOrder(new RelayOrder(order, '0x00', 1))
 
@@ -64,9 +66,9 @@ describe('RelayOrderService', () => {
         orderType: 'Relay',
         quoteId: '',
         runIndex: 0,
-        stateMachineArn: 'defined',
+        stateMachineArn: 'arn:aws:states:region:123456789012:stateMachine:MOCK_SM_1',
       },
-      'defined'
+      'arn:aws:states:region:123456789012:stateMachine:MOCK_SM_1'
     )
   })
 

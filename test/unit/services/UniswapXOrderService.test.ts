@@ -36,9 +36,18 @@ jest.mock('../../../lib/preconditions/preconditions', () => {
   return { checkDefined: jest.fn().mockImplementation((value) => value) }
 })
 
+// The service rebuilds the state machine ARN from these (see
+// lib/util/stateMachineArn.ts). checkDefined is mocked to a pass-through
+// above, so an unset STATE_MACHINE_NAMES would surface as a JSON.parse
+// failure swallowed by createOrder's catch rather than a clear error.
+const MOCK_SM_ARN_1 = 'arn:aws:states:region:123456789012:stateMachine:MOCK_SM_1'
+
 describe('UniswapXOrderService', () => {
   beforeAll(() => {
     jest.spyOn(KmsSigner.prototype, 'signDigest').mockResolvedValue(COSIGNATURE)
+    process.env['STATE_MACHINE_NAMES'] = JSON.stringify({ 1: 'MOCK_SM_1' })
+    process.env['ACCOUNT_ID'] = '123456789012'
+    process.env['REGION'] = 'region'
   })
 
   test('createOrder with LimitOrder, propagates correct type', async () => {
@@ -87,9 +96,9 @@ describe('UniswapXOrderService', () => {
         orderType: 'Limit',
         quoteId: '',
         runIndex: 0,
-        stateMachineArn: undefined,
+        stateMachineArn: MOCK_SM_ARN_1,
       },
-      undefined
+      MOCK_SM_ARN_1
     )
   })
 
@@ -217,9 +226,9 @@ describe('UniswapXOrderService', () => {
         orderType: 'Priority',
         quoteId: '',
         runIndex: 0,
-        stateMachineArn: undefined,
+        stateMachineArn: MOCK_SM_ARN_1,
       },
-      undefined
+      MOCK_SM_ARN_1
     )
   })
 
