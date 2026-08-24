@@ -211,9 +211,14 @@ export class LambdaStack extends cdk.NestedStack {
       REGION: this.region,
     }
 
-    SUPPORTED_CHAINS.forEach((chainId) => {
-      postOrderEnv[`STATE_MACHINE_ARN_${chainId}`] = sfnStack.chainIdToStatusTrackingStateMachineArn[chainId]
-    })
+    // Lambda caps all env vars at 4KB total, and a full ARN per chain does not
+    // fit as the chain list grows. Publish just the names in one JSON map;
+    // lib/util/stateMachineArn.ts rebuilds the ARN from a name plus REGION and
+    // ACCOUNT_ID (keep the two in sync).
+    postOrderEnv.ACCOUNT_ID = this.account
+    postOrderEnv.STATE_MACHINE_NAMES = `{${SUPPORTED_CHAINS.map(
+      (chainId) => `"${chainId}":"${sfnStack.chainIdToStatusTrackingStateMachineName[chainId]}"`
+    ).join(',')}}`
 
     const postOrderMemorySize = props.stage === STAGE.PROD ? 2048 : 1024
 

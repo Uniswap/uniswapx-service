@@ -46,6 +46,7 @@ import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
 import { AnalyticsServiceInterface } from './analytics-service'
+import { getStateMachineArn } from '../util/stateMachineArn'
 
 const MAX_QUERY_RETRY = 10
 
@@ -301,10 +302,7 @@ export class UniswapXOrderService {
     quoteId: string | undefined,
     orderType: OrderType
   ) {
-    const stateMachineArn = checkDefined(
-      process.env[`STATE_MACHINE_ARN_${chainId}`],
-      `STATE_MACHINE_ARN_${chainId} is undefined`
-    )
+    const stateMachineArn = getStateMachineArn(chainId)
     await kickoffOrderTrackingSfn(
       {
         orderHash: orderHash,

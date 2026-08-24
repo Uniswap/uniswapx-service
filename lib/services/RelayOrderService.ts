@@ -31,6 +31,7 @@ import { checkDefined } from '../preconditions/preconditions'
 import { BaseOrdersRepository } from '../repositories/base'
 import { OffChainRelayOrderValidator } from '../util/OffChainRelayOrderValidator'
 import { AnalyticsService } from './analytics-service'
+import { getStateMachineArn } from '../util/stateMachineArn'
 
 export class RelayOrderService {
   private readonly checkOrderStatusUtils: CheckOrderStatusUtils
@@ -122,10 +123,7 @@ export class RelayOrderService {
     quoteId: string | undefined,
     orderType: OrderType
   ) {
-    const stateMachineArn = checkDefined(
-      process.env[`STATE_MACHINE_ARN_${chainId}`],
-      `STATE_MACHINE_ARN_${chainId} not found`
-    )
+    const stateMachineArn = getStateMachineArn(chainId)
     await kickoffOrderTrackingSfn(
       {
         orderHash: orderHash,

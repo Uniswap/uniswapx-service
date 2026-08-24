@@ -62,9 +62,14 @@ jest.mock('@uniswap/signer', () => {
 process.env.KMS_KEY_ID = 'test-key-id';
 process.env.REGION = 'us-east-2';
 
-const MOCK_ARN_1 = 'MOCK_ARN_1'
-const MOCK_ARN_42161 = 'MOCK_ARN_42161'
-const MOCK_ARN_11155111 = 'MOCK_ARN_11155111'
+// The handler rebuilds these from STATE_MACHINE_NAMES + REGION + ACCOUNT_ID
+// (see lib/util/stateMachineArn.ts), so the expected values are full ARNs.
+const MOCK_ACCOUNT_ID = '123456789012'
+const MOCK_SM_REGION = 'region'
+const mockArn = (name: string) => `arn:aws:states:${MOCK_SM_REGION}:${MOCK_ACCOUNT_ID}:stateMachine:${name}`
+const MOCK_ARN_1 = mockArn('MOCK_SM_1')
+const MOCK_ARN_42161 = mockArn('MOCK_SM_42161')
+const MOCK_ARN_11155111 = mockArn('MOCK_SM_11155111')
 const MOCK_HASH = '0xhash'
 const MOCK_START_EXECUTION_INPUT = JSON.stringify({
   orderHash: MOCK_HASH,
@@ -203,10 +208,13 @@ describe('Testing post order handler.', () => {
   )
 
   beforeAll(() => {
-    process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
-    process.env['STATE_MACHINE_ARN_42161'] = MOCK_ARN_42161
-    process.env['STATE_MACHINE_ARN_11155111'] = MOCK_ARN_11155111
-    process.env['REGION'] = 'region'
+    process.env['STATE_MACHINE_NAMES'] = JSON.stringify({
+      1: 'MOCK_SM_1',
+      42161: 'MOCK_SM_42161',
+      11155111: 'MOCK_SM_11155111',
+    })
+    process.env['ACCOUNT_ID'] = MOCK_ACCOUNT_ID
+    process.env['REGION'] = MOCK_SM_REGION
     process.env['KMS_KEY_ID'] = 'testtest'
     log.setLogLevel('SILENT')
   })
@@ -245,7 +253,7 @@ describe('Testing post order handler.', () => {
       expect(mockSfnClient.call(0).args[0].input).toMatchObject({
         stateMachineArn: MOCK_ARN_1,
         input:
-          '{"orderHash":"0x4ab4f60562fadec8a074b65c834c0414f990ac51742d4fe96c2271d22aeba6b2","chainId":1,"orderStatus":"open","quoteId":"55e2cfca-5521-4a0a-b597-7bfb569032d7","orderType":"Dutch","stateMachineArn":"MOCK_ARN_1","runIndex":0}',
+          `{"orderHash":"0x4ab4f60562fadec8a074b65c834c0414f990ac51742d4fe96c2271d22aeba6b2","chainId":1,"orderStatus":"open","quoteId":"55e2cfca-5521-4a0a-b597-7bfb569032d7","orderType":"Dutch","stateMachineArn":"${MOCK_ARN_1}","runIndex":0}`,
       })
 
       expect(postOrderResponse).toEqual({
