@@ -243,8 +243,9 @@ export abstract class GenericOrdersRepository<
 
     // The per-status sub-queries are independent reads (and independent cache entries), so
     // one can be up to a TTL staler than another and list the same order under both
-    // statuses. Status transitions only flow away from OPEN, so on a duplicate hash the
-    // non-OPEN copy is the newer one.
+    // statuses. Transitions usually flow away from OPEN (grace polls and insufficient-funds
+    // recovery can flip an order back), so keep the non-OPEN copy -- worst case it is one
+    // TTL stale for an order that just re-opened.
     const byHash = new Map<string, T>()
     for (const order of results.flatMap((r) => r.orders)) {
       const existing = byHash.get(order.orderHash)

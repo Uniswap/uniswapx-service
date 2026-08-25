@@ -172,7 +172,7 @@ describe('GenericOrdersRepository query caching', () => {
     } as GetOrdersQueryParams)
 
     expect(result.orders).toHaveLength(2)
-    // Status transitions only flow away from OPEN, so the non-OPEN copy wins.
+    // Transitions usually flow away from OPEN, so the non-OPEN copy wins the tiebreak.
     const deduped = result.orders.find((o) => o.orderHash === mockOrder.orderHash)
     expect(deduped?.orderStatus).toEqual(ORDER_STATUS.EXPIRED)
   })
