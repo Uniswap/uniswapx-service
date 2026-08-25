@@ -1,220 +1,109 @@
-# UniswapX Service
+# uniswapx-service
 
 [![Unit Tests](https://github.com/Uniswap/uniswapx-service/actions/workflows/CI.yml/badge.svg)](https://github.com/Uniswap/uniswapx-service/actions/workflows/CI.yml)
 
-UniswapX Service is an API to propagate signed, executable UniswapX orders. Swappers can post their signed orders which can be fetched by fillers for execution.
+The service that propagates signed [UniswapX](https://docs.uniswap.org/contracts/uniswapx/overview)
+orders. Swappers submit orders — self-contained Permit2 instructions that anyone may execute
+onchain — and this service validates them, stores them, tracks their lifecycle, and serves
+them to the fillers who compete to execute them.
 
-## Getting Started
+The service holds no funds and takes no custody: every order it stores is inert until a filler
+submits it to a reactor contract. What it does own is the truth about order *state* — open,
+filled, cancelled, expired — and most of the machinery here exists to keep that truth current.
 
-1. Install and build the package
-   ```
-   yarn && yarn build
-   ```
-2. To deploy the API to your AWS account run:
+## The life of an order
 
-   ```
-   cdk deploy GoudaServiceStack
-   ```
+1. **Posted.** `POST /dutch-auction/order` (or `/limit/order`) receives
+   `{ encodedOrder, signature, chainId, orderType, ... }`. The body is schema-validated,
+   decoded with `@uniswap/uniswapx-sdk`, checked offchain (deadlines, decay windows, cosigner)
+   and onchain, then written to DynamoDB. Priority and Hybrid orders are cosigned here with a
+   KMS secp256k1 key that never leaves AWS.
+2. **Tracked.** Persisting an order starts a Step Functions execution (`check-order-status`)
+   that polls chain state until the order reaches a terminal status:
+   `open → filled | cancelled | expired | error | insufficient-funds`. A reaper task (ECS)
+   sweeps for orders the state machine lost track of.
+3. **Served.** Fillers poll `GET /orders` with filters. Responses are validated against the
+   same joi schemas the published API docs are pinned to (see below).
 
-   Once complete it will output the url of your api:
+## API
 
-   ```
-   GoudaServiceStack.Url = https://...
-   ```
+| This stack                 | Public (`api.uniswap.org/v2`) | Purpose                            |
+| -------------------------- | ----------------------------- | ---------------------------------- |
+| `POST /dutch-auction/order`| fronted by the Trading API    | Submit a signed order              |
+| `GET /dutch-auction/orders`| `GET /orders`                 | Order feed for fillers             |
+| `POST /limit/order`        | fronted by the Trading API    | Submit a signed limit order        |
+| `GET /limit/orders`        | `GET /limit-orders`           | Limit order feed                   |
+| `GET /dutch-auction/nonce` | not exposed                   | Next Permit2 nonce for an address  |
+| `GET /unimind`             | not exposed                   | Unimind parameters (internal)      |
+| `GET /docs.json`, `/api-docs` | `GET /uniswapx/docs`       | OpenAPI spec and Swagger UI        |
 
-3. (optional) To run dynamo-db integration tests, you need to have Java Runtime installed (https://www.java.com/en/download/manual.jsp).
+Query semantics worth knowing before you file a bug:
 
-## End-to-end Tests
+- `GET /orders` requires at least one filter (`orderHash`, `orderHashes`, `chainId`,
+  `orderStatus`, `swapper`, `filler`, `pair`). A bare `?limit=10` is a 400 by design —
+  there are no unbounded scans.
+- `swapper` cannot be combined with `chainId`; `orderHashes` cannot be combined with
+  `sortKey`; `sortKey` is required whenever `sort` or `desc` is present.
 
-1. Deploy your API using the intructions above.
+The full contract lives in [swagger.json](./swagger.json), served at
+<https://api.uniswap.org/v2/uniswapx/docs>. It is pinned to the joi validators by
+[test/unit/swagger.test.ts](./test/unit/swagger.test.ts): change the API or the spec without
+changing the other and `yarn test` names the exact divergence. See
+[.CONTRIBUTING.md](./.CONTRIBUTING.md) for the editing workflow.
 
-1. Add your API url to your `.env` file as `UNISWAP_API`
+## Layout
 
-   ```
-   UNISWAP_API='<YourUrl>'
-   ```
+| Path                | Contents                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bin/`              | CDK app: `api-stack` (API Gateway + WAF), `lambda-stack`, `dynamo-stack`, `step-function-stack` / `status-stack`, `cron-stack`, `reaper-stack` (ECS), `dashboard-stack`, `kms-stack` |
+| `lib/handlers/`     | Lambda entry points: `post-order`, `get-orders`, `get-limit-orders`, `get-nonce`, `get-unimind`, `check-order-status`, `order-notification`, `get-docs` |
+| `lib/models/`       | Order types: Dutch V1/V2/V3, Priority, Hybrid, Relay, Limit                                                                                 |
+| `lib/services/`     | `OrderDispatcher` routes by order type into the order services                                                                              |
+| `lib/repositories/` | DynamoDB access, one repository per order family, plus index mappers                                                                        |
+| `lib/crons/`        | `unimind-algorithm` (parameter updates), `gs-reaper` (status hygiene)                                                                       |
 
-1. Run the tests with:
-   ```
-   yarn test:e2e
-   ```
+## Development
 
-## Development Cycle
+There is no local server; the dev cycle runs against a real AWS account: build, deploy,
+exercise, read CloudWatch.
 
-To test your changes you must redeploy your service. The dev cycle is thus:
+Prerequisites: Node ≥ 20, yarn, Java (DynamoDB Local for tests), AWS credentials.
 
-1. Make code changes. Make sure all env variables are present in the .env file:
-
-```
-FAILED_EVENT_DESTINATION_ARN=<>
-RPC_PREFIX_URL=<>
-# Optional: sent as the `x-internal-service-secret` header on all RPC requests.
-RPC_HEADER_SECRET=<>
-
-# Only need these if testing against custom contract deployments
-DL_REACTOR_TENDERLY=<>
-QUOTER_TENDERLY=<>
-PERMIT_TENDERLY=<>
-
-# Only needed to run tests
-LABS_COSIGNER=<valid evm address>  # needed for certain unit tests
-```
-
-1. `yarn build && cdk deploy GoudaServiceStack`
-
-1. `yarn test:e2e`
-
-1. If failures, look at logs in Cloudwatch Insights
-
-1. Repeat
-
-## API Endpoints
-
-### POST /order
-
-Submit a signed UniswapX order. The endpoint URL format is:
-
-```
-POST https://<your-api-url>/order
+```bash
+yarn && yarn build
+cdk deploy GoudaServiceStack   # outputs your API url
 ```
 
-#### Request Body
+Environment (`.env`):
 
-The request body should include the signed order:
+| Variable                       | Meaning                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `RPC_PREFIX_URL`               | Base RPC URL. `getRpcUrl(chainId)` appends `/<chainId>`, so the endpoint must route per-chain on that suffix |
+| `RPC_HEADER_SECRET`            | Sent as `x-internal-service-secret` on every RPC request; omitted when unset                               |
+| `FAILED_EVENT_DESTINATION_ARN` | SNS destination for failed lambda events                                                                   |
+| `UNISWAP_API`                  | Deployed API url — e2e tests only                                                                          |
+| `LABS_COSIGNER`                | Any valid EVM address — certain unit tests only                                                            |
 
-```json
-{
-  "encodedOrder": "0x...",
-  "signature": "0x...",
-  "chainId": 1,
-  "orderType": "Dutch_V2",
-  "quoteId": "optional-quote-id",
-  "requestId": "optional-request-id"
-}
-```
+## Tests
 
-For hybrid orders, an optional `hardQuote` field can be included (see Hybrid Orders section below).
+| Tier        | Command          | Needs                              |
+| ----------- | ---------------- | ---------------------------------- |
+| Unit        | `yarn test`      | Java (DynamoDB Local)              |
+| Integration | `yarn test:integ`| Java                               |
+| End-to-end  | `yarn test:e2e`  | A deployed stack + `UNISWAP_API`   |
 
-#### Response
+CI runs lint, unit tests, and `rdme openapi:validate` against the swagger.
 
-On success (HTTP 201), the endpoint returns the order hash:
+## Sharp edges
 
-```json
-{
-  "hash": "0x..."
-}
-```
-
-#### Hybrid Orders
-
-Hybrid orders currently mutually-exclusively support both Dutch auction (price curve) and priority order (basefee scaling) mechanisms.
-
-##### Dutch-style Hybrid Orders
-**Hybrid orders with a price curve (priceCurve.length > 0)**
-
-These orders use Dutch auction mechanics. They can optionally include a `hardQuote` field to calculate the supplemental price curve:
-
-```
-POST https://<your-api-url>/order
-Content-Type: application/json
-
-{
-  "encodedOrder": "0x...",
-  "signature": "0x...",
-  "chainId": 1,
-  "orderType": "Hybrid",
-  "quoteId": "quote-id",
-  "requestId": "request-id",
-  "hardQuote": {
-    "quoteId": "quote-id",
-    "requestId": "request-id",
-    "tokenInChainId": 1,
-    "tokenOutChainId": 1,
-    "tokenIn": "0x...",
-    "tokenOut": "0x...",
-    "input": {
-      "token": "0x...",
-      "amount": "1000000"
-    },
-    "outputs": [{
-      "token": "0x...",
-      "amount": "2000000",
-      "recipient": "0x..."
-    }],
-    "swapper": "0x...",
-    "filler": "0x...",
-    "orderHash": "0x...",
-    "createdAt": 1234567890,
-    "createdAtMs": "1234567890000"
-  }
-}
-```
-
-##### Priority-style Hybrid Orders
-**Hybrid orders without a price curve (priceCurve.length == 0)**
-
-These orders use priority fee scaling mechanics and do not require a `hardQuote`:
-
-```
-POST https://<your-api-url>/order
-Content-Type: application/json
-
-{
-  "encodedOrder": "0x...",
-  "signature": "0x...",
-  "chainId": 1,
-  "orderType": "Hybrid",
-  "quoteId": "optional-quote-id",
-  "requestId": "optional-request-id"
-}
-```
-
-### GET /orders
-
-Retrieve orders from the service (example):
-
-```
-GET https://<your-api-url>/orders?chainId=1&orderStatus=open&orderType=Hybrid
-```
-
-Query parameters:
-- `chainId`: The chain ID to filter orders by
-- `orderStatus`: Filter by order status (e.g., `open`, `filled`, `cancelled`)
-- `orderHash`: Get a specific order by hash
-- `orderHashes`: Comma-separated list of order hashes to retrieve
-- `swapper`: Filter orders by swapper address
-- `filler`: Filter orders by filler address
-- `orderType`: Filter by order type. Valid values:
-  - `Dutch` - Dutch V1 orders
-  - `Dutch_V2` - Dutch V2 orders
-  - `Dutch_V3` - Dutch V3 orders
-  - `Dutch_V1_V2` - Both Dutch V1 and V2 orders
-  - `Priority` - Priority orders
-  - `Hybrid` - Hybrid orders
-  - `Limit` - Limit orders
-  - `Relay` - Relay orders
-- `limit`: Maximum number of orders to return
-- `cursor`: Pagination cursor for retrieving additional results
-- `sortKey`: Field to sort by (requires `sort` parameter)
-- `sort`: Sort order (e.g., `gt(0)` for ascending)
-- `desc`: Boolean to sort in descending order
-- `executeAddress`: Filter orders by execution address
-- `pair`: Filter orders by token pair
-
-## Order Notification Schema
-
-Depending on the filler preferences, the notification webhook can POST orders with a specific exclusive filler address or all new orders. The following schema is what the filler execution endpoint can expect to receive.
-
-```
-{
-   orderHash: string,
-   createdAt: number,
-   signature: string,
-   offerer: string,
-   orderStatus: string,
-   encodedOrder: string,
-   chainId: number,
-   quoteId?: string,
-   filler?: string,
-}
-```
+- **The public edge rewrites paths.** `api.uniswap.org/v2/orders` maps to this stack's
+  `/dutch-auction/orders`. Don't grep this repo for the public path, and don't quote the
+  internal path to integrators.
+- **`type: "DutchLimit"`** still appears in responses — a deprecated alias kept for backwards
+  compatibility until legacy rows are purged. Treat it as the Dutch shape.
+- **Order status lags the chain.** Transitions come from the polling state machine and the
+  reaper, not from the fill transaction itself, so a just-filled order may briefly read `open`.
+- **`kms-stack` is `RETAIN`ed on purpose.** The key is the order cosigner; changing the
+  construct orphans it. Read the comment in the file before touching it.
+- **"Gouda"** is the service's original codename. `GoudaServiceStack`, the dashboards, and the
+  WAF metrics all use it; this repo and that stack are the same thing.

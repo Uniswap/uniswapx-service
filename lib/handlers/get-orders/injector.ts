@@ -7,6 +7,7 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
 import { getSharedRequestInjected } from '../shared/get'
+import { getOrdersQueryCache } from './query-cache'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
 import { GetOrderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
 
@@ -25,7 +26,7 @@ export interface ContainerInjected {
 export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache),
     }
   }
 

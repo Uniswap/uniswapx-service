@@ -7,10 +7,14 @@ import { UniswapXOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
+import { OrdersQueryCache } from './QueryCache'
 import { getTableIndices, TABLE_NAMES } from './util'
 
 export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null, UniswapXOrderEntity> {
-  static create(documentClient: DocumentClient): BaseOrdersRepository<UniswapXOrderEntity> {
+  static create(
+    documentClient: DocumentClient,
+    queryCache?: OrdersQueryCache
+  ): BaseOrdersRepository<UniswapXOrderEntity> {
     const log = Logger.createLogger({
       name: 'LimitOrdersRepository',
       serializers: Logger.stdSerializers,
@@ -78,7 +82,8 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
       limitOrderEntity,
       nonceEntity,
       log,
-      new OffchainOrderIndexMapper()
+      new OffchainOrderIndexMapper(),
+      queryCache
     )
   }
 }

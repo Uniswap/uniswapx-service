@@ -13,6 +13,9 @@ import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.j
 
 export class StepFunctionStack extends cdk.NestedStack {
   public chainIdToStatusTrackingStateMachineArn: { [key: string]: string } = {}
+  // Name alongside the ARN so consumers that only need to identify the state
+  // machine can avoid carrying the full ARN (see lambda-stack's env vars).
+  public chainIdToStatusTrackingStateMachineName: { [key: string]: string } = {}
   public checkStatusFunction: cdk.aws_lambda_nodejs.NodejsFunction
 
   constructor(
@@ -105,6 +108,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       })
 
       this.chainIdToStatusTrackingStateMachineArn[chainId] = stateMachine.attrArn
+      this.chainIdToStatusTrackingStateMachineName[chainId] = stateMachine.attrName
 
       const METRIC_DIMENSION_MAP = {
         StateMachineArn: stateMachine.attrArn,

@@ -35,8 +35,10 @@ jest.mock('../../../../lib/handlers/shared/sfn', () => {
   }
 })
 
-const MOCK_ARN_1 = 'MOCK_ARN_1'
-const MOCK_ARN_11155111 = 'MOCK_ARN_11155111'
+// The handler rebuilds ARNs from STATE_MACHINE_NAMES + REGION + ACCOUNT_ID;
+// see lib/util/stateMachineArn.ts.
+const MOCK_ACCOUNT_ID = '123456789012'
+const MOCK_SM_REGION = 'region'
 
 describe('Testing post limit order handler.', () => {
   const putOrderAndUpdateNonceTransactionMock = jest.fn()
@@ -133,9 +135,12 @@ describe('Testing post limit order handler.', () => {
   )
 
   beforeAll(() => {
-    process.env['STATE_MACHINE_ARN_1'] = MOCK_ARN_1
-    process.env['STATE_MACHINE_ARN_11155111'] = MOCK_ARN_11155111
-    process.env['REGION'] = 'region'
+    process.env['STATE_MACHINE_NAMES'] = JSON.stringify({
+      1: 'MOCK_SM_1',
+      11155111: 'MOCK_SM_11155111',
+    })
+    process.env['ACCOUNT_ID'] = MOCK_ACCOUNT_ID
+    process.env['REGION'] = MOCK_SM_REGION
   })
 
   afterEach(() => {

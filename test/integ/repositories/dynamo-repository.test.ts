@@ -712,6 +712,51 @@ describe('OrdersRepository update status test', () => {
       new Error('cannot find order by hash when updating order status, hash: nonexistent')
     )
   })
+
+  it('should not downgrade a FILLED (terminal) order to another status', async () => {
+    // Regression (PROTO-1201): a reaper run racing the check-order-status
+    // state machine must not clobber a recorded fill with CANCELLED/EXPIRED.
+    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash', 1, [
+      { tokenOut: '0x1', amountOut: '1' } as SettledAmount,
+    ])
+
+    // The downgrade is skipped (not thrown), so callers don't enter retry loops.
+    await expect(ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.CANCELLED)).resolves.toBeUndefined()
+    await expect(ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.EXPIRED)).resolves.toBeUndefined()
+
+    await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
+      orderStatus: ORDER_STATUS.FILLED,
+      offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
+      chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
+      txHash: 'txHash',
+      fillBlock: 1,
+      settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
+    })
+  })
+
+  it('should allow re-writing FILLED with updated fill details', async () => {
+    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash2', 2)
+    await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
+      orderStatus: ORDER_STATUS.FILLED,
+      txHash: 'txHash2',
+      fillBlock: 2,
+    })
+  })
+
+  it('should allow non-terminal transitions and upgrades to FILLED', async () => {
+    // e.g. INSUFFICIENT_FUNDS -> FILLED (the insufficient-funds reaper finding
+    // a fill) must keep working.
+    await ordersRepository.updateOrderStatus('0x2', ORDER_STATUS.INSUFFICIENT_FUNDS)
+    await expect(ordersRepository.getByHash('0x2')).resolves.toMatchObject({
+      orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+    })
+    await ordersRepository.updateOrderStatus('0x2', ORDER_STATUS.FILLED, 'txHash', 3)
+    await expect(ordersRepository.getByHash('0x2')).resolves.toMatchObject({
+      orderStatus: ORDER_STATUS.FILLED,
+      txHash: 'txHash',
+      fillBlock: 3,
+    })
+  })
 })
 
 describe('OrdersRepository delete test', () => {
