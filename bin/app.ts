@@ -304,6 +304,14 @@ export class APIPipeline extends Stack {
             value: 'all/gouda-service/integ-test/rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
+          // The integ-test RPC gateway authenticates via the same
+          // x-internal-service-secret header the service itself sends (see
+          // RPC_HEADERS in lib/util/constants.ts, which picks this up from
+          // the environment when set).
+          RPC_HEADER_SECRET: {
+            value: 'gouda-service-rpc-urls-2:RPC_HEADER_SECRET',
+            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
+          },
           TEST_WALLET_PK: {
             value: 'all/gouda-service/integ-test/test-wallet-pk',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
@@ -329,6 +337,7 @@ export class APIPipeline extends Stack {
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
         'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" >> .env',
         'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
+        'echo "RPC_HEADER_SECRET=${RPC_HEADER_SECRET}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
         'yarn install --frozen-lockfile',
