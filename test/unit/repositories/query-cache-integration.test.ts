@@ -1,10 +1,11 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
+import { GetOrdersQueryParams } from '../../../lib/handlers/get-orders/schema'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
-import { OrdersQueryCache } from '../../../lib/repositories/generic-orders-repository'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
-import { QueryCache } from '../../../lib/repositories/QueryCache'
+import { OrdersQueryCache, QueryCache } from '../../../lib/repositories/QueryCache'
+import { metrics } from '../../../lib/util/metrics'
 
 const TTL_MS = 250
 
@@ -33,7 +34,7 @@ describe('GenericOrdersRepository query caching', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    cache = new QueryCache(TTL_MS)
+    cache = new QueryCache(TTL_MS, 'GetOrdersQueryCache')
     now = 1_700_000_000_000
     jest.spyOn(Date, 'now').mockImplementation(() => now)
   })
@@ -126,6 +127,54 @@ describe('GenericOrdersRepository query caching', () => {
 
     expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
     expect(second.orders).toHaveLength(1)
+  })
+
+  it('names hit/miss metrics after the cache instance', async () => {
+    const putMetric = jest.spyOn(metrics, 'putMetric')
+    const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+    mockDocumentClient.query.mockReturnValue(mockQueryResponse())
+
+    await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+    await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+
+    expect(putMetric).toHaveBeenCalledWith('GetOrdersQueryCacheMiss', 1, expect.anything())
+    expect(putMetric).toHaveBeenCalledWith('GetOrdersQueryCacheHit', 1, expect.anything())
+  })
+
+  it('emits no cache metrics when the cache is disabled via the TTL=0 kill switch', async () => {
+    // A disabled cache reporting a 100% miss rate would be indistinguishable from a broken
+    // one on a dashboard, exactly during a rollback.
+    const putMetric = jest.spyOn(metrics, 'putMetric')
+    const repository = DutchOrdersRepository.create(mockDocumentClient, new QueryCache(0, 'GetOrdersQueryCache'))
+    mockDocumentClient.query.mockReturnValue(mockQueryResponse())
+
+    await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+    await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+
+    expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
+    expect(putMetric).not.toHaveBeenCalled()
+  })
+
+  it('dedupes an order that two per-status sub-queries return under different statuses', async () => {
+    // The per-status sub-queries are independent cache entries, so one can be a stale hit
+    // while the other reads fresh; the merge must not surface the same order twice.
+    const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+    const openCopy = { ...mockOrder, orderStatus: ORDER_STATUS.OPEN }
+    const expiredCopy = { ...mockOrder, orderStatus: ORDER_STATUS.EXPIRED }
+    const other = { ...mockOrder, orderHash: '0xother', orderStatus: ORDER_STATUS.EXPIRED }
+    mockDocumentClient.query
+      .mockReturnValueOnce(mockQueryResponse([openCopy]))
+      .mockReturnValueOnce(mockQueryResponse([expiredCopy, other]))
+
+    const result = await repository.getOrders(50, {
+      chainId: 1,
+      orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.EXPIRED],
+    } as GetOrdersQueryParams)
+
+    expect(result.orders).toHaveLength(2)
+    // Status transitions only flow away from OPEN, so the non-OPEN copy wins.
+    const deduped = result.orders.find((o) => o.orderHash === mockOrder.orderHash)
+    expect(deduped?.orderStatus).toEqual(ORDER_STATUS.EXPIRED)
   })
 
   it('does not cache when a repository is built without one', async () => {

@@ -2,7 +2,7 @@ import { QueryCache } from '../../../lib/repositories/QueryCache'
 
 describe('QueryCache', () => {
   it('returns a stored value inside the TTL window', () => {
-    const cache = new QueryCache<string>(250)
+    const cache = new QueryCache<string>(250, 'Test')
     cache.set('a', 'value', 1_000)
 
     expect(cache.get('a', 1_000)).toEqual('value')
@@ -10,7 +10,7 @@ describe('QueryCache', () => {
   })
 
   it('expires a value once the TTL elapses', () => {
-    const cache = new QueryCache<string>(250)
+    const cache = new QueryCache<string>(250, 'Test')
     cache.set('a', 'value', 1_000)
 
     expect(cache.get('a', 1_250)).toBeUndefined()
@@ -18,14 +18,14 @@ describe('QueryCache', () => {
   })
 
   it('misses on an unknown key', () => {
-    const cache = new QueryCache<string>(250)
+    const cache = new QueryCache<string>(250, 'Test')
     cache.set('a', 'value', 1_000)
 
     expect(cache.get('b', 1_000)).toBeUndefined()
   })
 
   it('is disabled when the TTL is zero', () => {
-    const cache = new QueryCache<string>(0)
+    const cache = new QueryCache<string>(0, 'Test')
     cache.set('a', 'value', 1_000)
 
     expect(cache.enabled).toEqual(false)
@@ -34,7 +34,7 @@ describe('QueryCache', () => {
   })
 
   it('sweeps expired entries on write', () => {
-    const cache = new QueryCache<string>(250)
+    const cache = new QueryCache<string>(250, 'Test')
     cache.set('a', 'a', 1_000)
     cache.set('b', 'b', 1_100)
     expect(cache.size).toEqual(2)
@@ -49,7 +49,7 @@ describe('QueryCache', () => {
   })
 
   it('bounds the number of live entries', () => {
-    const cache = new QueryCache<number>(250, 3)
+    const cache = new QueryCache<number>(250, 'Test', 3)
     // All written at the same instant so none can be evicted for being expired.
     for (let i = 0; i < 10; i++) {
       cache.set(`key-${i}`, i, 1_000)
@@ -62,7 +62,7 @@ describe('QueryCache', () => {
   })
 
   it('keeps expiry aligned with insertion order when a key is overwritten', () => {
-    const cache = new QueryCache<string>(250)
+    const cache = new QueryCache<string>(250, 'Test')
     cache.set('a', 'first', 1_000)
     cache.set('b', 'b', 1_100)
     // Re-writing 'a' must move it behind 'b', otherwise the eviction sweep would stop at
@@ -78,7 +78,7 @@ describe('QueryCache', () => {
   })
 
   it('clears all entries', () => {
-    const cache = new QueryCache<string>(250)
+    const cache = new QueryCache<string>(250, 'Test')
     cache.set('a', 'value', 1_000)
     cache.clear()
 

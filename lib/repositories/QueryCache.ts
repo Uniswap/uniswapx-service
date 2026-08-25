@@ -1,6 +1,20 @@
+import { OrderEntityType, QueryResult } from './base'
+
 type CacheEntry<T> = {
   expiresAt: number
   value: T
+}
+
+const DEFAULT_QUERY_CACHE_TTL_MS = 250
+
+// Set GET_ORDERS_CACHE_TTL_MS=0 to disable the query cache without a code change.
+export function queryCacheTtlFromEnv(): number {
+  const raw = process.env.GET_ORDERS_CACHE_TTL_MS
+  if (!raw) {
+    return DEFAULT_QUERY_CACHE_TTL_MS
+  }
+  const configured = Number(raw)
+  return Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_QUERY_CACHE_TTL_MS
 }
 
 /**
@@ -18,7 +32,14 @@ type CacheEntry<T> = {
 export class QueryCache<T> {
   private readonly store = new Map<string, CacheEntry<T>>()
 
-  constructor(private readonly ttlMs: number, private readonly maxEntries = 1000) {}
+  // metricPrefix names the hit/miss metrics emitted by repositories using this cache
+  // (e.g. 'GetOrdersQueryCache' -> GetOrdersQueryCacheHit/Miss). Each endpoint owns its
+  // cache instance, so its traffic stays distinguishable on dashboards.
+  constructor(
+    private readonly ttlMs: number,
+    public readonly metricPrefix: string,
+    private readonly maxEntries = 1000
+  ) {}
 
   public get enabled(): boolean {
     return this.ttlMs > 0
@@ -78,3 +99,5 @@ export class QueryCache<T> {
     }
   }
 }
+
+export type OrdersQueryCache = QueryCache<QueryResult<OrderEntityType>>

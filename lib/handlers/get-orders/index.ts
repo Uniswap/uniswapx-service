@@ -4,7 +4,6 @@ import { GetOrdersInjector } from './injector'
 import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
-import { getOrdersQueryCache } from '../../repositories/generic-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
@@ -22,9 +21,10 @@ import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
+import { getOrdersQueryCache } from './query-cache'
 
-// This Lambda only reads, so its repositories share the sub-second query cache. Every
-// other entry point builds them without it -- see getOrdersQueryCache.
+// This Lambda only reads, so its repositories share the sub-second query cache. Write
+// paths build them without it -- see query-cache.ts.
 const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache)
 const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache)
 const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())

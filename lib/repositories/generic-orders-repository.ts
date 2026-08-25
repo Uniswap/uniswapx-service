@@ -14,31 +14,9 @@ import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
 import { IndexMapper } from './IndexMappers/IndexMapper'
-import { QueryCache } from './QueryCache'
+import { OrdersQueryCache } from './QueryCache'
 
 export const MAX_ORDERS = 50
-
-const DEFAULT_QUERY_CACHE_TTL_MS = 250
-
-// Sub-second cache over the list-query path. Fillers poll the same query shapes
-// continuously, so repeats inside this window are collapsed into a single read against
-// the hot GSI partition. Set GET_ORDERS_CACHE_TTL_MS=0 to disable without a code change.
-export const QUERY_CACHE_TTL_MS = ((): number => {
-  const raw = process.env.GET_ORDERS_CACHE_TTL_MS
-  if (!raw) {
-    return DEFAULT_QUERY_CACHE_TTL_MS
-  }
-  const configured = Number(raw)
-  return Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_QUERY_CACHE_TTL_MS
-})()
-
-// Opt-in, not a repository default: background jobs (the unimind cron, the reaper) write
-// orders and immediately re-read them expecting fresh data. Only the read-only API path
-// passes this in. Shared across the repositories that path builds so they pool hits -- the
-// table name is part of every key, so Orders/LimitOrders/RelayOrders never collide.
-export const getOrdersQueryCache = new QueryCache<QueryResult<OrderEntityType>>(QUERY_CACHE_TTL_MS)
-
-export type OrdersQueryCache = QueryCache<QueryResult<OrderEntityType>>
 
 // aws-sdk v2 (used by dynamodb-toolbox here) sets both code and name to the error code
 function isConditionalCheckFailed(e: unknown): boolean {
@@ -263,7 +241,19 @@ export abstract class GenericOrdersRepository<
       )
     )
 
-    const allOrders = results.flatMap((r) => r.orders)
+    // The per-status sub-queries are independent reads (and independent cache entries), so
+    // one can be up to a TTL staler than another and list the same order under both
+    // statuses. Status transitions only flow away from OPEN, so on a duplicate hash the
+    // non-OPEN copy is the newer one.
+    const byHash = new Map<string, T>()
+    for (const order of results.flatMap((r) => r.orders)) {
+      const existing = byHash.get(order.orderHash)
+      if (!existing || existing.orderStatus === ORDER_STATUS.OPEN) {
+        byHash.set(order.orderHash, order)
+      }
+    }
+
+    const allOrders = [...byHash.values()]
     // Sort by createdAt descending (consistent with default query behavior)
     allOrders.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
 
@@ -289,28 +279,31 @@ export abstract class GenericOrdersRepository<
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
     const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
 
-    // Every input that can change the result set is part of the key, so a hit is always
-    // the page the caller would have read anyway -- just up to QUERY_CACHE_TTL_MS stale.
-    const cacheKey = JSON.stringify([
-      this.table.name,
-      formattedIndex,
-      partitionKey,
-      effectiveLimit,
-      cursor ?? null,
-      sortKey ?? null,
-      sort ?? null,
-      desc,
-      filters,
-    ])
-    const queryStartedAt = Date.now()
-
-    if (this.queryCache) {
-      const cached = this.queryCache.get(cacheKey, queryStartedAt)
+    // Gated on `enabled` so the GET_ORDERS_CACHE_TTL_MS=0 kill switch also silences the
+    // hit/miss metrics -- a disabled cache reporting a 100% miss rate is indistinguishable
+    // from a broken one on a dashboard.
+    const cache = this.queryCache?.enabled ? this.queryCache : undefined
+    let cacheKey: string | undefined
+    if (cache) {
+      // Every input that can change the result set is part of the key, so a hit is always
+      // the page the caller would have read anyway -- just up to the cache TTL stale.
+      cacheKey = JSON.stringify([
+        this.table.name,
+        formattedIndex,
+        partitionKey,
+        effectiveLimit,
+        cursor ?? null,
+        sortKey ?? null,
+        sort ?? null,
+        desc,
+        filters,
+      ])
+      const cached = cache.get(cacheKey, Date.now())
       if (cached) {
-        metrics.putMetric('GetOrdersQueryCacheHit', 1, Unit.Count)
+        metrics.putMetric(`${cache.metricPrefix}Hit`, 1, Unit.Count)
         return this.copyQueryResult(cached as QueryResult<T>)
       }
-      metrics.putMetric('GetOrdersQueryCacheMiss', 1, Unit.Count)
+      metrics.putMetric(`${cache.metricPrefix}Miss`, 1, Unit.Count)
     }
 
     const queryResult = await this.entity.query(partitionKey, {
@@ -331,10 +324,12 @@ export abstract class GenericOrdersRepository<
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
     }
 
-    // Stamped after the round trip, not before it. A throttled partition retries with
-    // backoff, so a query can outlast the TTL -- dating the entry from the query start
-    // would write it already expired, exactly when the cache is most needed.
-    this.queryCache?.set(cacheKey, result as QueryResult<OrderEntityType>, Date.now())
+    if (cache && cacheKey) {
+      // Stamped after the round trip, not before it. A throttled partition retries with
+      // backoff, so a query can outlast the TTL -- dating the entry from the query start
+      // would write it already expired, exactly when the cache is most needed.
+      cache.set(cacheKey, result as QueryResult<OrderEntityType>, Date.now())
+    }
     return this.copyQueryResult(result)
   }
 

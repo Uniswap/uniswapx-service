@@ -5,8 +5,9 @@ import { Entity, Table } from 'dynamodb-toolbox'
 import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { UniswapXOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
-import { GenericOrdersRepository, OrdersQueryCache } from './generic-orders-repository'
+import { GenericOrdersRepository } from './generic-orders-repository'
 import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
+import { OrdersQueryCache } from './QueryCache'
 import { getTableIndices, TABLE_NAMES } from './util'
 
 export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null, UniswapXOrderEntity> {
