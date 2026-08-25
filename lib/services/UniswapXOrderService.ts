@@ -315,6 +315,12 @@ export class UniswapXOrderService {
       },
       stateMachineArn
     )
+    // Success heartbeat. The post-persist catch in createOrder swallows any
+    // failure here so an accepted order is never reported as rejected, which
+    // means the request-level metrics look identical whether tracking started
+    // or not. This counter going to zero is the only aggregate signal that it
+    // stopped, and lambda-stack alarms on its absence.
+    metrics.putMetric('OrderTrackerStarted', 1, Unit.Count)
   }
 
   public async getDutchV2AndDutchOrders(
