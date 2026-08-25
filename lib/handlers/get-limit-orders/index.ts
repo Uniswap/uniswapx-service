@@ -8,6 +8,7 @@ import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
+import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
@@ -18,9 +19,11 @@ import { GetOrdersHandler } from '../get-orders/handler'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
 import { GetLimitOrdersInjector } from './injector'
-import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
+import { getLimitOrdersQueryCache } from './query-cache'
 
-const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
+// This Lambda only reads, so its repositories share the sub-second query cache. Write
+// paths build them without it -- see query-cache.ts.
+const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient(), getLimitOrdersQueryCache)
 const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
@@ -44,7 +47,7 @@ const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
   EventWatcherMap.createRelayEventWatcherMap(),
-  RelayOrderRepository.create(new DynamoDB.DocumentClient()),
+  RelayOrderRepository.create(new DynamoDB.DocumentClient(), getLimitOrdersQueryCache),
   log,
   getMaxOpenOrders,
   new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())

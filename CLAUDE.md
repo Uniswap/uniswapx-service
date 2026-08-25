@@ -46,6 +46,9 @@ Required for deployment:
 - `RPC_HEADER_SECRET` - Value sent as the `x-internal-service-secret` header on all RPC requests (see `RPC_HEADERS` in `lib/util/constants.ts`). Omitted when unset.
 - `FAILED_EVENT_DESTINATION_ARN` - Failed event SNS ARN
 
+Optional:
+- `GET_ORDERS_CACHE_TTL_MS` - TTL for the read-path query cache on the get-orders/get-limit-orders Lambdas (default 250; set to `0` to disable the cache).
+
 For tests:
 - `UNISWAP_API` - Deployed API URL (e2e tests)
 - `LABS_COSIGNER` - Valid EVM address (unit tests)

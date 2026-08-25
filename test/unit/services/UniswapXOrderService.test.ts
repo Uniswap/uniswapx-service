@@ -16,7 +16,7 @@ import { PriorityOrder } from '../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { QuoteMetadataRepository } from '../../../lib/repositories/quote-metadata-repository'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
-import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
+import { MAX_QUERY_RETRY, UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../lib/util/chain'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT } from '../../../lib/util/order'
@@ -381,7 +381,8 @@ describe('UniswapXOrderService', () => {
     const response = await service.getDutchOrders(limit, params, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
+    // initial query plus MAX_QUERY_RETRY follow-ups
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
   })
 
   test('getDutchOrders returns more results than limit in looping edge case', async () => {
@@ -573,7 +574,8 @@ describe('UniswapXOrderService', () => {
     const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
+    // initial query plus MAX_QUERY_RETRY follow-ups
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
   })
 
   test('getDutchV2Orders returns more results than limit in looping edge case', async () => {
@@ -730,7 +732,8 @@ describe('UniswapXOrderService', () => {
     const response = await service.getPriorityOrders(limit, params, undefined, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
+    // initial query plus MAX_QUERY_RETRY follow-ups
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
   })
 
   test('getLimitOrders calls db with Limit', async () => {
@@ -897,7 +900,8 @@ describe('UniswapXOrderService', () => {
     const response = await service.getDutchV3Orders(limit, params, undefined, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
+    // initial query plus MAX_QUERY_RETRY follow-ups
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
   })
 
   test('getHybridOrders calls db with Hybrid', async () => {
@@ -1008,6 +1012,7 @@ describe('UniswapXOrderService', () => {
     const response = await service.getHybridOrders(limit, params, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(11)
+    // initial query plus MAX_QUERY_RETRY follow-ups
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
   })
 })

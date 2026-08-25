@@ -200,10 +200,18 @@ export class APIPipeline extends Stack {
           .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_BETA')
           .toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_BETA').toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_BETA').toString(),
-        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret.secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_BETA').toString(),
+        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret
+          .secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_BETA')
+          .toString(),
+        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret
+          .secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_BETA')
+          .toString(),
+        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret
+          .secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_BETA')
+          .toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
+        // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
+        GET_ORDERS_CACHE_TTL_MS: '250',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerBeta.secretValue.toString(),
         LABS_PRIORITY_COSIGNER: labsPriorityCosignerBeta.secretValue.toString(),
@@ -237,10 +245,18 @@ export class APIPipeline extends Stack {
           .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_PROD')
           .toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_PROD').toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_PROD').toString(),
-        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret.secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_PROD').toString(),
+        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret
+          .secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_PROD')
+          .toString(),
+        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret
+          .secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_PROD')
+          .toString(),
+        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret
+          .secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_PROD')
+          .toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
+        // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
+        GET_ORDERS_CACHE_TTL_MS: '250',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerProd.secretValue.toString(),
         LABS_PRIORITY_COSIGNER: labsPriorityCosignerProd.secretValue.toString(),
@@ -385,6 +401,7 @@ envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] = process.env['UNIMIND_PARAM
 envVars['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] = process.env['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] || ''
 envVars['LABS_COSIGNER'] = process.env['LABS_COSIGNER'] || ''
 envVars['LABS_PRIORITY_COSIGNER'] = process.env['LABS_PRIORITY_COSIGNER'] || ''
+envVars['GET_ORDERS_CACHE_TTL_MS'] = process.env['GET_ORDERS_CACHE_TTL_MS'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,

@@ -6,6 +6,7 @@ import { LimitOrdersRepository } from '../../repositories/limit-orders-repositor
 import { ApiInjector, ApiRInj } from '../base/index'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
 import { ContainerInjected, getSharedRequestInjected } from '../shared/get'
+import { getLimitOrdersQueryCache } from './query-cache'
 
 export interface RequestInjected extends ApiRInj {
   limit: number
@@ -21,7 +22,7 @@ export class GetLimitOrdersInjector extends ApiInjector<
 > {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: LimitOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: LimitOrdersRepository.create(new DynamoDB.DocumentClient(), getLimitOrdersQueryCache),
     }
   }
 

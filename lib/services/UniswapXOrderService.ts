@@ -1,6 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { KMSClient } from '@aws-sdk/client-kms'
-import { Unit } from 'aws-embedded-metrics'
 import { KmsSigner } from '@uniswap/signer'
 import {
   CosignedHybridOrder,
@@ -12,9 +11,10 @@ import {
   OrderValidation,
   OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
-  V4OrderValidator as OnChainV4OrderValidator,
   UNISWAPX_V4_ORDER_QUOTER_MAPPING as OnChainV4QuoterMapping,
+  V4OrderValidator as OnChainV4OrderValidator,
 } from '@uniswap/uniswapx-sdk'
+import { Unit } from 'aws-embedded-metrics'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
@@ -39,16 +39,16 @@ import { LimitOrder } from '../models/LimitOrder'
 import { PriorityOrder } from '../models/PriorityOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { WebhookProvider } from '../providers/base'
-import { BaseOrdersRepository } from '../repositories/base'
+import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
 import { hasExclusiveFiller } from '../util/address'
 import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
-import { AnalyticsServiceInterface } from './analytics-service'
 import { getStateMachineArn } from '../util/stateMachineArn'
+import { AnalyticsServiceInterface } from './analytics-service'
 
-const MAX_QUERY_RETRY = 10
+export const MAX_QUERY_RETRY = 10
 
 export class UniswapXOrderService {
   constructor(
@@ -317,6 +317,30 @@ export class UniswapXOrderService {
     )
   }
 
+  /**
+   * orderType is a filter, not a key condition, so one page can match fewer rows than the
+   * limit. Follow the cursor until the limit fills, the pages run out, or the retry budget
+   * is spent -- a caller that still wants more follows the returned cursor.
+   */
+  private async fetchOrderPages(
+    limit: number,
+    params: GetOrdersQueryParams,
+    types: string[],
+    cursor: string | undefined
+  ): Promise<QueryResult<UniswapXOrderEntity>> {
+    let queryResults = await this.repository.getOrdersFilteredByType(limit, params, types, cursor)
+    const orders = [...queryResults.orders]
+
+    let retryCount = 0
+    while (orders.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
+      queryResults = await this.repository.getOrdersFilteredByType(limit, params, types, queryResults.cursor)
+      orders.push(...queryResults.orders)
+      retryCount++
+    }
+
+    return { orders, cursor: queryResults.cursor }
+  }
+
   public async getDutchV2AndDutchOrders(
     limit: number,
     params: GetOrdersQueryParams,
@@ -347,24 +371,11 @@ export class UniswapXOrderService {
     cursor: string | undefined,
     executeAddress: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
-    let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V2], cursor)
-    const dutchV2QueryResults = [...queryResults.orders]
-
-    let retryCount = 0
-    while (dutchV2QueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
-      queryResults = await this.repository.getOrdersFilteredByType(
-        limit,
-        params,
-        [OrderType.Dutch_V2],
-        queryResults.cursor
-      )
-      dutchV2QueryResults.push(...queryResults.orders)
-      retryCount++
-    }
+    const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V2], cursor)
 
     const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
-    for (let i = 0; i < dutchV2QueryResults.length; i++) {
-      const order = dutchV2QueryResults[i]
+    for (let i = 0; i < queryResults.orders.length; i++) {
+      const order = queryResults.orders[i]
       const dutchV2Order = DutchV2Order.fromEntity(order, this.logger, executeAddress)
       dutchV2OrderResponses.push(dutchV2Order.toGetResponse())
     }
@@ -378,24 +389,11 @@ export class UniswapXOrderService {
     cursor: string | undefined,
     executeAddress: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV3OrderResponse>> {
-    let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Dutch_V3], cursor)
-    const dutchV3QueryResults = [...queryResults.orders]
-
-    let retryCount = 0
-    while (dutchV3QueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
-      queryResults = await this.repository.getOrdersFilteredByType(
-        limit,
-        params,
-        [OrderType.Dutch_V3],
-        queryResults.cursor
-      )
-      dutchV3QueryResults.push(...queryResults.orders)
-      retryCount++
-    }
+    const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V3], cursor)
 
     const dutchV3OrderResponses: GetDutchV3OrderResponse[] = []
-    for (let i = 0; i < dutchV3QueryResults.length; i++) {
-      const order = dutchV3QueryResults[i]
+    for (let i = 0; i < queryResults.orders.length; i++) {
+      const order = queryResults.orders[i]
       const dutchV3Order = DutchV3Order.fromEntity(order, this.logger, executeAddress)
       dutchV3OrderResponses.push(dutchV3Order.toGetResponse())
     }
@@ -408,28 +406,7 @@ export class UniswapXOrderService {
     params: GetOrdersQueryParams,
     cursor: string | undefined
   ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
-    let queryResults = await this.repository.getOrdersFilteredByType(
-      limit,
-      params,
-      [OrderType.Dutch, DUTCH_LIMIT],
-      cursor
-    )
-
-    const dutchQueryResults = [...queryResults.orders]
-
-    let retryCount = 0
-    while (dutchQueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
-      queryResults = await this.repository.getOrdersFilteredByType(
-        limit,
-        params,
-        [OrderType.Dutch, DUTCH_LIMIT],
-        queryResults.cursor
-      )
-      dutchQueryResults.push(...queryResults.orders)
-      retryCount++
-    }
-
-    return { orders: dutchQueryResults, cursor: queryResults.cursor }
+    return this.fetchOrderPages(limit, params, [OrderType.Dutch, DUTCH_LIMIT], cursor)
   }
 
   public async getPriorityOrders(
@@ -438,24 +415,11 @@ export class UniswapXOrderService {
     cursor: string | undefined,
     executeAddress: string | undefined
   ): Promise<GetOrdersResponse<GetPriorityOrderResponse>> {
-    let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Priority], cursor)
-    const priorityQueryResults = [...queryResults.orders]
-
-    let retryCount = 0
-    while (priorityQueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
-      queryResults = await this.repository.getOrdersFilteredByType(
-        limit,
-        params,
-        [OrderType.Priority],
-        queryResults.cursor
-      )
-      priorityQueryResults.push(...queryResults.orders)
-      retryCount++
-    }
+    const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Priority], cursor)
 
     const priorityOrderResponses: GetPriorityOrderResponse[] = []
-    for (let i = 0; i < priorityQueryResults.length; i++) {
-      const order = priorityQueryResults[i]
+    for (let i = 0; i < queryResults.orders.length; i++) {
+      const order = queryResults.orders[i]
       const priorityOrder = PriorityOrder.fromEntity(order, this.logger, executeAddress)
       priorityOrderResponses.push(priorityOrder.toGetResponse())
     }
@@ -468,24 +432,11 @@ export class UniswapXOrderService {
     params: GetOrdersQueryParams,
     cursor: string | undefined
   ): Promise<GetOrdersResponse<GetHybridOrderResponse>> {
-    let queryResults = await this.repository.getOrdersFilteredByType(limit, params, [OrderType.Hybrid], cursor)
-    const hybridQueryResults = [...queryResults.orders]
-
-    let retryCount = 0
-    while (hybridQueryResults.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
-      queryResults = await this.repository.getOrdersFilteredByType(
-        limit,
-        params,
-        [OrderType.Hybrid],
-        queryResults.cursor
-      )
-      hybridQueryResults.push(...queryResults.orders)
-      retryCount++
-    }
+    const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Hybrid], cursor)
 
     const hybridOrderResponses: GetHybridOrderResponse[] = []
-    for (let i = 0; i < hybridQueryResults.length; i++) {
-      const order = hybridQueryResults[i]
+    for (let i = 0; i < queryResults.orders.length; i++) {
+      const order = queryResults.orders[i]
       const hybridOrder = HybridOrder.fromEntity(order, this.logger)
       hybridOrderResponses.push(hybridOrder.toGetResponse())
     }
