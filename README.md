@@ -90,9 +90,9 @@ Environment (`.env`):
 | ----------- | ---------------- | ---------------------------------- |
 | Unit        | `yarn test`      | Java (DynamoDB Local)              |
 | Integration | `yarn test:integ`| Java                               |
-| End-to-end  | `yarn test:e2e`  | A deployed stack + `UNISWAP_API`   |
+| End-to-end  | `yarn test:e2e`  | A deployed stack + every e2e variable in [.env.example](./.env.example): `UNISWAPX_SERVICE_URL`, `RPC_PREFIX_URL`, `GPA_SERVICE_URL`, `COSIGNER_ADDRESS`, `TAPI_QUOTE_URL`, `TAPI_API_KEY`, `TEST_WALLET_PK`, `TEST_FILLER_PK` |
 
-CI runs lint, unit tests, and `rdme openapi:validate` against the swagger.
+CI runs lint, build, `rdme openapi:validate` against the swagger, and the factory/unit/integration test suites via `yarn coverage`.
 
 ## Sharp edges
 
