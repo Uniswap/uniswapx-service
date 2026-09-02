@@ -145,6 +145,25 @@ describe('GenericOrdersRepository query caching', () => {
       }
     })
 
+    it('lets the reaper see everything: no cache, oldest first, no createdAt bound', async () => {
+      // Mirrors lib/crons/gs-reaper/gs-reaper.ts getUnresolvedOrderHashes.
+      const repository = DutchOrdersRepository.create(mockDocumentClient)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
+
+      await repository.getOrders(25, {
+        orderStatus: ORDER_STATUS.OPEN,
+        chainId: 1,
+        desc: false,
+        sortKey: SORT_FIELDS.CREATED_AT,
+        sort: 'gt(0)',
+      })
+
+      const params = lastQueryParams()
+      expect(params).toEqual(expect.objectContaining({ ScanIndexForward: true, Limit: '25' }))
+      expect(Object.values(params.ExpressionAttributeValues ?? {})).not.toContain(MAX_CREATED_AT_SECONDS)
+      expect(Object.values(params.ExpressionAttributeValues ?? {})).toContain(0)
+    })
+
     it('leaves the sort key alone when the caller supplies its own comparison', async () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
