@@ -63,7 +63,8 @@ export const parseGetQueryParams = (
   // default to no limit
   const limit = requestQueryParams?.limit ?? 0
   const rawOrderStatus = requestQueryParams?.orderStatus
-  const orderStatus = rawOrderStatus?.includes(',') ? rawOrderStatus.split(',') : rawOrderStatus
+  // Deduped defensively even though validation rejects repeats: every entry is a separate query.
+  const orderStatus = rawOrderStatus?.includes(',') ? [...new Set(rawOrderStatus.split(','))] : rawOrderStatus
   const orderHash = requestQueryParams?.orderHash?.toLowerCase()
   // externally we use swapper
   const offerer = requestQueryParams?.swapper?.toLowerCase()

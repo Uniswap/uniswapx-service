@@ -19,13 +19,13 @@ import { CachedQueryPage, OrdersQueryCache } from './QueryCache'
 export const MAX_ORDERS = 50
 
 /**
- * Rows fetched per DynamoDB read on the cached path. Every request against a partition is
- * served from this one page whatever its own limit or type filter, so it has to cover the
- * partition's working set: a chain never carries more than ~100 open Dutch orders, and the
- * API hands back at most MAX_ORDERS of them anyway. Partitions with more rows than this
- * (the LimitOrders table's `open`, historical statuses) still return their newest page.
+ * Rows fetched per DynamoDB read on the cached path: the most the API ever returns. Every
+ * request against a partition is served from this one page whatever its own limit or type
+ * filter. A chain's open orders normally fit in it; when a partition holds more, the page is
+ * the newest rows, `Truncated` fires, and requests narrowed to a filler or swapper fall back
+ * to their own GSI rather than filter an incomplete page.
  */
-export const CACHED_QUERY_PAGE_SIZE = 100
+export const CACHED_QUERY_PAGE_SIZE = MAX_ORDERS
 
 export type QueryFilter = { or: boolean; attr: string; eq: string }
 
@@ -47,8 +47,8 @@ function clampLimit(limit: number | undefined): number {
 const CACHEABLE_INDEXES: string[] = [TABLE_KEY.ORDER_STATUS, TABLE_KEY.CHAIN_ID, TABLE_KEY.CHAIN_ID_ORDER_STATUS]
 
 /**
- * Statuses whose partitions stay small enough to fit in one cached page (a chain never
- * carries more than ~100 open orders), so filtering that page in memory sees every row.
+ * Statuses whose partitions normally fit in one cached page, so filtering that page in
+ * memory sees every row (a chain rarely carries more open orders than one page holds).
  * Terminal statuses grow without bound: filtering their newest page would silently drop a
  * swapper's older history, so those requests read their own GSI.
  */
@@ -487,7 +487,8 @@ export abstract class GenericOrdersRepository<
       }
       if (page.lastEvaluatedKey !== undefined) {
         // The partition holds more rows than one page: the single-page contract is now
-        // hiding rows from callers. Alarm-worthy for `open` partitions.
+        // hiding rows from callers, and caller-narrowed queries on it read their own GSI.
+        // Alarm-worthy for `open` partitions.
         metrics.putMetric(`${cache.metricPrefix}Truncated`, 1, Unit.Count)
       }
       // Every miss is a DynamoDB read against this partition. Logged with its key so the

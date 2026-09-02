@@ -288,6 +288,8 @@ describe('Testing get orders handler.', () => {
       [{ orderStatus: 'open,' }, 'contains an invalid value'],
       [{ orderStatus: ',open' }, 'contains an invalid value'],
       [{ orderStatus: 'open,bad_status' }, 'contains an invalid value'],
+      [{ orderStatus: 'open,open' }, 'must not repeat a status'],
+      [{ orderStatus: 'filled,expired,filled' }, 'must not repeat a status'],
       [{ limit: 'bad_limit' }, 'must be a number'],
       [{ filler: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
       [
@@ -562,6 +564,11 @@ describe('Testing get orders handler.', () => {
     it('parses three comma-separated statuses into an array', () => {
       const result = parseGetQueryParams({ orderStatus: 'open,filled,expired' } as any)
       expect(result.queryFilters.orderStatus).toEqual(['open', 'filled', 'expired'])
+    })
+
+    it('dedupes a repeated status', () => {
+      const result = parseGetQueryParams({ orderStatus: 'open,filled,open' } as any)
+      expect(result.queryFilters.orderStatus).toEqual(['open', 'filled'])
     })
 
     it('does not split a single status with no comma', () => {

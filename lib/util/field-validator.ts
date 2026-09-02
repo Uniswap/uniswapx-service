@@ -85,6 +85,11 @@ export default class FieldValidator {
           return helpers.error('any.invalid')
         }
       }
+      // Each status fans out into its own query, so a repeated status is a free read
+      // multiplier: `filled,filled,...` hundreds of times fits in one URL.
+      if (new Set(statuses).size !== statuses.length) {
+        return helpers.message({ custom: '"orderStatus" must not repeat a status' } as any)
+      }
       return value
     }
   )
