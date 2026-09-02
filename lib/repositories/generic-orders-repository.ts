@@ -29,6 +29,15 @@ export const CACHED_QUERY_PAGE_SIZE = MAX_ORDERS
 
 export type QueryFilter = { or: boolean; attr: string; eq: string }
 
+/**
+ * Legacy 2023 DutchLimit V1 orders stored `createdAt` in milliseconds; everything since uses
+ * seconds. Sorted numerically, those ~1.6e12 rows sit above every real order (~1.7e9) and
+ * would head every newest-first page. Unless a caller supplies its own sort comparison, list
+ * reads bound the sort key below this value: seconds timestamps stay under it until ~year
+ * 5138, and the legacy rows remain reachable by hash. A key condition, so it costs no RCUs.
+ */
+export const MAX_CREATED_AT_SECONDS = 100_000_000_000
+
 // 0 / undefined means "default". Negative or fractional values must not reach DynamoDB's
 // Limit or Array.slice, where -1 would mean "everything but the last row".
 function clampLimit(limit: number | undefined): number {
@@ -344,10 +353,9 @@ export abstract class GenericOrdersRepository<
       // Newest first unless a caller explicitly asks otherwise. DynamoDB's own default is
       // ascending, which would hand a poller the oldest page of a busy partition.
       reverse: desc,
-      ...(sortKey &&
-        comparison && {
-          [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],
-        }),
+      ...(sortKey && comparison
+        ? { [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0] }
+        : { lt: MAX_CREATED_AT_SECONDS }),
       ...(cursor && { startKey: this.getStartKey(cursor, formattedIndex) }),
     })
 
@@ -475,6 +483,7 @@ export abstract class GenericOrdersRepository<
         execute: true,
         limit: CACHED_QUERY_PAGE_SIZE,
         reverse: true,
+        lt: MAX_CREATED_AT_SECONDS,
       })
       page = { orders: queryResult.Items as T[], lastEvaluatedKey: queryResult.LastEvaluatedKey }
 

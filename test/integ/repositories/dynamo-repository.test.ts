@@ -771,6 +771,34 @@ describe('OrdersRepository update status test', () => {
   })
 })
 
+describe('OrdersRepository legacy millisecond timestamps', () => {
+  const LEGACY_ORDER = {
+    ...MOCK_ORDER_1,
+    orderHash: '0xlegacy-ms',
+    nonce: '99',
+    orderStatus: ORDER_STATUS.OPEN,
+  }
+
+  it('keeps a legacy ms-createdAt order out of list reads on every path, but reachable by hash', async () => {
+    mockTime(1_600_000_000_000) // 2020-09 in milliseconds, as 2023 V1 orders were stored
+    await ordersRepository.putOrderAndUpdateNonceTransaction(LEGACY_ORDER as UniswapXOrderEntity)
+    const cachedRepository = DutchOrdersRepository.create(documentClient, new QueryCache(60_000, 'TestQueryCache'))
+    try {
+      const uncached = await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 })
+      const cached = await cachedRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 })
+      const byOfferer = await ordersRepository.getOrders(50, { offerer: LEGACY_ORDER.offerer })
+      const byHash = await ordersRepository.getOrders(50, { orderHash: LEGACY_ORDER.orderHash })
+
+      for (const result of [uncached, cached, byOfferer]) {
+        expect(result.orders.map((o) => o.orderHash)).not.toContain(LEGACY_ORDER.orderHash)
+      }
+      expect(byHash.orders.map((o) => o.orderHash)).toEqual([LEGACY_ORDER.orderHash])
+    } finally {
+      await ordersRepository.deleteOrders([LEGACY_ORDER.orderHash])
+    }
+  })
+})
+
 describe('OrdersRepository query cache with caller filters', () => {
   // filler/swapper filters on open orders are answered from the cached `open` page by
   // filtering in memory; the result must match what the caller's own GSI returns.

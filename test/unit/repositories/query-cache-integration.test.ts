@@ -5,7 +5,11 @@ import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
 import { GetOrdersQueryParams } from '../../../lib/handlers/get-orders/schema'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
-import { CACHED_QUERY_PAGE_SIZE, MAX_ORDERS } from '../../../lib/repositories/generic-orders-repository'
+import {
+  CACHED_QUERY_PAGE_SIZE,
+  MAX_CREATED_AT_SECONDS,
+  MAX_ORDERS,
+} from '../../../lib/repositories/generic-orders-repository'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { OrdersQueryCache, QueryCache } from '../../../lib/repositories/QueryCache'
 import { TABLE_NAMES } from '../../../lib/repositories/util'
@@ -123,6 +127,36 @@ describe('GenericOrdersRepository query caching', () => {
 
       expect(negative.orders).toHaveLength(3)
       expect(fractional.orders).toHaveLength(1)
+    })
+
+    it('bounds createdAt below the legacy millisecond range on both read paths', async () => {
+      // 2023 V1 orders stored createdAt in ms and would otherwise head every newest-first page.
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
+
+      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50) // cached read
+      const cached = lastQueryParams()
+      await repository.getOrders(50, { offerer: '0xofferer' }) // uncached read
+      const uncached = lastQueryParams()
+
+      for (const params of [cached, uncached]) {
+        expect(params.KeyConditionExpression).toMatch(/<\s*:/)
+        expect(Object.values(params.ExpressionAttributeValues ?? {})).toContain(MAX_CREATED_AT_SECONDS)
+      }
+    })
+
+    it('leaves the sort key alone when the caller supplies its own comparison', async () => {
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
+
+      await repository.getOrders(50, {
+        orderStatus: ORDER_STATUS.OPEN,
+        sortKey: SORT_FIELDS.CREATED_AT,
+        sort: 'gt(0)',
+        desc: true,
+      })
+
+      expect(Object.values(lastQueryParams().ExpressionAttributeValues ?? {})).not.toContain(MAX_CREATED_AT_SECONDS)
     })
 
     it('caps the returned page at MAX_ORDERS', async () => {
