@@ -211,7 +211,7 @@ export class APIPipeline extends Stack {
           .toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
-        GET_ORDERS_CACHE_TTL_MS: '250',
+        GET_ORDERS_CACHE_TTL_MS: '500',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerBeta.secretValue.toString(),
         LABS_PRIORITY_COSIGNER: labsPriorityCosignerBeta.secretValue.toString(),
@@ -256,7 +256,7 @@ export class APIPipeline extends Stack {
           .toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
-        GET_ORDERS_CACHE_TTL_MS: '250',
+        GET_ORDERS_CACHE_TTL_MS: '500',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerProd.secretValue.toString(),
         LABS_PRIORITY_COSIGNER: labsPriorityCosignerProd.secretValue.toString(),
