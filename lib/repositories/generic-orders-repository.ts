@@ -14,9 +14,47 @@ import { generateRandomNonce } from '../util/nonce'
 import { currentTimestampInSeconds } from '../util/time'
 import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
 import { IndexMapper } from './IndexMappers/IndexMapper'
-import { OrdersQueryCache } from './QueryCache'
+import { CachedQueryPage, OrdersQueryCache } from './QueryCache'
 
 export const MAX_ORDERS = 50
+
+/**
+ * Rows fetched per DynamoDB read on the cached path. Every request against a partition is
+ * served from this one page whatever its own limit or type filter, so it has to cover the
+ * partition's working set: a chain never carries more than ~100 open Dutch orders, and the
+ * API hands back at most MAX_ORDERS of them anyway. Partitions with more rows than this
+ * (the LimitOrders table's `open`, historical statuses) still return their newest page.
+ */
+export const CACHED_QUERY_PAGE_SIZE = 100
+
+export type QueryFilter = { or: boolean; attr: string; eq: string }
+
+/**
+ * Only partitions whose key is built from enum-validated request values are cached:
+ * orderStatus (ORDER_STATUS), chainId (SUPPORTED_CHAINS) and their combination. That bounds
+ * the distinct keys to a few hundred per table no matter what callers send. A swapper,
+ * filler or pair is free text as far as the cache is concerned: an attacker could spray
+ * values to flood the map and evict the hot entries it exists for, and legitimate traffic on
+ * those partitions is per-caller and rarely repeats inside a TTL anyway.
+ */
+const CACHEABLE_INDEXES: string[] = [TABLE_KEY.ORDER_STATUS, TABLE_KEY.CHAIN_ID, TABLE_KEY.CHAIN_ID_ORDER_STATUS]
+
+/**
+ * Only the plain first page of a partition is shared. A cursor or a sort-key comparison
+ * names a different slice on every call, so caching those would only add keys: they read
+ * DynamoDB directly.
+ */
+export function isCacheableQuery(index: string, cursor?: string, sortKey?: SORT_FIELDS): boolean {
+  if (cursor || sortKey) {
+    return false
+  }
+  return CACHEABLE_INDEXES.includes(index)
+}
+
+// In-memory equivalent of the `{ or: true, attr, eq }` FilterExpression list: any clause matching.
+function matchesAnyFilter(order: object, filters: QueryFilter[]): boolean {
+  return filters.some((filter) => (order as Record<string, unknown>)[filter.attr] === filter.eq)
+}
 
 // aws-sdk v2 (used by dynamodb-toolbox here) sets both code and name to the error code
 function isConditionalCheckFailed(e: unknown): boolean {
@@ -271,77 +309,124 @@ export abstract class GenericOrdersRepository<
     sortKey?: SORT_FIELDS | undefined,
     sort?: string | undefined, // ex gt(123)
     desc = true,
-    filters: { or: boolean; attr: string; eq: string }[] = []
+    filters: QueryFilter[] = []
   ): Promise<QueryResult<T>> {
-    let comparison: ComparisonFilter | undefined = undefined
-    if (sortKey) {
-      comparison = parseComparisonFilter(sort)
-    }
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
     const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
 
     // Gated on `enabled` so the GET_ORDERS_CACHE_TTL_MS=0 kill switch also silences the
-    // hit/miss metrics -- a disabled cache reporting a 100% miss rate is indistinguishable
+    // cache metrics -- a disabled cache reporting a 100% miss rate is indistinguishable
     // from a broken one on a dashboard.
     const cache = this.queryCache?.enabled ? this.queryCache : undefined
-    let cacheKey: string | undefined
     if (cache) {
-      // Every input that can change the result set is part of the key, so a hit is always
-      // the page the caller would have read anyway -- just up to the cache TTL stale.
-      cacheKey = JSON.stringify([
-        this.table.name,
-        formattedIndex,
-        partitionKey,
-        effectiveLimit,
-        cursor ?? null,
-        sortKey ?? null,
-        sort ?? null,
-        desc,
-        filters,
-      ])
-      const cached = cache.get(cacheKey, Date.now())
-      if (cached) {
-        metrics.putMetric(`${cache.metricPrefix}Hit`, 1, Unit.Count)
-        return this.copyQueryResult(cached as QueryResult<T>)
+      if (isCacheableQuery(index, cursor, sortKey)) {
+        return this.queryThroughCache(cache, partitionKey, index, formattedIndex, effectiveLimit, filters)
       }
-      metrics.putMetric(`${cache.metricPrefix}Miss`, 1, Unit.Count)
+      metrics.putMetric(`${cache.metricPrefix}Uncacheable`, 1, Unit.Count)
     }
 
+    let comparison: ComparisonFilter | undefined = undefined
+    if (sortKey) {
+      comparison = parseComparisonFilter(sort)
+    }
     const queryResult = await this.entity.query(partitionKey, {
       filters: filters,
       index: formattedIndex,
       execute: true,
       limit: effectiveLimit,
+      // Newest first unless a caller explicitly asks otherwise. DynamoDB's own default is
+      // ascending, which would hand a poller the oldest page of a busy partition.
+      reverse: desc,
       ...(sortKey &&
         comparison && {
           [comparison.operator]: comparison.operator == 'between' ? comparison.values : comparison.values[0],
-          reverse: desc,
         }),
       ...(cursor && { startKey: this.getStartKey(cursor, formattedIndex) }),
     })
 
-    const result: QueryResult<T> = {
+    return {
       orders: queryResult.Items as T[],
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
     }
+  }
 
-    if (cache && cacheKey) {
+  /**
+   * One cache entry per partition. The DynamoDB read ignores the caller's limit and type
+   * filter and fetches the newest CACHED_QUERY_PAGE_SIZE rows; each request then filters and
+   * slices that page in memory. Fillers asking for 10 or 50 orders, or for Dutch_V2 versus
+   * Priority, all collapse onto the same read -- which is what keeps the key count, and so
+   * the per-partition read rate, independent of how varied the polling traffic is.
+   *
+   * A server-side FilterExpression would cost the same RCUs (DynamoDB bills for rows
+   * evaluated, not rows returned), so filtering here loses nothing.
+   */
+  private async queryThroughCache(
+    cache: OrdersQueryCache,
+    partitionKey: string | number,
+    index: string,
+    formattedIndex: string,
+    effectiveLimit: number,
+    filters: QueryFilter[]
+  ): Promise<QueryResult<T>> {
+    const cacheKey = JSON.stringify([this.table.name, formattedIndex, partitionKey])
+    let page: CachedQueryPage | undefined = cache.get(cacheKey, Date.now())
+
+    if (page) {
+      metrics.putMetric(`${cache.metricPrefix}Hit`, 1, Unit.Count)
+    } else {
+      metrics.putMetric(`${cache.metricPrefix}Miss`, 1, Unit.Count)
+      const queryResult = await this.entity.query(partitionKey, {
+        index: formattedIndex,
+        execute: true,
+        limit: CACHED_QUERY_PAGE_SIZE,
+        reverse: true,
+      })
+      page = { orders: queryResult.Items as T[], lastEvaluatedKey: queryResult.LastEvaluatedKey }
+
       // Stamped after the round trip, not before it. A throttled partition retries with
       // backoff, so a query can outlast the TTL -- dating the entry from the query start
       // would write it already expired, exactly when the cache is most needed.
-      cache.set(cacheKey, result as QueryResult<OrderEntityType>, Date.now())
+      const capacityEvictions = cache.set(cacheKey, page, Date.now())
+      if (capacityEvictions > 0) {
+        metrics.putMetric(`${cache.metricPrefix}CapacityEviction`, capacityEvictions, Unit.Count)
+      }
+      // Every miss is a DynamoDB read against this partition. Logged with its key so the
+      // distinct-key count and the heaviest partitions can be read off Logs Insights, e.g.
+      //   filter msg = "Query cache miss" | stats count(*) by partitionKey | sort desc
+      this.log.info(
+        {
+          table: this.table.name,
+          index: formattedIndex,
+          partitionKey,
+          rows: page.orders.length,
+          truncated: page.lastEvaluatedKey !== undefined,
+          cacheSize: cache.size,
+        },
+        'Query cache miss'
+      )
     }
-    return this.copyQueryResult(result)
-  }
+    // Live distinct keys in this execution environment. Read the Max statistic.
+    metrics.putMetric(`${cache.metricPrefix}Size`, cache.size, Unit.Count)
 
-  // Shallow: callers get their own array, so pushing or splicing cannot reach a cached
-  // entry. The order objects themselves are shared and must be treated as read-only --
-  // mutating one in place would poison every hit for the rest of the TTL.
-  private copyQueryResult(result: QueryResult<T>): QueryResult<T> {
-    return {
-      orders: [...(result.orders ?? [])],
-      ...(result.cursor && { cursor: result.cursor }),
+    const orders = page.orders as T[]
+    const matching = filters.length ? orders.filter((order) => matchesAnyFilter(order, filters)) : orders
+    // A fresh array: callers may push or splice without reaching the cached page. The order
+    // objects themselves are shared and must be treated as read-only.
+    const returned = matching.slice(0, effectiveLimit)
+
+    // Pagination still works from a cached page. The cursor names the last row handed back
+    // (or DynamoDB's own continuation key when nothing matched), and following it reads
+    // DynamoDB directly -- a cursor query never touches the cache. GET /orders drops the
+    // cursor from its response; GET /limit-orders passes it on.
+    const hasMore = matching.length > returned.length || page.lastEvaluatedKey !== undefined
+    if (!hasMore) {
+      return { orders: returned }
     }
+    const last = returned[returned.length - 1] as Record<string, unknown> | undefined
+    const nextKey = last
+      ? { [TABLE_KEY.ORDER_HASH]: last.orderHash, [index]: last[index], [TABLE_KEY.CREATED_AT]: last.createdAt }
+      : page.lastEvaluatedKey
+    return { orders: returned, cursor: encode(JSON.stringify(nextKey)) }
   }
 
   private getRequestedParams(queryFilters: GetOrdersQueryParams) {

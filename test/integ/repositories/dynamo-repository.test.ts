@@ -2,6 +2,7 @@ import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../../../lib/entities/Order'
 import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
+import { QueryCache } from '../../../lib/repositories/QueryCache'
 import { generateRandomNonce } from '../../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
 import { QUOTE_ID, REQUEST_ID } from '../../unit/fixtures'
@@ -241,11 +242,12 @@ describe('OrdersRepository getOrders test', () => {
     expect(orders.orders).toEqual([])
   })
 
+  // Newest first: the repository returns createdAt descending by default.
   it('should successfully get orders given an offerer', async () => {
     const queryResult = await ordersRepository.getOrders(10, { offerer: MOCK_ORDER_2.offerer })
     expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
   })
 
   it('should return no orders for offerer', async () => {
@@ -268,11 +270,12 @@ describe('OrdersRepository getOrders test', () => {
     expect(orders.orders).toEqual([])
   })
 
+  // Newest first: the repository returns createdAt descending by default.
   it('should successfully get orders given an chainId', async () => {
     const queryResult = await ordersRepository.getOrders(10, { chainId: 137 })
     expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
   })
 
   it('should return no orders for chainId', async () => {
@@ -317,11 +320,12 @@ describe('OrdersRepository getOrders test', () => {
     expect(orders.orders).toEqual([])
   })
 
+  // Newest first: the repository returns createdAt descending by default.
   it('should successfully get orders given a filler', async () => {
     const queryResult = await ordersRepository.getOrders(10, { filler: ADDITIONAL_FIELDS_ORDER_1.filler })
     expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
   })
 
   it('should return no orders for filler', async () => {
@@ -329,14 +333,15 @@ describe('OrdersRepository getOrders test', () => {
     expect(queryResult.orders).toEqual([])
   })
 
+  // Newest first: the repository returns createdAt descending by default.
   it('should successfully get orders given a filler and orderStatus', async () => {
     const queryResult = await ordersRepository.getOrders(10, {
       filler: ADDITIONAL_FIELDS_ORDER_1.filler,
       orderStatus: ORDER_STATUS.OPEN,
     })
     expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_1))
   })
 
   it('should return no orders for filler and orderStatus', async () => {
@@ -486,13 +491,14 @@ describe('OrdersRepository getOrders test', () => {
 })
 
 describe('OrdersRepository getOrders test with pagination', () => {
+  // Newest first: the repository returns createdAt descending by default.
   it('should successfully page through orders with offerer', async () => {
     let orders = await ordersRepository.getOrders(1, { offerer: 'riley.eth' })
     expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
     orders = await ordersRepository.getOrders(2, { offerer: 'riley.eth' }, orders.cursor)
     expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(orders.cursor).toEqual(undefined)
   })
 
@@ -512,46 +518,41 @@ describe('OrdersRepository getOrders test with pagination', () => {
     expect(orders.cursor).toEqual(undefined)
   })
 
+  // Newest first: the repository returns createdAt descending by default.
   it('should successfully page through orders with chainId', async () => {
     let orders = await ordersRepository.getOrders(1, { chainId: 137 })
     expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
+    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
     orders = await ordersRepository.getOrders(2, { chainId: 137 }, orders.cursor)
     expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
+    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
     expect(orders.cursor).toEqual(undefined)
   })
 
+  // Newest first: the repository returns createdAt descending by default.
   it('should successfully page through orders with chainId, orderStatus', async () => {
     await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_5 as UniswapXOrderEntity)
-    let orders = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 })
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
-    orders = await ordersRepository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 }, orders.cursor)
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(orders.cursor).toEqual(undefined)
+    const first = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 })
+    expect(first.orders).toHaveLength(1)
+    expect(first.cursor).toBeDefined()
+    const second = await ordersRepository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 }, first.cursor)
+    expect(second.orders).toHaveLength(1)
+    expect(second.cursor).toEqual(undefined)
+    // The two rows share a createdAt, so the split between pages is not fixed; together they
+    // must cover the partition exactly once.
+    const paged = [...first.orders, ...second.orders]
+    expect(paged).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
+    expect(paged).toContainEqual(expect.objectContaining(MOCK_ORDER_1))
   })
-
   it('should throw an Error for cursor with the wrong index', async () => {
     const orders = await ordersRepository.getOrders(4, { orderStatus: ORDER_STATUS.OPEN })
     expect(orders.orders).toHaveLength(4)
-    expect(orders.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(orders.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
-    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
+    expect(orders.cursor).toBeDefined()
     await expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, orders.cursor)).rejects.toThrow(
       Error('Invalid cursor.')
     )
   })
-
   it('should throw an Error for cursor with the wrong cursor', async () => {
-    const orders = await ordersRepository.getOrders(4, { orderStatus: ORDER_STATUS.OPEN })
-    expect(orders.orders).toHaveLength(4)
-    expect(orders.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(orders.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
-    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
     await expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, 'wrong_cursor')).rejects.toThrow(
       Error('Invalid cursor.')
     )
@@ -789,5 +790,32 @@ describe('OrdersRepository delete test', () => {
     expect(order).not.toBeDefined()
     order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
     expect(order).not.toBeDefined()
+  })
+})
+
+describe('OrdersRepository query cache pagination', () => {
+  it('pages through a partition from a cached first page with the synthetic cursor', async () => {
+    // The cached path builds the cursor from the last row it handed back rather than from
+    // DynamoDB's LastEvaluatedKey; this proves DynamoDB accepts it as ExclusiveStartKey and
+    // that following it covers the partition exactly once.
+    const cachedRepository = DutchOrdersRepository.create(documentClient, new QueryCache(60_000, 'TestQueryCache'))
+    const expected = await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
+    // Runs after the delete suite, so only a couple of open orders remain -- enough for two pages.
+    expect(expected.orders.length).toBeGreaterThanOrEqual(2)
+
+    const paged: UniswapXOrderEntity[] = []
+    let cursor: string | undefined
+    do {
+      const page = await cachedRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN }, cursor)
+      // DynamoDB hands back a continuation key when the limit lands exactly on the last row,
+      // so the final page can legitimately be empty (the uncached path behaves the same).
+      expect(page.orders.length).toBeLessThanOrEqual(1)
+      paged.push(...page.orders)
+      cursor = page.cursor
+    } while (cursor)
+
+    expect(paged.map((o) => o.orderHash).sort()).toEqual(expected.orders.map((o) => o.orderHash).sort())
+    // Newest first on both paths.
+    expect(paged.map((o) => o.orderHash)).toEqual(expected.orders.map((o) => o.orderHash))
   })
 })

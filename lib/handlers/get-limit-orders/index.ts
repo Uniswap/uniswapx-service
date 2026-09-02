@@ -1,5 +1,4 @@
 import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
-import { DynamoDB } from 'aws-sdk'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { RelayOrderService } from '../../services/RelayOrderService'
@@ -15,16 +14,18 @@ import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrder
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
-import { GetOrdersHandler } from '../get-orders/handler'
+import { GetOrdersHandler, GET_LIMIT_ORDERS_HANDLER_OPTIONS } from '../get-orders/handler'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
+import { createReadPathDocumentClient } from '../shared/dynamo'
 import { GetLimitOrdersInjector } from './injector'
 import { getLimitOrdersQueryCache } from './query-cache'
 
 // This Lambda only reads, so its repositories share the sub-second query cache. Write
-// paths build them without it -- see query-cache.ts.
-const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient(), getLimitOrdersQueryCache)
-const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
+// paths build them without it -- see query-cache.ts. Its DocumentClient fails fast on
+// throttles -- see shared/dynamo.ts.
+const repo = LimitOrdersRepository.create(createReadPathDocumentClient(), getLimitOrdersQueryCache)
+const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(createReadPathDocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 
@@ -47,7 +48,7 @@ const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
   EventWatcherMap.createRelayEventWatcherMap(),
-  RelayOrderRepository.create(new DynamoDB.DocumentClient(), getLimitOrdersQueryCache),
+  RelayOrderRepository.create(createReadPathDocumentClient(), getLimitOrdersQueryCache),
   log,
   getMaxOpenOrders,
   new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
@@ -57,7 +58,8 @@ const getLimitOrdersInjectorPromise = new GetLimitOrdersInjector('getLimitOrders
 const getLimitOrdersHandler = new GetOrdersHandler(
   'getLimitOrdersHandler',
   getLimitOrdersInjectorPromise,
-  new OrderDispatcher(uniswapXOrderService, relayOrderService, log)
+  new OrderDispatcher(uniswapXOrderService, relayOrderService, log),
+  GET_LIMIT_ORDERS_HANDLER_OPTIONS
 )
 
 module.exports = {

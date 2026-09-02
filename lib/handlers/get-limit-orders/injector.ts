@@ -1,10 +1,10 @@
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
-import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
+import { createReadPathDocumentClient } from '../shared/dynamo'
 import { ContainerInjected, getSharedRequestInjected } from '../shared/get'
 import { getLimitOrdersQueryCache } from './query-cache'
 
@@ -22,7 +22,7 @@ export class GetLimitOrdersInjector extends ApiInjector<
 > {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: LimitOrdersRepository.create(new DynamoDB.DocumentClient(), getLimitOrdersQueryCache),
+      dbInterface: LimitOrdersRepository.create(createReadPathDocumentClient(), getLimitOrdersQueryCache),
     }
   }
 

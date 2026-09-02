@@ -16,7 +16,7 @@
       "get": {
         "tags": ["Orders"],
         "summary": "Retrieve UniswapX orders",
-        "description": "Retrieve orders filtered by query parameter(s). At least one of `orderHash`, `orderHashes`, `chainId`, `orderStatus`, `swapper`, `filler`, or `pair` must be provided. Not supported in combination: `swapper` with `chainId`; `orderHashes` with `sortKey`. `sortKey` is required whenever `sort` or `desc` is provided. The shape of each entry in `orders` depends on the order's type; filter with `orderType` to receive a single shape.",
+        "description": "Retrieve orders filtered by query parameter(s). At least one of `orderHash`, `orderHashes`, `chainId`, `orderStatus`, `swapper`, `filler`, or `pair` must be provided. `swapper` cannot be combined with `chainId`. Results are a single page of the newest orders (`createdAt` descending, at most 50); there is no pagination or alternative ordering -- `cursor`, `sortKey`, `sort` and `desc` are rejected. The shape of each entry in `orders` depends on the order's type; filter with `orderType` to receive a single shape.",
         "parameters": [
           {
             "$ref": "#/components/parameters/limitParam"
@@ -44,18 +44,6 @@
           },
           {
             "$ref": "#/components/parameters/pairParam"
-          },
-          {
-            "$ref": "#/components/parameters/sortKeyParam"
-          },
-          {
-            "$ref": "#/components/parameters/sortParam"
-          },
-          {
-            "$ref": "#/components/parameters/descParam"
-          },
-          {
-            "$ref": "#/components/parameters/cursorParam"
           },
           {
             "$ref": "#/components/parameters/chainIdParam"
@@ -120,7 +108,7 @@
       "get": {
         "tags": ["Limit Orders"],
         "summary": "Retrieve UniswapX limit orders",
-        "description": "Retrieve limit orders filtered by query parameter(s). Query semantics are identical to /orders. Limit orders are returned with the Dutch order shape without decay (input and output startAmount equals endAmount).",
+        "description": "Retrieve limit orders filtered by query parameter(s). Query semantics match /orders, and this endpoint additionally pages with `cursor` and accepts `sortKey`, `sort` and `desc`: `orderHashes` cannot be combined with `sortKey`, and `sortKey` is required whenever `sort` or `desc` is provided. Limit orders are returned with the Dutch order shape without decay (input and output startAmount equals endAmount).",
         "parameters": [
           {
             "$ref": "#/components/parameters/limitParam"
@@ -1153,7 +1141,7 @@
           },
           "cursor": {
             "type": "string",
-            "description": "Defined when the results are paginated. Pass back via the cursor query parameter to fetch the next page."
+            "description": "GET /limit-orders only. Defined when the results are paginated; pass back via the cursor query parameter to fetch the next page."
           }
         }
       },

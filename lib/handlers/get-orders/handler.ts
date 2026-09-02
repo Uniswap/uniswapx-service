@@ -19,36 +19,62 @@ import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersRespo
 import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
 import { GetHybridOrderResponse } from './schema/GetHybridOrderResponse'
 import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
-import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
+import {
+  GetLimitOrdersQueryParamsJoi,
+  GetOrdersQueryParams,
+  GetOrdersQueryParamsJoi,
+  RawGetOrdersQueryParams,
+} from './schema/index'
 import { GetDutchV3OrderResponse } from './schema/GetDutchV3OrderResponse'
+
+export type GetOrdersHandlerOptions = {
+  queryParamsSchema: Joi.ObjectSchema
+  // Whether responses carry a cursor for the next page. A single-page endpoint must not hand
+  // out a cursor it would reject on the next request.
+  paginated: boolean
+}
+
+// GET /orders: one page of the newest orders, no cursor, no sort controls (see schema/index.ts).
+export const GET_ORDERS_HANDLER_OPTIONS: GetOrdersHandlerOptions = {
+  queryParamsSchema: GetOrdersQueryParamsJoi,
+  paginated: false,
+}
+
+// GET /limit-orders: still pages with a cursor and accepts sortKey/sort/desc.
+export const GET_LIMIT_ORDERS_HANDLER_OPTIONS: GetOrdersHandlerOptions = {
+  queryParamsSchema: GetLimitOrdersQueryParamsJoi,
+  paginated: true,
+}
+
+type GetOrdersBody = GetOrdersResponse<
+  | UniswapXOrderEntity
+  | GetDutchV2OrderResponse
+  | GetDutchV3OrderResponse
+  | GetRelayOrderResponse
+  | GetPriorityOrderResponse
+  | GetHybridOrderResponse
+  | undefined
+>
 
 export class GetOrdersHandler extends APIGLambdaHandler<
   ContainerInjected,
   RequestInjected,
   void,
   RawGetOrdersQueryParams,
-  GetOrdersResponse<
-    UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | GetHybridOrderResponse | undefined
-  >
+  GetOrdersBody
 > {
   constructor(
     handlerName: string,
     injectorPromise: Promise<ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>>,
-    private readonly orderDispatcher: OrderDispatcher
+    private readonly orderDispatcher: OrderDispatcher,
+    private readonly options: GetOrdersHandlerOptions = GET_ORDERS_HANDLER_OPTIONS
   ) {
     super(handlerName, injectorPromise)
   }
 
   public async handleRequest(
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
-  ): Promise<
-    | Response<
-        GetOrdersResponse<
-          UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | GetHybridOrderResponse | undefined
-        >
-      >
-    | ErrorResponse
-  > {
+  ): Promise<Response<GetOrdersBody> | ErrorResponse> {
     const {
       requestInjected: { limit, queryFilters, cursor, orderType, executeAddress },
       containerInjected: { dbInterface },
@@ -67,7 +93,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
         return {
           statusCode: 200,
-          body: getOrdersResult,
+          body: this.withCursor(getOrdersResult),
         }
       }
 
@@ -76,7 +102,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
       return {
         statusCode: 200,
-        body: {
+        body: this.withCursor({
           // w/o specifying orderType, the orderDispatcher uses the legacy get implementation
           //   and for priority orders, the returned object will contain offerer instead of swapper
           orders: getOrdersResult.orders.map((order: any) => {
@@ -90,7 +116,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
             return order
           }),
           cursor: getOrdersResult.cursor,
-        },
+        }),
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error
@@ -100,6 +126,12 @@ export class GetOrdersHandler extends APIGLambdaHandler<
         ...(e instanceof Error && { detail: e.message }),
       }
     }
+  }
+
+  // The repository reports a cursor whenever more rows exist; only a paginated endpoint
+  // passes it on. (undefined is dropped by JSON serialization.)
+  private withCursor<R extends { cursor?: string }>(result: R): R {
+    return this.options.paginated ? result : { ...result, cursor: undefined }
   }
 
   private logMetrics(queryFilters: GetOrdersQueryParams) {
@@ -112,7 +144,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   }
 
   protected requestQueryParamsSchema(): Joi.ObjectSchema | null {
-    return GetOrdersQueryParamsJoi
+    return this.options.queryParamsSchema
   }
 
   protected responseBodySchema(): Joi.Schema | null {

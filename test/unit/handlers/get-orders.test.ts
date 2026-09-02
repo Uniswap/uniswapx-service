@@ -1,8 +1,8 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
-import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities'
-import { GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
+import { ORDER_STATUS } from '../../../lib/entities'
+import { GET_LIMIT_ORDERS_HANDLER_OPTIONS, GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
 import { parseGetQueryParams } from '../../../lib/handlers/shared/get'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
@@ -158,12 +158,9 @@ describe('Testing get orders handler.', () => {
       offerer: MOCK_ORDER.swapper,
       filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
       orderStatus: ORDER_STATUS.OPEN,
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: `eq(${MOCK_ORDER.createdAt})`,
     }
     requestInjectedMock = {
       limit: 10,
-      cursor: 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0=',
       queryFilters: queryFiltersMock,
       log: mock<Logger>(),
     }
@@ -177,7 +174,7 @@ describe('Testing get orders handler.', () => {
       },
       getRequestInjected: () => requestInjectedMock,
     }
-    getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' })
+    getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER] })
   })
 
   afterEach(() => {
@@ -194,9 +191,9 @@ describe('Testing get orders handler.', () => {
       new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
 
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
+    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
     expect(getOrdersResponse).toMatchObject({
-      body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' }),
+      body: JSON.stringify({ orders: [MOCK_ORDER] }),
       statusCode: 200,
     })
     expect(getOrdersResponse.headers).not.toBeUndefined()
@@ -209,16 +206,14 @@ describe('Testing get orders handler.', () => {
       new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
     getOrdersMock.mockReturnValue({
       orders: [MOCK_PRIORITY_ORDER],
-      cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
     })
 
     const getOrdersResponse = await getOrdersHandler().handler({} as any, {} as any)
 
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
+    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
     expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({
         orders: [MOCK_PRIORITY_ORDER],
-        cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
       }),
       statusCode: 200,
     })
@@ -232,16 +227,14 @@ describe('Testing get orders handler.', () => {
       new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
     getOrdersMock.mockReturnValue({
       orders: [MOCK_V3_ORDER],
-      cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
     })
 
     const getOrdersResponse = await getOrdersHandler().handler({} as any, {} as any)
 
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, requestInjectedMock.cursor)
+    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
     expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({
         orders: [MOCK_V3_ORDER],
-        cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==',
       }),
       statusCode: 200,
     })
@@ -263,8 +256,6 @@ describe('Testing get orders handler.', () => {
       chainId: 1,
       filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
       orderStatus: ORDER_STATUS.OPEN,
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: `eq(${MOCK_ORDER.createdAt})`,
     }
     const getOrdersResponse = await getOrdersHandler({
       ...injectorPromiseMock,
@@ -273,9 +264,9 @@ describe('Testing get orders handler.', () => {
         queryFilters: tempQueryFilters,
       }),
     }).handler({ ...event, queryStringParameters: tempQueryFilters } as any, {} as any)
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, tempQueryFilters, requestInjectedMock.cursor)
+    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, tempQueryFilters, undefined)
     expect(getOrdersResponse).toMatchObject({
-      body: JSON.stringify({ orders: [MOCK_ORDER], cursor: 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ==' }),
+      body: JSON.stringify({ orders: [MOCK_ORDER] }),
       statusCode: 200,
     })
     expect(getOrdersResponse.headers).not.toBeUndefined()
@@ -298,22 +289,21 @@ describe('Testing get orders handler.', () => {
       [{ orderStatus: 'open,bad_status' }, 'contains an invalid value'],
       [{ limit: 'bad_limit' }, 'must be a number'],
       [{ filler: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
-      [{ sortKey: 'createdBy' }, 'must be [createdAt]'],
+      // Pagination and sorting were removed from the contract and are rejected, not ignored.
       [
-        { sortKey: 'createdAt' },
-        '{"detail":"\\"value\\" must contain at least one of [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]","errorCode":"VALIDATION_ERROR"}',
+        { cursor: 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0=', orderStatus: 'open' },
+        'Pagination is not supported: results are a single page of the newest orders.',
       ],
-      [{ sort: 'foo(bar)' }, '"foo(bar)\\" fails to match the required pattern'],
-      [{ cursor: 1 }, 'must be a string'],
-      [{ sort: 'gt(4)' }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
+      [
+        { sortKey: 'createdAt', orderStatus: 'open' },
+        'Sorting is not supported: results are always ordered by createdAt, newest first.',
+      ],
+      [{ sort: 'gt(4)', orderStatus: 'open' }, 'Sorting is not supported'],
+      [{ desc: false, orderStatus: 'open' }, 'Sorting is not supported'],
+      [{ sortKey: 'createdAt', sort: 'gt(4)', desc: true, orderStatus: 'open' }, 'Sorting is not supported'],
       [
         { chainId: 420 },
         `{"detail":"\\"chainId\\" must be one of [${SUPPORTED_CHAINS.join(', ')}]","errorCode":"VALIDATION_ERROR"}`,
-      ],
-      [{ desc: true }, '{"detail":"\\"sortKey\\" is required","errorCode":"VALIDATION_ERROR"}'],
-      [
-        { desc: 'yes', sortKey: 'createdAt', orderStatus: 'expired' },
-        '{"detail":"\\"desc\\" must be a boolean","errorCode":"VALIDATION_ERROR"}',
       ],
       [
         { chainId: 1, swapper: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa' },
@@ -364,11 +354,7 @@ describe('Testing get orders handler.', () => {
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(
-        requestInjectedMock.limit,
-        requestInjectedMock.queryFilters,
-        requestInjectedMock.cursor
-      )
+      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
       expect(getOrdersResponse.statusCode).toEqual(500)
       expect(getOrdersResponse.body).toEqual(expect.stringContaining('INTERNAL_ERROR'))
     })
@@ -387,11 +373,7 @@ describe('Testing get orders handler.', () => {
         throw error
       })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(
-        requestInjectedMock.limit,
-        requestInjectedMock.queryFilters,
-        requestInjectedMock.cursor
-      )
+      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
       expect(getOrdersResponse).toMatchObject({
         body: JSON.stringify({ detail: error.message, errorCode: 'INTERNAL_ERROR' }),
         statusCode: 500,
@@ -416,11 +398,7 @@ describe('Testing get orders handler.', () => {
           new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
         getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...deprecatedField }] })
         const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-        expect(getOrdersMock).toBeCalledWith(
-          requestInjectedMock.limit,
-          requestInjectedMock.queryFilters,
-          requestInjectedMock.cursor
-        )
+        expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
         expect(getOrdersResponse.statusCode).toEqual(200)
       }
     )
@@ -440,11 +418,7 @@ describe('Testing get orders handler.', () => {
         orders: [{ ...MOCK_ORDER, quoteId: '4385e89a-0553-46fa-9b7e-464c1fa7822f', requestId: REQUEST_ID }],
       })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(
-        requestInjectedMock.limit,
-        requestInjectedMock.queryFilters,
-        requestInjectedMock.cursor
-      )
+      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
       expect(getOrdersResponse.statusCode).toEqual(200)
 
       expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).toEqual('4385e89a-0553-46fa-9b7e-464c1fa7822f')
@@ -462,11 +436,7 @@ describe('Testing get orders handler.', () => {
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: undefined }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(
-        requestInjectedMock.limit,
-        requestInjectedMock.queryFilters,
-        requestInjectedMock.cursor
-      )
+      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
       expect(getOrdersResponse.statusCode).toEqual(200)
       expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).not.toBeDefined()
     })
@@ -613,6 +583,130 @@ describe('Testing get orders handler.', () => {
     it('omits orderStatus when not provided', () => {
       const result = parseGetQueryParams({ chainId: 1 } as any)
       expect(result.queryFilters.orderStatus).toBeUndefined()
+    })
+  })
+
+  describe('pagination contract', () => {
+    const NEXT_CURSOR = 'eylckhhc2giOiIweDAwMDAwMDAwMDwMDAwM4Nzg2NjgifQ=='
+    const REQUEST_CURSOR = 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0='
+
+    it('GET /orders never returns a cursor, even when the repository reports more rows', async () => {
+      // The cached first page reports a cursor whenever the partition holds more rows; a
+      // single-page endpoint must not hand out a cursor it would reject on the next request.
+      getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
+      const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())
+
+      const response = await handler.handler({ queryStringParameters: { orderStatus: 'open' } } as any, {} as any)
+
+      expect(response.statusCode).toEqual(200)
+      expect(JSON.parse(response.body)).toEqual({ orders: [MOCK_ORDER] })
+    })
+
+    it('GET /orders strips the cursor from dispatcher responses too', async () => {
+      const dispatcher = mock<OrderDispatcher>()
+      dispatcher.getOrder.mockResolvedValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR } as any)
+      const handler = new GetOrdersHandler(
+        'get-orders',
+        { ...injectorPromiseMock, getRequestInjected: () => ({ ...requestInjectedMock, orderType: 'Dutch' }) },
+        dispatcher
+      )
+
+      const response = await handler.handler(
+        { queryStringParameters: { orderStatus: 'open', orderType: 'Dutch' } } as any,
+        {} as any
+      )
+
+      expect(response.statusCode).toEqual(200)
+      expect(JSON.parse(response.body)).toEqual({ orders: [MOCK_ORDER] })
+    })
+
+    it('GET /limit-orders accepts a cursor, passes it to the repository and returns the next one', async () => {
+      getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
+      const handler = new GetOrdersHandler(
+        'get-limit-orders',
+        { ...injectorPromiseMock, getRequestInjected: () => ({ ...requestInjectedMock, cursor: REQUEST_CURSOR }) },
+        mock<OrderDispatcher>(),
+        GET_LIMIT_ORDERS_HANDLER_OPTIONS
+      )
+
+      const response = await handler.handler(
+        { queryStringParameters: { orderStatus: 'open', cursor: REQUEST_CURSOR } } as any,
+        {} as any
+      )
+
+      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, REQUEST_CURSOR)
+      expect(response.statusCode).toEqual(200)
+      expect(JSON.parse(response.body)).toEqual({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
+    })
+
+    it.each([
+      [{ orderStatus: 'open', sortKey: 'createdAt' }],
+      [{ orderStatus: 'open', sortKey: 'createdAt', sort: 'gt(4)' }],
+      [{ orderStatus: 'open', sortKey: 'createdAt', desc: 'true' }],
+    ])('GET /limit-orders still accepts sort parameters %p', async (queryStringParameters) => {
+      const handler = new GetOrdersHandler(
+        'get-limit-orders',
+        injectorPromiseMock,
+        mock<OrderDispatcher>(),
+        GET_LIMIT_ORDERS_HANDLER_OPTIONS
+      )
+
+      const response = await handler.handler({ queryStringParameters } as any, {} as any)
+
+      expect(response.statusCode).toEqual(200)
+    })
+
+    it('GET /limit-orders keeps its own validation rules', async () => {
+      const handler = new GetOrdersHandler(
+        'get-limit-orders',
+        injectorPromiseMock,
+        mock<OrderDispatcher>(),
+        GET_LIMIT_ORDERS_HANDLER_OPTIONS
+      )
+
+      const response = await handler.handler(
+        { queryStringParameters: { orderStatus: 'open', sort: 'gt(4)' } } as any,
+        {} as any
+      )
+
+      expect(response.statusCode).toEqual(400)
+      expect(response.body).toEqual(expect.stringContaining('\\"sortKey\\" is required'))
+    })
+  })
+
+  describe('query filter validation bounds the partition keys a caller can name', () => {
+    // chainId and orderStatus are the only values that reach the cached partitions, and both
+    // are enum-checked; everything else is shape-checked so random values are rejected.
+    it.each([
+      [{ chainId: 999999 }, 'must be one of'],
+      [{ chainId: 'abc' }, 'chainId'],
+      [{ orderStatus: 'open,notastatus' }, 'contains an invalid value'],
+      [{ pair: 'anything' }, 'fails to match the required pattern'],
+      [{ pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111' }, 'fails to match the required pattern'],
+      [{ filler: '0x1234' }, 'Invalid address'],
+    ])('rejects %p', async (queryStringParameters, message) => {
+      const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())
+
+      const response = await handler.handler({ queryStringParameters } as any, {} as any)
+
+      expect(getOrdersMock).not.toHaveBeenCalled()
+      expect(response.statusCode).toEqual(400)
+      expect(response.body).toEqual(expect.stringContaining(message))
+    })
+
+    it('accepts a well-formed pair', async () => {
+      const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())
+
+      const response = await handler.handler(
+        {
+          queryStringParameters: {
+            pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-1',
+          },
+        } as any,
+        {} as any
+      )
+
+      expect(response.statusCode).toEqual(200)
     })
   })
 })

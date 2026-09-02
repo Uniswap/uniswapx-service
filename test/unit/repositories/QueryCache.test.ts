@@ -77,6 +77,17 @@ describe('QueryCache', () => {
     expect(cache.get('a', 1_400)).toEqual('second')
   })
 
+  it('reports how many live entries a write evicted for capacity', () => {
+    const cache = new QueryCache<string>(250, 'Test', 2)
+    expect(cache.set('a', 'a', 1_000)).toEqual(0)
+    expect(cache.set('b', 'b', 1_000)).toEqual(0)
+    // Full, so a third live key pushes the oldest out.
+    expect(cache.set('c', 'c', 1_000)).toEqual(1)
+    // Expired entries are swept, not evicted: no capacity pressure is reported.
+    expect(cache.set('d', 'd', 1_300)).toEqual(0)
+    expect(cache.size).toEqual(1)
+  })
+
   it('clears all entries', () => {
     const cache = new QueryCache<string>(250, 'Test')
     cache.set('a', 'value', 1_000)

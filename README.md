@@ -42,8 +42,13 @@ Query semantics worth knowing before you file a bug:
 - `GET /orders` requires at least one filter (`orderHash`, `orderHashes`, `chainId`,
   `orderStatus`, `swapper`, `filler`, `pair`). A bare `?limit=10` is a 400 by design —
   there are no unbounded scans.
-- `swapper` cannot be combined with `chainId`; `orderHashes` cannot be combined with
-  `sortKey`; `sortKey` is required whenever `sort` or `desc` is present.
+- `swapper` cannot be combined with `chainId`.
+- `GET /orders` returns a single page of the newest orders (`createdAt` descending, at most 50).
+  `cursor`, `sortKey`, `sort` and `desc` are rejected with a 400 there: every distinct page or
+  ordering used to be its own read against the hot `chainId_orderStatus` partitions.
+- `GET /limit-orders` still pages with `cursor` and accepts `sortKey`/`sort`/`desc`:
+  `orderHashes` cannot be combined with `sortKey`, and `sortKey` is required whenever `sort`
+  or `desc` is present.
 
 The full contract lives in [swagger.json](./swagger.json), served at
 <https://api.uniswap.org/v2/uniswapx/docs>. It is pinned to the joi validators by
