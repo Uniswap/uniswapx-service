@@ -55,6 +55,8 @@ export default class FieldValidator {
       }
     })
   private static readonly NUMBER_JOI = Joi.number()
+  // 0 means "default page size"; the repository caps the value at MAX_ORDERS.
+  private static readonly LIMIT_JOI = Joi.number().integer().min(0)
   private static readonly BASE_64_STRING = Joi.string().max(500).base64()
   private static readonly CHAIN_ID_JOI = Joi.number().valid(...SUPPORTED_CHAINS)
   private static readonly ORDER_STATUS_JOI = Joi.string().valid(
@@ -83,11 +85,21 @@ export default class FieldValidator {
           return helpers.error('any.invalid')
         }
       }
+      // Each status fans out into its own query, so a repeated status is a free read
+      // multiplier: `filled,filled,...` hundreds of times fits in one URL.
+      if (new Set(statuses).size !== statuses.length) {
+        return helpers.message({ custom: '"orderStatus" must not repeat a status' } as any)
+      }
       return value
     }
   )
   private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
+  // Usually `${tokenIn}-${tokenOut}-${chainId}`, but the value is copied from free-form quote
+  // metadata, so only its size and character set are bounded, not its exact shape.
+  private static readonly PAIR_JOI = Joi.string()
+    .max(128)
+    .regex(/^[0-9a-zA-Z._:-]+$/)
 
   // TODO: DutchLimit type is deprecated but we allow it in the response to remain backwards compatible.
   // Remove this field from Joi once we have purge job to delete all DutchLimit orders from the database.
@@ -145,7 +157,7 @@ export default class FieldValidator {
   }
 
   public static isValidLimit(): NumberSchema {
-    return this.NUMBER_JOI
+    return this.LIMIT_JOI
   }
 
   public static isValidCreatedAt(): NumberSchema {
@@ -162,6 +174,10 @@ export default class FieldValidator {
 
   public static isValidCursor(): StringSchema {
     return this.BASE_64_STRING
+  }
+
+  public static isValidPair(): StringSchema {
+    return this.PAIR_JOI
   }
 
   public static isValidChainId(): NumberSchema {

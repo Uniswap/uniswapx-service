@@ -2,7 +2,7 @@ import Joi from 'joi'
 import swagger from '../../swagger.json'
 import { ORDER_STATUS, SORT_FIELDS } from '../../lib/entities'
 import { ErrorCode } from '../../lib/handlers/base'
-import { GetOrdersQueryParamsJoi } from '../../lib/handlers/get-orders/schema'
+import { GetLimitOrdersQueryParamsJoi, GetOrdersQueryParamsJoi } from '../../lib/handlers/get-orders/schema'
 import { GetDutchV2OrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { GetDutchV3OrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetDutchV3OrderResponse'
 import { GetHybridOrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetHybridOrderResponse'
@@ -53,8 +53,13 @@ function documentedParameterNames(path: string): string[] {
   return parameters.map((p: any) => (p.$ref ? resolveRef(p.$ref) : p).name).sort()
 }
 
+// Keys a schema only rejects (`Joi.forbidden()`) or accepts-then-drops (`.strip()`) -- GET
+// /orders' retired pagination and sort parameters -- are not part of the contract.
 function joiKeys(schema: Joi.Schema): string[] {
-  return Object.keys((schema.describe() as any).keys ?? {}).sort()
+  const keys: Record<string, any> = (schema.describe() as any).keys ?? {}
+  return Object.keys(keys)
+    .filter((key) => keys[key]?.flags?.presence !== 'forbidden' && keys[key]?.flags?.result !== 'strip')
+    .sort()
 }
 
 function joiRequiredKeys(schema: Joi.Schema): string[] {
@@ -107,8 +112,17 @@ describe('swagger.json stays in sync with the API', () => {
     walk(spec, 'swagger')
   })
 
-  it.each(['/orders', '/limit-orders'])('documents the exact query parameters accepted by GET %s', (path) => {
-    expect(documentedParameterNames(path)).toEqual(joiKeys(GetOrdersQueryParamsJoi))
+  it.each([
+    ['/orders', GetOrdersQueryParamsJoi],
+    ['/limit-orders', GetLimitOrdersQueryParamsJoi],
+  ])('documents the exact query parameters accepted by GET %s', (path, schema) => {
+    expect(documentedParameterNames(path)).toEqual(joiKeys(schema))
+  })
+
+  it('documents pagination and sorting for /limit-orders only', () => {
+    const paged = ['cursor', 'desc', 'sort', 'sortKey']
+    expect(documentedParameterNames('/limit-orders').filter((p) => paged.includes(p))).toEqual(paged)
+    expect(documentedParameterNames('/orders').filter((p) => paged.includes(p))).toEqual([])
   })
 
   it('lists every supported chain in the ChainId enum', () => {

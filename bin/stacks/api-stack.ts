@@ -25,6 +25,8 @@ export class APIStack extends cdk.Stack {
     props: cdk.StackProps & {
       provisionedConcurrency: number
       throttlingOverride?: string
+      getOrdersReservedConcurrency?: number
+      getOrdersThrottlePerFiveMins?: number
       internalApiKey?: string
       chatbotSNSArn?: string
       stage: string
@@ -37,6 +39,8 @@ export class APIStack extends cdk.Stack {
 
     const {
       throttlingOverride,
+      getOrdersReservedConcurrency,
+      getOrdersThrottlePerFiveMins,
       chatbotSNSArn,
       stage,
       provisionedConcurrency,
@@ -66,6 +70,7 @@ export class APIStack extends cdk.Stack {
       getUnimindLambda,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
+      getOrdersReservedConcurrency,
       stage: stage as STAGE,
       envVars: props.envVars,
       kmsKey: kmsStack.key,
@@ -103,6 +108,7 @@ export class APIStack extends cdk.Stack {
       apiKeySourceType: aws_apigateway.ApiKeySourceType.HEADER,
     })
 
+    const DEFAULT_GET_ORDERS_THROTTLE_PER_FIVE_MINS = 1200
     const ipThrottlingACL = new aws_waf.CfnWebACL(this, `${SERVICE_NAME}IPThrottlingACL`, {
       defaultAction: { allow: {} },
       scope: 'REGIONAL',
@@ -194,9 +200,12 @@ export class APIStack extends cdk.Stack {
           priority: 2,
           statement: {
             rateBasedStatement: {
-              // rate limit across all chains
-              // default evaluation window: 5 minutes => 6 per second
-              limit: throttlingOverride ? parseInt(throttlingOverride) : 1800,
+              // Per IP, across all chains and query shapes, over WAF's 5-minute window
+              // (1200 => 4 req/s). Tuned on its own rather than through THROTTLE_PER_FIVE_MINS:
+              // the handler serves each query from a page cached for GET_ORDERS_CACHE_TTL_MS,
+              // so polling any one query faster than that returns identical data and only
+              // spends capacity. Keyed callers are exempt via allow-api-key above.
+              limit: getOrdersThrottlePerFiveMins ?? DEFAULT_GET_ORDERS_THROTTLE_PER_FIVE_MINS,
               aggregateKeyType: 'FORWARDED_IP',
               scopeDownStatement: {
                 byteMatchStatement: {

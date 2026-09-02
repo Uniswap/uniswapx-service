@@ -1,4 +1,4 @@
-import { QueryCache } from '../../../lib/repositories/QueryCache'
+import { QueryCache, queryCacheTtlFromEnv } from '../../../lib/repositories/QueryCache'
 
 describe('QueryCache', () => {
   it('returns a stored value inside the TTL window', () => {
@@ -77,6 +77,17 @@ describe('QueryCache', () => {
     expect(cache.get('a', 1_400)).toEqual('second')
   })
 
+  it('reports how many live entries a write evicted for capacity', () => {
+    const cache = new QueryCache<string>(250, 'Test', 2)
+    expect(cache.set('a', 'a', 1_000)).toEqual(0)
+    expect(cache.set('b', 'b', 1_000)).toEqual(0)
+    // Full, so a third live key pushes the oldest out.
+    expect(cache.set('c', 'c', 1_000)).toEqual(1)
+    // Expired entries are swept, not evicted: no capacity pressure is reported.
+    expect(cache.set('d', 'd', 1_300)).toEqual(0)
+    expect(cache.size).toEqual(1)
+  })
+
   it('clears all entries', () => {
     const cache = new QueryCache<string>(250, 'Test')
     cache.set('a', 'value', 1_000)
@@ -84,5 +95,37 @@ describe('QueryCache', () => {
 
     expect(cache.size).toEqual(0)
     expect(cache.get('a', 1_000)).toBeUndefined()
+  })
+})
+
+describe('queryCacheTtlFromEnv', () => {
+  const original = process.env.GET_ORDERS_CACHE_TTL_MS
+
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env.GET_ORDERS_CACHE_TTL_MS
+    } else {
+      process.env.GET_ORDERS_CACHE_TTL_MS = original
+    }
+  })
+
+  it('defaults to 500ms when the env var is unset', () => {
+    delete process.env.GET_ORDERS_CACHE_TTL_MS
+    expect(queryCacheTtlFromEnv()).toEqual(500)
+  })
+
+  it('honours an explicit override', () => {
+    process.env.GET_ORDERS_CACHE_TTL_MS = '1000'
+    expect(queryCacheTtlFromEnv()).toEqual(1000)
+  })
+
+  it('treats zero as an explicit disable, not a fallback', () => {
+    process.env.GET_ORDERS_CACHE_TTL_MS = '0'
+    expect(queryCacheTtlFromEnv()).toEqual(0)
+  })
+
+  it('falls back to the default on a non-numeric value', () => {
+    process.env.GET_ORDERS_CACHE_TTL_MS = 'fast'
+    expect(queryCacheTtlFromEnv()).toEqual(500)
   })
 })

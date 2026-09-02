@@ -1,11 +1,11 @@
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
-import { DynamoDB } from 'aws-sdk'
 import { default as Logger } from 'bunyan'
 import { UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { ApiInjector, ApiRInj } from '../base/index'
+import { createReadPathDocumentClient } from '../shared/dynamo'
 import { getSharedRequestInjected } from '../shared/get'
 import { getOrdersQueryCache } from './query-cache'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
@@ -14,6 +14,7 @@ import { GetOrderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
 export interface RequestInjected extends ApiRInj {
   limit: number
   queryFilters: GetOrdersQueryParams
+  // Only ever set for GET /limit-orders; GET /orders rejects the parameter.
   cursor?: string
   orderType?: GetOrderTypeQueryParamEnum
   executeAddress?: string
@@ -26,7 +27,7 @@ export interface ContainerInjected {
 export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache),
+      dbInterface: DutchOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache),
     }
   }
 

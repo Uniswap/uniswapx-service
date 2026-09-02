@@ -21,6 +21,14 @@ import { ReaperStack } from './reaper-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
+  // Hard cap on concurrent Get Orders executions, carved out of the account's shared pool
+  // (so it is also unavailable to every other function). Two jobs: it stops a Get Orders
+  // poll storm from exhausting account concurrency and taking post-order and status tracking
+  // down with it, and -- because the query cache lives in each execution environment, so hot
+  // partition reads scale with environment count (~ environments / GET_ORDERS_CACHE_TTL_MS)
+  // -- it puts a ceiling on those reads. Requests past the cap are rejected by Lambda rather
+  // than throttled by DynamoDB. Must be >= the alias' provisioned concurrency.
+  getOrdersReservedConcurrency?: number
   stage: STAGE
   envVars: { [key: string]: string }
   kmsKey: aws_kms.Key
@@ -54,7 +62,14 @@ export class LambdaStack extends cdk.NestedStack {
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
-    const { provisionedConcurrency, kmsKey, tableCapacityConfig, indexCapacityConfig, chatbotSNSArn } = props
+    const {
+      provisionedConcurrency,
+      getOrdersReservedConcurrency,
+      kmsKey,
+      tableCapacityConfig,
+      indexCapacityConfig,
+      chatbotSNSArn,
+    } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
     const orderNotificationProvisionedConcurrency = 50
@@ -138,6 +153,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/get-orders/index.ts'),
       handler: 'getOrdersHandler',
+      reservedConcurrentExecutions: getOrdersReservedConcurrency,
       timeout: Duration.seconds(29),
       memorySize: 1024,
       bundling: {
