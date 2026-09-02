@@ -159,9 +159,12 @@ describe('GenericOrdersRepository query caching', () => {
       })
 
       const params = lastQueryParams()
-      expect(params).toEqual(expect.objectContaining({ ScanIndexForward: true, Limit: '25' }))
+      // desc:false leaves ScanIndexForward at DynamoDB's ascending default; gt(0) parses to no
+      // sort condition, so the partition key is the whole key condition and nothing is bounded.
+      expect(params.ScanIndexForward ?? true).toBe(true)
+      expect(params.Limit).toBe('25')
+      expect(params.KeyConditionExpression).toBe('#pk = :pk')
       expect(Object.values(params.ExpressionAttributeValues ?? {})).not.toContain(MAX_CREATED_AT_SECONDS)
-      expect(Object.values(params.ExpressionAttributeValues ?? {})).toContain(0)
     })
 
     it('leaves the sort key alone when the caller supplies its own comparison', async () => {
