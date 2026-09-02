@@ -1,4 +1,4 @@
-import { QueryCache } from '../../../lib/repositories/QueryCache'
+import { QueryCache, queryCacheTtlFromEnv } from '../../../lib/repositories/QueryCache'
 
 describe('QueryCache', () => {
   it('returns a stored value inside the TTL window', () => {
@@ -95,5 +95,37 @@ describe('QueryCache', () => {
 
     expect(cache.size).toEqual(0)
     expect(cache.get('a', 1_000)).toBeUndefined()
+  })
+})
+
+describe('queryCacheTtlFromEnv', () => {
+  const original = process.env.GET_ORDERS_CACHE_TTL_MS
+
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env.GET_ORDERS_CACHE_TTL_MS
+    } else {
+      process.env.GET_ORDERS_CACHE_TTL_MS = original
+    }
+  })
+
+  it('defaults to 500ms when the env var is unset', () => {
+    delete process.env.GET_ORDERS_CACHE_TTL_MS
+    expect(queryCacheTtlFromEnv()).toEqual(500)
+  })
+
+  it('honours an explicit override', () => {
+    process.env.GET_ORDERS_CACHE_TTL_MS = '1000'
+    expect(queryCacheTtlFromEnv()).toEqual(1000)
+  })
+
+  it('treats zero as an explicit disable, not a fallback', () => {
+    process.env.GET_ORDERS_CACHE_TTL_MS = '0'
+    expect(queryCacheTtlFromEnv()).toEqual(0)
+  })
+
+  it('falls back to the default on a non-numeric value', () => {
+    process.env.GET_ORDERS_CACHE_TTL_MS = 'fast'
+    expect(queryCacheTtlFromEnv()).toEqual(500)
   })
 })
