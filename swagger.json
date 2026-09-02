@@ -16,7 +16,7 @@
       "get": {
         "tags": ["Orders"],
         "summary": "Retrieve UniswapX orders",
-        "description": "Retrieve orders filtered by query parameter(s). At least one of `orderHash`, `orderHashes`, `chainId`, `orderStatus`, `swapper`, `filler`, or `pair` must be provided. `swapper` cannot be combined with `chainId`. Results are a single page of the newest orders (`createdAt` descending, at most 50); there is no pagination or alternative ordering -- `cursor`, `sortKey`, `sort` and `desc` are ignored. To enumerate limit orders beyond one page use /limit-orders. The shape of each entry in `orders` depends on the order's type; filter with `orderType` to receive a single shape.",
+        "description": "Retrieve orders filtered by query parameter(s). At least one of `orderHash`, `orderHashes`, `chainId`, `orderStatus`, `swapper`, `filler`, or `pair` must be provided. `swapper` cannot be combined with `chainId`. Results are a single page of the newest orders (`createdAt` descending, at most 50); there is no pagination or alternative ordering: `sortKey=createdAt`, `sort=gt(0)` and `desc=true` are accepted and ignored, any other value or any `cursor` returns 400. To enumerate limit orders beyond one page use /limit-orders. The shape of each entry in `orders` depends on the order's type; filter with `orderType` to receive a single shape.",
         "parameters": [
           {
             "$ref": "#/components/parameters/limitParam"

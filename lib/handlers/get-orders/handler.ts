@@ -34,7 +34,7 @@ export type GetOrdersHandlerOptions = {
   paginated: boolean
 }
 
-// GET /orders: one page of the newest orders; cursor and sort params are ignored (see schema/index.ts).
+// GET /orders: one page of the newest orders; non-default sort params and any cursor are a 400 (see schema/index.ts).
 export const GET_ORDERS_HANDLER_OPTIONS: GetOrdersHandlerOptions = {
   queryParamsSchema: GetOrdersQueryParamsJoi,
   paginated: false,
@@ -79,7 +79,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       requestInjected: { limit, queryFilters, orderType, executeAddress },
       containerInjected: { dbInterface },
     } = params
-    // The single-page schema already strips the cursor; this keeps the contract even if the
+    // The single-page schema already rejects a cursor; this keeps the contract even if the
     // schema and the option ever disagree.
     const cursor = this.options.paginated ? params.requestInjected.cursor : undefined
 

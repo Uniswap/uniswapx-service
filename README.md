@@ -44,8 +44,9 @@ Query semantics worth knowing before you file a bug:
   there are no unbounded scans.
 - `swapper` cannot be combined with `chainId`.
 - `GET /orders` returns a single page of the newest orders (`createdAt` descending, at most 50).
-  `cursor`, `sortKey`, `sort` and `desc` are ignored there: every distinct page or ordering
-  used to be its own read against the hot `chainId_orderStatus` partitions.
+  `sortKey=createdAt`, `sort=gt(0)` and `desc=true` are accepted (they describe that page) and
+  dropped; any other value, or any `cursor`, is a 400. Every distinct page or ordering used to
+  be its own read against the hot `chainId_orderStatus` partitions.
 - Open-order queries that add a `filler` or `swapper` are answered from the cached
   chain/status page, filtered in memory. Terminal statuses read their own index.
 - `GET /limit-orders` still pages with `cursor` and accepts `sortKey`/`sort`/`desc`:

@@ -30,15 +30,33 @@ const requireOneFilter = (schema: Joi.ObjectSchema): Joi.ObjectSchema =>
   })
 
 // GET /orders returns a single page of the newest orders (createdAt descending, at most
-// MAX_ORDERS). `cursor`, `sortKey`, `sort` and `desc` used to select other pages or
-// orderings; they are deliberately absent here, so the base handler's stripUnknown drops
-// them and a client still sending them gets the default page rather than a 400.
+// MAX_ORDERS). `sortKey`, `sort` and `desc` are accepted only at the values that describe
+// that page and are then stripped, so a client that always sent the defaults keeps working;
+// any other value, or any `cursor`, is a 400. A client that actually relied on paging or a
+// different ordering must find out, not silently receive a different result set.
 //
 // The reason is capacity: every distinct (limit, cursor, sort) combination was its own
 // DynamoDB read and its own entry in the get-orders query cache. A single fixed page keeps
 // the read rate on the hot chainId_orderStatus partitions independent of how varied the
 // polling traffic is. Ordering is fixed for the same reason.
-export const GetOrdersQueryParamsJoi = requireOneFilter(Joi.object(filterKeys))
+export const GET_ORDERS_SINGLE_PAGE_MESSAGE =
+  'GET /orders returns a single page of the newest orders and does not support pagination or other orderings; use GET /limit-orders to page through limit orders.'
+
+export const GetOrdersQueryParamsJoi = requireOneFilter(
+  Joi.object({
+    ...filterKeys,
+    cursor: Joi.forbidden().error(new Error(`"cursor" is not supported. ${GET_ORDERS_SINGLE_PAGE_MESSAGE}`)),
+    sortKey: FieldValidator.isValidSortKey().strip(),
+    sort: Joi.string()
+      .valid('gt(0)')
+      .strip()
+      .messages({ 'any.only': `"sort" may only be gt(0). ${GET_ORDERS_SINGLE_PAGE_MESSAGE}` }),
+    desc: Joi.boolean()
+      .valid(true)
+      .strip()
+      .messages({ 'any.only': `"desc" may only be true. ${GET_ORDERS_SINGLE_PAGE_MESSAGE}` }),
+  })
+)
 
 // GET /limit-orders keeps cursor pagination and sort controls: a chain can carry far more
 // open limit orders than fit in one page, and fillers walk the whole set.

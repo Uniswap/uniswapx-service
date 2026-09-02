@@ -53,8 +53,13 @@ function documentedParameterNames(path: string): string[] {
   return parameters.map((p: any) => (p.$ref ? resolveRef(p.$ref) : p).name).sort()
 }
 
+// Keys a schema only rejects (`Joi.forbidden()`) or accepts-then-drops (`.strip()`) -- GET
+// /orders' retired pagination and sort parameters -- are not part of the contract.
 function joiKeys(schema: Joi.Schema): string[] {
-  return Object.keys((schema.describe() as any).keys ?? {}).sort()
+  const keys: Record<string, any> = (schema.describe() as any).keys ?? {}
+  return Object.keys(keys)
+    .filter((key) => keys[key]?.flags?.presence !== 'forbidden' && keys[key]?.flags?.result !== 'strip')
+    .sort()
 }
 
 function joiRequiredKeys(schema: Joi.Schema): string[] {

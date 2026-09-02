@@ -599,13 +599,13 @@ describe('Testing get orders handler.', () => {
     })
 
     it.each([
-      [{ orderStatus: 'open', cursor: REQUEST_CURSOR }],
       [{ orderStatus: 'open', sortKey: 'createdAt' }],
-      [{ orderStatus: 'open', sortKey: 'createdAt', sort: 'gt(4)', desc: 'false' }],
-      [{ orderStatus: 'open', cursor: REQUEST_CURSOR, sortKey: 'createdAt', desc: 'true' }],
-    ])('GET /orders ignores paging and sort params %p and serves the default first page', async (queryStringParameters) => {
-      // Stripped by validation, so the injector never sees them and the repository is asked
-      // for the plain newest page. Stays a 200 so old clients keep working.
+      [{ orderStatus: 'open', sortKey: 'createdAt', sort: 'gt(0)' }],
+      [{ orderStatus: 'open', sortKey: 'createdAt', desc: 'true' }],
+      [{ orderStatus: 'open', sortKey: 'createdAt', sort: 'gt(0)', desc: 'true' }],
+    ])('GET /orders accepts default-valued sort params %p, strips them and serves the first page', async (queryStringParameters) => {
+      // They describe exactly the page the endpoint serves, so a client that always sent them
+      // keeps working; the repository sees a plain query and the response has no cursor.
       getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
       const handler = new GetOrdersHandler(
         'get-orders',
@@ -626,9 +626,26 @@ describe('Testing get orders handler.', () => {
       expect(JSON.parse(response.body)).toEqual({ orders: [MOCK_ORDER] })
     })
 
-    it('GET /orders schema strips cursor and sort params rather than rejecting them', () => {
+    it.each([
+      [{ orderStatus: 'open', cursor: REQUEST_CURSOR }, 'cursor\\" is not supported. GET /orders returns a single page'],
+      [{ orderStatus: 'open', sortKey: 'createdAt', desc: 'false' }, 'desc\\" may only be true. GET /orders returns a single page'],
+      [{ orderStatus: 'open', sortKey: 'createdAt', sort: 'gt(1675881506)' }, 'sort\\" may only be gt(0). GET /orders returns a single page'],
+      [{ orderStatus: 'open', sortKey: 'createdAt', sort: 'between(1,2)' }, 'sort\\" may only be gt(0). GET /orders returns a single page'],
+      [{ orderStatus: 'open', sortKey: 'createdBy' }, 'must be [createdAt]'],
+    ])('GET /orders rejects non-default paging or sort params %p with a 400', async (queryStringParameters, message) => {
+      // A client that actually relied on paging or another ordering must find out.
+      const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())
+
+      const response = await handler.handler({ queryStringParameters } as any, {} as any)
+
+      expect(getOrdersMock).not.toHaveBeenCalled()
+      expect(response.statusCode).toEqual(400)
+      expect(response.body).toEqual(expect.stringContaining(message))
+    })
+
+    it('GET /orders schema strips default-valued sort params rather than passing them on', () => {
       const { error, value } = GetOrdersQueryParamsJoi.validate(
-        { orderStatus: 'open', cursor: REQUEST_CURSOR, sortKey: 'createdAt', sort: 'gt(4)', desc: true },
+        { orderStatus: 'open', sortKey: 'createdAt', sort: 'gt(0)', desc: true },
         { allowUnknown: true, stripUnknown: true }
       )
       expect(error).toBeUndefined()
