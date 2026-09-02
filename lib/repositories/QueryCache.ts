@@ -5,7 +5,7 @@ type CacheEntry<T> = {
   value: T
 }
 
-const DEFAULT_QUERY_CACHE_TTL_MS = 250
+const DEFAULT_QUERY_CACHE_TTL_MS = 500
 
 // Set GET_ORDERS_CACHE_TTL_MS=0 to disable the query cache without a code change.
 export function queryCacheTtlFromEnv(): number {

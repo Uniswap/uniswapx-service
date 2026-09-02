@@ -47,7 +47,7 @@ Required for deployment:
 - `FAILED_EVENT_DESTINATION_ARN` - Failed event SNS ARN
 
 Optional:
-- `GET_ORDERS_CACHE_TTL_MS` - TTL for the read-path query cache on the get-orders/get-limit-orders Lambdas (default 250; set to `0` to disable the cache).
+- `GET_ORDERS_CACHE_TTL_MS` - TTL for the read-path query cache on the get-orders/get-limit-orders Lambdas (default 500; set to `0` to disable the cache).
 
 For tests:
 - `UNISWAP_API` - Deployed API URL (e2e tests)
