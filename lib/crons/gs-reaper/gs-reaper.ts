@@ -1,7 +1,7 @@
 import { createMetricsLogger, Unit } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../../entities'
+import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS, BLOCKS_IN_24_HOURS } from '../../util/constants'
@@ -602,11 +602,8 @@ async function getUnresolvedOrderHashes(
           // persisted cursor, so they must be reached before any restart resets it. The
           // repository's default is newest first (for the polling endpoints).
           desc: false,
-          // An explicit open-ended comparison so the repository does not apply its default
-          // `createdAt < 1e11` bound: legacy V1 orders stored createdAt in milliseconds, and
-          // the sweep must see every unresolved order, those included.
-          sortKey: SORT_FIELDS.CREATED_AT,
-          sort: 'gt(0)',
+          // The repository's default `createdAt < 1e11` bound applies here too: legacy V1
+          // orders with millisecond timestamps are deliberately outside the sweep.
         },
         cursor
       )

@@ -145,26 +145,18 @@ describe('GenericOrdersRepository query caching', () => {
       }
     })
 
-    it('lets the reaper see everything: no cache, oldest first, no createdAt bound', async () => {
+    it('serves the reaper uncached, oldest first, with the default createdAt bound', async () => {
       // Mirrors lib/crons/gs-reaper/gs-reaper.ts getUnresolvedOrderHashes.
       const repository = DutchOrdersRepository.create(mockDocumentClient)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
 
-      await repository.getOrders(25, {
-        orderStatus: ORDER_STATUS.OPEN,
-        chainId: 1,
-        desc: false,
-        sortKey: SORT_FIELDS.CREATED_AT,
-        sort: 'gt(0)',
-      })
+      await repository.getOrders(25, { orderStatus: ORDER_STATUS.OPEN, chainId: 1, desc: false })
 
       const params = lastQueryParams()
-      // desc:false leaves ScanIndexForward at DynamoDB's ascending default; gt(0) parses to no
-      // sort condition, so the partition key is the whole key condition and nothing is bounded.
+      // desc:false leaves ScanIndexForward at DynamoDB's ascending default.
       expect(params.ScanIndexForward ?? true).toBe(true)
       expect(params.Limit).toBe('25')
-      expect(params.KeyConditionExpression).toBe('#pk = :pk')
-      expect(Object.values(params.ExpressionAttributeValues ?? {})).not.toContain(MAX_CREATED_AT_SECONDS)
+      expect(Object.values(params.ExpressionAttributeValues ?? {})).toContain(MAX_CREATED_AT_SECONDS)
     })
 
     it('leaves the sort key alone when the caller supplies its own comparison', async () => {
