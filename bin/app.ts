@@ -26,6 +26,8 @@ export class APIStage extends Stage {
     id: string,
     props: StageProps & {
       provisionedConcurrency: number
+      getOrdersReservedConcurrency?: number
+      getOrdersThrottlePerFiveMins?: number
       chatbotSNSArn?: string
       internalApiKey?: string
       stage: string
@@ -37,6 +39,8 @@ export class APIStage extends Stage {
     super(scope, id, props)
     const {
       provisionedConcurrency,
+      getOrdersReservedConcurrency,
+      getOrdersThrottlePerFiveMins,
       chatbotSNSArn,
       internalApiKey,
       stage,
@@ -50,6 +54,8 @@ export class APIStage extends Stage {
       throttlingOverride: envVars.THROTTLE_PER_FIVE_MINS,
       env,
       provisionedConcurrency,
+      getOrdersReservedConcurrency,
+      getOrdersThrottlePerFiveMins,
       internalApiKey,
       chatbotSNSArn,
       stage,
@@ -187,6 +193,8 @@ export class APIPipeline extends Stack {
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 2,
+      getOrdersReservedConcurrency: 100,
+      getOrdersThrottlePerFiveMins: 1200,
       internalApiKey: internalApiKey.secretValue.toString(),
       stage: STAGE.BETA,
       envVars: {
@@ -234,6 +242,16 @@ export class APIPipeline extends Stack {
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
       env: { account: '316116520258', region: 'us-east-2' },
       provisionedConcurrency: 5,
+      // Fences Get Orders off from the rest of the account's 10k concurrency. When the hot
+      // GSI partition throttles, Get Orders latency and concurrency climb together until the
+      // account limit is hit and post-order / status tracking are throttled with it. The Get
+      // Orders function alone runs ~2.5k concurrent when healthy; this cap leaves ~20%
+      // headroom above that and stops the climb well short of the account limit. It also
+      // bounds the per-partition read rate at roughly reserved / (GET_ORDERS_CACHE_TTL_MS / 1000).
+      getOrdersReservedConcurrency: 3000,
+      // 4 req/s per IP over WAF's 5-minute window; a page is cached for 500ms, so anything
+      // faster than 2 req/s per query returns identical data.
+      getOrdersThrottlePerFiveMins: 1200,
       internalApiKey: internalApiKey.secretValue.toString(),
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
       stage: STAGE.PROD,

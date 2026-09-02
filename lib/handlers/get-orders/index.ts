@@ -2,13 +2,12 @@ import { GetOrdersHandler } from './handler'
 import { GetOrdersInjector } from './injector'
 
 import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
-import { DynamoDB } from 'aws-sdk'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
-import { UniswapXOrderService } from '../../services/UniswapXOrderService'
+import { SINGLE_PAGE, UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
@@ -21,13 +20,15 @@ import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
 import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
+import { createReadPathDocumentClient } from '../shared/dynamo'
 import { getOrdersQueryCache } from './query-cache'
 
 // This Lambda only reads, so its repositories share the sub-second query cache. Write
-// paths build them without it -- see query-cache.ts.
-const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache)
-const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache)
-const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
+// paths build them without it -- see query-cache.ts. Its DocumentClient fails fast on
+// throttles -- see shared/dynamo.ts.
+const repo = DutchOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
+const limitRepo = LimitOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
+const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(createReadPathDocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 const providerMap = new Map()
@@ -41,7 +42,10 @@ const uniswapXOrderService = new UniswapXOrderService(
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),
-  providerMap
+  providerMap,
+  undefined,
+  undefined,
+  SINGLE_PAGE
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
@@ -51,7 +55,7 @@ const relayOrderService = new RelayOrderService(
   relayOrderValidator,
   relayOrderValidatorMap,
   EventWatcherMap.createRelayEventWatcherMap(),
-  RelayOrderRepository.create(new DynamoDB.DocumentClient(), getOrdersQueryCache),
+  RelayOrderRepository.create(createReadPathDocumentClient(), getOrdersQueryCache),
   log,
   getMaxOpenOrders,
   new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())

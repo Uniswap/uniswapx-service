@@ -3,49 +3,91 @@ import { SORT_FIELDS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 import { GetOrderTypeQueryParamEnum } from './GetOrderTypeQueryParamEnum'
 
-const sortKeyJoi = FieldValidator.isValidSortKey()
-
-export const GetOrdersQueryParamsJoi = Joi.object({
+// Filters shared by GET /orders and GET /limit-orders. Every value that can end up in a
+// DynamoDB partition key is either enum-checked (chainId against SUPPORTED_CHAINS,
+// orderStatus against ORDER_STATUS) or shape-checked (addresses, pair, hashes), so a caller
+// cannot mint arbitrary partition keys -- and the repository only caches partitions built
+// from the enum-checked ones.
+const filterKeys = {
   limit: FieldValidator.isValidLimit(),
   orderHash: FieldValidator.isValidOrderHash(),
   orderHashes: FieldValidator.isValidOrderHashes(),
-  sortKey: FieldValidator.isValidSortKey()
-    .when('sort', {
-      is: Joi.exist(),
-      then: sortKeyJoi.required(),
-      otherwise: sortKeyJoi,
-    })
-    .when('desc', {
-      is: Joi.exist(),
-      then: sortKeyJoi.required(),
-      otherwise: sortKeyJoi,
-    }),
-  sort: FieldValidator.isValidSort(),
-  cursor: FieldValidator.isValidCursor(),
   chainId: FieldValidator.isValidChainId(),
   filler: FieldValidator.isValidEthAddress(),
   swapper: FieldValidator.isValidEthAddress(),
   orderStatus: FieldValidator.isValidOrderStatuses(),
-  desc: Joi.boolean(),
   orderType: FieldValidator.isValidGetQueryParamOrderType(),
   executeAddress: FieldValidator.isValidEthAddress(),
-  pair: Joi.string(),
-})
-  .or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler', 'pair')
-  .when('.chainId', {
+  pair: FieldValidator.isValidPair(),
+}
+
+const requireOneFilter = (schema: Joi.ObjectSchema): Joi.ObjectSchema =>
+  schema.or('orderHash', 'orderHashes', 'chainId', 'orderStatus', 'swapper', 'filler', 'pair').when('.chainId', {
     is: Joi.exist(),
     then: Joi.object({
       swapper: Joi.forbidden().error(new Error('Querying with both swapper and chainId is not currently supported.')),
     }),
   })
-  .when('.sortKey', {
-    is: Joi.exist(),
-    then: Joi.object({
-      orderHashes: Joi.forbidden().error(
-        new Error('Querying with both orderHashes and sortKey is not currently supported.')
-      ),
-    }),
+
+// GET /orders returns a single page of the newest orders (createdAt descending, at most
+// MAX_ORDERS). `sortKey`, `sort` and `desc` are accepted only at the values that describe
+// that page and are then stripped, so a client that always sent the defaults keeps working;
+// any other value, or any `cursor`, is a 400. A client that actually relied on paging or a
+// different ordering must find out, not silently receive a different result set.
+//
+// The reason is capacity: every distinct (limit, cursor, sort) combination was its own
+// DynamoDB read and its own entry in the get-orders query cache. A single fixed page keeps
+// the read rate on the hot chainId_orderStatus partitions independent of how varied the
+// polling traffic is. Ordering is fixed for the same reason.
+export const GET_ORDERS_SINGLE_PAGE_MESSAGE =
+  'GET /orders returns a single page of the newest orders and does not support pagination or other orderings; use GET /limit-orders to page through limit orders.'
+
+export const GetOrdersQueryParamsJoi = requireOneFilter(
+  Joi.object({
+    ...filterKeys,
+    cursor: Joi.forbidden().error(new Error(`"cursor" is not supported. ${GET_ORDERS_SINGLE_PAGE_MESSAGE}`)),
+    sortKey: FieldValidator.isValidSortKey().strip(),
+    sort: Joi.string()
+      .valid('gt(0)')
+      .strip()
+      .messages({ 'any.only': `"sort" may only be gt(0). ${GET_ORDERS_SINGLE_PAGE_MESSAGE}` }),
+    desc: Joi.boolean()
+      .valid(true)
+      .strip()
+      .messages({ 'any.only': `"desc" may only be true. ${GET_ORDERS_SINGLE_PAGE_MESSAGE}` }),
   })
+)
+
+// GET /limit-orders keeps cursor pagination and sort controls: a chain can carry far more
+// open limit orders than fit in one page, and fillers walk the whole set.
+const sortKeyJoi = FieldValidator.isValidSortKey()
+
+export const GetLimitOrdersQueryParamsJoi = requireOneFilter(
+  Joi.object({
+    ...filterKeys,
+    sortKey: sortKeyJoi
+      .when('sort', {
+        is: Joi.exist(),
+        then: sortKeyJoi.required(),
+        otherwise: sortKeyJoi,
+      })
+      .when('desc', {
+        is: Joi.exist(),
+        then: sortKeyJoi.required(),
+        otherwise: sortKeyJoi,
+      }),
+    sort: FieldValidator.isValidSort(),
+    cursor: FieldValidator.isValidCursor(),
+    desc: Joi.boolean(),
+  })
+).when('.sortKey', {
+  is: Joi.exist(),
+  then: Joi.object({
+    orderHashes: Joi.forbidden().error(
+      new Error('Querying with both orderHashes and sortKey is not currently supported.')
+    ),
+  }),
+})
 
 export type SharedGetOrdersQueryParams = {
   limit?: number
