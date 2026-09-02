@@ -488,11 +488,11 @@ describe('/dutch-auction/order', () => {
       [{ orderStatus: 'expired' }, 200],
       [{ swapper: '0x0000000000000000000000000000000000000000' }, 200],
       [{ filler: '0x0000000000000000000000000000000000000000' }, 200],
-      // GET /orders is a single page of the newest orders: sort and pagination params are rejected.
-      [{ orderStatus: 'expired', sortKey: 'createdAt', chainId: 137 }, 400],
-      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: false }, 400],
-      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: true }, 400],
-      [{ orderStatus: 'expired', cursor: 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0=' }, 400],
+      // GET /orders is a single page of the newest orders: sort and pagination params are ignored.
+      [{ orderStatus: 'expired', sortKey: 'createdAt', chainId: 137 }, 200],
+      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: false }, 200],
+      [{ orderStatus: 'expired', sortKey: 'createdAt', desc: true }, 200],
+      [{ orderStatus: 'expired', cursor: 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0=' }, 200],
       [{ orderStatus: 'expired', swapper: '0x0000000000000000000000000000000000000000' }, 200],
       [{ orderStatus: 'expired', filler: '0x0000000000000000000000000000000000000000' }, 200],
       [{ orderHash: '0x0000000000000000000000000000000000000000000000000000000000000000' }, 200],

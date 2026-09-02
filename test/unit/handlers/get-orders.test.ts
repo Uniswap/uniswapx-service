@@ -4,6 +4,7 @@ import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { GET_LIMIT_ORDERS_HANDLER_OPTIONS, GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
 import { parseGetQueryParams } from '../../../lib/handlers/shared/get'
+import { GetOrdersQueryParamsJoi } from '../../../lib/handlers/get-orders/schema'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { HeaderExpectation } from '../../HeaderExpectation'
@@ -289,18 +290,6 @@ describe('Testing get orders handler.', () => {
       [{ orderStatus: 'open,bad_status' }, 'contains an invalid value'],
       [{ limit: 'bad_limit' }, 'must be a number'],
       [{ filler: '0xcorn' }, 'VALIDATION ERROR: Invalid address'],
-      // Pagination and sorting were removed from the contract and are rejected, not ignored.
-      [
-        { cursor: 'eyJvcmRlckhhc2giOiIweGRlYWRiZWVmNTcxNDAzIn0=', orderStatus: 'open' },
-        'Pagination is not supported: results are a single page of the newest orders.',
-      ],
-      [
-        { sortKey: 'createdAt', orderStatus: 'open' },
-        'Sorting is not supported: results are always ordered by createdAt, newest first.',
-      ],
-      [{ sort: 'gt(4)', orderStatus: 'open' }, 'Sorting is not supported'],
-      [{ desc: false, orderStatus: 'open' }, 'Sorting is not supported'],
-      [{ sortKey: 'createdAt', sort: 'gt(4)', desc: true, orderStatus: 'open' }, 'Sorting is not supported'],
       [
         { chainId: 420 },
         `{"detail":"\\"chainId\\" must be one of [${SUPPORTED_CHAINS.join(', ')}]","errorCode":"VALIDATION_ERROR"}`,
@@ -600,6 +589,56 @@ describe('Testing get orders handler.', () => {
 
       expect(response.statusCode).toEqual(200)
       expect(JSON.parse(response.body)).toEqual({ orders: [MOCK_ORDER] })
+    })
+
+    it.each([
+      [{ orderStatus: 'open', cursor: REQUEST_CURSOR }],
+      [{ orderStatus: 'open', sortKey: 'createdAt' }],
+      [{ orderStatus: 'open', sortKey: 'createdAt', sort: 'gt(4)', desc: 'false' }],
+      [{ orderStatus: 'open', cursor: REQUEST_CURSOR, sortKey: 'createdAt', desc: 'true' }],
+    ])('GET /orders ignores paging and sort params %p and serves the default first page', async (queryStringParameters) => {
+      // Stripped by validation, so the injector never sees them and the repository is asked
+      // for the plain newest page. Stays a 200 so old clients keep working.
+      getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
+      const handler = new GetOrdersHandler(
+        'get-orders',
+        {
+          ...injectorPromiseMock,
+          getRequestInjected: (_c: any, _b: any, validatedQueryParams: any) => ({
+            ...requestInjectedMock,
+            ...parseGetQueryParams(validatedQueryParams),
+          }),
+        },
+        mock<OrderDispatcher>()
+      )
+
+      const response = await handler.handler({ queryStringParameters } as any, {} as any)
+
+      expect(response.statusCode).toEqual(200)
+      expect(getOrdersMock).toBeCalledWith(0, { orderStatus: 'open' }, undefined)
+      expect(JSON.parse(response.body)).toEqual({ orders: [MOCK_ORDER] })
+    })
+
+    it('GET /orders schema strips cursor and sort params rather than rejecting them', () => {
+      const { error, value } = GetOrdersQueryParamsJoi.validate(
+        { orderStatus: 'open', cursor: REQUEST_CURSOR, sortKey: 'createdAt', sort: 'gt(4)', desc: true },
+        { allowUnknown: true, stripUnknown: true }
+      )
+      expect(error).toBeUndefined()
+      expect(value).toEqual({ orderStatus: 'open' })
+    })
+
+    it('GET /orders ignores an injected cursor even if one slips past validation', async () => {
+      getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER] })
+      const handler = new GetOrdersHandler(
+        'get-orders',
+        { ...injectorPromiseMock, getRequestInjected: () => ({ ...requestInjectedMock, cursor: REQUEST_CURSOR }) },
+        mock<OrderDispatcher>()
+      )
+
+      await handler.handler({ queryStringParameters: { orderStatus: 'open' } } as any, {} as any)
+
+      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
     })
 
     it('GET /orders strips the cursor from dispatcher responses too', async () => {

@@ -30,26 +30,15 @@ const requireOneFilter = (schema: Joi.ObjectSchema): Joi.ObjectSchema =>
   })
 
 // GET /orders returns a single page of the newest orders (createdAt descending, at most
-// MAX_ORDERS). The parameters below used to select other pages or orderings; they are
-// rejected outright rather than ignored so a client still paging or sorting on the old
-// contract fails loudly instead of silently re-reading the first page.
+// MAX_ORDERS). `cursor`, `sortKey`, `sort` and `desc` used to select other pages or
+// orderings; they are deliberately absent here, so the base handler's stripUnknown drops
+// them and a client still sending them gets the default page rather than a 400.
 //
 // The reason is capacity: every distinct (limit, cursor, sort) combination was its own
 // DynamoDB read and its own entry in the get-orders query cache. A single fixed page keeps
 // the read rate on the hot chainId_orderStatus partitions independent of how varied the
 // polling traffic is. Ordering is fixed for the same reason.
-const unsupported = (message: string) => Joi.forbidden().error(new Error(message))
-const SORT_UNSUPPORTED = 'Sorting is not supported: results are always ordered by createdAt, newest first.'
-
-export const GetOrdersQueryParamsJoi = requireOneFilter(
-  Joi.object({
-    ...filterKeys,
-    cursor: unsupported('Pagination is not supported: results are a single page of the newest orders.'),
-    sortKey: unsupported(SORT_UNSUPPORTED),
-    sort: unsupported(SORT_UNSUPPORTED),
-    desc: unsupported(SORT_UNSUPPORTED),
-  })
-)
+export const GetOrdersQueryParamsJoi = requireOneFilter(Joi.object(filterKeys))
 
 // GET /limit-orders keeps cursor pagination and sort controls: a chain can carry far more
 // open limit orders than fit in one page, and fillers walk the whole set.

@@ -29,12 +29,12 @@ import { GetDutchV3OrderResponse } from './schema/GetDutchV3OrderResponse'
 
 export type GetOrdersHandlerOptions = {
   queryParamsSchema: Joi.ObjectSchema
-  // Whether responses carry a cursor for the next page. A single-page endpoint must not hand
-  // out a cursor it would reject on the next request.
+  // Whether the endpoint pages: reads a request cursor and returns the next one. A
+  // single-page endpoint ignores an incoming cursor and never hands one out.
   paginated: boolean
 }
 
-// GET /orders: one page of the newest orders, no cursor, no sort controls (see schema/index.ts).
+// GET /orders: one page of the newest orders; cursor and sort params are ignored (see schema/index.ts).
 export const GET_ORDERS_HANDLER_OPTIONS: GetOrdersHandlerOptions = {
   queryParamsSchema: GetOrdersQueryParamsJoi,
   paginated: false,
@@ -76,9 +76,12 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
   ): Promise<Response<GetOrdersBody> | ErrorResponse> {
     const {
-      requestInjected: { limit, queryFilters, cursor, orderType, executeAddress },
+      requestInjected: { limit, queryFilters, orderType, executeAddress },
       containerInjected: { dbInterface },
     } = params
+    // The single-page schema already strips the cursor; this keeps the contract even if the
+    // schema and the option ever disagree.
+    const cursor = this.options.paginated ? params.requestInjected.cursor : undefined
 
     this.logMetrics(queryFilters)
 

@@ -244,11 +244,10 @@ export class APIPipeline extends Stack {
       provisionedConcurrency: 5,
       // Fences Get Orders off from the rest of the account's 10k concurrency. When the hot
       // GSI partition throttles, Get Orders latency and concurrency climb together until the
-      // account limit is hit and post-order / status tracking are throttled with it. This cap
-      // sits above the healthy account-wide peak (~2.5k across all functions) so it never
-      // bites normal traffic; tighten it toward the Get Orders function's own
-      // ConcurrentExecutions peak once that has been read off CloudWatch. It also bounds
-      // the per-partition read rate at roughly reserved / (GET_ORDERS_CACHE_TTL_MS / 1000).
+      // account limit is hit and post-order / status tracking are throttled with it. The Get
+      // Orders function alone runs ~2.5k concurrent when healthy; this cap leaves ~20%
+      // headroom above that and stops the climb well short of the account limit. It also
+      // bounds the per-partition read rate at roughly reserved / (GET_ORDERS_CACHE_TTL_MS / 1000).
       getOrdersReservedConcurrency: 3000,
       // 4 req/s per IP over WAF's 5-minute window; a page is cached for 500ms, so anything
       // faster than 2 req/s per query returns identical data.
