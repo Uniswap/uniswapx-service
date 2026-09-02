@@ -50,7 +50,7 @@ Query semantics worth knowing before you file a bug:
   chain/status page, filtered in memory. Terminal statuses read their own index.
 - `GET /limit-orders` still pages with `cursor` and accepts `sortKey`/`sort`/`desc`:
   `orderHashes` cannot be combined with `sortKey`, and `sortKey` is required whenever `sort`
-  or `desc` is present.
+  or `desc` is present. Use it, not `GET /orders?orderType=Limit`, to enumerate limit orders.
 
 The full contract lives in [swagger.json](./swagger.json), served at
 <https://api.uniswap.org/v2/uniswapx/docs>. It is pinned to the joi validators by

@@ -7,7 +7,7 @@ import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { RelayOrderService } from '../../services/RelayOrderService'
-import { UniswapXOrderService } from '../../services/UniswapXOrderService'
+import { SINGLE_PAGE, UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
@@ -42,7 +42,10 @@ const uniswapXOrderService = new UniswapXOrderService(
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),
-  providerMap
+  providerMap,
+  undefined,
+  undefined,
+  SINGLE_PAGE
 )
 
 const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)

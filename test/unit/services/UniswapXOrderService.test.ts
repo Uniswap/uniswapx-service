@@ -16,7 +16,7 @@ import { PriorityOrder } from '../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { QuoteMetadataRepository } from '../../../lib/repositories/quote-metadata-repository'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
-import { MAX_QUERY_RETRY, UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
+import { MAX_QUERY_RETRY, SINGLE_PAGE, UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../lib/util/chain'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT } from '../../../lib/util/order'
@@ -356,6 +356,36 @@ describe('UniswapXOrderService', () => {
       [OrderType.Dutch, DUTCH_LIMIT],
       'cursor'
     )
+  })
+
+  test('a SINGLE_PAGE service never follows a cursor into further reads', async () => {
+    // GET /orders serves exactly one page: each follow-up would be an uncached read against
+    // the same hot partition, and the handler discards the cursor anyway.
+    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+    repository.getOrdersFilteredByType.mockResolvedValue({ orders: [], cursor: 'cursor' })
+
+    const service = new UniswapXOrderService(
+      mock<OffChainUniswapXOrderValidator>(),
+      mock<OnChainValidatorMap<OrderValidator>>(),
+      repository,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mock<QuoteMetadataRepository>(),
+      mock<Logger>(),
+      () => {
+        return 10
+      },
+      mock<AnalyticsService>(),
+      MOCK_PROVIDER_MAP,
+      undefined,
+      undefined,
+      SINGLE_PAGE
+    )
+
+    const params = new QueryParamsBuilder().withChainId().build()
+    await service.getDutchOrders(50, params, undefined)
+    await service.getDutchV2Orders(50, params, undefined, undefined)
+
+    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(2)
   })
 
   test('getDutchOrders applies limit to loop retry', async () => {

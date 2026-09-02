@@ -695,7 +695,19 @@ describe('Testing get orders handler.', () => {
       expect(response.statusCode).toEqual(200)
     })
 
-    it('GET /limit-orders keeps its own validation rules', async () => {
+    // The rules that used to be tested against GET /orders now live only on the limit-orders schema.
+    it.each([
+      [{ orderStatus: 'open', sort: 'gt(4)' }, '\\"sortKey\\" is required'],
+      [{ orderStatus: 'open', desc: true }, '\\"sortKey\\" is required'],
+      [{ orderStatus: 'open', sortKey: 'createdBy' }, 'must be [createdAt]'],
+      [{ orderStatus: 'open', sortKey: 'createdAt', sort: 'foo(bar)' }, 'fails to match the required pattern'],
+      [{ orderStatus: 'open', sortKey: 'createdAt', desc: 'yes' }, '\\"desc\\" must be a boolean'],
+      [{ orderStatus: 'open', cursor: 'not base64 $$$' }, 'must be a valid base64 string'],
+      [
+        { orderHashes: MOCK_ORDER.orderHash, sortKey: 'createdAt' },
+        'Querying with both orderHashes and sortKey is not currently supported.',
+      ],
+    ])('GET /limit-orders keeps its own validation rules: %p', async (queryStringParameters, message) => {
       const handler = new GetOrdersHandler(
         'get-limit-orders',
         injectorPromiseMock,
@@ -703,13 +715,11 @@ describe('Testing get orders handler.', () => {
         GET_LIMIT_ORDERS_HANDLER_OPTIONS
       )
 
-      const response = await handler.handler(
-        { queryStringParameters: { orderStatus: 'open', sort: 'gt(4)' } } as any,
-        {} as any
-      )
+      const response = await handler.handler({ queryStringParameters } as any, {} as any)
 
+      expect(getOrdersMock).not.toHaveBeenCalled()
       expect(response.statusCode).toEqual(400)
-      expect(response.body).toEqual(expect.stringContaining('\\"sortKey\\" is required'))
+      expect(response.body).toEqual(expect.stringContaining(message))
     })
   })
 
@@ -720,8 +730,10 @@ describe('Testing get orders handler.', () => {
       [{ chainId: 999999 }, 'must be one of'],
       [{ chainId: 'abc' }, 'chainId'],
       [{ orderStatus: 'open,notastatus' }, 'contains an invalid value'],
-      [{ pair: 'anything' }, 'fails to match the required pattern'],
-      [{ pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111' }, 'fails to match the required pattern'],
+      [{ pair: 'has a space' }, 'fails to match the required pattern'],
+      [{ pair: 'x'.repeat(129) }, 'length must be less than or equal to 128'],
+      [{ chainId: 1, limit: -1 }, 'must be greater than or equal to 0'],
+      [{ chainId: 1, limit: 0.5 }, 'must be an integer'],
       [{ filler: '0x1234' }, 'Invalid address'],
     ])('rejects %p', async (queryStringParameters, message) => {
       const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())

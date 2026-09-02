@@ -49,6 +49,8 @@ import { getStateMachineArn } from '../util/stateMachineArn'
 import { AnalyticsServiceInterface } from './analytics-service'
 
 export const MAX_QUERY_RETRY = 10
+// For endpoints that serve exactly one page: never follow a cursor into further reads.
+export const SINGLE_PAGE = 0
 
 export class UniswapXOrderService {
   constructor(
@@ -62,7 +64,11 @@ export class UniswapXOrderService {
     private analyticsService: AnalyticsServiceInterface,
     private readonly providerMap: ProviderMap,
     private readonly webhookProvider?: WebhookProvider,
-    private readonly onChainV4ValidatorMap?: OnChainValidatorMap<OnChainV4OrderValidator>
+    private readonly onChainV4ValidatorMap?: OnChainValidatorMap<OnChainV4OrderValidator>,
+    // How many extra pages fetchOrderPages may read to fill a type-filtered request. GET
+    // /orders passes SINGLE_PAGE: every follow-up is an uncached read against the same hot
+    // partition, and the handler discards the resulting cursor anyway.
+    private readonly maxQueryRetry: number = MAX_QUERY_RETRY
   ) {}
 
   async createOrder(
@@ -332,7 +338,7 @@ export class UniswapXOrderService {
     const orders = [...queryResults.orders]
 
     let retryCount = 0
-    while (orders.length < limit && queryResults.cursor && retryCount < MAX_QUERY_RETRY) {
+    while (orders.length < limit && queryResults.cursor && retryCount < this.maxQueryRetry) {
       queryResults = await this.repository.getOrdersFilteredByType(limit, params, types, queryResults.cursor)
       orders.push(...queryResults.orders)
       retryCount++

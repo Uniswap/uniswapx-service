@@ -114,6 +114,17 @@ describe('GenericOrdersRepository query caching', () => {
       expect(either.orders).toHaveLength(3)
     })
 
+    it('treats a negative or fractional limit as the default instead of slicing from the end', async () => {
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
+
+      const negative = await repository.getByOrderStatus(ORDER_STATUS.OPEN, -1)
+      const fractional = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 1.5)
+
+      expect(negative.orders).toHaveLength(3)
+      expect(fractional.orders).toHaveLength(1)
+    })
+
     it('caps the returned page at MAX_ORDERS', async () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       const many = Array.from({ length: 80 }, (_, i) => ({ ...mockOrder, orderHash: `0x${i}`, createdAt: 80 - i }))
@@ -225,6 +236,20 @@ describe('GenericOrdersRepository query caching', () => {
       const result = await repository.getOrders(50, { chainId: 1, orderStatus: ORDER_STATUS.OPEN })
 
       expect(result.orders).toHaveLength(3)
+      expect(JSON.parse(decode(result.cursor!))).toEqual(lek)
+    })
+
+    it("resumes from DynamoDB's own key once every match on a truncated page was handed back", async () => {
+      // A cursor at the last match would make the next read re-scan the rest of this page.
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      const lek = { orderHash: '0xv2-oldest', chainId_orderStatus: '1_open', createdAt: 1 }
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(page, lek))
+
+      const result = await repository.getOrdersFilteredByType(50, { chainId: 1, orderStatus: ORDER_STATUS.OPEN }, [
+        OrderType.Priority,
+      ])
+
+      expect(result.orders.map((o) => o.orderHash)).toEqual(['0xpriority'])
       expect(JSON.parse(decode(result.cursor!))).toEqual(lek)
     })
 

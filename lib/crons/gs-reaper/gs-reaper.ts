@@ -598,6 +598,10 @@ async function getUnresolvedOrderHashes(
         {
           orderStatus: unresolvedOrderStatus,
           chainId: chainId,
+          // Oldest first: stuck orders live at the old end, and the sweep resumes from a
+          // persisted cursor, so they must be reached before any restart resets it. The
+          // repository's default is newest first (for the polling endpoints).
+          desc: false,
         },
         cursor
       )

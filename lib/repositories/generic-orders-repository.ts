@@ -29,6 +29,12 @@ export const CACHED_QUERY_PAGE_SIZE = 100
 
 export type QueryFilter = { or: boolean; attr: string; eq: string }
 
+// 0 / undefined means "default". Negative or fractional values must not reach DynamoDB's
+// Limit or Array.slice, where -1 would mean "everything but the last row".
+function clampLimit(limit: number | undefined): number {
+  return limit && limit > 0 ? Math.min(Math.floor(limit), MAX_ORDERS) : MAX_ORDERS
+}
+
 /**
  * Only partitions whose key is built from enum-validated request values are cached:
  * orderStatus (ORDER_STATUS), chainId (SUPPORTED_CHAINS) and their combination. That bounds
@@ -283,7 +289,7 @@ export abstract class GenericOrdersRepository<
     filters: { or: boolean; attr: string; eq: string }[] = []
   ): Promise<QueryResult<T>> {
     const statuses = queryFilters.orderStatus as string[]
-    const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
+    const effectiveLimit = clampLimit(limit)
 
     const results = await Promise.all(
       statuses.map((status) =>
@@ -324,7 +330,7 @@ export abstract class GenericOrdersRepository<
     filters: QueryFilter[] = []
   ): Promise<QueryResult<T>> {
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
-    const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
+    const effectiveLimit = clampLimit(limit)
 
     let comparison: ComparisonFilter | undefined = undefined
     if (sortKey) {
@@ -413,7 +419,7 @@ export abstract class GenericOrdersRepository<
       return undefined
     }
 
-    const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
+    const effectiveLimit = clampLimit(limit)
     let matching = page.orders as T[]
     if (narrowed) {
       // Exactly the rows the target GSI holds under this partition key: every item carries
@@ -435,15 +441,21 @@ export abstract class GenericOrdersRepository<
     if (!hasMore) {
       return { orders: returned }
     }
-    const last = returned[returned.length - 1] as Record<string, unknown> | undefined
-    const nextKey = last
-      ? {
-          [TABLE_KEY.ORDER_HASH]: last.orderHash,
-          [target.index]: last[target.index],
-          [TABLE_KEY.CREATED_AT]: last.createdAt,
-        }
-      : page.lastEvaluatedKey
-    return { orders: returned, cursor: encode(JSON.stringify(nextKey)) }
+    // When matches remain in the page, resume after the last one handed back. When every
+    // match was handed back and only the truncation says there is more, resume from
+    // DynamoDB's own key instead: a cursor at the last match would make the next read re-scan
+    // the rest of this page. (Narrowed queries never reach here with a truncated page, so the
+    // continuation key is always in terms of the target GSI.)
+    if (matching.length > returned.length) {
+      const last = returned[returned.length - 1] as Record<string, unknown>
+      const nextKey = {
+        [TABLE_KEY.ORDER_HASH]: last.orderHash,
+        [target.index]: last[target.index],
+        [TABLE_KEY.CREATED_AT]: last.createdAt,
+      }
+      return { orders: returned, cursor: encode(JSON.stringify(nextKey)) }
+    }
+    return { orders: returned, cursor: encode(JSON.stringify(page.lastEvaluatedKey)) }
   }
 
   private async getCachedPage(
@@ -472,6 +484,11 @@ export abstract class GenericOrdersRepository<
       const capacityEvictions = cache.set(cacheKey, page, Date.now())
       if (capacityEvictions > 0) {
         metrics.putMetric(`${cache.metricPrefix}CapacityEviction`, capacityEvictions, Unit.Count)
+      }
+      if (page.lastEvaluatedKey !== undefined) {
+        // The partition holds more rows than one page: the single-page contract is now
+        // hiding rows from callers. Alarm-worthy for `open` partitions.
+        metrics.putMetric(`${cache.metricPrefix}Truncated`, 1, Unit.Count)
       }
       // Every miss is a DynamoDB read against this partition. Logged with its key so the
       // distinct-key count and the heaviest partitions can be read off Logs Insights, e.g.
