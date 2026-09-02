@@ -771,6 +771,36 @@ describe('OrdersRepository update status test', () => {
   })
 })
 
+describe('OrdersRepository query cache with caller filters', () => {
+  // filler/swapper filters on open orders are answered from the cached `open` page by
+  // filtering in memory; the result must match what the caller's own GSI returns.
+  const cachedRepository = DutchOrdersRepository.create(documentClient, new QueryCache(60_000, 'TestQueryCache'))
+
+  it('matches the filler GSI for open orders', async () => {
+    const expected = await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, filler: '0x1' })
+    expect(expected.orders.length).toBeGreaterThanOrEqual(1)
+
+    const fromCache = await cachedRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, filler: '0x1' })
+
+    expect(fromCache.orders.map((o) => o.orderHash)).toEqual(expected.orders.map((o) => o.orderHash))
+  })
+
+  it('pages through a filler query from the cached page with a cursor DynamoDB accepts', async () => {
+    const expected = await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, filler: '0x1' })
+
+    const paged: UniswapXOrderEntity[] = []
+    let cursor: string | undefined
+    do {
+      const page = await cachedRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN, filler: '0x1' }, cursor)
+      expect(page.orders.length).toBeLessThanOrEqual(1)
+      paged.push(...page.orders)
+      cursor = page.cursor
+    } while (cursor)
+
+    expect(paged.map((o) => o.orderHash)).toEqual(expected.orders.map((o) => o.orderHash))
+  })
+})
+
 describe('OrdersRepository delete test', () => {
   it('should delete orders by list of orderHashes', async () => {
     await ordersRepository.putOrderAndUpdateNonceTransaction({

@@ -32,23 +32,31 @@ export type QueryFilter = { or: boolean; attr: string; eq: string }
 /**
  * Only partitions whose key is built from enum-validated request values are cached:
  * orderStatus (ORDER_STATUS), chainId (SUPPORTED_CHAINS) and their combination. That bounds
- * the distinct keys to a few hundred per table no matter what callers send. A swapper,
- * filler or pair is free text as far as the cache is concerned: an attacker could spray
- * values to flood the map and evict the hot entries it exists for, and legitimate traffic on
- * those partitions is per-caller and rarely repeats inside a TTL anyway.
+ * the distinct keys to a few hundred per table no matter what callers send.
+ *
+ * A filler, swapper or pair is unbounded in cardinality. Those never reach a cache key: a
+ * request naming one is served by filtering the cached page of the enum-keyed partition it
+ * sits in (see serveFromCachedPartition), or, when that is not exact, by reading its own GSI.
  */
 const CACHEABLE_INDEXES: string[] = [TABLE_KEY.ORDER_STATUS, TABLE_KEY.CHAIN_ID, TABLE_KEY.CHAIN_ID_ORDER_STATUS]
 
 /**
- * Only the plain first page of a partition is shared. A cursor or a sort-key comparison
- * names a different slice on every call, so caching those would only add keys: they read
- * DynamoDB directly.
+ * Statuses whose partitions stay small enough to fit in one cached page (a chain never
+ * carries more than ~100 open orders), so filtering that page in memory sees every row.
+ * Terminal statuses grow without bound: filtering their newest page would silently drop a
+ * swapper's older history, so those requests read their own GSI.
  */
-export function isCacheableQuery(index: string, cursor?: string, sortKey?: SORT_FIELDS): boolean {
-  if (cursor || sortKey) {
-    return false
-  }
-  return CACHEABLE_INDEXES.includes(index)
+const SMALL_PARTITION_STATUSES: string[] = [ORDER_STATUS.OPEN, ORDER_STATUS.INSUFFICIENT_FUNDS]
+
+function sortParams(sortKey?: SORT_FIELDS, sort?: string, desc?: boolean): GetOrdersQueryParams {
+  return { ...(sortKey && { sortKey }), ...(sort && { sort }), ...(desc !== undefined && { desc }) }
+}
+
+// Drops the query params that name a caller rather than an enum value.
+function withoutCallerParams(queryFilters: GetOrdersQueryParams): GetOrdersQueryParams {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { filler, offerer, pair, ...rest } = queryFilters
+  return rest
 }
 
 // In-memory equivalent of the `{ or: true, attr, eq }` FilterExpression list: any clause matching.
@@ -87,7 +95,7 @@ export abstract class GenericOrdersRepository<
     sort?: string,
     desc?: boolean
   ): Promise<QueryResult<T>> {
-    return await this.queryOrderEntity(offerer, TABLE_KEY.OFFERER, limit, cursor, sortKey, sort, desc)
+    return this.getOrdersWithFilters(limit, { offerer, ...sortParams(sortKey, sort, desc) }, cursor)
   }
 
   public async getByOrderStatus(
@@ -98,7 +106,7 @@ export abstract class GenericOrdersRepository<
     sort?: string,
     desc?: boolean
   ): Promise<QueryResult<T>> {
-    return await this.queryOrderEntity(orderStatus, TABLE_KEY.ORDER_STATUS, limit, cursor, sortKey, sort, desc)
+    return this.getOrdersWithFilters(limit, { orderStatus, ...sortParams(sortKey, sort, desc) }, cursor)
   }
 
   public async getByHash(hash: string): Promise<T | undefined> {
@@ -229,6 +237,10 @@ export abstract class GenericOrdersRepository<
     const compoundIndex = this.indexMapper.getIndexFromParams(queryFilters)
 
     if (compoundIndex) {
+      const fromCache = await this.serveFromCachedPartition(compoundIndex, queryFilters, limit, cursor, filters)
+      if (fromCache) {
+        return fromCache
+      }
       return this.queryOrderEntity(
         compoundIndex.partitionKey,
         compoundIndex.index,
@@ -314,17 +326,6 @@ export abstract class GenericOrdersRepository<
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
     const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
 
-    // Gated on `enabled` so the GET_ORDERS_CACHE_TTL_MS=0 kill switch also silences the
-    // cache metrics -- a disabled cache reporting a 100% miss rate is indistinguishable
-    // from a broken one on a dashboard.
-    const cache = this.queryCache?.enabled ? this.queryCache : undefined
-    if (cache) {
-      if (isCacheableQuery(index, cursor, sortKey)) {
-        return this.queryThroughCache(cache, partitionKey, index, formattedIndex, effectiveLimit, filters)
-      }
-      metrics.putMetric(`${cache.metricPrefix}Uncacheable`, 1, Unit.Count)
-    }
-
     let comparison: ComparisonFilter | undefined = undefined
     if (sortKey) {
       comparison = parseComparisonFilter(sort)
@@ -351,23 +352,105 @@ export abstract class GenericOrdersRepository<
   }
 
   /**
-   * One cache entry per partition. The DynamoDB read ignores the caller's limit and type
-   * filter and fetches the newest CACHED_QUERY_PAGE_SIZE rows; each request then filters and
-   * slices that page in memory. Fillers asking for 10 or 50 orders, or for Dutch_V2 versus
-   * Priority, all collapse onto the same read -- which is what keeps the key count, and so
-   * the per-partition read rate, independent of how varied the polling traffic is.
+   * Serve a list query from the cached page of its enum-keyed partition, or return undefined
+   * to read DynamoDB directly.
    *
-   * A server-side FilterExpression would cost the same RCUs (DynamoDB bills for rows
-   * evaluated, not rows returned), so filtering here loses nothing.
+   * One cache entry per partition, keyed by (table, index, partitionKey) only. The DynamoDB
+   * read ignores the caller's limit, type filter and any filler/swapper/pair and fetches the
+   * newest CACHED_QUERY_PAGE_SIZE rows; each request then filters and slices that page in
+   * memory. Fillers asking for 10 or 50 orders, for Dutch_V2 versus Priority, or for their
+   * own exclusive orders all collapse onto the same read -- which is what keeps the key
+   * count, and so the per-partition read rate, independent of how varied the traffic is.
+   * (A server-side FilterExpression would cost the same RCUs: DynamoDB bills rows evaluated.)
+   *
+   * Narrowing to a caller's rows in memory is exact only while the partition fits in one
+   * page, so it is limited to SMALL_PARTITION_STATUSES and gives up if the page is truncated.
    */
-  private async queryThroughCache(
+  private async serveFromCachedPartition(
+    target: { index: string; partitionKey: string | number },
+    queryFilters: GetOrdersQueryParams,
+    limit: number,
+    cursor: string | undefined,
+    filters: QueryFilter[]
+  ): Promise<QueryResult<T> | undefined> {
+    // Gated on `enabled` so the GET_ORDERS_CACHE_TTL_MS=0 kill switch also silences the
+    // cache metrics -- a disabled cache reporting a 100% miss rate is indistinguishable
+    // from a broken one on a dashboard.
+    const cache = this.queryCache?.enabled ? this.queryCache : undefined
+    if (!cache) {
+      return undefined
+    }
+    const uncacheable = () => {
+      metrics.putMetric(`${cache.metricPrefix}Uncacheable`, 1, Unit.Count)
+      return undefined
+    }
+
+    // A cursor or a sort-key comparison names a different slice on every call; only the
+    // plain first page is shared. Following a cursor reads DynamoDB directly.
+    if (cursor || queryFilters.sortKey) {
+      return uncacheable()
+    }
+
+    // The enum-keyed partition this request lives in: the target itself, or the partition
+    // left once the caller-specific params are dropped (chainId+orderStatus+filler -> 1_open).
+    const base = CACHEABLE_INDEXES.includes(target.index)
+      ? target
+      : this.indexMapper.getIndexFromParams(withoutCallerParams(queryFilters))
+    if (!base || !CACHEABLE_INDEXES.includes(base.index)) {
+      return uncacheable()
+    }
+    const narrowed = base.index !== target.index
+    const status = queryFilters.orderStatus
+    if (narrowed && !(typeof status === 'string' && SMALL_PARTITION_STATUSES.includes(status))) {
+      return uncacheable()
+    }
+
+    const page = await this.getCachedPage(cache, base.partitionKey, `${base.index}-${TABLE_KEY.CREATED_AT}-all`)
+    if (narrowed && page.lastEvaluatedKey !== undefined) {
+      // The partition outgrew one page, so an in-memory filter could miss rows. Worth
+      // alarming on: it means the "~100 open orders per chain" assumption no longer holds.
+      metrics.putMetric(`${cache.metricPrefix}BaseTruncated`, 1, Unit.Count)
+      return undefined
+    }
+
+    const effectiveLimit = limit ? Math.min(limit, MAX_ORDERS) : MAX_ORDERS
+    let matching = page.orders as T[]
+    if (narrowed) {
+      // Exactly the rows the target GSI holds under this partition key: every item carries
+      // the compound attribute that GSI is keyed on, so compare it the way DynamoDB would.
+      matching = matching.filter((order) => (order as Record<string, unknown>)[target.index] === target.partitionKey)
+    }
+    if (filters.length) {
+      matching = matching.filter((order) => matchesAnyFilter(order, filters))
+    }
+    // A fresh array: callers may push or splice without reaching the cached page. The order
+    // objects themselves are shared and must be treated as read-only.
+    const returned = matching.slice(0, effectiveLimit)
+
+    // Pagination still works from a cached page. The cursor names the last row handed back
+    // in terms of the target GSI's key (or DynamoDB's own continuation key when nothing
+    // matched), so following it queries that GSI directly. GET /orders drops the cursor from
+    // its response; GET /limit-orders passes it on.
+    const hasMore = matching.length > returned.length || page.lastEvaluatedKey !== undefined
+    if (!hasMore) {
+      return { orders: returned }
+    }
+    const last = returned[returned.length - 1] as Record<string, unknown> | undefined
+    const nextKey = last
+      ? {
+          [TABLE_KEY.ORDER_HASH]: last.orderHash,
+          [target.index]: last[target.index],
+          [TABLE_KEY.CREATED_AT]: last.createdAt,
+        }
+      : page.lastEvaluatedKey
+    return { orders: returned, cursor: encode(JSON.stringify(nextKey)) }
+  }
+
+  private async getCachedPage(
     cache: OrdersQueryCache,
     partitionKey: string | number,
-    index: string,
-    formattedIndex: string,
-    effectiveLimit: number,
-    filters: QueryFilter[]
-  ): Promise<QueryResult<T>> {
+    formattedIndex: string
+  ): Promise<CachedQueryPage> {
     const cacheKey = JSON.stringify([this.table.name, formattedIndex, partitionKey])
     let page: CachedQueryPage | undefined = cache.get(cacheKey, Date.now())
 
@@ -407,26 +490,7 @@ export abstract class GenericOrdersRepository<
     }
     // Live distinct keys in this execution environment. Read the Max statistic.
     metrics.putMetric(`${cache.metricPrefix}Size`, cache.size, Unit.Count)
-
-    const orders = page.orders as T[]
-    const matching = filters.length ? orders.filter((order) => matchesAnyFilter(order, filters)) : orders
-    // A fresh array: callers may push or splice without reaching the cached page. The order
-    // objects themselves are shared and must be treated as read-only.
-    const returned = matching.slice(0, effectiveLimit)
-
-    // Pagination still works from a cached page. The cursor names the last row handed back
-    // (or DynamoDB's own continuation key when nothing matched), and following it reads
-    // DynamoDB directly -- a cursor query never touches the cache. GET /orders drops the
-    // cursor from its response; GET /limit-orders passes it on.
-    const hasMore = matching.length > returned.length || page.lastEvaluatedKey !== undefined
-    if (!hasMore) {
-      return { orders: returned }
-    }
-    const last = returned[returned.length - 1] as Record<string, unknown> | undefined
-    const nextKey = last
-      ? { [TABLE_KEY.ORDER_HASH]: last.orderHash, [index]: last[index], [TABLE_KEY.CREATED_AT]: last.createdAt }
-      : page.lastEvaluatedKey
-    return { orders: returned, cursor: encode(JSON.stringify(nextKey)) }
+    return page
   }
 
   private getRequestedParams(queryFilters: GetOrdersQueryParams) {

@@ -46,6 +46,8 @@ Query semantics worth knowing before you file a bug:
 - `GET /orders` returns a single page of the newest orders (`createdAt` descending, at most 50).
   `cursor`, `sortKey`, `sort` and `desc` are ignored there: every distinct page or ordering
   used to be its own read against the hot `chainId_orderStatus` partitions.
+- Open-order queries that add a `filler` or `swapper` are answered from the cached
+  chain/status page, filtered in memory. Terminal statuses read their own index.
 - `GET /limit-orders` still pages with `cursor` and accepts `sortKey`/`sort`/`desc`:
   `orderHashes` cannot be combined with `sortKey`, and `sortKey` is required whenever `sort`
   or `desc` is present.

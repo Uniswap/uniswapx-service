@@ -261,17 +261,135 @@ describe('GenericOrdersRepository query caching', () => {
     })
   })
 
-  describe('what is never cached', () => {
-    // Partition keys built from caller-supplied free text: an unbounded key space that could
-    // be sprayed to evict the hot entries, and per-caller traffic that rarely repeats anyway.
+  describe('caller-specific filters (filler, swapper, pair)', () => {
+    // Items carry the compound attributes the caller GSIs are keyed on, exactly as DynamoDB
+    // stores them; the in-memory filter compares those.
+    const withFiller = (order: typeof mockOrder, filler: string) => ({
+      ...order,
+      filler,
+      chainId_orderStatus_filler: `1_open_${filler}`,
+      filler_orderStatus: `${filler}_open`,
+      offerer_orderStatus: `${order.offerer}_open`,
+    })
+    const f1Newest = withFiller(v2Newest, '0xf1')
+    const f2 = withFiller({ ...priority, offerer: '0xother' }, '0xf2')
+    const f1Oldest = withFiller(v2Oldest, '0xf1')
+    const fillerPage = [f1Newest, f2, f1Oldest]
+
+    it('serves chainId + orderStatus + filler from the cached chainId_orderStatus page', async () => {
+      const putMetric = jest.spyOn(metrics, 'putMetric')
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(fillerPage))
+
+      const f1 = await repository.getOrders(50, { chainId: 1, orderStatus: ORDER_STATUS.OPEN, filler: '0xf1' })
+      const f2Result = await repository.getOrders(50, { chainId: 1, orderStatus: ORDER_STATUS.OPEN, filler: '0xf2' })
+      const plain = await repository.getOrders(50, { chainId: 1, orderStatus: ORDER_STATUS.OPEN })
+
+      // One read of the enum-keyed partition serves every filler and the unfiltered poll.
+      expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
+      expect(lastQueryParams()).toEqual(
+        expect.objectContaining({
+          IndexName: 'chainId_orderStatus-createdAt-all',
+          Limit: String(CACHED_QUERY_PAGE_SIZE),
+        })
+      )
+      expect(f1.orders.map((o) => o.orderHash)).toEqual(['0xv2-newest', '0xv2-oldest'])
+      expect(f2Result.orders.map((o) => o.orderHash)).toEqual(['0xpriority'])
+      expect(plain.orders).toHaveLength(3)
+      // The filler never becomes a key.
+      expect(cache.size).toEqual(1)
+      expect(putMetric).not.toHaveBeenCalledWith('GetOrdersQueryCacheUncacheable', expect.anything(), expect.anything())
+    })
+
+    it('serves swapper + open from the cached orderStatus page', async () => {
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(fillerPage))
+
+      const mine = await repository.getOrders(50, { offerer: '0xofferer', orderStatus: ORDER_STATUS.OPEN })
+      const theirs = await repository.getOrders(50, { offerer: '0xother', orderStatus: ORDER_STATUS.OPEN })
+
+      expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
+      expect(lastQueryParams()).toEqual(expect.objectContaining({ IndexName: 'orderStatus-createdAt-all' }))
+      expect(mine.orders.map((o) => o.orderHash)).toEqual(['0xv2-newest', '0xv2-oldest'])
+      expect(theirs.orders.map((o) => o.orderHash)).toEqual(['0xpriority'])
+    })
+
+    it('combines a caller filter with an order-type filter in memory', async () => {
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(fillerPage))
+
+      const result = await repository.getOrdersFilteredByType(
+        50,
+        { chainId: 1, orderStatus: ORDER_STATUS.OPEN, filler: '0xf1' },
+        [OrderType.Priority]
+      )
+
+      expect(result.orders).toEqual([])
+      expect(result.cursor).toBeUndefined()
+    })
+
+    it('builds the cursor in terms of the filler GSI so the next page reads that GSI directly', async () => {
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(fillerPage))
+      const filters: GetOrdersQueryParams = { chainId: 1, orderStatus: ORDER_STATUS.OPEN, filler: '0xf1' }
+
+      const first = await repository.getOrders(1, filters)
+      expect(first.orders.map((o) => o.orderHash)).toEqual(['0xv2-newest'])
+      const key = { orderHash: '0xv2-newest', chainId_orderStatus_filler: '1_open_0xf1', createdAt: 3 }
+      expect(JSON.parse(decode(first.cursor!))).toEqual(key)
+
+      await repository.getOrders(1, filters, first.cursor)
+
+      expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
+      expect(lastQueryParams()).toEqual(
+        expect.objectContaining({
+          IndexName: 'chainId_orderStatus_filler-createdAt-all',
+          ExclusiveStartKey: key,
+          Limit: '1',
+        })
+      )
+    })
+
+    it('falls back to the caller GSI when the base partition outgrew one page', async () => {
+      // An in-memory filter over a truncated page could miss the caller's older rows.
+      const putMetric = jest.spyOn(metrics, 'putMetric')
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      const lek = { orderHash: '0xv2-oldest', chainId_orderStatus: '1_open', createdAt: 1 }
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse(fillerPage, lek))
+
+      await repository.getOrders(10, { chainId: 1, orderStatus: ORDER_STATUS.OPEN, filler: '0xf1' })
+
+      expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
+      expect(mockDocumentClient.query.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ IndexName: 'chainId_orderStatus-createdAt-all' })
+      )
+      expect(lastQueryParams()).toEqual(
+        expect.objectContaining({ IndexName: 'chainId_orderStatus_filler-createdAt-all', Limit: '10' })
+      )
+      expect(putMetric).toHaveBeenCalledWith('GetOrdersQueryCacheBaseTruncated', 1, expect.anything())
+    })
+
+    it('reads terminal statuses from the caller GSI directly: those partitions are unbounded', async () => {
+      const putMetric = jest.spyOn(metrics, 'putMetric')
+      const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
+      mockDocumentClient.query.mockReturnValue(mockQueryResponse())
+
+      await repository.getOrders(10, { offerer: '0xofferer', orderStatus: ORDER_STATUS.FILLED })
+
+      expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
+      expect(lastQueryParams()).toEqual(
+        expect.objectContaining({ IndexName: 'offerer_orderStatus-createdAt-all', Limit: '10' })
+      )
+      expect(cache.size).toEqual(0)
+      expect(putMetric).toHaveBeenCalledWith('GetOrdersQueryCacheUncacheable', 1, expect.anything())
+    })
+
     it.each([
       ['filler', { filler: '0xfiller' }],
       ['chainId + filler', { chainId: 1, filler: '0xfiller' }],
-      ['chainId + orderStatus + filler', { chainId: 1, orderStatus: ORDER_STATUS.OPEN, filler: '0xfiller' }],
       ['swapper', { offerer: '0xofferer' }],
-      ['swapper + orderStatus', { offerer: '0xofferer', orderStatus: ORDER_STATUS.OPEN }],
       ['pair', { pair: '0xa-0xb-1' }],
-    ])('does not cache a %s query and keeps the caller limit on the read', async (_name, filters) => {
+    ])('reads a %s query from its own GSI, uncached: no small enum partition contains it', async (_name, filters) => {
       const putMetric = jest.spyOn(metrics, 'putMetric')
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
@@ -285,7 +403,9 @@ describe('GenericOrdersRepository query caching', () => {
       expect(putMetric).toHaveBeenCalledWith('GetOrdersQueryCacheUncacheable', 1, expect.anything())
       expect(putMetric).not.toHaveBeenCalledWith('GetOrdersQueryCacheMiss', expect.anything(), expect.anything())
     })
+  })
 
+  describe('what is never cached', () => {
     it('does not cache sort-key comparison queries', async () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
