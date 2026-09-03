@@ -56,6 +56,10 @@ describe('DashboardStack', () => {
     expect(body).toContain(
       '"ReadThrottleEvents","TableName","Orders","GlobalSecondaryIndexName","chainId_orderStatus-createdAt-all"'
     )
+    // All three cacheable GSIs, on both tables, in both the RCU and the throttle widgets.
+    for (const gsi of ['chainId_orderStatus-createdAt-all', 'orderStatus-createdAt-all', 'chainId-createdAt-all']) {
+      expect(body.split(`"${gsi}"`).length - 1).toBeGreaterThanOrEqual(4)
+    }
     expect(body).toContain('"AWS/WAFV2","BlockedRequests","WebACL","GoudaServiceIPThrottling","Rule","ip-get-orders"')
     // A block rule never emits AllowedRequests; the served-request count is the denominator.
     expect(body).not.toContain('"AllowedRequests"')
