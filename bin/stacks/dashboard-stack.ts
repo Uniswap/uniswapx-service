@@ -271,7 +271,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 24,
-            y: 38,
+            y: 44,
             x: 0,
             type: 'log',
             properties: {
@@ -285,7 +285,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 24,
-            y: 44,
+            y: 50,
             x: 0,
             type: 'log',
             properties: {
@@ -303,7 +303,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 24,
-            y: 50,
+            y: 56,
             x: 0,
             type: 'log',
             properties: {
@@ -412,7 +412,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 32,
+            y: 38,
             x: 0,
             type: 'metric',
             properties: {
@@ -432,7 +432,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 32,
+            y: 38,
             x: 12,
             type: 'metric',
             properties: {
@@ -451,7 +451,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 56,
+            y: 62,
             x: 0,
             type: 'metric',
             properties: {
@@ -471,7 +471,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 56,
+            y: 62,
             x: 12,
             type: 'metric',
             properties: {
@@ -488,7 +488,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 62,
+            y: 68,
             x: 0,
             type: 'metric',
             properties: {
@@ -508,7 +508,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 62,
+            y: 68,
             x: 12,
             type: 'metric',
             properties: {
@@ -525,7 +525,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 68,
+            y: 74,
             x: 0,
             type: 'metric',
             properties: {
@@ -551,7 +551,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 1,
             width: 24,
-            y: 74,
+            y: 80,
             x: 0,
             type: 'text',
             properties: {
@@ -561,7 +561,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 75,
+            y: 81,
             x: 0,
             type: 'metric',
             properties: {
@@ -591,7 +591,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 75,
+            y: 81,
             x: 12,
             type: 'metric',
             properties: {
@@ -619,7 +619,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 8,
-            y: 81,
+            y: 87,
             x: 0,
             type: 'metric',
             properties: {
@@ -640,7 +640,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 8,
-            y: 81,
+            y: 87,
             x: 8,
             type: 'metric',
             properties: {
@@ -675,7 +675,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 8,
-            y: 81,
+            y: 87,
             x: 16,
             type: 'metric',
             properties: {
@@ -705,7 +705,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 8,
-            y: 87,
+            y: 93,
             x: 0,
             type: 'metric',
             properties: {
@@ -742,7 +742,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 8,
-            y: 87,
+            y: 93,
             x: 8,
             type: 'metric',
             properties: {
@@ -780,7 +780,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 8,
-            y: 87,
+            y: 93,
             x: 16,
             type: 'metric',
             properties: {

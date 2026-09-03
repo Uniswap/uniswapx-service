@@ -59,7 +59,7 @@ describe('DashboardStack', () => {
     expect(body).toContain('"AWS/WAFV2","BlockedRequests","WebACL","GoudaServiceIPThrottling","Rule","ip-get-orders"')
   })
 
-  it('places every widget inside the 24-column grid and the cache section overlaps nothing', () => {
+  it('places every widget inside the 24-column grid with no overlaps', () => {
     const widgets = mainDashboardWidgets(build())
     const overlaps = (a: Widget, b: Widget) =>
       a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
@@ -68,15 +68,36 @@ describe('DashboardStack', () => {
     for (const w of widgets) {
       expect(w.x + w.width).toBeLessThanOrEqual(24)
     }
-    // The legacy layout has one known collision ("Orders Filled" spans the row the two
-    // "... by Chain" widgets share; CloudWatch pushes them down). Guard the new section only.
-    const section = widgets.filter((w) => w.y >= 74)
-    expect(section.length).toBeGreaterThan(0)
-    for (const a of section) {
-      for (const b of widgets) {
-        if (a === b) continue
+    for (let i = 0; i < widgets.length; i++) {
+      for (let j = i + 1; j < widgets.length; j++) {
+        const a = widgets[i]
+        const b = widgets[j]
         expect({ a: name(a), b: name(b), overlap: overlaps(a, b) }).toEqual({ a: name(a), b: name(b), overlap: false })
       }
     }
+  })
+
+  it('keeps the cache and capacity charts in their own section below everything else', () => {
+    const widgets = mainDashboardWidgets(build())
+    const header = widgets.find((w) => w.properties.markdown === '# Get Orders Cache & Capacity')
+    expect(header).toBeDefined()
+    const bottom = (w: Widget) => w.y + w.height
+    const others = widgets.filter((w) => w !== header && w.y < header!.y)
+    // Nothing from earlier sections reaches into the cache section.
+    expect(Math.max(...others.map(bottom))).toBeLessThanOrEqual(header!.y)
+    // Every widget at or below the header is one of ours.
+    const section = widgets.filter((w) => w !== header && w.y >= header!.y)
+    expect(section.map((w) => w.properties.title).sort()).toEqual(
+      [
+        'Query Cache Hit Rate | 5min',
+        'Query Cache Reads by Outcome | 5min',
+        'Query Cache Live Keys per Environment (max)',
+        'Query Cache Truncated Pages & Capacity Evictions | 5min',
+        'Get Orders Lambda Concurrency & Throttles',
+        'Hot GSI Consumed Read Capacity | 5min',
+        'Hot GSI Read Throttles | 5min',
+        'WAF ip-get-orders Blocked vs Allowed | 5min',
+      ].sort()
+    )
   })
 })
