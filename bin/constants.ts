@@ -13,5 +13,4 @@ export const FILTER_PATTERNS = {
   UNIMIND_RESPONSE: `{ $.eventType = "${ANALYTICS_EVENTS.UNIMIND_RESPONSE}" }`,
   UNIMIND_PARAMETER_UPDATE: `{ $.eventType = "${ANALYTICS_EVENTS.UNIMIND_PARAMETER_UPDATE}" }`,
   TERMINAL_ORDER_STATE: '{ $.orderInfo.orderStatus = "filled" || $.orderInfo.orderStatus = "cancelled" }',
-  INSUFFICIENT_FUNDS: '{ $.orderInfo.orderStatus = "insufficient-funds" }',
 } as const

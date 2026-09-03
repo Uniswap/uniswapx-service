@@ -74,15 +74,6 @@ export class StepFunctionStack extends cdk.NestedStack {
         filterPattern: FILTER_PATTERNS.TERMINAL_ORDER_STATE,
         logGroupName: checkStatusFunction.logGroup.logGroupName,
       })
-
-      new aws_logs.CfnSubscriptionFilter(this, 'nonTerminalSub', {
-        destinationArn: checkDefined(
-          props.envVars['ACTIVE_ORDER_EVENT_DESTINATION_ARN'],
-          'ACTIVE_ORDER_EVENT_DESTINATION_ARN is undefined'
-        ),
-        filterPattern: FILTER_PATTERNS.INSUFFICIENT_FUNDS,
-        logGroupName: checkStatusFunction.logGroup.logGroupName,
-      })
     }
 
     // We define a separate sfn for each chain so we can easily use step function metrics per chain
