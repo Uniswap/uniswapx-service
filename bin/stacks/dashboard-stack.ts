@@ -542,7 +542,7 @@ export class DashboardStack extends cdk.NestedStack {
               stat: 'p90',
             },
           },
-          // --- Get Orders cache and capacity (PR #702) ---
+          // --- Get Orders cache and capacity ---
           // The get-orders query cache is per execution environment, so DynamoDB reads on a
           // hot partition scale with environment count; these widgets show the hit rate, how
           // much traffic bypasses the cache, whether partitions have outgrown one page, and the
