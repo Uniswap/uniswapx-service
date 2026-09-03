@@ -2,10 +2,18 @@ import * as cdk from 'aws-cdk-lib'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
 import { Construct } from 'constructs'
 import * as _ from 'lodash'
+import { TABLE_KEY } from '../../lib/config/dynamodb'
+import { TABLE_NAMES } from '../../lib/repositories/util'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { SERVICE_NAME } from '../constants'
 
 export const METRIC_NAMESPACE = 'Uniswap'
+
+// The three GSIs the query cache serves (the enum-keyed partitions); see getTableIndices and
+// CACHEABLE_INDEXES in the repository.
+const CHAIN_STATUS_GSI = `${TABLE_KEY.CHAIN_ID_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`
+const STATUS_GSI = `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`
+const CHAIN_GSI = `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`
 
 export type LambdaWidget = {
   type: string
@@ -24,6 +32,8 @@ export interface DashboardProps extends cdk.NestedStackProps {
   getUnimindLambdaName: string
   orderStatusLambdaName: string
   chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
+  // Drawn as a line on the Get Orders concurrency chart when set.
+  getOrdersReservedConcurrency?: number
 }
 
 export class DashboardStack extends cdk.NestedStack {
@@ -35,7 +45,9 @@ export class DashboardStack extends cdk.NestedStack {
       chainIdToStatusTrackingStateMachineArn,
       orderStatusLambdaName,
       postOrderLambdaName,
+      getOrdersLambdaName,
       getUnimindLambdaName,
+      getOrdersReservedConcurrency,
     } = props
     const region = cdk.Stack.of(this).region
 
@@ -261,7 +273,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 24,
-            y: 38,
+            y: 44,
             x: 0,
             type: 'log',
             properties: {
@@ -275,7 +287,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 24,
-            y: 44,
+            y: 50,
             x: 0,
             type: 'log',
             properties: {
@@ -293,7 +305,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 24,
-            y: 50,
+            y: 56,
             x: 0,
             type: 'log',
             properties: {
@@ -402,7 +414,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 32,
+            y: 38,
             x: 0,
             type: 'metric',
             properties: {
@@ -422,7 +434,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 32,
+            y: 38,
             x: 12,
             type: 'metric',
             properties: {
@@ -441,7 +453,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 56,
+            y: 62,
             x: 0,
             type: 'metric',
             properties: {
@@ -461,7 +473,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 56,
+            y: 62,
             x: 12,
             type: 'metric',
             properties: {
@@ -478,7 +490,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 62,
+            y: 68,
             x: 0,
             type: 'metric',
             properties: {
@@ -498,7 +510,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 62,
+            y: 68,
             x: 12,
             type: 'metric',
             properties: {
@@ -515,7 +527,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 68,
+            y: 74,
             x: 0,
             type: 'metric',
             properties: {
@@ -530,6 +542,283 @@ export class DashboardStack extends cdk.NestedStack {
               title: 'DutchV2 Notification Record Staleness',
               period: 300,
               stat: 'p90',
+            },
+          },
+          // --- Get Orders cache and capacity ---
+          // The get-orders query cache is per execution environment, so DynamoDB reads on a
+          // hot partition scale with environment count; these widgets show the hit rate, how
+          // much traffic bypasses the cache, whether partitions have outgrown one page, and the
+          // three ceilings that contain a throttle spiral: reserved concurrency, GSI throttles
+          // and the WAF rate rule.
+          {
+            height: 1,
+            width: 24,
+            y: 80,
+            x: 0,
+            type: 'text',
+            properties: {
+              markdown: '# Get Orders Cache & Capacity',
+            },
+          },
+          {
+            height: 6,
+            width: 12,
+            y: 81,
+            x: 0,
+            type: 'metric',
+            properties: {
+              metrics: [
+                [{ expression: '100 * goh / (goh + gom)', label: 'GetOrders hit rate %', id: 'gohr', region }],
+                [{ expression: '100 * gloh / (gloh + glom)', label: 'GetLimitOrders hit rate %', id: 'glohr', region }],
+                [
+                  METRIC_NAMESPACE,
+                  'GetOrdersQueryCacheHit',
+                  'Service',
+                  'UniswapXService',
+                  { id: 'goh', visible: false, region },
+                ],
+                ['.', 'GetOrdersQueryCacheMiss', '.', '.', { id: 'gom', visible: false, region }],
+                ['.', 'GetLimitOrdersQueryCacheHit', '.', '.', { id: 'gloh', visible: false, region }],
+                ['.', 'GetLimitOrdersQueryCacheMiss', '.', '.', { id: 'glom', visible: false, region }],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Sum',
+              period: 300,
+              title: 'Query Cache Hit Rate | 5min',
+              yAxis: { left: { min: 0, max: 100 } },
+            },
+          },
+          {
+            height: 6,
+            width: 12,
+            y: 81,
+            x: 12,
+            type: 'metric',
+            properties: {
+              // Miss = one DynamoDB read of a cached partition. Uncacheable = a read that
+              // bypassed the cache (cursor, sort, or a caller-keyed partition). BaseTruncated =
+              // a filler/swapper query that fell back to its own GSI because the partition no
+              // longer fits one page.
+              metrics: [
+                [METRIC_NAMESPACE, 'GetOrdersQueryCacheHit', 'Service', 'UniswapXService', { label: 'GetOrders Hit' }],
+                ['.', 'GetOrdersQueryCacheMiss', '.', '.', { label: 'GetOrders Miss' }],
+                ['.', 'GetOrdersQueryCacheUncacheable', '.', '.', { label: 'GetOrders Uncacheable' }],
+                ['.', 'GetOrdersQueryCacheBaseTruncated', '.', '.', { label: 'GetOrders BaseTruncated' }],
+                ['.', 'GetLimitOrdersQueryCacheHit', '.', '.', { label: 'GetLimitOrders Hit' }],
+                ['.', 'GetLimitOrdersQueryCacheMiss', '.', '.', { label: 'GetLimitOrders Miss' }],
+                ['.', 'GetLimitOrdersQueryCacheUncacheable', '.', '.', { label: 'GetLimitOrders Uncacheable' }],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Sum',
+              period: 300,
+              title: 'Query Cache Reads by Outcome | 5min',
+            },
+          },
+          {
+            height: 6,
+            width: 8,
+            y: 87,
+            x: 0,
+            type: 'metric',
+            properties: {
+              // Distinct live keys in one execution environment. Bounded by the enum-keyed
+              // partitions (statuses x chains); a climb here means the key space leaked.
+              metrics: [
+                [METRIC_NAMESPACE, 'GetOrdersQueryCacheSize', 'Service', 'UniswapXService', { label: 'GetOrders' }],
+                ['.', 'GetLimitOrdersQueryCacheSize', '.', '.', { label: 'GetLimitOrders' }],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Maximum',
+              period: 300,
+              title: 'Query Cache Live Keys per Environment (max)',
+            },
+          },
+          {
+            height: 6,
+            width: 8,
+            y: 87,
+            x: 8,
+            type: 'metric',
+            properties: {
+              // Truncated: a cached partition held more rows than one page, so the single-page
+              // contract is hiding rows. Alarm-worthy for open partitions.
+              metrics: [
+                [
+                  METRIC_NAMESPACE,
+                  'GetOrdersQueryCacheTruncated',
+                  'Service',
+                  'UniswapXService',
+                  { label: 'GetOrders Truncated' },
+                ],
+                ['.', 'GetOrdersQueryCacheCapacityEviction', '.', '.', { label: 'GetOrders CapacityEviction' }],
+                ['.', 'GetLimitOrdersQueryCacheTruncated', '.', '.', { label: 'GetLimitOrders Truncated' }],
+                [
+                  '.',
+                  'GetLimitOrdersQueryCacheCapacityEviction',
+                  '.',
+                  '.',
+                  { label: 'GetLimitOrders CapacityEviction' },
+                ],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Sum',
+              period: 300,
+              title: 'Query Cache Truncated Pages & Capacity Evictions | 5min',
+            },
+          },
+          {
+            height: 6,
+            width: 8,
+            y: 87,
+            x: 16,
+            type: 'metric',
+            properties: {
+              metrics: [
+                [
+                  'AWS/Lambda',
+                  'ConcurrentExecutions',
+                  'FunctionName',
+                  getOrdersLambdaName,
+                  { stat: 'Maximum', label: 'Concurrent executions (max)' },
+                ],
+                ['.', 'Throttles', '.', '.', { stat: 'Sum', label: 'Throttles', yAxis: 'right' }],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Maximum',
+              period: 60,
+              title: 'Get Orders Lambda Concurrency & Throttles',
+              ...(getOrdersReservedConcurrency !== undefined && {
+                annotations: {
+                  horizontal: [{ label: 'Reserved concurrency', value: getOrdersReservedConcurrency }],
+                },
+              }),
+            },
+          },
+          {
+            height: 6,
+            width: 8,
+            y: 93,
+            x: 0,
+            type: 'metric',
+            properties: {
+              metrics: [
+                [
+                  'AWS/DynamoDB',
+                  'ConsumedReadCapacityUnits',
+                  'TableName',
+                  TABLE_NAMES.Orders,
+                  'GlobalSecondaryIndexName',
+                  CHAIN_STATUS_GSI,
+                  { label: 'Orders chainId_orderStatus' },
+                ],
+                ['.', '.', '.', '.', '.', STATUS_GSI, { label: 'Orders orderStatus' }],
+                ['.', '.', '.', '.', '.', CHAIN_GSI, { label: 'Orders chainId' }],
+                [
+                  '.',
+                  '.',
+                  '.',
+                  TABLE_NAMES.LimitOrders,
+                  '.',
+                  CHAIN_STATUS_GSI,
+                  { label: 'LimitOrders chainId_orderStatus' },
+                ],
+                ['.', '.', '.', '.', '.', STATUS_GSI, { label: 'LimitOrders orderStatus' }],
+                ['.', '.', '.', '.', '.', CHAIN_GSI, { label: 'LimitOrders chainId' }],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Sum',
+              period: 300,
+              title: 'Hot GSI Consumed Read Capacity | 5min',
+            },
+          },
+          {
+            height: 6,
+            width: 8,
+            y: 93,
+            x: 8,
+            type: 'metric',
+            properties: {
+              // The failure this whole section exists to prevent.
+              metrics: [
+                [
+                  'AWS/DynamoDB',
+                  'ReadThrottleEvents',
+                  'TableName',
+                  TABLE_NAMES.Orders,
+                  'GlobalSecondaryIndexName',
+                  CHAIN_STATUS_GSI,
+                  { label: 'Orders chainId_orderStatus' },
+                ],
+                ['.', '.', '.', '.', '.', STATUS_GSI, { label: 'Orders orderStatus' }],
+                ['.', '.', '.', '.', '.', CHAIN_GSI, { label: 'Orders chainId' }],
+                [
+                  '.',
+                  '.',
+                  '.',
+                  TABLE_NAMES.LimitOrders,
+                  '.',
+                  CHAIN_STATUS_GSI,
+                  { label: 'LimitOrders chainId_orderStatus' },
+                ],
+                ['.', '.', '.', '.', '.', STATUS_GSI, { label: 'LimitOrders orderStatus' }],
+                ['.', '.', '.', '.', '.', CHAIN_GSI, { label: 'LimitOrders chainId' }],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Sum',
+              period: 300,
+              title: 'Hot GSI Read Throttles | 5min',
+            },
+          },
+          {
+            height: 6,
+            width: 8,
+            y: 93,
+            x: 16,
+            type: 'metric',
+            properties: {
+              // WAF only counts a request under a rule's metric when the rule matches, and for a
+              // block rule that means blocked, so there is no per-rule "allowed" series. The
+              // service's own request count is the denominator instead: requests that got through.
+              metrics: [
+                [
+                  'AWS/WAFV2',
+                  'BlockedRequests',
+                  'WebACL',
+                  `${SERVICE_NAME}IPThrottling`,
+                  'Rule',
+                  'ip-get-orders',
+                  'Region',
+                  region,
+                  { label: 'ip-get-orders blocked' },
+                ],
+                [
+                  METRIC_NAMESPACE,
+                  'GetOrdersRequest',
+                  'Service',
+                  'UniswapXService',
+                  { label: 'GetOrders requests served' },
+                ],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              stat: 'Sum',
+              period: 300,
+              title: 'WAF ip-get-orders Blocked vs Requests Served | 5min',
             },
           },
           {
