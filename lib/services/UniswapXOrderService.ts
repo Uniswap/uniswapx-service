@@ -201,6 +201,15 @@ export class UniswapXOrderService {
   ): Promise<void> {
     const offChainValidationResult = this.orderValidator.validate(order)
     if (!offChainValidationResult.valid) {
+      // The 400 this becomes carries the reason to the caller but leaves no trace on our
+      // side, so a validation rule that starts rejecting real traffic is invisible.
+      metrics.putMetric('OffchainValidationFailure', 1, Unit.Count)
+      this.logger.info('offchain validation failed', {
+        chainId,
+        orderHash: order.hash(),
+        swapper: order.info.swapper,
+        reason: offChainValidationResult.errorString,
+      })
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
     const token = order.info.input.token

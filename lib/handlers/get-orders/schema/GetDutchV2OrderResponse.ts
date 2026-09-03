@@ -29,6 +29,29 @@ export type GetDutchV2OrderResponse = {
     endAmount: string
     recipient: string
   }[]
+  /**
+   * `input`/`outputs` are the amounts the swapper signed. The cosigner can improve them,
+   * and the reactor uses the override in place of `startAmount` whenever it is non-zero,
+   * so neither field on its own is what a fill actually moves. `effectiveInput` and
+   * `effectiveOutputs` are those same amounts with `cosignerData.inputOverride` and
+   * `cosignerData.outputOverrides` already applied: what the filler receives and pays.
+   *
+   * Always populated for Dutch V2 orders. Optional so older clients and the legacy
+   * untyped `GET /orders` response stay valid. Amounts still decay to `endAmount` over
+   * the cosigner's decay window, and a non-exclusive filler pays
+   * `cosignerData.exclusivityOverrideBps` on top of every output.
+   */
+  effectiveInput?: {
+    token: string
+    startAmount: string
+    endAmount: string
+  }
+  effectiveOutputs?: {
+    token: string
+    startAmount: string
+    endAmount: string
+    recipient: string
+  }[]
   settledAmounts: {
     tokenOut: string
     amountOut: string
@@ -58,21 +81,25 @@ export const CosignerDataJoi = Joi.object({
   outputOverrides: Joi.array().items(FieldValidator.isValidAmount()),
 })
 
+const InputJoi = Joi.object({
+  token: FieldValidator.isValidEthAddress().required(),
+  startAmount: FieldValidator.isValidAmount().required(),
+  endAmount: FieldValidator.isValidAmount().required(),
+})
+
+const OutputJoi = Joi.object({
+  token: FieldValidator.isValidEthAddress().required(),
+  startAmount: FieldValidator.isValidAmount().required(),
+  endAmount: FieldValidator.isValidAmount().required(),
+  recipient: FieldValidator.isValidEthAddress().required(),
+})
+
 export const GetDutchV2OrderResponseEntryJoi = Joi.object({
   ...CommonOrderValidationFields,
   type: Joi.string().valid(OrderType.Dutch_V2).required(),
-  input: Joi.object({
-    token: FieldValidator.isValidEthAddress().required(),
-    startAmount: FieldValidator.isValidAmount().required(),
-    endAmount: FieldValidator.isValidAmount().required(),
-  }),
-  outputs: Joi.array().items(
-    Joi.object({
-      token: FieldValidator.isValidEthAddress().required(),
-      startAmount: FieldValidator.isValidAmount().required(),
-      endAmount: FieldValidator.isValidAmount().required(),
-      recipient: FieldValidator.isValidEthAddress().required(),
-    })
-  ),
+  input: InputJoi,
+  outputs: Joi.array().items(OutputJoi),
+  effectiveInput: InputJoi,
+  effectiveOutputs: Joi.array().items(OutputJoi),
   cosignerData: CosignerDataJoi,
 })

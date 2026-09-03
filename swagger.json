@@ -630,6 +630,29 @@
               "$ref": "#/components/schemas/OrderOutput"
             }
           },
+          "effectiveInput": {
+            "description": "`input` with `cosignerData.inputOverride` applied: the amount the filler actually receives. The reactor uses the override in place of `startAmount` whenever it is non-zero, so `input` alone does not describe the fill.",
+            "type": "object",
+            "properties": {
+              "token": {
+                "$ref": "#/components/schemas/Address"
+              },
+              "startAmount": {
+                "$ref": "#/components/schemas/Amount"
+              },
+              "endAmount": {
+                "$ref": "#/components/schemas/Amount"
+              }
+            },
+            "required": ["token", "startAmount", "endAmount"]
+          },
+          "effectiveOutputs": {
+            "description": "`outputs` with `cosignerData.outputOverrides` applied: the amounts the filler actually pays. Amounts still decay to `endAmount` across the cosigner's decay window, and a non-exclusive filler pays `cosignerData.exclusivityOverrideBps` on top of every output.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderOutput"
+            }
+          },
           "cosignerData": {
             "type": "object",
             "properties": {
@@ -734,6 +757,56 @@
             "required": ["token", "startAmount"]
           },
           "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "$ref": "#/components/schemas/Address"
+                },
+                "startAmount": {
+                  "$ref": "#/components/schemas/Amount"
+                },
+                "curve": {
+                  "$ref": "#/components/schemas/NonlinearDutchDecayCurve"
+                },
+                "recipient": {
+                  "$ref": "#/components/schemas/Address"
+                },
+                "minAmount": {
+                  "$ref": "#/components/schemas/Amount"
+                },
+                "adjustmentPerGweiBaseFee": {
+                  "$ref": "#/components/schemas/Amount"
+                }
+              },
+              "required": ["token", "startAmount", "recipient"]
+            }
+          },
+          "effectiveInput": {
+            "description": "`input` with `cosignerData.inputOverride` applied: the amount the filler actually receives. The reactor uses the override in place of `startAmount` whenever it is non-zero, so `input` alone does not describe the fill.",
+            "type": "object",
+            "properties": {
+              "token": {
+                "$ref": "#/components/schemas/Address"
+              },
+              "startAmount": {
+                "$ref": "#/components/schemas/Amount"
+              },
+              "curve": {
+                "$ref": "#/components/schemas/NonlinearDutchDecayCurve"
+              },
+              "maxAmount": {
+                "$ref": "#/components/schemas/Amount"
+              },
+              "adjustmentPerGweiBaseFee": {
+                "$ref": "#/components/schemas/Amount"
+              }
+            },
+            "required": ["token", "startAmount"]
+          },
+          "effectiveOutputs": {
+            "description": "`outputs` with `cosignerData.outputOverrides` applied: the amounts the filler actually pays. Amounts still decay along `curve` from `cosignerData.decayStartBlock`, are adjusted by `adjustmentPerGweiBaseFee`, and a non-exclusive filler pays `cosignerData.exclusivityOverrideBps` on top of every output.",
             "type": "array",
             "items": {
               "type": "object",

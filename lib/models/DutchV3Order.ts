@@ -122,6 +122,35 @@ export class DutchV3Order extends Order {
   }
 
   public toGetResponse(): GetDutchV3OrderResponse {
+    const { input, outputs, cosignerData } = this.inner.info
+    // The reactor substitutes a non-zero override for the signed startAmount
+    // (V3DutchOrderReactor._updateWithCosignerAmounts), so these are the amounts a fill
+    // actually moves. The curve and min/max bounds are not overridable.
+    const effectiveInput = {
+      token: input.token,
+      startAmount: (cosignerData.inputOverride.isZero() ? input.startAmount : cosignerData.inputOverride).toString(),
+      curve: {
+        relativeBlocks: input.curve.relativeBlocks,
+        relativeAmounts: input.curve.relativeAmounts.map((a) => a.toString()),
+      },
+      maxAmount: input.maxAmount.toString(),
+      adjustmentPerGweiBaseFee: input.adjustmentPerGweiBaseFee.toString(),
+    }
+    const effectiveOutputs = outputs.map((o, i) => {
+      const override = cosignerData.outputOverrides[i]
+      return {
+        token: o.token,
+        startAmount: (override && !override.isZero() ? override : o.startAmount).toString(),
+        curve: {
+          relativeBlocks: o.curve.relativeBlocks,
+          relativeAmounts: o.curve.relativeAmounts.map((a) => a.toString()),
+        },
+        minAmount: o.minAmount.toString(),
+        recipient: o.recipient,
+        adjustmentPerGweiBaseFee: o.adjustmentPerGweiBaseFee.toString(),
+      }
+    })
+
     return {
       type: OrderType.Dutch_V3,
       orderStatus: this.orderStatus as ORDER_STATUS,
@@ -159,6 +188,8 @@ export class DutchV3Order extends Order {
           adjustmentPerGweiBaseFee: o.adjustmentPerGweiBaseFee.toString(),
         }
       }),
+      effectiveInput,
+      effectiveOutputs,
       settledAmounts: this.settledAmounts,
       cosignerData: {
         decayStartBlock: this.inner.info.cosignerData.decayStartBlock,
