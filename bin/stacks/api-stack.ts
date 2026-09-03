@@ -454,6 +454,7 @@ export class APIStack extends cdk.Stack {
       getUnimindLambdaName: getUnimindLambda.functionName,
       chainIdToStatusTrackingStateMachineArn,
       orderStatusLambdaName: checkStatusFunction.functionName,
+      getOrdersReservedConcurrency,
     })
 
     const apiAlarm5xxSev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-5XXAlarm`, {
