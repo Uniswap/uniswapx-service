@@ -784,6 +784,9 @@ export class DashboardStack extends cdk.NestedStack {
             x: 16,
             type: 'metric',
             properties: {
+              // WAF only counts a request under a rule's metric when the rule matches, and for a
+              // block rule that means blocked, so there is no per-rule "allowed" series. The
+              // service's own request count is the denominator instead: requests that got through.
               metrics: [
                 [
                   'AWS/WAFV2',
@@ -796,14 +799,20 @@ export class DashboardStack extends cdk.NestedStack {
                   region,
                   { label: 'ip-get-orders blocked' },
                 ],
-                ['.', 'AllowedRequests', '.', '.', '.', '.', '.', '.', { label: 'ip-get-orders allowed' }],
+                [
+                  METRIC_NAMESPACE,
+                  'GetOrdersRequest',
+                  'Service',
+                  'UniswapXService',
+                  { label: 'GetOrders requests served' },
+                ],
               ],
               view: 'timeSeries',
               stacked: false,
               region,
               stat: 'Sum',
               period: 300,
-              title: 'WAF ip-get-orders Blocked vs Allowed | 5min',
+              title: 'WAF ip-get-orders Blocked vs Requests Served | 5min',
             },
           },
           {

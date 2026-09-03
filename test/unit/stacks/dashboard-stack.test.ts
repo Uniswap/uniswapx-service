@@ -57,6 +57,8 @@ describe('DashboardStack', () => {
       '"ReadThrottleEvents","TableName","Orders","GlobalSecondaryIndexName","chainId_orderStatus-createdAt-all"'
     )
     expect(body).toContain('"AWS/WAFV2","BlockedRequests","WebACL","GoudaServiceIPThrottling","Rule","ip-get-orders"')
+    // A block rule never emits AllowedRequests; the served-request count is the denominator.
+    expect(body).not.toContain('"AllowedRequests"')
   })
 
   it('places every widget inside the 24-column grid with no overlaps', () => {
@@ -96,7 +98,7 @@ describe('DashboardStack', () => {
         'Get Orders Lambda Concurrency & Throttles',
         'Hot GSI Consumed Read Capacity | 5min',
         'Hot GSI Read Throttles | 5min',
-        'WAF ip-get-orders Blocked vs Allowed | 5min',
+        'WAF ip-get-orders Blocked vs Requests Served | 5min',
       ].sort()
     )
   })
