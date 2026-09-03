@@ -45,6 +45,12 @@ describe('DashboardStack', () => {
     ]) {
       expect(body).toContain(metric)
     }
+    // Size is a per-environment gauge; only its Max is meaningful across the fleet.
+    const sizeWidget = mainDashboardWidgets(build()).find((w) =>
+      JSON.stringify(w).includes('GetOrdersQueryCacheSize')
+    ) as (Widget & { properties: { stat: string } }) | undefined
+    expect(sizeWidget?.properties.stat).toEqual('Maximum')
+    expect(JSON.stringify(sizeWidget)).toContain('GetLimitOrdersQueryCacheSize')
     expect(body).toContain('"AWS/Lambda","ConcurrentExecutions","FunctionName","get-orders-fn"')
     expect(body).toContain('"label":"Reserved concurrency","value":3000')
     expect(body).toContain(
