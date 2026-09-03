@@ -9,9 +9,11 @@ import { SERVICE_NAME } from '../constants'
 
 export const METRIC_NAMESPACE = 'Uniswap'
 
-// The GSIs the polling endpoints read; see lib/repositories/util.ts getTableIndices.
+// The three GSIs the query cache serves (the enum-keyed partitions); see getTableIndices and
+// CACHEABLE_INDEXES in the repository.
 const CHAIN_STATUS_GSI = `${TABLE_KEY.CHAIN_ID_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`
 const STATUS_GSI = `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`
+const CHAIN_GSI = `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`
 
 export type LambdaWidget = {
   type: string
@@ -720,6 +722,7 @@ export class DashboardStack extends cdk.NestedStack {
                   { label: 'Orders chainId_orderStatus' },
                 ],
                 ['.', '.', '.', '.', '.', STATUS_GSI, { label: 'Orders orderStatus' }],
+                ['.', '.', '.', '.', '.', CHAIN_GSI, { label: 'Orders chainId' }],
                 [
                   '.',
                   '.',
@@ -730,6 +733,7 @@ export class DashboardStack extends cdk.NestedStack {
                   { label: 'LimitOrders chainId_orderStatus' },
                 ],
                 ['.', '.', '.', '.', '.', STATUS_GSI, { label: 'LimitOrders orderStatus' }],
+                ['.', '.', '.', '.', '.', CHAIN_GSI, { label: 'LimitOrders chainId' }],
               ],
               view: 'timeSeries',
               stacked: false,
@@ -758,6 +762,7 @@ export class DashboardStack extends cdk.NestedStack {
                   { label: 'Orders chainId_orderStatus' },
                 ],
                 ['.', '.', '.', '.', '.', STATUS_GSI, { label: 'Orders orderStatus' }],
+                ['.', '.', '.', '.', '.', CHAIN_GSI, { label: 'Orders chainId' }],
                 [
                   '.',
                   '.',
@@ -768,6 +773,7 @@ export class DashboardStack extends cdk.NestedStack {
                   { label: 'LimitOrders chainId_orderStatus' },
                 ],
                 ['.', '.', '.', '.', '.', STATUS_GSI, { label: 'LimitOrders orderStatus' }],
+                ['.', '.', '.', '.', '.', CHAIN_GSI, { label: 'LimitOrders chainId' }],
               ],
               view: 'timeSeries',
               stacked: false,
