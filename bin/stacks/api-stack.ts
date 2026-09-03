@@ -3,10 +3,10 @@ import { CfnOutput, Duration } from 'aws-cdk-lib'
 import * as aws_apigateway from 'aws-cdk-lib/aws-apigateway'
 import { MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
-import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions'
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 import * as aws_logs from 'aws-cdk-lib/aws-logs'
 import * as aws_sns from 'aws-cdk-lib/aws-sns'
+import * as aws_sns_subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
 import { Construct } from 'constructs'
 import { STAGE, logRetentionDays } from '../../lib/util/stage'
@@ -14,6 +14,7 @@ import { SERVICE_NAME } from '../constants'
 import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { KmsStack } from './kms-stack'
+import { AlarmNotifier } from './alerting'
 import { LambdaStack } from './lambda-stack'
 
 export class APIStack extends cdk.Stack {
@@ -29,6 +30,10 @@ export class APIStack extends cdk.Stack {
       getOrdersThrottlePerFiveMins?: number
       internalApiKey?: string
       chatbotSNSArn?: string
+      // incident.io CloudWatch alert-source URL (with ?team=&service= routing params), as a Secrets
+      // Manager dynamic reference. When set, an SNS topic subscribed to it is created here and
+      // every alarm notifies it on ALARM and OK.
+      incidentIoCloudWatchEndpoint?: string
       stage: string
       envVars: { [key: string]: string }
       tableCapacityConfig: TableCapacityConfig
@@ -42,6 +47,7 @@ export class APIStack extends cdk.Stack {
       getOrdersReservedConcurrency,
       getOrdersThrottlePerFiveMins,
       chatbotSNSArn,
+      incidentIoCloudWatchEndpoint,
       stage,
       provisionedConcurrency,
       internalApiKey,
@@ -51,6 +57,24 @@ export class APIStack extends cdk.Stack {
 
     // KMS initialization
     const kmsStack = new KmsStack(this, `${SERVICE_NAME}PostOrderCosignerKey`)
+
+    // incident.io's CloudWatch connector: a plain SNS topic with an HTTPS subscription to the
+    // alert-source endpoint (raw message delivery off, as incident.io requires). Alarms in every
+    // nested stack publish to it on ALARM and OK. The endpoint arrives as a Secrets Manager
+    // dynamic reference, so the protocol cannot be inferred from the string and is set explicitly.
+    let incidentIoSNSArn: string | undefined
+    if (incidentIoCloudWatchEndpoint) {
+      const incidentIoTopic = new aws_sns.Topic(this, `${SERVICE_NAME}IncidentIoCloudWatchAlerts`, {
+        topicName: `${SERVICE_NAME}-CloudWatch-alerts-incident-io`,
+        displayName: 'CloudWatch alerts for incident.io',
+      })
+      incidentIoTopic.addSubscription(
+        new aws_sns_subscriptions.UrlSubscription(incidentIoCloudWatchEndpoint, {
+          protocol: aws_sns.SubscriptionProtocol.HTTPS,
+        })
+      )
+      incidentIoSNSArn = incidentIoTopic.topicArn
+    }
 
     const {
       getOrdersLambdaAlias,
@@ -77,6 +101,7 @@ export class APIStack extends cdk.Stack {
       tableCapacityConfig,
       indexCapacityConfig,
       chatbotSNSArn,
+      incidentIoSNSArn,
     })
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`, {
@@ -512,14 +537,13 @@ export class APIStack extends cdk.Stack {
       evaluationPeriods: 3,
     })
 
-    if (chatbotSNSArn) {
-      const chatBotTopic = aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
-      apiAlarm5xxSev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarm5xxSev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarm4xxSev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarmLatencySev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarmLatencySev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-    }
+    new AlarmNotifier(this, { chatbotSNSArn, incidentIoSNSArn }).wire(
+      apiAlarm5xxSev2,
+      apiAlarm5xxSev3,
+      apiAlarm4xxSev3,
+      apiAlarmLatencySev3,
+      apiAlarmLatencySev2
+    )
 
     const dynamoPolicy = new PolicyStatement({
       actions: ['dynamodb:PutItem', 'dynamodb:GetItem'],

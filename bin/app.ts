@@ -18,6 +18,11 @@ import { IndexCapacityConfig, TableCapacityConfig } from './stacks/dynamo-stack'
 
 dotenv.config()
 
+// Complete ARN of the Secrets Manager secret holding incident.io's CloudWatch alert-source URL
+// (create it next to the other pipeline secrets, then fill this in). Kept out of the secret
+// value itself so rotating the URL never touches this file.
+const INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN = ''
+
 export class APIStage extends Stage {
   public readonly url: CfnOutput
 
@@ -29,6 +34,7 @@ export class APIStage extends Stage {
       getOrdersReservedConcurrency?: number
       getOrdersThrottlePerFiveMins?: number
       chatbotSNSArn?: string
+      incidentIoCloudWatchEndpoint?: string
       internalApiKey?: string
       stage: string
       envVars: { [key: string]: string }
@@ -42,6 +48,7 @@ export class APIStage extends Stage {
       getOrdersReservedConcurrency,
       getOrdersThrottlePerFiveMins,
       chatbotSNSArn,
+      incidentIoCloudWatchEndpoint,
       internalApiKey,
       stage,
       env,
@@ -58,6 +65,7 @@ export class APIStage extends Stage {
       getOrdersThrottlePerFiveMins,
       internalApiKey,
       chatbotSNSArn,
+      incidentIoCloudWatchEndpoint,
       stage,
       envVars,
       tableCapacityConfig,
@@ -165,6 +173,18 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:param-api/prod/cosignerAddress-tgNwAd',
     })
 
+    // incident.io's CloudWatch alert-source URL. The alert-source id in the path is the
+    // credential: anyone holding the URL can raise or resolve alerts, so it lives in Secrets
+    // Manager (JSON key `endpoint`, including the ?team=&service= routing params) and never in
+    // this public repo. Empty ARN => no incident.io topic is created and alarms stay Slack-only.
+    const incidentIoCloudWatchEndpoint = INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN
+      ? sm.Secret.fromSecretAttributes(this, 'incident-io-cloudwatch-endpoint', {
+          secretCompleteArn: INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN,
+        })
+          .secretValueFromJson('endpoint')
+          .toString()
+      : undefined
+
     const labsPriorityCosignerBeta = sm.Secret.fromSecretAttributes(this, 'labs-priority-cosigner-beta', {
       secretCompleteArn:
         'arn:aws:secretsmanager:us-east-2:644039819003:secret:beta-priority-labs-cosigner-address-cwej2J',
@@ -251,6 +271,7 @@ export class APIPipeline extends Stack {
       getOrdersThrottlePerFiveMins: 1200,
       internalApiKey: internalApiKey.secretValue.toString(),
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
+      incidentIoCloudWatchEndpoint,
       stage: STAGE.PROD,
       envVars: {
         ...jsonRpcUrls,
