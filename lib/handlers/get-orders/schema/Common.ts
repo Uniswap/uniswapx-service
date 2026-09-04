@@ -31,6 +31,8 @@ export const CommonOrderValidationFields = {
     chainId: FieldValidator.isValidChainId().required(),
     swapper: FieldValidator.isValidEthAddress().required(),
     txHash: FieldValidator.isValidTxHash(),
+    fillBlock: FieldValidator.isValidNumber(),
+    fillTimestamp: FieldValidator.isValidNumber(),
     quoteId: FieldValidator.isValidQuoteId(),
     requestId: FieldValidator.isValidRequestId(),
     nonce: FieldValidator.isValidNonce(),

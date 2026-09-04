@@ -18,6 +18,7 @@ export type GetDutchV3OrderResponse = {
 
   txHash: string | undefined
   fillBlock: number | undefined
+  fillTimestamp: number | undefined
   deadline: number
   input: {
     token: string
@@ -73,7 +74,6 @@ export const GetDutchV3OrderResponseEntryJoi = Joi.object({
   //only Dutch_V3
   type: Joi.string().valid(OrderType.Dutch_V3).required(),
   startingBaseFee: FieldValidator.isValidAmount(),
-  fillBlock: FieldValidator.isValidNumber(),
   input: Joi.object({
     token: FieldValidator.isValidEthAddress().required(),
     startAmount: FieldValidator.isValidAmount().required(),

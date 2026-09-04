@@ -50,6 +50,8 @@ export const OrderResponseEntryJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash(),
   swapper: FieldValidator.isValidEthAddress(),
   txHash: FieldValidator.isValidTxHash(),
+  fillBlock: FieldValidator.isValidNumber(),
+  fillTimestamp: FieldValidator.isValidNumber(),
   type: Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT, OrderType.Limit, OrderType.Priority, OrderType.Dutch_V3),
   input: OrderInputJoi,
   outputs: Joi.array().items(OrderOutputJoi),
