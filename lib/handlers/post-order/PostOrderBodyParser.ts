@@ -5,8 +5,6 @@ import {
   CosignedV2DutchOrder as SDKV2DutchOrder,
   DutchOrder as SDKDutchOrder,
   OrderType,
-  RelayOrder as SDKRelayOrder,
-  RelayOrderParser,
   UniswapXOrderParser,
   CosignedV3DutchOrder,
   CosignedV3DutchOrder as SDKV3DutchOrder,
@@ -18,7 +16,6 @@ import { DutchV2Order } from '../../models/DutchV2Order'
 import { LimitOrder } from '../../models/LimitOrder'
 import { Order } from '../../models/Order'
 import { PriorityOrder } from '../../models/PriorityOrder'
-import { RelayOrder } from '../../models/RelayOrder'
 import { HybridOrder } from '../../models/HybridOrder'
 import { PostOrderRequestBody, HardQuote } from './schema'
 import { DutchV3Order } from '../../models/DutchV3Order'
@@ -29,7 +26,6 @@ import { ChainId } from '../../util/chain'
 
 export class PostOrderBodyParser {
   private readonly uniswapXParser = new UniswapXOrderParser()
-  private readonly relayParser = new RelayOrderParser()
 
   constructor(private readonly logger: Logger) {}
   fromPostRequest(body: PostOrderRequestBody): Order {
@@ -44,8 +40,6 @@ export class PostOrderBodyParser {
         return this.tryParseDutchV2Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Dutch_V3:
         return this.tryParseDutchV3Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
-      case OrderType.Relay:
-        return this.tryParseRelayOrder(encodedOrder, signature, chainId)
       case OrderType.Priority:
         return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Hybrid:
@@ -54,25 +48,6 @@ export class PostOrderBodyParser {
         // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
         // Try to parse both and see which hits.
         return this.tryParseDutchOrder(encodedOrder, signature, chainId, body.quoteId)
-    }
-  }
-
-  private tryParseRelayOrder(encodedOrder: string, signature: string, chainId: number): RelayOrder {
-    try {
-      const order = this.relayParser.parseOrder(encodedOrder, chainId)
-      const orderType = this.relayParser.getOrderType(order)
-      if (orderType === OrderType.Relay) {
-        return new RelayOrder(order as SDKRelayOrder, signature, chainId)
-      }
-      throw new UnexpectedOrderTypeError(orderType)
-    } catch (err) {
-      this.logger.error('Unable to parse Relay order', {
-        err,
-        encodedOrder,
-        chainId,
-        signature,
-      })
-      throw err
     }
   }
 

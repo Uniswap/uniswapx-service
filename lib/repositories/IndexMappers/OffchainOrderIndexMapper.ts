@@ -1,9 +1,9 @@
 import { TABLE_KEY } from '../../config/dynamodb'
-import { ORDER_STATUS, RelayOrderEntity, UniswapXOrderEntity } from '../../entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../../entities'
 import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../../handlers/get-orders/schema'
 import { IndexFieldsForUpdate, IndexMapper } from './IndexMapper'
 
-export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrderEntity> implements IndexMapper<T> {
+export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity> implements IndexMapper<T> {
   public getRequestedParams(queryFilters: GetOrdersQueryParams) {
     // Fields to disregard when deriving indices
     const SORT_FIELDS = [GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC]
@@ -98,7 +98,7 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
     return undefined
   }
 
-  getIndexFieldsForUpdate(order: UniswapXOrderEntity | RelayOrderEntity): IndexFieldsForUpdate {
+  getIndexFieldsForUpdate(order: UniswapXOrderEntity): IndexFieldsForUpdate {
     return {
       offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
       filler_orderStatus: `${order.filler}_${order.orderStatus}`,
@@ -111,7 +111,7 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
   }
 
   getIndexFieldsForStatusUpdate(
-    order: UniswapXOrderEntity | RelayOrderEntity,
+    order: UniswapXOrderEntity,
     newStatus: ORDER_STATUS
   ): IndexFieldsForUpdate {
     return {

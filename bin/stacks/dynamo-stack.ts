@@ -35,7 +35,6 @@ export type IndexCapacityConfig = {
 export type TableCapacityConfig = {
   order: TableCapacityOptions
   limitOrder: TableCapacityOptions
-  relayOrder: TableCapacityOptions
   nonce: TableCapacityOptions
   quoteMetadata: TableCapacityOptions
   unimindParameters: TableCapacityOptions
@@ -51,7 +50,6 @@ export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
   public readonly nonceTable: aws_dynamo.Table
   public readonly limitOrdersTable: aws_dynamo.Table
-  public readonly relayOrdersTable: aws_dynamo.Table
   public readonly quoteMetadataTable: aws_dynamo.Table
   public readonly unimindParametersTable: aws_dynamo.Table
 
@@ -90,21 +88,6 @@ export class DynamoStack extends cdk.NestedStack {
     })
     createCommonIndices(limitOrdersTable, indexCapacityConfig)
     this.limitOrdersTable = limitOrdersTable
-
-    const relayOrdersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}RelayOrdersTable`, {
-      tableName: 'RelayOrders',
-      partitionKey: {
-        name: TABLE_KEY.ORDER_HASH,
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      stream: aws_dynamo.StreamViewType.NEW_IMAGE,
-      deletionProtection: true,
-      pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
-      ...tableCapacityConfig.relayOrder,
-    })
-    createCommonIndices(relayOrdersTable, indexCapacityConfig)
-    this.relayOrdersTable = relayOrdersTable
 
     /* Nonces Table
      * This is needed because we want to do strongly-consistent reads on the nonce value,

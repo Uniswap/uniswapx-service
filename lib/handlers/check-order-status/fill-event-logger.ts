@@ -4,7 +4,6 @@ import { BigNumber, ethers } from 'ethers'
 import {
   DutchV1OrderEntity,
   DutchV2OrderEntity,
-  RelayOrderEntity,
   SettledAmount,
   UniswapXOrderEntity,
 } from '../../entities'
@@ -15,7 +14,7 @@ import { log } from '../../util/log'
 
 export type ProcessFillEventRequest = {
   fillEvent: FillInfo
-  order: UniswapXOrderEntity | RelayOrderEntity
+  order: UniswapXOrderEntity
   chainId: number
   startingBlockNumber: number
   settledAmounts: SettledAmount[]
@@ -47,10 +46,7 @@ export class FillEventLogger {
       const receipt = await tx.wait()
       const gasCostInETH = ethers.utils.formatEther(receipt.effectiveGasPrice.mul(receipt.gasUsed))
 
-      let filteredOutputs = settledAmounts
-      if (order.type != OrderType.Relay) {
-        filteredOutputs = settledAmounts.filter(amount => amount.tokenOut == order.outputs[0].token)
-      }
+      const filteredOutputs = settledAmounts.filter((amount) => amount.tokenOut == order.outputs[0].token)
       if (filteredOutputs.length > 0) {
         this.analyticsService.logFillInfo(
           fillEvent,

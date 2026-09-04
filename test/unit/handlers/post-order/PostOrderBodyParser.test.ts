@@ -5,11 +5,9 @@ import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrd
 import { DutchV1Order } from '../../../../lib/models/DutchV1Order'
 import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { LimitOrder } from '../../../../lib/models/LimitOrder'
-import { RelayOrder } from '../../../../lib/models/RelayOrder'
 import { ChainId } from '../../../../lib/util/chain'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
-import { SDKRelayOrderFactory } from '../../../factories/SDKRelayOrderFactory'
 import { QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
 import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
@@ -149,31 +147,6 @@ describe('PostOrderBodyParser', () => {
       expect(actual.inner).toEqual(priorityOrder)
       expect(actual.chainId).toEqual(ChainId.MAINNET)
       expect(actual.signature).toEqual(SIGNATURE)
-    })
-
-    it('parses a Relay order', () => {
-      const relayOrder = SDKRelayOrderFactory.buildRelayOrder()
-      const actual = parser.fromPostRequest({
-        chainId: ChainId.MAINNET,
-        orderType: OrderType.Relay,
-        encodedOrder: relayOrder.serialize(),
-        signature: SIGNATURE,
-      }) as RelayOrder
-      expect(actual.orderType).toBe(OrderType.Relay)
-      expect(actual.inner).toEqual(relayOrder)
-      expect(actual.chainId).toEqual(ChainId.MAINNET)
-      expect(actual.signature).toEqual(SIGNATURE)
-    })
-
-    it('throws on an invalid Relay order', () => {
-      expect(() =>
-        parser.fromPostRequest({
-          chainId: ChainId.MAINNET,
-          orderType: OrderType.Relay,
-          encodedOrder: 'invalid relay order',
-          signature: SIGNATURE,
-        })
-      ).toThrow()
     })
   })
 })

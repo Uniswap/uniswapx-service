@@ -109,7 +109,6 @@ export default class FieldValidator {
     OrderType.Dutch_V2,
     OrderType.Dutch_V3,
     OrderType.Limit,
-    OrderType.Relay,
     OrderType.Priority,
     OrderType.Hybrid
   )
@@ -119,7 +118,6 @@ export default class FieldValidator {
     OrderType.Dutch_V2,
     OrderType.Dutch_V3,
     OrderType.Limit,
-    OrderType.Relay,
     'Dutch_V1_V2',
     OrderType.Priority,
     OrderType.Hybrid

@@ -4,7 +4,7 @@ import { UnexpectedOrderTypeError } from '../../../lib/errors/UnexpectedOrderTyp
 describe('UnexpectedErrorTypeError', () => {
   it('encodes the order type into the message', () => {
     expect(() => {
-      throw new UnexpectedOrderTypeError(OrderType.Relay)
-    }).toEqual('unexpected order type: Relay')
+      throw new UnexpectedOrderTypeError(OrderType.Priority)
+    }).toEqual('unexpected order type: Priority')
   })
 })
