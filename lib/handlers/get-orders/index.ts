@@ -38,7 +38,6 @@ const uniswapXOrderService = new UniswapXOrderService(
   AnalyticsService.create(),
   providerMap,
   undefined,
-  undefined,
   SINGLE_PAGE
 )
 

@@ -10,7 +10,6 @@ export const PostOrderRequestBodyJoi = Joi.object({
   quoteId: FieldValidator.isValidQuoteId(),
   requestId: FieldValidator.isValidQuoteId(),
   orderType: FieldValidator.isValidOrderType(),
-  hardQuote: FieldValidator.isValidHardQuote(),
 })
 
 export const PostOrderResponseJoi = Joi.object({
@@ -73,44 +72,6 @@ export type PriorityOrderPostRequestBody = {
   requestId?: string
 }
 
-export type HardQuoteInput = {
-  token: string
-  amount: string
-}
-
-export type HardQuoteOutput = {
-  token: string
-  amount: string
-  recipient: string
-}
-
-// Matches V3HardQuote from GAPI (V2 and V3 quotes get converted to this)
-export type HardQuote = {
-  quoteId: string
-  requestId: string
-  tokenInChainId: number
-  tokenOutChainId: number
-  tokenIn: string
-  input: HardQuoteInput
-  tokenOut: string
-  outputs: HardQuoteOutput[]
-  swapper: string
-  filler: string
-  orderHash: string
-  createdAt: number
-  createdAtMs: string
-}
-
-export type HybridOrderPostRequestBody = {
-  orderType: OrderType.Hybrid
-  chainId: number
-  encodedOrder: string
-  signature: string
-  quoteId?: string
-  requestId?: string
-  hardQuote?: HardQuote
-}
-
 export type PostOrderRequestBody =
   | LegacyDutchOrderPostRequestBody
   | DutchV1OrderPostRequestBody
@@ -118,7 +79,6 @@ export type PostOrderRequestBody =
   | DutchV3OrderPostRequestBody
   | LimitOrderPostRequestBody
   | PriorityOrderPostRequestBody
-  | HybridOrderPostRequestBody
 
 export type PostOrderResponse = {
   hash: string

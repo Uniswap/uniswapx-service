@@ -1,6 +1,5 @@
 import {
   OrderValidator as OnChainOrderValidator,
-  V4OrderValidator as OnChainV4OrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { log } from '../../Logging'
@@ -29,11 +28,6 @@ const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
   (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
 )
 
-const onChainV4ValidatorMap = new OnChainValidatorMap<OnChainV4OrderValidator>(
-  [],
-  (chainId) => new OnChainV4OrderValidator(providerMap.get(chainId), chainId)
-)
-
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 
 const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
@@ -56,8 +50,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   getMaxOpenOrders,
   AnalyticsService.create(),
   providerMap,
-  webhookProvider,
-  onChainV4ValidatorMap
+  webhookProvider
 )
 
 const postOrderHandler = new PostOrderHandler(

@@ -8,7 +8,6 @@ import {
   UniswapXOrderParser,
   CosignedV3DutchOrder,
   CosignedV3DutchOrder as SDKV3DutchOrder,
-  CosignedHybridOrder as SDKHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { DutchV1Order } from '../../models/DutchV1Order'
@@ -16,8 +15,7 @@ import { DutchV2Order } from '../../models/DutchV2Order'
 import { LimitOrder } from '../../models/LimitOrder'
 import { Order } from '../../models/Order'
 import { PriorityOrder } from '../../models/PriorityOrder'
-import { HybridOrder } from '../../models/HybridOrder'
-import { PostOrderRequestBody, HardQuote } from './schema'
+import { PostOrderRequestBody } from './schema'
 import { DutchV3Order } from '../../models/DutchV3Order'
 import { metrics } from '../../util/metrics'
 import { Unit } from 'aws-embedded-metrics'
@@ -42,8 +40,6 @@ export class PostOrderBodyParser {
         return this.tryParseDutchV3Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Priority:
         return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
-      case OrderType.Hybrid:
-        return this.tryParseHybridOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId, body.hardQuote)
       case undefined:
         // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
         // Try to parse both and see which hits.
@@ -141,28 +137,6 @@ export class PostOrderBodyParser {
       return new PriorityOrder(order, signature, chainId, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse Priority order', {
-        err,
-        encodedOrder,
-        chainId,
-        signature,
-      })
-      throw err
-    }
-  }
-
-  private tryParseHybridOrder(
-    encodedOrder: string,
-    signature: string,
-    chainId: number,
-    quoteId?: string,
-    requestId?: string,
-    hardQuote?: HardQuote
-  ): HybridOrder {
-    try {
-      const order = SDKHybridOrder.parse(encodedOrder, chainId)
-      return new HybridOrder(order, signature, chainId, undefined, undefined, quoteId, requestId, undefined, undefined, undefined, hardQuote)
-    } catch (err) {
-      this.logger.error('Unable to parse Hybrid order', {
         err,
         encodedOrder,
         chainId,

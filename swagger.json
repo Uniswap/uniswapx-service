@@ -9,7 +9,7 @@
   "info": {
     "version": "2.0.0",
     "title": "UniswapX",
-    "description": "REST API for retrieving signed UniswapX orders. Dutch (V1/V2/V3), Priority, and Hybrid orders are served by /orders; limit orders are served by /limit-orders. Order submission is handled by the Uniswap Trading API and is not part of this specification."
+    "description": "REST API for retrieving signed UniswapX orders. Dutch (V1/V2/V3) and Priority orders are served by /orders; limit orders are served by /limit-orders. Order submission is handled by the Uniswap Trading API and is not part of this specification."
   },
   "paths": {
     "/orders": {
@@ -360,7 +360,7 @@
       "OrderTypeQuery": {
         "type": "string",
         "description": "Order type accepted by the orderType query parameter. Dutch_V1_V2 returns both Dutch V1 and Dutch V2 orders.",
-        "enum": ["Dutch", "Dutch_V2", "Dutch_V3", "Limit", "Dutch_V1_V2", "Priority", "Hybrid"]
+        "enum": ["Dutch", "Dutch_V2", "Dutch_V3", "Limit", "Dutch_V1_V2", "Priority"]
       },
       "SortKey": {
         "type": "string",
@@ -917,125 +917,6 @@
         },
         "required": ["type", "encodedOrder", "signature", "orderHash", "orderStatus", "chainId", "swapper"]
       },
-      "HybridOrderEntity": {
-        "type": "object",
-        "description": "Hybrid orders: support Dutch auction (price curve) or priority fee scaling mechanics, mutually exclusively.",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["Hybrid"]
-          },
-          "encodedOrder": {
-            "$ref": "#/components/schemas/EncodedOrder"
-          },
-          "signature": {
-            "$ref": "#/components/schemas/Signature"
-          },
-          "nonce": {
-            "$ref": "#/components/schemas/Nonce"
-          },
-          "orderHash": {
-            "$ref": "#/components/schemas/OrderHash"
-          },
-          "orderStatus": {
-            "$ref": "#/components/schemas/OrderStatus"
-          },
-          "chainId": {
-            "$ref": "#/components/schemas/ChainId"
-          },
-          "swapper": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "auctionStartBlock": {
-            "type": "number"
-          },
-          "baselinePriorityFee": {
-            "$ref": "#/components/schemas/Amount"
-          },
-          "scalingFactor": {
-            "$ref": "#/components/schemas/Amount"
-          },
-          "priceCurve": {
-            "type": "array",
-            "description": "1e18-denominated multipliers; all elements are on the same side of 1e18. Empty for priority-style hybrid orders.",
-            "items": {
-              "$ref": "#/components/schemas/Amount"
-            }
-          },
-          "input": {
-            "type": "object",
-            "properties": {
-              "token": {
-                "$ref": "#/components/schemas/Address"
-              },
-              "maxAmount": {
-                "$ref": "#/components/schemas/Amount"
-              }
-            },
-            "required": ["token", "maxAmount"]
-          },
-          "outputs": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "token": {
-                  "$ref": "#/components/schemas/Address"
-                },
-                "minAmount": {
-                  "$ref": "#/components/schemas/Amount"
-                },
-                "recipient": {
-                  "$ref": "#/components/schemas/Address"
-                }
-              },
-              "required": ["token", "minAmount", "recipient"]
-            }
-          },
-          "cosigner": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "cosignerData": {
-            "type": "object",
-            "properties": {
-              "auctionTargetBlock": {
-                "type": "number"
-              },
-              "supplementalPriceCurve": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/Amount"
-                }
-              }
-            }
-          },
-          "cosignature": {
-            "type": "string"
-          },
-          "createdAt": {
-            "$ref": "#/components/schemas/CreatedAt"
-          },
-          "quoteId": {
-            "$ref": "#/components/schemas/QuoteId"
-          },
-          "requestId": {
-            "$ref": "#/components/schemas/RequestId"
-          },
-          "txHash": {
-            "$ref": "#/components/schemas/TxHash"
-          },
-          "settledAmounts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SettledAmount"
-            }
-          },
-          "route": {
-            "$ref": "#/components/schemas/Route"
-          }
-        },
-        "required": ["type", "encodedOrder", "signature", "orderHash", "orderStatus", "chainId", "swapper"]
-      },
       "GetOrdersResponse": {
         "type": "object",
         "properties": {
@@ -1054,9 +935,6 @@
                 },
                 {
                   "$ref": "#/components/schemas/PriorityOrderEntity"
-                },
-                {
-                  "$ref": "#/components/schemas/HybridOrderEntity"
                 }
               ]
             }

@@ -4,7 +4,6 @@ export enum GetOrderTypeQueryParamEnum {
   Dutch_V3 = 'Dutch_V3',
   Limit = 'Limit',
   Priority = 'Priority',
-  Hybrid = 'Hybrid',
 
   Dutch_V1_V2 = 'Dutch_V1_V2',
 }

@@ -627,8 +627,6 @@ export class LambdaStack extends cdk.NestedStack {
     //   - `check-order-status` is an SfnLambdaHandler invoked by Step Functions, not API Gateway;
     //     it has no HTTP status code and emits no `*Status5XX` metric. Failures there surface
     //     via the Lambda error metric and step function alarms.
-    //   - `hard-quote` is not a separate handler in this repo — `HardQuote` is a request body
-    //     variant parsed by PostOrderBodyParser and served through the post-order endpoint.
     const endpointsForFiveXxAlarms: { name: string; requestMetric: string; errorMetric: string }[] = [
       { name: 'PostOrder', requestMetric: 'PostOrderRequest', errorMetric: 'PostOrderStatus5XX' },
       { name: 'GetOrders', requestMetric: 'GetOrdersRequest', errorMetric: 'GetOrdersStatus5XX' },
