@@ -6,13 +6,11 @@ import { DUTCH_LIMIT } from '../../../util/order'
 import { GetDutchV2OrderResponse, GetDutchV2OrderResponseEntryJoi } from './GetDutchV2OrderResponse'
 import { GetPriorityOrderResponse, GetPriorityOrderResponseEntryJoi } from './GetPriorityOrderResponse'
 import { GetHybridOrderResponse, GetHybridOrderResponseEntryJoi } from './GetHybridOrderResponse'
-import { GetRelayOrderResponse } from './GetRelayOrderResponse'
 import { GetDutchV3OrderResponse, GetDutchV3OrderResponseEntryJoi } from './GetDutchV3OrderResponse'
 
 export type GetOrdersResponse<
   T extends
     | UniswapXOrderEntity
-    | GetRelayOrderResponse
     | GetDutchV2OrderResponse
     | GetDutchV3OrderResponse
     | GetPriorityOrderResponse

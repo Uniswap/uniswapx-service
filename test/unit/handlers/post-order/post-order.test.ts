@@ -4,17 +4,13 @@ import {
   OrderType,
   OrderValidation,
   OrderValidator,
-  RelayEventWatcher,
-  RelayOrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { FillEventLogger } from '../../../../lib/handlers/check-order-status/fill-event-logger'
 import { DEFAULT_MAX_OPEN_ORDERS, PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../../lib/handlers/constants'
-import { EventWatcherMap } from '../../../../lib/handlers/EventWatcherMap'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../../lib/handlers/post-order/injector'
@@ -26,7 +22,6 @@ import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { PriorityOrder } from '../../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
-import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
@@ -187,20 +182,6 @@ describe('Testing post order handler.', () => {
           logUnimindParameterUpdate: jest.fn(),
         },
         MOCK_PROVIDER_MAP
-      ),
-      new RelayOrderService(
-        {
-          validate: validatorMock,
-        } as any,
-        new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
-        mock<EventWatcherMap<RelayEventWatcher>>(),
-        {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        } as any,
-        mockLog,
-        getMaxOpenOrders,
-        mock<FillEventLogger>()
       ),
       mockLog
     ),
@@ -440,20 +421,6 @@ describe('Testing post order handler.', () => {
 
       const orderDispatcherWithOldTimestamp = new OrderDispatcher(
         uniswapXOrderServiceWithOldTimestamp,
-        new RelayOrderService(
-          {
-            validate: validatorMock,
-          } as any,
-          new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
-          mock<EventWatcherMap<RelayEventWatcher>>(),
-          {
-            putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-            countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-          } as any,
-          mockLog,
-          getMaxOpenOrders,
-          mock<FillEventLogger>()
-        ),
         mockLog
       )
 

@@ -73,13 +73,6 @@ export type PriorityOrderPostRequestBody = {
   requestId?: string
 }
 
-export type RelayOrderPostRequestBody = {
-  orderType: OrderType.Relay
-  chainId: number
-  encodedOrder: string
-  signature: string
-}
-
 export type HardQuoteInput = {
   token: string
   amount: string
@@ -124,7 +117,6 @@ export type PostOrderRequestBody =
   | DutchV2OrderPostRequestBody
   | DutchV3OrderPostRequestBody
   | LimitOrderPostRequestBody
-  | RelayOrderPostRequestBody
   | PriorityOrderPostRequestBody
   | HybridOrderPostRequestBody
 
