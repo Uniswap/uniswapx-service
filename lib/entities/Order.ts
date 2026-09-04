@@ -84,6 +84,8 @@ export type SharedXOrderEntity = {
   // TxHash field is defined when the order has been filled and there is a txHash associated with the fill.
   txHash?: string
   fillBlock?: number
+  // Timestamp (seconds) of the block that filled the order.
+  fillTimestamp?: number
   // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
   settledAmounts?: SettledAmount[]
   referencePrice?: string

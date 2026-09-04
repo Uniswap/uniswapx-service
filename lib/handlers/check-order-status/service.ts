@@ -89,6 +89,7 @@ export type ExtraUpdateInfo = {
   orderStatus: ORDER_STATUS
   txHash?: string
   fillBlock?: number
+  fillTimestamp?: number
   settledAmounts?: SettledAmount[]
   getFillLogAttempts?: number
 }
@@ -272,6 +273,7 @@ export class CheckOrderStatusService {
             orderStatus: ORDER_STATUS.FILLED,
             txHash: fillEvent.txHash,
             fillBlock: fillEvent.blockNumber,
+            fillTimestamp: block.timestamp,
             settledAmounts,
           }
         } catch (e) {
@@ -405,6 +407,7 @@ export class CheckOrderStatusUtils {
     quoteId: string
     txHash?: string
     fillBlock?: number
+    fillTimestamp?: number
     settledAmounts?: SettledAmount[]
     getFillLogAttempts?: number
     runIndex?: number
@@ -420,6 +423,7 @@ export class CheckOrderStatusUtils {
       orderStatus,
       txHash,
       fillBlock,
+      fillTimestamp,
       settledAmounts,
       getFillLogAttempts,
       validation,
@@ -436,7 +440,7 @@ export class CheckOrderStatusUtils {
         this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
       }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
-      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, fillBlock, settledAmounts)
+      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, fillBlock, settledAmounts, fillTimestamp)
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
@@ -471,6 +475,7 @@ export class CheckOrderStatusUtils {
       ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
       ...(fillBlock && { fillBlock }),
+      ...(fillTimestamp && { fillTimestamp }),
       ...(getFillLogAttempts && { getFillLogAttempts }),
       ...(deadline && { deadline }),
     }

@@ -19,6 +19,7 @@ type OrderUpdate = {
   status: ORDER_STATUS,
   txHash?: string,
   fillBlock?: number,
+  fillTimestamp?: number,
   settledAmounts?: SettledAmount[]
 }
 
@@ -328,6 +329,7 @@ async function processBlockRange(
                   status: ORDER_STATUS.FILLED,
                   txHash: orderFillInfo.txHash,
                   fillBlock: orderFillInfo.fillBlock,
+                  fillTimestamp: orderFillInfo.fillTimestamp,
                   settledAmounts: orderFillInfo.settledAmounts,
                 }
                 orderHashSet.delete(e.orderHash)
@@ -563,7 +565,8 @@ async function updateOrders(
       orderUpdate.status,
       orderUpdate.txHash,
       orderUpdate.fillBlock,
-      orderUpdate.settledAmounts
+      orderUpdate.settledAmounts,
+      orderUpdate.fillTimestamp
     )
   }
   
@@ -657,7 +660,7 @@ async function getOrderFillInfo(
   provider: ethers.providers.StaticJsonRpcProvider,
   fillEvent: FillInfo,
   order: UniswapXOrder
-): Promise<{ txHash: string; fillBlock: number; settledAmounts: SettledAmount[] }> {
+): Promise<{ txHash: string; fillBlock: number; fillTimestamp: number; settledAmounts: SettledAmount[] }> {
   const [tx, block] = await Promise.all([
     provider.getTransaction(fillEvent.txHash),
     provider.getBlock(fillEvent.blockNumber),
@@ -675,6 +678,7 @@ async function getOrderFillInfo(
   return {
     txHash: fillEvent.txHash,
     fillBlock: fillEvent.blockNumber,
+    fillTimestamp: block.timestamp,
     settledAmounts,
   }
 }

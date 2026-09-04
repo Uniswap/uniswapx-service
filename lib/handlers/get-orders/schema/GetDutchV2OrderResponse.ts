@@ -17,6 +17,8 @@ export type GetDutchV2OrderResponse = {
   reactor: string
 
   txHash: string | undefined
+  fillBlock: number | undefined
+  fillTimestamp: number | undefined
   deadline: number
   input: {
     token: string

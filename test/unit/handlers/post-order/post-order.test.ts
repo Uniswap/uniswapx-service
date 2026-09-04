@@ -259,6 +259,8 @@ describe('Testing post order handler.', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
         REQUEST_ID
       )
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
@@ -307,6 +309,8 @@ describe('Testing post order handler.', () => {
         SDKPriorityOrderFactory.buildPriorityOrder(),
         SIGNATURE,
         1,
+        undefined,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -368,6 +372,8 @@ describe('Testing post order handler.', () => {
         SDKPriorityOrderFactory.buildPriorityOrder(),
         SIGNATURE,
         ChainId.MAINNET,
+        undefined,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -464,6 +470,7 @@ describe('Testing post order handler.', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
         REQUEST_ID
       )
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
@@ -555,6 +562,7 @@ describe('Testing post order handler.', () => {
         SIGNATURE,
         ChainId.ARBITRUM_ONE,
         ORDER_STATUS.OPEN,
+        undefined,
         undefined,
         undefined,
         QUOTE_ID,

@@ -572,6 +572,14 @@
           "txHash": {
             "$ref": "#/components/schemas/TxHash"
           },
+          "fillBlock": {
+            "type": "number",
+            "description": "Block in which the order was filled. Defined once the fill has been recorded."
+          },
+          "fillTimestamp": {
+            "type": "number",
+            "description": "Unix timestamp (seconds) of the block in which the order was filled. Defined for fills recorded after this field was introduced; older fills only carry fillBlock."
+          },
           "settledAmounts": {
             "type": "array",
             "items": {
@@ -667,6 +675,14 @@
           },
           "txHash": {
             "$ref": "#/components/schemas/TxHash"
+          },
+          "fillBlock": {
+            "type": "number",
+            "description": "Block in which the order was filled. Defined once the fill has been recorded."
+          },
+          "fillTimestamp": {
+            "type": "number",
+            "description": "Unix timestamp (seconds) of the block in which the order was filled. Defined for fills recorded after this field was introduced; older fills only carry fillBlock."
           },
           "settledAmounts": {
             "type": "array",
@@ -783,10 +799,6 @@
           "cosignature": {
             "type": "string"
           },
-          "fillBlock": {
-            "type": "number",
-            "description": "Block in which the order was filled. Defined once the fill has been recorded."
-          },
           "createdAt": {
             "$ref": "#/components/schemas/CreatedAt"
           },
@@ -798,6 +810,14 @@
           },
           "txHash": {
             "$ref": "#/components/schemas/TxHash"
+          },
+          "fillBlock": {
+            "type": "number",
+            "description": "Block in which the order was filled. Defined once the fill has been recorded."
+          },
+          "fillTimestamp": {
+            "type": "number",
+            "description": "Unix timestamp (seconds) of the block in which the order was filled. Defined for fills recorded after this field was introduced; older fills only carry fillBlock."
           },
           "settledAmounts": {
             "type": "array",
@@ -904,6 +924,14 @@
           },
           "txHash": {
             "$ref": "#/components/schemas/TxHash"
+          },
+          "fillBlock": {
+            "type": "number",
+            "description": "Block in which the order was filled. Defined once the fill has been recorded."
+          },
+          "fillTimestamp": {
+            "type": "number",
+            "description": "Unix timestamp (seconds) of the block in which the order was filled. Defined for fills recorded after this field was introduced; older fills only carry fillBlock."
           },
           "settledAmounts": {
             "type": "array",

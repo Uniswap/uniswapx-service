@@ -28,6 +28,8 @@ describe('DutchV2 Model', () => {
       ChainId.MAINNET,
       ORDER_STATUS.OPEN,
       undefined,
+      42,
+      1_700_000_000,
       undefined,
       undefined,
       100
@@ -46,6 +48,8 @@ describe('DutchV2 Model', () => {
       ChainId.MAINNET,
       ORDER_STATUS.OPEN,
       undefined,
+      42,
+      1_700_000_000,
       undefined,
       undefined,
       100
@@ -79,5 +83,7 @@ describe('DutchV2 Model', () => {
       expect(o).toEqual(order.inner.info.cosignerData.outputOverrides[i].toString())
     })
     expect(order.createdAt).toEqual(100)
+    expect(response.fillBlock).toEqual(42)
+    expect(response.fillTimestamp).toEqual(1_700_000_000)
   })
 })
