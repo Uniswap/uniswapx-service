@@ -822,6 +822,25 @@ export class DashboardStack extends cdk.NestedStack {
             },
           },
           {
+            height: 6,
+            width: 12,
+            y: 68,
+            x: 12,
+            type: 'metric',
+            properties: {
+              metrics: [
+                ['Uniswap', 'GetNonceOnChainAdvance', 'Service', 'UniswapXService'],
+                ['.', 'GetNonceOnChainCheckFallback', '.', '.'],
+              ],
+              view: 'timeSeries',
+              stacked: false,
+              region,
+              title: 'GetNonce On-Chain Check (Advances/Fallbacks)',
+              period: 300,
+              stat: 'Sum',
+            },
+          },
+          {
             height: 1,
             width: 24,
             y: 25,
