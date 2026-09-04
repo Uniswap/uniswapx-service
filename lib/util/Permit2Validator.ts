@@ -65,7 +65,7 @@ export class Permit2Validator {
     // Check if order deadline has passed
     const currentTimestamp = Math.floor(Date.now() / 1000)
     if (currentTimestamp > order.info.deadline) {
-    return OrderValidation.Expired
+      return OrderValidation.Expired
     }
 
     return OrderValidation.OK
