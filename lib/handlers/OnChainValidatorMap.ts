@@ -1,7 +1,7 @@
-import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
+import { OrderValidator } from '@uniswap/uniswapx-sdk'
 import { ChainId } from '../util/chain'
 
-export class OnChainValidatorMap<T extends OrderValidator | RelayOrderValidator> {
+export class OnChainValidatorMap<T extends OrderValidator> {
   private chainIdToValidators: Map<ChainId, T> = new Map()
   private readonly factory?: (chainId: ChainId) => T
 

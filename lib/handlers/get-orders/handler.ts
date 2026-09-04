@@ -17,7 +17,6 @@ import { ContainerInjected, RequestInjected } from './injector'
 import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
-import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
 import {
   GetLimitOrdersQueryParamsJoi,
   GetOrdersQueryParams,
@@ -49,7 +48,6 @@ type GetOrdersBody = GetOrdersResponse<
   | UniswapXOrderEntity
   | GetDutchV2OrderResponse
   | GetDutchV3OrderResponse
-  | GetRelayOrderResponse
   | GetPriorityOrderResponse
   | undefined
 >
@@ -149,7 +147,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   }
 
   protected responseBodySchema(): Joi.Schema | null {
-    return Joi.alternatives(GetOrdersResponseJoi, GetRelayOrdersResponseJoi)
+    return GetOrdersResponseJoi
   }
 
   protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {

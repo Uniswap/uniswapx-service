@@ -1,21 +1,12 @@
-import {
-  OrderValidator as OnChainOrderValidator,
-  RelayOrderValidator as OnChainRelayOrderValidator,
-} from '@uniswap/uniswapx-sdk'
+import { OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { RelayOrderService } from '../../services/RelayOrderService'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
-import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
-import { FillEventLogger } from '../check-order-status/fill-event-logger'
-import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
-import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from '../post-order/handler'
 import { PostOrderBodyParser } from '../post-order/PostOrderBodyParser'
@@ -28,11 +19,6 @@ const providerMap = new LazyProviderMap()
 const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
   [],
   (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
-)
-
-const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>(
-  [],
-  (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId), chainId)
 )
 
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_YEAR_IN_SECONDS, {
@@ -55,22 +41,10 @@ const uniswapXOrderService = new UniswapXOrderService(
   providerMap
 )
 
-const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
-
-const relayOrderService = new RelayOrderService(
-  relayOrderValidator,
-  relayOrderValidatorMap,
-  EventWatcherMap.createRelayEventWatcherMap(),
-  RelayOrderRepository.create(new DynamoDB.DocumentClient()),
-  log,
-  () => 0, // set max open orders to 0 for relay orders posted to limit route, essentially disable this
-  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
-)
-
 const postLimitOrderHandler = new PostOrderHandler(
   'postLimitOrdersHandler',
   postLimitOrderInjectorPromise,
-  new OrderDispatcher(uniswapXOrderService, relayOrderService, log),
+  new OrderDispatcher(uniswapXOrderService, log),
   new PostOrderBodyParser(log)
 )
 

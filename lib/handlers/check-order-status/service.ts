@@ -10,7 +10,7 @@ import {
   UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
+import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -390,7 +390,7 @@ export class CheckOrderStatusUtils {
   constructor(
     private readonly serviceOrderType: OrderType,
     private readonly analyticsService: AnalyticsServiceInterface,
-    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity> | BaseOrdersRepository<RelayOrderEntity>,
+    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
     private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number
   ) {}
 

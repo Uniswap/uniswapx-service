@@ -72,20 +72,12 @@ export type PriorityOrderPostRequestBody = {
   requestId?: string
 }
 
-export type RelayOrderPostRequestBody = {
-  orderType: OrderType.Relay
-  chainId: number
-  encodedOrder: string
-  signature: string
-}
-
 export type PostOrderRequestBody =
   | LegacyDutchOrderPostRequestBody
   | DutchV1OrderPostRequestBody
   | DutchV2OrderPostRequestBody
   | DutchV3OrderPostRequestBody
   | LimitOrderPostRequestBody
-  | RelayOrderPostRequestBody
   | PriorityOrderPostRequestBody
 
 export type PostOrderResponse = {

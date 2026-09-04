@@ -6,7 +6,6 @@ import {
   isDutchV3OrderEntity,
   isPriorityOrderEntity,
   ORDER_STATUS,
-  RelayOrderEntity,
   SettledAmount,
   UniswapXOrderEntity,
 } from '../entities'
@@ -160,7 +159,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
 
   public logFillInfo(
     fill: FillInfo,
-    order: UniswapXOrderEntity | RelayOrderEntity,
+    order: UniswapXOrderEntity,
     quoteId: string | undefined,
     timestamp: number,
     gasCostInETH: string,

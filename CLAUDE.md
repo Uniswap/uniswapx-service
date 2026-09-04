@@ -33,7 +33,7 @@ cdk deploy GoudaServiceStack  # Deploy to AWS
 
 - `bin/` - CDK app entry and stack definitions
 - `lib/handlers/` - Lambda handlers (get-orders, post-order, check-status, etc.)
-- `lib/models/` - Order types (DutchV1/V2/V3, Priority, Relay, Limit)
+- `lib/models/` - Order types (DutchV1/V2/V3, Priority, Hybrid, Limit)
 - `lib/repositories/` - DynamoDB repositories
 - `lib/services/` - Business logic (OrderDispatcher, UniswapXOrderService)
 - `lib/util/` - Validators, helpers, constants

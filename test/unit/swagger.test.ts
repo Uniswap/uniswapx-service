@@ -7,7 +7,6 @@ import { GetDutchV2OrderResponseEntryJoi } from '../../lib/handlers/get-orders/s
 import { GetDutchV3OrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetDutchV3OrderResponse'
 import { OrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetOrdersResponse'
 import { GetPriorityOrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetPriorityOrderResponse'
-import { RelayOrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetRelayOrderResponse'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import FieldValidator from '../../lib/util/field-validator'
 
@@ -77,7 +76,6 @@ const ORDER_ENTITY_SCHEMAS: [string, Joi.ObjectSchema][] = [
   ['DutchV2OrderEntity', GetDutchV2OrderResponseEntryJoi],
   ['DutchV3OrderEntity', GetDutchV3OrderResponseEntryJoi],
   ['PriorityOrderEntity', GetPriorityOrderResponseEntryJoi],
-  ['RelayOrderEntity', RelayOrderResponseEntryJoi],
 ]
 
 describe('swagger.json stays in sync with the API', () => {

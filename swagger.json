@@ -9,7 +9,7 @@
   "info": {
     "version": "2.0.0",
     "title": "UniswapX",
-    "description": "REST API for retrieving signed UniswapX orders. Dutch (V1/V2/V3), Priority, and Relay orders are served by /orders; limit orders are served by /limit-orders. Order submission is handled by the Uniswap Trading API and is not part of this specification."
+    "description": "REST API for retrieving signed UniswapX orders. Dutch (V1/V2/V3) and Priority orders are served by /orders; limit orders are served by /limit-orders. Order submission is handled by the Uniswap Trading API and is not part of this specification."
   },
   "paths": {
     "/orders": {
@@ -360,7 +360,7 @@
       "OrderTypeQuery": {
         "type": "string",
         "description": "Order type accepted by the orderType query parameter. Dutch_V1_V2 returns both Dutch V1 and Dutch V2 orders.",
-        "enum": ["Dutch", "Dutch_V2", "Dutch_V3", "Limit", "Relay", "Dutch_V1_V2", "Priority"]
+        "enum": ["Dutch", "Dutch_V2", "Dutch_V3", "Limit", "Dutch_V1_V2", "Priority"]
       },
       "SortKey": {
         "type": "string",
@@ -917,81 +917,6 @@
         },
         "required": ["type", "encodedOrder", "signature", "orderHash", "orderStatus", "chainId", "swapper"]
       },
-      "RelayOrderEntity": {
-        "type": "object",
-        "description": "Relay orders: gasless transaction relays paid via a decaying relay fee.",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["Relay"]
-          },
-          "encodedOrder": {
-            "$ref": "#/components/schemas/EncodedOrder"
-          },
-          "signature": {
-            "$ref": "#/components/schemas/Signature"
-          },
-          "orderHash": {
-            "$ref": "#/components/schemas/OrderHash"
-          },
-          "orderStatus": {
-            "$ref": "#/components/schemas/OrderStatus"
-          },
-          "chainId": {
-            "$ref": "#/components/schemas/ChainId"
-          },
-          "swapper": {
-            "$ref": "#/components/schemas/Address"
-          },
-          "input": {
-            "type": "object",
-            "properties": {
-              "token": {
-                "$ref": "#/components/schemas/Address"
-              },
-              "amount": {
-                "$ref": "#/components/schemas/Amount"
-              },
-              "recipient": {
-                "$ref": "#/components/schemas/Address"
-              }
-            }
-          },
-          "relayFee": {
-            "type": "object",
-            "properties": {
-              "token": {
-                "$ref": "#/components/schemas/Address"
-              },
-              "startAmount": {
-                "$ref": "#/components/schemas/Amount"
-              },
-              "endAmount": {
-                "$ref": "#/components/schemas/Amount"
-              },
-              "startTime": {
-                "type": "number"
-              },
-              "endTime": {
-                "type": "number"
-              }
-            }
-          },
-          "createdAt": {
-            "$ref": "#/components/schemas/CreatedAt"
-          },
-          "txHash": {
-            "$ref": "#/components/schemas/TxHash"
-          },
-          "settledAmounts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SettledAmount"
-            }
-          }
-        },
-        "required": ["type", "encodedOrder", "signature", "orderHash", "orderStatus", "chainId", "swapper"]
-      },
       "GetOrdersResponse": {
         "type": "object",
         "properties": {
@@ -1010,9 +935,6 @@
                 },
                 {
                   "$ref": "#/components/schemas/PriorityOrderEntity"
-                },
-                {
-                  "$ref": "#/components/schemas/RelayOrderEntity"
                 }
               ]
             }
