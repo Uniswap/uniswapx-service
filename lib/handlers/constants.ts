@@ -1,4 +1,3 @@
-import { BigNumber } from 'ethers'
 import { ChainId } from '../util/chain'
 
 export const HIGH_MAX_OPEN_ORDERS_SWAPPERS: string[] = [
@@ -16,20 +15,9 @@ export const DEFAULT_MAX_OPEN_LIMIT_ORDERS = 100
 export const HIGH_MAX_OPEN_ORDERS = 200
 
 // OffChainUniswapXOrderValidator.validateReactorAddress rejects
-// priority/hybrid orders for chains not listed here before these buffers
+// priority orders for chains not listed here before these buffers
 // are consulted, so callers can safely treat a missing entry as unreachable.
 export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Partial<Record<ChainId, number>> = {
-  [ChainId.MAINNET]: 3,
-  [ChainId.UNICHAIN]: 4,
-  [ChainId.BASE]: 3,
-  [ChainId.OPTIMISM]: 3,
-  [ChainId.ARBITRUM_ONE]: 3,
-  [ChainId.POLYGON]: 3,
-  [ChainId.SEPOLIA]: 3,
-  [ChainId.UNICHAIN_SEPOLIA]: 4,
-}
-
-export const HYBRID_ORDER_TARGET_BLOCK_BUFFER: Partial<Record<ChainId, number>> = {
   [ChainId.MAINNET]: 3,
   [ChainId.UNICHAIN]: 4,
   [ChainId.BASE]: 3,
@@ -61,6 +49,3 @@ export const HEX_BASE = 16
 export const CHARS_PER_BYTE = 2
 export const UR_SELECTOR_BYTES = 4
 export const UR_BYTES_PER_ACTION = 2
-
-export const BASE_SCALING_FACTOR = BigNumber.from(10).pow(18)
-export const SCALING_FACTOR_MASK = BigNumber.from(1).shl(240).sub(1)

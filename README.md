@@ -16,7 +16,7 @@ filled, cancelled, expired — and most of the machinery here exists to keep tha
 1. **Posted.** `POST /dutch-auction/order` (or `/limit/order`) receives
    `{ encodedOrder, signature, chainId, orderType, ... }`. The body is schema-validated,
    decoded with `@uniswap/uniswapx-sdk`, checked offchain (deadlines, decay windows, cosigner)
-   and onchain, then written to DynamoDB. Priority and Hybrid orders are cosigned here with a
+   and onchain, then written to DynamoDB. Priority orders are cosigned here with a
    KMS secp256k1 key that never leaves AWS.
 2. **Tracked.** Persisting an order starts a Step Functions execution (`check-order-status`)
    that polls chain state until the order reaches a terminal status:
@@ -65,7 +65,7 @@ changing the other and `yarn test` names the exact divergence. See
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `bin/`              | CDK app: `api-stack` (API Gateway + WAF), `lambda-stack`, `dynamo-stack`, `step-function-stack` / `status-stack`, `cron-stack`, `reaper-stack` (ECS), `dashboard-stack`, `kms-stack` |
 | `lib/handlers/`     | Lambda entry points: `post-order`, `get-orders`, `get-limit-orders`, `get-nonce`, `get-unimind`, `check-order-status`, `order-notification`, `get-docs` |
-| `lib/models/`       | Order types: Dutch V1/V2/V3, Priority, Hybrid, Relay, Limit                                                                                 |
+| `lib/models/`       | Order types: Dutch V1/V2/V3, Priority, Relay, Limit                                                                                         |
 | `lib/services/`     | `OrderDispatcher` routes by order type into the order services                                                                              |
 | `lib/repositories/` | DynamoDB access, one repository per order family, plus index mappers                                                                        |
 | `lib/crons/`        | `unimind-algorithm` (parameter updates), `gs-reaper` (status hygiene)                                                                       |

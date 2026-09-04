@@ -5,7 +5,6 @@ import { ErrorCode } from '../../lib/handlers/base'
 import { GetLimitOrdersQueryParamsJoi, GetOrdersQueryParamsJoi } from '../../lib/handlers/get-orders/schema'
 import { GetDutchV2OrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { GetDutchV3OrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetDutchV3OrderResponse'
-import { GetHybridOrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetHybridOrderResponse'
 import { OrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetOrdersResponse'
 import { GetPriorityOrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetPriorityOrderResponse'
 import { RelayOrderResponseEntryJoi } from '../../lib/handlers/get-orders/schema/GetRelayOrderResponse'
@@ -78,7 +77,6 @@ const ORDER_ENTITY_SCHEMAS: [string, Joi.ObjectSchema][] = [
   ['DutchV2OrderEntity', GetDutchV2OrderResponseEntryJoi],
   ['DutchV3OrderEntity', GetDutchV3OrderResponseEntryJoi],
   ['PriorityOrderEntity', GetPriorityOrderResponseEntryJoi],
-  ['HybridOrderEntity', GetHybridOrderResponseEntryJoi],
   ['RelayOrderEntity', RelayOrderResponseEntryJoi],
 ]
 

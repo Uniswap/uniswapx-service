@@ -407,10 +407,10 @@ describe('checkOrderStatusService', () => {
       })
 
       it('falls back to the rolling window when the anchor is zero (absent-field default)', () => {
-        // Regression: a Hybrid order with auctionTargetBlock=0 must not anchor
+        // Regression: a Dutch V3 order with decayStartBlock=0 must not anchor
         // the search to block zero -- that turns the lookup into an unbounded
         // getLogs from genesis. Zero is an absent field's default, not a block.
-        const order: any = { type: OrderType.Hybrid, cosignerData: { auctionTargetBlock: 0 } }
+        const order: any = { type: OrderType.Dutch_V3, cosignerData: { decayStartBlock: 0 } }
         const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
         expect(fromBlock).toBe(5000 - OVERLAP)
       })

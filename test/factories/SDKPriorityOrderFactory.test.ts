@@ -1,6 +1,5 @@
 import { SDKDutchOrderV2Factory } from './SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from './SDKDutchOrderV3Factory'
-import { SDKHybridOrderFactory } from './SDKHybridOrderFactory'
 import { SDKPriorityOrderFactory } from './SDKPriorityOrderFactory'
 
 describe('SDKOrderFactories', () => {
@@ -12,8 +11,5 @@ describe('SDKOrderFactories', () => {
   })
   it('smoke test - builds a default Priority Order', () => {
     expect(SDKPriorityOrderFactory.buildPriorityOrder()).toBeDefined()
-  })
-  it('smoke test - builds a default Hybrid Order', () => {
-    expect(SDKHybridOrderFactory.buildHybridOrder()).toBeDefined()
   })
 })

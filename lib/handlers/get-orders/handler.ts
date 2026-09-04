@@ -17,7 +17,6 @@ import { ContainerInjected, RequestInjected } from './injector'
 import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
-import { GetHybridOrderResponse } from './schema/GetHybridOrderResponse'
 import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
 import {
   GetLimitOrdersQueryParamsJoi,
@@ -52,7 +51,6 @@ type GetOrdersBody = GetOrdersResponse<
   | GetDutchV3OrderResponse
   | GetRelayOrderResponse
   | GetPriorityOrderResponse
-  | GetHybridOrderResponse
   | undefined
 >
 

@@ -10,7 +10,6 @@ import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { DutchV1Order, DutchV2Order } from '../../../lib/models'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
-import { HybridOrder } from '../../../lib/models/HybridOrder'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { PriorityOrder } from '../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
@@ -23,7 +22,6 @@ import { DUTCH_LIMIT } from '../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
-import { SDKHybridOrderFactory } from '../../factories/SDKHybridOrderFactory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 import { COSIGNATURE, MOCK_PROVIDER_MAP } from '../fixtures'
@@ -376,7 +374,6 @@ describe('UniswapXOrderService', () => {
       },
       mock<AnalyticsService>(),
       MOCK_PROVIDER_MAP,
-      undefined,
       undefined,
       SINGLE_PAGE
     )
@@ -928,118 +925,6 @@ describe('UniswapXOrderService', () => {
       .withChainId(ChainId.ARBITRUM_ONE)
       .build()
     const response = await service.getDutchV3Orders(limit, params, undefined, undefined)
-
-    expect(response).toEqual({ orders: [], cursor: 'cursor' })
-    // initial query plus MAX_QUERY_RETRY follow-ups
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
-  })
-
-  test('getHybridOrders calls db with Hybrid', async () => {
-    const hybridOrders = [1, 2, 3].map(() => new HybridOrder(SDKHybridOrderFactory.buildHybridOrder(), '', 1))
-    const mockOrder = hybridOrders.map((o) => o.toEntity(ORDER_STATUS.OPEN))
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    repository.getOrdersFilteredByType.mockResolvedValue({ orders: mockOrder })
-
-    const service = new UniswapXOrderService(
-      mock<OffChainUniswapXOrderValidator>(),
-      mock<OnChainValidatorMap<OrderValidator>>(),
-      repository,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
-      mock<Logger>(),
-      () => {
-        return 10
-      },
-      mock<AnalyticsService>(),
-      MOCK_PROVIDER_MAP
-    )
-
-    const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getHybridOrders(limit, params, undefined)
-    const expectedResponse = {
-      orders: mockOrder.map((o) => HybridOrder.fromEntity(o, mock<Logger>()).toGetResponse()),
-      cursor: undefined,
-    }
-
-    expect(response.orders).toHaveLength(3)
-    expect(response).toEqual(expectedResponse)
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(1)
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      [OrderType.Hybrid],
-      undefined // cursor
-    )
-  })
-
-  test('getHybridOrders loops with empty response', async () => {
-    const hybridOrders = [1, 2, 3].map(() => new HybridOrder(SDKHybridOrderFactory.buildHybridOrder(), '', 1))
-    const mockOrder = hybridOrders.map((o) => o.toEntity(ORDER_STATUS.OPEN))
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    repository.getOrdersFilteredByType.mockResolvedValueOnce({ orders: [], cursor: 'cursor' })
-    repository.getOrdersFilteredByType.mockResolvedValueOnce({ orders: mockOrder })
-
-    const service = new UniswapXOrderService(
-      mock<OffChainUniswapXOrderValidator>(),
-      mock<OnChainValidatorMap<OrderValidator>>(),
-      repository,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
-      mock<Logger>(),
-      () => {
-        return 10
-      },
-      mock<AnalyticsService>(),
-      MOCK_PROVIDER_MAP
-    )
-
-    const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getHybridOrders(limit, params, undefined)
-    const expectedResponse = {
-      orders: mockOrder.map((o) => HybridOrder.fromEntity(o, mock<Logger>()).toGetResponse()),
-      cursor: undefined,
-    }
-
-    expect(response.orders).toHaveLength(3)
-    expect(response).toEqual(expectedResponse)
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(2)
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      [OrderType.Hybrid],
-      undefined // cursor
-    )
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      [OrderType.Hybrid],
-      'cursor'
-    )
-  })
-
-  test('getHybridOrders applies limit to loop retry', async () => {
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    repository.getOrdersFilteredByType.mockResolvedValue({ orders: [], cursor: 'cursor' })
-
-    const service = new UniswapXOrderService(
-      mock<OffChainUniswapXOrderValidator>(),
-      mock<OnChainValidatorMap<OrderValidator>>(),
-      repository,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
-      mock<Logger>(),
-      () => {
-        return 10
-      },
-      mock<AnalyticsService>(),
-      MOCK_PROVIDER_MAP
-    )
-
-    const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getHybridOrders(limit, params, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
     // initial query plus MAX_QUERY_RETRY follow-ups
