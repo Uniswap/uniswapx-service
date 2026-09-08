@@ -17,7 +17,6 @@ const filterKeys = {
   swapper: FieldValidator.isValidEthAddress(),
   orderStatus: FieldValidator.isValidOrderStatuses(),
   orderType: FieldValidator.isValidGetQueryParamOrderType(),
-  executeAddress: FieldValidator.isValidEthAddress(),
   pair: FieldValidator.isValidPair(),
 }
 
@@ -99,7 +98,6 @@ export type SharedGetOrdersQueryParams = {
   chainId?: number
   desc?: boolean
   orderType?: GetOrderTypeQueryParamEnum
-  executeAddress?: string
   pair?: string
 }
 export type RawGetOrdersQueryParams = SharedGetOrdersQueryParams & {
@@ -125,6 +123,5 @@ export enum GET_QUERY_PARAMS {
   CHAIN_ID = 'chainId',
   DESC = 'desc',
   ORDER_TYPE = 'orderType',
-  EXECUTE_ADDRESS = 'executeAddress',
   PAIR = 'pair',
 }

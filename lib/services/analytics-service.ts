@@ -11,54 +11,14 @@ import {
 } from '../entities'
 import { log } from '../Logging'
 import { ANALYTICS_EVENTS } from '../util/analytics-events'
-import { UnimindUpdateType } from '../util/constants'
 import { currentTimestampInSeconds } from '../util/time'
 
 export interface AnalyticsServiceInterface {
   logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType): void
   logCancelled(orderHash: string, orderType: OrderType, quoteId?: string): void
   logInsufficientFunds(orderHash: string, orderType: OrderType, quoteId?: string): void
-  logUnimindResponse(params: UnimindResponseParams): void
-  logUnimindParameterUpdate(params: UnimindParameterUpdateParams): void
 }
 
-// Parameters for Unimind response analytics
-export interface UnimindResponseParams {
-  pi: number
-  tau: number
-  batchNumber: number
-  algorithmVersion: number
-  quoteId: string
-  pair: string
-  swapper?: string
-  priceImpact: number
-  referencePrice: string
-  route?: any
-  amountIn?: string
-  amountOut?: string
-  chainId?: number
-  tradeType?: string
-  onUnimindTokenList?: boolean
-}
-
-// Parameters for Unimind parameter update analytics
-export interface UnimindParameterUpdateParams {
-  pair: string
-  updateType: UnimindUpdateType
-  previousIntrinsicValues?: string
-  newIntrinsicValues: string
-  orderCount: number
-  totalCount?: number
-  batchNumber: number
-  algorithmVersion: number
-  updateThreshold?: number
-  // Statistics from batch - only provided for THRESHOLD_REACHED updates (JSON stringified)
-  statistics?: string
-  // Batch metrics - only provided for THRESHOLD_REACHED updates
-  meanWaitTime?: number
-  medianWaitTime?: number
-  fillRate?: number
-}
 // used to log data used for analytics
 export class AnalyticsService implements AnalyticsServiceInterface {
   constructor(
@@ -83,11 +43,6 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       tokenIn: order.input?.token,
       tokenOut: order.outputs[0].token,
       orderType: orderType,
-      blockNumber: order?.blockNumber,
-      route: JSON.stringify(order?.route),
-      usedUnimind: order?.usedUnimind ?? false,
-      priceImpact: order?.priceImpact,
-      referencePrice: order?.referencePrice,
     }
 
     if (isPriorityOrderEntity(order)) {
@@ -195,33 +150,6 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         effectivePriorityFee: effectivePriorityFee,
         fillTimeBlocks: fillTimeBlocks,
         logTime: Math.floor(Date.now() / 1000).toString(),
-      },
-    })
-  }
-
-  public logUnimindResponse(params: UnimindResponseParams): void {
-    this.logger.info('Analytics Message', {
-      eventType: ANALYTICS_EVENTS.UNIMIND_RESPONSE,
-      body: {
-        createdAt: this.createdAtTimestampInSeconds(),
-        createdAtMs: Date.now().toString(),
-        ...params,
-        // Ensure route is stringified if it exists
-        route: params.route ? JSON.stringify(params.route) : undefined,
-        // Format the swapper address consistently with other analytics
-        swapper: this.getFillerAddress(params.swapper ?? AddressZero),
-        tradeType: params.tradeType,
-      },
-    })
-  }
-
-  public logUnimindParameterUpdate(params: UnimindParameterUpdateParams): void {
-    this.logger.info('Analytics Message', {
-      eventType: ANALYTICS_EVENTS.UNIMIND_PARAMETER_UPDATE,
-      body: {
-        createdAt: this.createdAtTimestampInSeconds(),
-        createdAtMs: Date.now().toString(),
-        ...params,
       },
     })
   }

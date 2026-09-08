@@ -2,7 +2,6 @@ import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
 import { ORDER_STATUS } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
-import { Route } from '../../../repositories/quote-metadata-repository'
 import { CommonOrderValidationFields } from './Common'
 
 export type GetDutchV2OrderResponse = {
@@ -49,7 +48,6 @@ export type GetDutchV2OrderResponse = {
   quoteId: string | undefined
   requestId: string | undefined
   createdAt: number | undefined
-  route: Route | undefined
 }
 
 export const CosignerDataJoi = Joi.object({

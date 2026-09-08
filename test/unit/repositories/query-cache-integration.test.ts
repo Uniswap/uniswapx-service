@@ -511,7 +511,7 @@ describe('GenericOrdersRepository query caching', () => {
     })
 
     it('does not cache when a repository is built without one, and still reads newest first', async () => {
-      // Background jobs (unimind cron, reaper) write orders and re-read them immediately,
+      // Background jobs (the reaper) write orders and re-read them immediately,
       // so they must never get a cached page.
       const repository = DutchOrdersRepository.create(mockDocumentClient)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())

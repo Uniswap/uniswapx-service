@@ -4,7 +4,6 @@ import * as aws_apigateway from 'aws-cdk-lib/aws-apigateway'
 import { MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
 import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions'
-import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 import * as aws_logs from 'aws-cdk-lib/aws-logs'
 import * as aws_sns from 'aws-cdk-lib/aws-sns'
 import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
@@ -67,8 +66,6 @@ export class APIStack extends cdk.Stack {
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
       checkStatusFunction,
-      getUnimindLambdaAlias,
-      getUnimindLambda,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       getOrdersReservedConcurrency,
@@ -387,7 +384,6 @@ export class APIStack extends cdk.Stack {
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
     const getDocsUILambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsUILambdaAlias, {})
-    const getUnimindLambdaIntegration = new aws_apigateway.LambdaIntegration(getUnimindLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -436,23 +432,11 @@ export class APIStack extends cdk.Stack {
     orders.addMethod('GET', getOrdersLambdaIntegration, {})
     nonce.addMethod('GET', getNonceLambdaIntegration, {})
 
-    const unimind = api.root.addResource('unimind', {
-      defaultCorsPreflightOptions: {
-        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
-        allowMethods: ['GET'],
-      },
-    })
-
-    unimind.addMethod('GET', getUnimindLambdaIntegration, {
-      apiKeyRequired: false, // TODO: Set to true once URA has integrated
-    })
-
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
       postOrderLambdaName: postOrderLambda.functionName,
       getNonceLambdaName: getNonceLambda.functionName,
       getOrdersLambdaName: getOrdersLambda.functionName,
-      getUnimindLambdaName: getUnimindLambda.functionName,
       chainIdToStatusTrackingStateMachineArn,
       orderStatusLambdaName: checkStatusFunction.functionName,
       getOrdersReservedConcurrency,
@@ -521,16 +505,6 @@ export class APIStack extends cdk.Stack {
       apiAlarmLatencySev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
       apiAlarmLatencySev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
     }
-
-    const dynamoPolicy = new PolicyStatement({
-      actions: ['dynamodb:PutItem', 'dynamodb:GetItem'],
-      resources: [
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/QuoteMetadata`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/UnimindParameters`,
-      ],
-    })
-
-    getUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)
 
     // Add API keys and usage plan
     const tradingAPIKey = new aws_apigateway.ApiKey(this, 'TradingAPIKey', {

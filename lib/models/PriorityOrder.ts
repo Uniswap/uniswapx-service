@@ -7,9 +7,6 @@ import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { AVERAGE_BLOCK_TIME } from '../handlers/check-order-status/util'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
-import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
-import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
-import { Logger } from '@aws-lambda-powertools/logger'
 import { ChainId } from '../util/chain'
 
 export class PriorityOrder extends Order {
@@ -29,8 +26,7 @@ export class PriorityOrder extends Order {
       amountOut: string
       tokenIn: string
       amountIn: string
-    }[],
-    readonly route?: Route
+    }[]
   ) {
     super()
   }
@@ -39,7 +35,7 @@ export class PriorityOrder extends Order {
     return OrderType.Priority
   }
 
-  public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): PriorityOrderEntity {
+  public toEntity(orderStatus: ORDER_STATUS): PriorityOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: PriorityOrderEntity = {
@@ -76,29 +72,12 @@ export class PriorityOrder extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      referencePrice: quoteMetadata?.referencePrice,
-      priceImpact: quoteMetadata?.priceImpact,
-      blockNumber: quoteMetadata?.blockNumber,
-      route: quoteMetadata?.route,
-      pair: quoteMetadata?.pair,
     }
 
     return order
   }
 
-  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): PriorityOrder {
-    const route = executeAddress && entity.route ? {
-      quote: entity.route.quote,
-      quoteGasAdjusted: entity.route.quoteGasAdjusted,
-      gasPriceWei: entity.route.gasPriceWei,
-      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
-      gasUseEstimate: entity.route.gasUseEstimate,
-      methodParameters : {
-        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
-        value: entity.route.methodParameters.value,
-        to: entity.route.methodParameters.to,
-      },
-    } : entity.route
+  public static fromEntity(entity: UniswapXOrderEntity): PriorityOrder {
     return new PriorityOrder(
       SDKPriorityOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
@@ -110,8 +89,7 @@ export class PriorityOrder extends Order {
       entity.quoteId,
       entity.requestId,
       entity.createdAt,
-      entity.settledAmounts,
-      route
+      entity.settledAmounts
     )
   }
 
@@ -177,7 +155,6 @@ export class PriorityOrder extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      route: this.route,
     }
   }
 }

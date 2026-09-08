@@ -10,7 +10,6 @@ import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
@@ -22,7 +21,6 @@ import { getOrdersQueryCache } from './query-cache'
 // throttles -- see shared/dynamo.ts.
 const repo = DutchOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
 const limitRepo = LimitOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
-const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(createReadPathDocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 const providerMap = new Map()
@@ -32,7 +30,6 @@ const uniswapXOrderService = new UniswapXOrderService(
   onChainValidatorMap,
   repo,
   limitRepo,
-  quoteMetadataRepository,
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),

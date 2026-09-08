@@ -4,8 +4,6 @@ export enum TABLE_NAMES {
   LimitOrders = 'LimitOrders',
   Orders = 'Orders',
   Nonces = 'Nonces',
-  QuoteMetadata = 'QuoteMetadata',
-  UnimindParameters = 'UnimindParameters',
 }
 
 export const getTableIndices = (tableName: TABLE_NAMES) => {

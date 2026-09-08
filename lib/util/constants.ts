@@ -1,6 +1,5 @@
 import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
 import { ChainId } from './chain'
-import { z } from 'zod'
 
 export const WEBHOOK_CONFIG_BUCKET = 'order-webhook-notification-config'
 export const PRODUCTION_WEBHOOK_CONFIG_KEY = 'production.json'
@@ -42,60 +41,6 @@ export const REAPER_RANGES_PER_RUN = 10
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
-export const UNIMIND_ALGORITHM_VERSION = 4
-
-export enum UnimindUpdateType {
-  NEW_PAIR = 'new_pair',
-  ALGORITHM_UPDATE = 'algorithm_update',
-  THRESHOLD_REACHED = 'threshold_reached',
-}
-export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
-  lambda1: 0,
-  lambda2: 5,
-  Sigma: -9.21034,
-})
-export const UNIMIND_UPDATE_THRESHOLD = 25
-export const UNIMIND_CIRCUIT_BREAKER_MAX_BATCH = 5 // Circuit breaker active for batches 0-5
-export const UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS = 4 // Order count to begin checking circuit breaker
-export const UNIMIND_CIRCUIT_BREAKER_FILL_RATE_THRESHOLD = 0.25 // Fill rate at or below this value triggers circuit breaker
-export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
-
-// Direct pi and tau to use for curve; Not intrinsicValues
-export const PUBLIC_STATIC_PARAMETERS = {
-  pi: 15,
-  tau: 15,
-  batchNumber: -1, // -1 indicates Unimind was not used to calculate these params
-  algorithmVersion: -1, // -1 indicates not using Unimind algorithm
-}
-export const UNIMIND_MAX_TAU_BPS = 25
-export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 1.25 // 1.25% price impact threshold
-
-// Sanity-check unimind constants at module load time so misconfigurations fail fast.
-const UnimindConstantsSchema = z.object({
-  updateThreshold: z.number().int().positive(),
-  circuitBreakerMaxBatch: z.number().int().nonnegative(),
-  circuitBreakerMinOrders: z.number().int().positive(),
-  circuitBreakerFillRateThreshold: z.number().min(0).max(1),
-  maxTauBps: z.number().positive(),
-  devSwapperAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-})
-
-UnimindConstantsSchema.parse({
-  updateThreshold: UNIMIND_UPDATE_THRESHOLD,
-  circuitBreakerMaxBatch: UNIMIND_CIRCUIT_BREAKER_MAX_BATCH,
-  circuitBreakerMinOrders: UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS,
-  circuitBreakerFillRateThreshold: UNIMIND_CIRCUIT_BREAKER_FILL_RATE_THRESHOLD,
-  maxTauBps: UNIMIND_MAX_TAU_BPS,
-  devSwapperAddress: UNIMIND_DEV_SWAPPER_ADDRESS,
-})
-
-// When pi = 0, AMM will be favored over Dutch Auction
-export const USE_CLASSIC_PARAMETERS = {
-  pi: 0,
-  tau: 0,
-  // batchNumber and algorithmVersion are added dynamically
-}
-
 // Bound RPC calls well below the post-order Lambda's 29s budget so a hung
 // provider fails the request before the order is accepted, instead of the
 // ethers default of 120s.
@@ -107,9 +52,4 @@ export const RPC_HEADERS: { [key: string]: string } = {
   // via the RPC_HEADER_SECRET env var (sourced from Secrets Manager); omitted
   // when unset (e.g. local dev / unit tests).
   ...(process.env.RPC_HEADER_SECRET ? { 'x-internal-service-secret': process.env.RPC_HEADER_SECRET } : {}),
-}
-
-export enum TradeType {
-  EXACT_INPUT = 'EXACT_INPUT',
-  EXACT_OUTPUT = 'EXACT_OUTPUT',
 }

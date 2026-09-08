@@ -34,7 +34,6 @@ filled, cancelled, expired — and most of the machinery here exists to keep tha
 | `POST /limit/order`        | fronted by the Trading API    | Submit a signed limit order        |
 | `GET /limit/orders`        | `GET /limit-orders`           | Limit order feed                   |
 | `GET /dutch-auction/nonce` | not exposed                   | Next Permit2 nonce for an address  |
-| `GET /unimind`             | not exposed                   | Unimind parameters (internal)      |
 | `GET /docs.json`, `/api-docs` | `GET /uniswapx/docs`       | OpenAPI spec and Swagger UI        |
 
 Query semantics worth knowing before you file a bug:
@@ -63,12 +62,12 @@ changing the other and `yarn test` names the exact divergence. See
 
 | Path                | Contents                                                                                                                                   |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `bin/`              | CDK app: `api-stack` (API Gateway + WAF), `lambda-stack`, `dynamo-stack`, `step-function-stack` / `status-stack`, `cron-stack`, `reaper-stack` (ECS), `dashboard-stack`, `kms-stack` |
-| `lib/handlers/`     | Lambda entry points: `post-order`, `get-orders`, `get-limit-orders`, `get-nonce`, `get-unimind`, `check-order-status`, `order-notification`, `get-docs` |
+| `bin/`              | CDK app: `api-stack` (API Gateway + WAF), `lambda-stack`, `dynamo-stack`, `step-function-stack` / `status-stack`, `reaper-stack` (ECS), `dashboard-stack`, `kms-stack`               |
+| `lib/handlers/`     | Lambda entry points: `post-order`, `get-orders`, `get-limit-orders`, `get-nonce`, `check-order-status`, `order-notification`, `get-docs`                |
 | `lib/models/`       | Order types: Dutch V1/V2/V3, Priority, Limit                                                                                                |
 | `lib/services/`     | `OrderDispatcher` routes by order type into the order services                                                                              |
 | `lib/repositories/` | DynamoDB access, one repository per order family, plus index mappers                                                                        |
-| `lib/crons/`        | `unimind-algorithm` (parameter updates), `gs-reaper` (status hygiene)                                                                       |
+| `lib/crons/`        | `gs-reaper` (status hygiene)                                                                                                                |
 
 ## Development
 

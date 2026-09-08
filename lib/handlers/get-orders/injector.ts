@@ -17,7 +17,6 @@ export interface RequestInjected extends ApiRInj {
   // Only ever set for GET /limit-orders; GET /orders rejects the parameter.
   cursor?: string
   orderType?: GetOrderTypeQueryParamEnum
-  executeAddress?: string
 }
 
 export interface ContainerInjected {

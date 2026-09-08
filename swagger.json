@@ -37,9 +37,6 @@
             "$ref": "#/components/parameters/fillerParam"
           },
           {
-            "$ref": "#/components/parameters/executeAddressParam"
-          },
-          {
             "$ref": "#/components/parameters/orderTypeParam"
           },
           {
@@ -127,9 +124,6 @@
           },
           {
             "$ref": "#/components/parameters/fillerParam"
-          },
-          {
-            "$ref": "#/components/parameters/executeAddressParam"
           },
           {
             "$ref": "#/components/parameters/orderTypeParam"
@@ -280,17 +274,6 @@
           "example": "0x50EC05ADe8280758E2077fcBC08D878D4aef79C3"
         }
       },
-      "executeAddressParam": {
-        "name": "executeAddress",
-        "in": "query",
-        "description": "Filter by execution address.",
-        "required": false,
-        "schema": {
-          "type": "string",
-          "pattern": "^(0x)?[0-9a-fA-F]{40}$",
-          "example": "0x50EC05ADe8280758E2077fcBC08D878D4aef79C3"
-        }
-      },
       "orderTypeParam": {
         "name": "orderType",
         "in": "query",
@@ -431,41 +414,6 @@
           },
           "amountIn": {
             "$ref": "#/components/schemas/Amount"
-          }
-        }
-      },
-      "Route": {
-        "type": "object",
-        "description": "Classic-route quote metadata associated with the order's quote.",
-        "properties": {
-          "quote": {
-            "$ref": "#/components/schemas/Amount"
-          },
-          "quoteGasAdjusted": {
-            "$ref": "#/components/schemas/Amount"
-          },
-          "gasPriceWei": {
-            "$ref": "#/components/schemas/Amount"
-          },
-          "gasUseEstimateQuote": {
-            "$ref": "#/components/schemas/Amount"
-          },
-          "gasUseEstimate": {
-            "$ref": "#/components/schemas/Amount"
-          },
-          "methodParameters": {
-            "type": "object",
-            "properties": {
-              "calldata": {
-                "type": "string"
-              },
-              "value": {
-                "type": "string"
-              },
-              "to": {
-                "$ref": "#/components/schemas/Address"
-              }
-            }
           }
         }
       },
@@ -689,9 +637,6 @@
             "items": {
               "$ref": "#/components/schemas/SettledAmount"
             }
-          },
-          "route": {
-            "$ref": "#/components/schemas/Route"
           }
         },
         "required": ["type", "encodedOrder", "signature", "orderHash", "orderStatus", "chainId", "swapper"]
@@ -824,9 +769,6 @@
             "items": {
               "$ref": "#/components/schemas/SettledAmount"
             }
-          },
-          "route": {
-            "$ref": "#/components/schemas/Route"
           }
         },
         "required": ["type", "encodedOrder", "signature", "orderHash", "orderStatus", "chainId", "swapper"]
@@ -938,9 +880,6 @@
             "items": {
               "$ref": "#/components/schemas/SettledAmount"
             }
-          },
-          "route": {
-            "$ref": "#/components/schemas/Route"
           }
         },
         "required": ["type", "encodedOrder", "signature", "orderHash", "orderStatus", "chainId", "swapper"]

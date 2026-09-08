@@ -1,5 +1,4 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { Route } from '../repositories/quote-metadata-repository'
 
 export enum ORDER_STATUS {
   OPEN = 'open',
@@ -88,12 +87,7 @@ export type SharedXOrderEntity = {
   fillTimestamp?: number
   // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
   settledAmounts?: SettledAmount[]
-  referencePrice?: string
-  priceImpact?: number
-  blockNumber?: number
-  route?: Route
   pair?: string
-  usedUnimind?: boolean
 }
 
 export type DutchV1OrderEntity = SharedXOrderEntity & {

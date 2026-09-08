@@ -40,7 +40,6 @@ import {
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
 import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
-import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { AVERAGE_BLOCK_TIME } from '../../../../lib/handlers/check-order-status/util'
 
 jest.mock('@aws-sdk/client-kms');
@@ -71,27 +70,6 @@ const MOCK_START_EXECUTION_INPUT = JSON.stringify({
   chainId: 1,
   orderStatus: ORDER_STATUS.OPEN,
 })
-const SAMPLE_QUOTE_METADATA = {
-  quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
-  referencePrice: '4221.21',
-  priceImpact: 0.01,
-  pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-  blockNumber: 123456,
-  route: {
-    quote: '1234',
-    quoteGasAdjusted: '5678',
-    gasPriceWei: '1234',
-    gasUseEstimateQuote: '2345',
-    gasUseEstimate: '3456',
-    methodParameters: {
-      calldata: '0xabcdef',
-      value: '1234',
-      to: '0abcdef',
-    },
-  },
-  usedUnimind: true
-}
-
 const mockSfnClient = mockClient(SFNClient)
 mockSfnClient
   .on(StartExecutionCommand, {
@@ -115,7 +93,6 @@ describe('Testing post order handler.', () => {
   const validatorMock = jest.fn()
   const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
-  const quoteMetadataRepositoryMock = mock<QuoteMetadataRepository>()
 
   const mockLog = mock<Logger>()
   const requestInjected = {
@@ -171,15 +148,12 @@ describe('Testing post order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
-        quoteMetadataRepositoryMock,
         mockLog,
         getMaxOpenOrders,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-          logUnimindResponse: jest.fn(),
-          logUnimindParameterUpdate: jest.fn(),
         },
         MOCK_PROVIDER_MAP
       ),
@@ -412,15 +386,12 @@ describe('Testing post order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
-        quoteMetadataRepositoryMock,
         mockLog,
         getMaxOpenOrders,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-          logUnimindResponse: jest.fn(),
-          logUnimindParameterUpdate: jest.fn(),
         },
         mockProviderMapWithOldTimestamp
       )
@@ -546,43 +517,6 @@ describe('Testing post order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
-    })
-
-    it('Attaches quote metadata to DutchV3 order when available', async () => {
-      validatorMock.mockReturnValue({ valid: true })
-      countOrdersByOffererAndStatusMock.mockResolvedValue(0)
-  
-      quoteMetadataRepositoryMock.getByQuoteId.mockResolvedValue(SAMPLE_QUOTE_METADATA)
-    
-      const QUOTE_ID = SAMPLE_QUOTE_METADATA.quoteId
-    
-      const sdkOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE)
-      const order = new DutchV3Order(
-        sdkOrder,
-        SIGNATURE,
-        ChainId.ARBITRUM_ONE,
-        ORDER_STATUS.OPEN,
-        undefined,
-        undefined,
-        undefined,
-        QUOTE_ID,
-        REQUEST_ID
-      )
-      
-      await postOrderHandler.handler(
-        PostOrderRequestFactory.request({
-          encodedOrder: order.inner.serialize(),
-          signature: SIGNATURE,
-          orderType: OrderType.Dutch_V3,
-          quoteId: QUOTE_ID,
-          chainId: ChainId.ARBITRUM_ONE,
-        }),
-        EVENT_CONTEXT
-      )
-    
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN, SAMPLE_QUOTE_METADATA)
-      expect(putOrderAndUpdateNonceTransactionMock).toHaveBeenCalledWith(expectedOrderEntity)
-      expect(quoteMetadataRepositoryMock.getByQuoteId).toHaveBeenCalledWith(QUOTE_ID)
     })
   })
 

@@ -29,23 +29,3 @@ export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Partial<Record<ChainId, number>
 }
 
 export const DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC = 20
-
-export const UR_EXECUTE_SELECTOR = '24856bc3'
-export const UR_EXECUTE_WITH_DEADLINE_SELECTOR = '3593564c'
-export const UR_EXECUTE_FUNCTION = 'execute'
-export const UR_FUNCTION_SIGNATURES: Record<string, string> = {
-  [UR_EXECUTE_SELECTOR]: 'function execute(bytes commands, bytes[] inputs)',
-  [UR_EXECUTE_WITH_DEADLINE_SELECTOR]: 'function execute(bytes commands, bytes[] inputs, uint256 deadline)',
-}
-export const UR_EXECUTE_DEADLINE_BUFFER = 60 // Seconds to extend calldata deadline
-export const UR_UNWRAP_WETH_PARAMETERS = ['address', 'uint256']
-export const UR_SWEEP_PARAMETERS = ['address', 'address', 'uint256']
-export const UR_ACTIONS_PARAMETERS = ['bytes', 'bytes[]']
-export const UR_TAKE_PARAMETERS = ['address', 'address', 'uint256']
-
-// Constants for hex string manipulation
-export const HEX_PREFIX = '0x'
-export const HEX_BASE = 16
-export const CHARS_PER_BYTE = 2
-export const UR_SELECTOR_BYTES = 4
-export const UR_BYTES_PER_ACTION = 2

@@ -5,7 +5,6 @@ import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { GetOrdersHandler, GET_LIMIT_ORDERS_HANDLER_OPTIONS } from '../get-orders/handler'
@@ -19,7 +18,6 @@ import { getLimitOrdersQueryCache } from './query-cache'
 // paths build them without it -- see query-cache.ts. Its DocumentClient fails fast on
 // throttles -- see shared/dynamo.ts.
 const repo = LimitOrdersRepository.create(createReadPathDocumentClient(), getLimitOrdersQueryCache)
-const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(createReadPathDocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 
@@ -28,7 +26,6 @@ const uniswapXOrderService = new UniswapXOrderService(
   onChainValidatorMap,
   repo,
   repo, //same as normal repo for limit orders
-  quoteMetadataRepository,
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),

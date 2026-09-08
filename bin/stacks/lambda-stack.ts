@@ -15,7 +15,6 @@ import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { logRetentionDays } from './log-retention'
 import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
-import { CronStack } from './cron-stack'
 import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { StepFunctionStack } from './step-function-stack'
 import { ReaperStack } from './reaper-stack'
@@ -57,9 +56,6 @@ export class LambdaStack extends cdk.NestedStack {
 
   public readonly chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
-
-  public readonly getUnimindLambda: aws_lambda_nodejs.NodejsFunction
-  public readonly getUnimindLambdaAlias: aws_lambda.Alias
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -348,22 +344,6 @@ export class LambdaStack extends cdk.NestedStack {
       logRetention: logRetentionDays(props.stage),
     })
 
-    this.getUnimindLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetUnimind${lambdaName}`, {
-      role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_20_X,
-      entry: path.join(__dirname, '../../lib/handlers/get-unimind/index.ts'),
-      handler: 'getUnimindHandler',
-      timeout: Duration.seconds(29),
-      memorySize: 512,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
-      environment: postOrderEnv,
-      tracing: aws_lambda.Tracing.ACTIVE,
-      logRetention: logRetentionDays(props.stage),
-    })
-
     if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
       new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
         destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
@@ -427,21 +407,6 @@ export class LambdaStack extends cdk.NestedStack {
       version: this.orderNotificationLambda.currentVersion,
       provisionedConcurrentExecutions: orderNotificationProvisionedConcurrency,
     })
-
-    this.getUnimindLambdaAlias = new aws_lambda.Alias(this, `GetUnimindLiveAlias`, {
-      aliasName: 'live',
-      version: this.getUnimindLambda.currentVersion,
-      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
-    })
-
-    // Subscription filters for UnimindResponse analytics events
-    if (props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN']) {
-      new cdk.aws_logs.CfnSubscriptionFilter(this, 'UnimindResponseSub', {
-        destinationArn: props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN'],
-        filterPattern: FILTER_PATTERNS.UNIMIND_RESPONSE,
-        logGroupName: this.getUnimindLambda.logGroup.logGroupName,
-      })
-    }
 
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
@@ -561,8 +526,6 @@ export class LambdaStack extends cdk.NestedStack {
         targetValue: 0.5,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
-
-      // TODO: Add unimind-related targets
     }
 
     let chatBotTopic: cdk.aws_sns.ITopic | undefined
@@ -632,7 +595,6 @@ export class LambdaStack extends cdk.NestedStack {
       { name: 'PostOrder', requestMetric: 'PostOrderRequest', errorMetric: 'PostOrderStatus5XX' },
       { name: 'GetOrders', requestMetric: 'GetOrdersRequest', errorMetric: 'GetOrdersStatus5XX' },
       { name: 'GetNonce', requestMetric: 'GetNonceRequest', errorMetric: 'GetNonceStatus5XX' },
-      { name: 'GetUnimind', requestMetric: 'GetUnimindRequest', errorMetric: 'GetUnimindStatus5XX' },
     ]
 
     for (const { name, requestMetric, errorMetric } of endpointsForFiveXxAlarms) {
@@ -730,13 +692,5 @@ export class LambdaStack extends cdk.NestedStack {
         sev3OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
       }
     }
-
-    /* cron stack */
-    new CronStack(this, `${SERVICE_NAME}CronStack`, {
-      lambdaRole,
-      stage: props.stage,
-      envVars: props.envVars,
-      chatbotSNSArn: props.chatbotSNSArn,
-    })
   }
 }

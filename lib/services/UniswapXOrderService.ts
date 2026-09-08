@@ -35,7 +35,6 @@ import { PriorityOrder } from '../models/PriorityOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { WebhookProvider } from '../providers/base'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
-import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
 import { hasExclusiveFiller } from '../util/address'
 import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
@@ -53,7 +52,6 @@ export class UniswapXOrderService {
     private readonly onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>,
     private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
     private readonly limitRepository: BaseOrdersRepository<UniswapXOrderEntity>,
-    private readonly quoteMetadataRepository: QuoteMetadataRepository,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
     private analyticsService: AnalyticsServiceInterface,
@@ -81,11 +79,8 @@ export class UniswapXOrderService {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
     } else if (order instanceof DutchV2Order || order instanceof DutchV3Order) {
-      const [quoteMetadata] = await Promise.all([
-        order.quoteId ? this.fetchQuoteMetadata(order.quoteId) : undefined,
-        this.validateOrder(order.inner, order.signature, order.chainId),
-      ])
-      orderEntity = order.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
+      await this.validateOrder(order.inner, order.signature, order.chainId)
+      orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else if (order instanceof PriorityOrder) {
       // following https://github.com/Uniswap/uniswapx-parameterization-api/pull/358
       // recreate KmsSigner every request
@@ -102,11 +97,8 @@ export class UniswapXOrderService {
         throw new OrderValidationFailedError('auctionStartBlock too low')
       }
       this.logger.info('cosigned priority order', { order: cosignedOrder })
-      const [quoteMetadata] = await Promise.all([
-        order.quoteId ? this.fetchQuoteMetadata(order.quoteId) : undefined,
-        this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId),
-      ])
-      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
+      await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
+      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN)
     } else {
       throw new Error('unsupported OrderType')
     }
@@ -322,7 +314,7 @@ export class UniswapXOrderService {
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
       if (order.type === OrderType.Dutch_V2) {
-        const dutchV2Order = DutchV2Order.fromEntity(order, this.logger)
+        const dutchV2Order = DutchV2Order.fromEntity(order)
         resultList.push(dutchV2Order.toGetResponse())
       } else {
         resultList.push(order)
@@ -334,15 +326,14 @@ export class UniswapXOrderService {
   public async getDutchV2Orders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined,
-    executeAddress: string | undefined
+    cursor: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V2], cursor)
 
     const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
-      const dutchV2Order = DutchV2Order.fromEntity(order, this.logger, executeAddress)
+      const dutchV2Order = DutchV2Order.fromEntity(order)
       dutchV2OrderResponses.push(dutchV2Order.toGetResponse())
     }
 
@@ -352,15 +343,14 @@ export class UniswapXOrderService {
   public async getDutchV3Orders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined,
-    executeAddress: string | undefined
+    cursor: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV3OrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V3], cursor)
 
     const dutchV3OrderResponses: GetDutchV3OrderResponse[] = []
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
-      const dutchV3Order = DutchV3Order.fromEntity(order, this.logger, executeAddress)
+      const dutchV3Order = DutchV3Order.fromEntity(order)
       dutchV3OrderResponses.push(dutchV3Order.toGetResponse())
     }
 
@@ -378,15 +368,14 @@ export class UniswapXOrderService {
   public async getPriorityOrders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined,
-    executeAddress: string | undefined
+    cursor: string | undefined
   ): Promise<GetOrdersResponse<GetPriorityOrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Priority], cursor)
 
     const priorityOrderResponses: GetPriorityOrderResponse[] = []
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
-      const priorityOrder = PriorityOrder.fromEntity(order, this.logger, executeAddress)
+      const priorityOrder = PriorityOrder.fromEntity(order)
       priorityOrderResponses.push(priorityOrder.toGetResponse())
     }
 
@@ -401,14 +390,6 @@ export class UniswapXOrderService {
     // TODO: DAT-313: Fix order type for Limit Orders
     const queryResults = await this.limitRepository.getOrdersFilteredByType(limit, params, [OrderType.Dutch], cursor)
     return queryResults
-  }
-
-  private async fetchQuoteMetadata(quoteId: string): Promise<QuoteMetadata | undefined> {
-    const quoteMetadata = await this.quoteMetadataRepository.getByQuoteId(quoteId)
-    if (!quoteMetadata) {
-      this.logger.warn({ quoteId, message: 'No quote metadata found for order' })
-    }
-    return quoteMetadata
   }
 
   private isExactInput(order: DutchOrder | CosignedV2DutchOrder): boolean {

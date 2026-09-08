@@ -205,12 +205,6 @@ export class APIPipeline extends Stack {
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_BETA')
-          .toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_BETA')
-          .toString(),
         CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret
           .secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_BETA')
           .toString(),
@@ -225,8 +219,6 @@ export class APIPipeline extends Stack {
         order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
       },
     })
 
@@ -256,12 +248,6 @@ export class APIPipeline extends Stack {
         RPC_HEADER_SECRET: rpcHeaderSecret,
         FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
         POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_PROD')
-          .toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_PROD')
-          .toString(),
         CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret
           .secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_PROD')
           .toString(),
@@ -407,8 +393,6 @@ envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
 envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
 envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
-envVars['UNIMIND_RESPONSE_DESTINATION_ARN'] = process.env['UNIMIND_RESPONSE_DESTINATION_ARN'] || ''
-envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] = process.env['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] || ''
 envVars['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] = process.env['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] || ''
 envVars['LABS_COSIGNER'] = process.env['LABS_COSIGNER'] || ''
 envVars['LABS_PRIORITY_COSIGNER'] = process.env['LABS_PRIORITY_COSIGNER'] || ''
@@ -425,8 +409,6 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
     order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   },
 })
 
