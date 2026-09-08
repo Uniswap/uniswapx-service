@@ -53,6 +53,24 @@ For tests:
 - `UNISWAP_API` - Deployed API URL (e2e tests)
 - `LABS_COSIGNER` - Valid EVM address (unit tests)
 
+## Analytics Feed (Data Eng)
+
+`bin/stacks/analytics-stack.ts` delivers two log-derived S3 feeds that Data Eng's `data-eng-workflows`
+(`lib/spaces/uniswap_x`) loads hourly into BigQuery `uniswap_x.posted_orders` / `archived_orders`:
+
+- `uniswapx-service-<stage>-analytics-posted-orders` — `body` of `AnalyticsService.logOrderPosted` lines
+  (`{ $.eventType = "OrderPosted" }` on the post-order and post-limit-order log groups).
+- `uniswapx-service-<stage>-analytics-fills` — `orderInfo` of `logFillInfo` / `logCancelled` lines
+  (`{ $.orderInfo.orderStatus = "filled" || "cancelled" }` on the check-order-status log group).
+
+Same-account subscription filters → Firehose (5 MB / 300 s, uncompressed, default `YYYY/MM/DD/HH/` prefix) →
+`lib/handlers/analytics-firehose-processor` (unwraps the CloudWatch envelope) → S3. Only prod is read; the
+loader is IAM user `bq-load-sa` (acct 867401673276), granted by bucket policy. The emitted record is the
+schema of record: adding a column means emitting it here and adding a field to the Data Eng load YAML.
+Renaming or removing a field breaks Dataform's `orders*` models. Do not override the S3 prefix or change the
+log-line shape (nested `body` / `orderInfo`) while the legacy cross-account filters to the parameterization
+API still exist; CloudWatch allows two filters per log group and both slots are in use until those are removed.
+
 ## Gotchas
 
 - `pair` on order entities (and the `pair-createdAt-all` GSI behind `GET /orders?pair=`) has had no writer since the Unimind quote-metadata path was removed in Sep 2026. Existing rows keep the attribute; new orders never set it.
