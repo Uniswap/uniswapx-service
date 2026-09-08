@@ -10,12 +10,13 @@ import * as aws_sns from 'aws-cdk-lib/aws-sns'
 import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
 import { Construct } from 'constructs'
 import { STAGE } from '../../lib/util/stage'
-import { logRetentionDays } from './log-retention'
 import { SERVICE_NAME } from '../constants'
+import { AnalyticsStack } from './analytics-stack'
 import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
+import { logRetentionDays } from './log-retention'
 
 export class APIStack extends cdk.Stack {
   public readonly url: CfnOutput
@@ -61,7 +62,7 @@ export class APIStack extends cdk.Stack {
       postOrderLambdaAlias,
       postOrderLambda,
       postLimitOrderLambdaAlias,
-      // postLimitOrderLambda, TODO: dashboard
+      postLimitOrderLambda,
       getLimitOrdersLambdaAlias,
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
@@ -78,6 +79,13 @@ export class APIStack extends cdk.Stack {
       tableCapacityConfig,
       indexCapacityConfig,
       chatbotSNSArn,
+    })
+
+    new AnalyticsStack(this, `${SERVICE_NAME}AnalyticsStack`, {
+      stage: stage as STAGE,
+      postOrderLambda,
+      postLimitOrderLambda,
+      checkStatusFunction,
     })
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`, {
