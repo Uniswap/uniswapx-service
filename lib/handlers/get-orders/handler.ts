@@ -72,7 +72,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
   ): Promise<Response<GetOrdersBody> | ErrorResponse> {
     const {
-      requestInjected: { limit, queryFilters, orderType, executeAddress },
+      requestInjected: { limit, queryFilters, orderType },
       containerInjected: { dbInterface },
     } = params
     // The single-page schema already rejects a cursor; this keeps the contract even if the
@@ -87,7 +87,6 @@ export class GetOrdersHandler extends APIGLambdaHandler<
           limit,
           params: queryFilters,
           cursor,
-          executeAddress,
         })
 
         return {

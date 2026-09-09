@@ -9,7 +9,7 @@ TypeScript API service for propagating signed UniswapX orders. Swappers post sig
 ```bash
 yarn && yarn build      # Install dependencies and compile
 yarn test               # Run unit tests
-yarn test:integ         # Run integration tests (requires Java)
+yarn test:integ --runInBand  # Integration tests (requires Java); suites share one DynamoDB Local and race in parallel, so serialize as CI's yarn coverage does
 yarn test:e2e           # Run end-to-end tests (requires deployed API)
 yarn lint               # ESLint check
 yarn fix                # Auto-fix lint and prettier issues
@@ -33,7 +33,7 @@ cdk deploy GoudaServiceStack  # Deploy to AWS
 
 - `bin/` - CDK app entry and stack definitions
 - `lib/handlers/` - Lambda handlers (get-orders, post-order, check-status, etc.)
-- `lib/models/` - Order types (DutchV1/V2/V3, Priority, Hybrid, Limit)
+- `lib/models/` - Order types (DutchV1/V2/V3, Priority, Limit)
 - `lib/repositories/` - DynamoDB repositories
 - `lib/services/` - Business logic (OrderDispatcher, UniswapXOrderService)
 - `lib/util/` - Validators, helpers, constants
@@ -52,6 +52,10 @@ Optional:
 For tests:
 - `UNISWAP_API` - Deployed API URL (e2e tests)
 - `LABS_COSIGNER` - Valid EVM address (unit tests)
+
+## Gotchas
+
+- `pair` on order entities (and the `pair-createdAt-all` GSI behind `GET /orders?pair=`) has had no writer since the Unimind quote-metadata path was removed in Sep 2026. Existing rows keep the attribute; new orders never set it.
 
 ## Auto-Update Instructions
 

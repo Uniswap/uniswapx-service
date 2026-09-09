@@ -2,9 +2,6 @@ import { CosignedV2DutchOrder as SDKV2DutchOrder, OrderType } from '@uniswap/uni
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { Order } from './Order'
-import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
-import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
-import { Logger } from '@aws-lambda-powertools/logger'
 
 export class DutchV2Order extends Order {
   constructor(
@@ -23,8 +20,7 @@ export class DutchV2Order extends Order {
       amountOut: string
       tokenIn: string
       amountIn: string
-    }[],
-    readonly route?: Route
+    }[]
   ) {
     super()
   }
@@ -33,7 +29,7 @@ export class DutchV2Order extends Order {
     return OrderType.Dutch_V2
   }
 
-  public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): UniswapXOrderEntity {
+  public toEntity(orderStatus: ORDER_STATUS): UniswapXOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: UniswapXOrderEntity = {
@@ -75,27 +71,11 @@ export class DutchV2Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      referencePrice: quoteMetadata?.referencePrice,
-      priceImpact: quoteMetadata?.priceImpact,
-      route: quoteMetadata?.route,
-      pair: quoteMetadata?.pair,
     }
 
     return order
   }
-  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): DutchV2Order {
-    const route = executeAddress && entity.route ? {
-      quote: entity.route.quote,
-      quoteGasAdjusted: entity.route.quoteGasAdjusted,
-      gasPriceWei: entity.route.gasPriceWei,
-      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
-      gasUseEstimate: entity.route.gasUseEstimate,
-      methodParameters : {
-        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
-        value: entity.route.methodParameters.value,
-        to: entity.route.methodParameters.to,
-      },
-    } : entity.route
+  public static fromEntity(entity: UniswapXOrderEntity): DutchV2Order {
     return new DutchV2Order(
       SDKV2DutchOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
@@ -107,8 +87,7 @@ export class DutchV2Order extends Order {
       entity.quoteId,
       entity.requestId,
       entity.createdAt,
-      entity.settledAmounts,
-      route
+      entity.settledAmounts
     )
   }
 
@@ -152,7 +131,6 @@ export class DutchV2Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      route: this.route,
     }
   }
 }

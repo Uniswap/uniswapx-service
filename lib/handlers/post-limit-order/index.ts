@@ -12,7 +12,6 @@ import { PostOrderHandler } from '../post-order/handler'
 import { PostOrderBodyParser } from '../post-order/PostOrderBodyParser'
 import { LazyProviderMap } from '../shared'
 import { getMaxLimitOpenOrders, PostLimitOrderInjector } from './injector'
-import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
 
 const providerMap = new LazyProviderMap()
 
@@ -25,7 +24,6 @@ const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTi
   SkipDecayStartTimeValidation: true,
 })
 const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
-const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
 
 const postLimitOrderInjectorPromise = new PostLimitOrderInjector('postLimitOrderInjector').build()
 
@@ -34,7 +32,6 @@ const uniswapXOrderService = new UniswapXOrderService(
   onChainValidatorMap,
   repo,
   repo, // same repo for limit orders
-  quoteMetadataRepository,
   log,
   getMaxLimitOpenOrders,
   AnalyticsService.create(),

@@ -22,7 +22,6 @@ import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
-import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 
 jest.mock('../../../../lib/handlers/shared/sfn', () => {
   return {
@@ -98,15 +97,12 @@ describe('Testing post limit order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-        mock<QuoteMetadataRepository>(),
         mockLog,
         getMaxLimitOpenOrders,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-          logUnimindResponse: jest.fn(),
-          logUnimindParameterUpdate: jest.fn(),
         },
         new Map()
       ),
