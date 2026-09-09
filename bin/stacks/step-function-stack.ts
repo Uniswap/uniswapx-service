@@ -10,6 +10,7 @@ import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { logRetentionDays } from './log-retention'
 import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
+import { AlarmNotifier } from './alerting'
 import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.json'
 
 export class StepFunctionStack extends cdk.NestedStack {
@@ -31,6 +32,7 @@ export class StepFunctionStack extends cdk.NestedStack {
   ) {
     super(parent, name, props)
     const { stage, chatbotSNSArn } = props
+    const notifier = new AlarmNotifier(this, { chatbotSNSArn })
 
     const stateMachineRole = new cdk.aws_iam.Role(this, `StepFunctionRole`, {
       assumedBy: new cdk.aws_iam.ServicePrincipal('states.amazonaws.com'),
@@ -202,13 +204,10 @@ export class StepFunctionStack extends cdk.NestedStack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       })
 
-      if (chatbotSNSArn) {
-        const chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, 'ChatbotTopic', chatbotSNSArn)
-        sev2ErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-        sev3ErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-        sev2ExpiredRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-        sev3ExpiredRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      }
+      // Slack only, deliberately. Several per-chain error-rate alarms sit in ALARM for long
+      // stretches (low-volume chains with a handful of failures read as a high rate), and wiring
+      // them to incident.io before the thresholds are tuned would page on every flap.
+      notifier.wire(sev2ErrorRate, sev3ErrorRate, sev2ExpiredRate, sev3ExpiredRate)
     }
   }
 }
