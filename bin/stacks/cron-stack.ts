@@ -7,7 +7,8 @@ import { Construct } from 'constructs'
 import path from 'path'
 
 import { SERVICE_NAME, UNIMIND_ALGORITHM_CRON_INTERVAL, FILTER_PATTERNS } from '../constants'
-import { STAGE, logRetentionDays } from '../../lib/util/stage'
+import { STAGE } from '../../lib/util/stage'
+import { logRetentionDays } from './log-retention'
 
 export interface CronStackProps extends cdk.NestedStackProps {
   lambdaRole: aws_iam.Role
