@@ -13,6 +13,7 @@ import { SERVICE_NAME } from '../constants'
 import { AnalyticsStack } from './analytics-stack'
 import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
+import { IamStack } from './iam-stack'
 import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
 import { logRetentionDays } from './log-retention'
@@ -67,6 +68,8 @@ export class APIStack extends cdk.Stack {
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
       checkStatusFunction,
+      ordersTable,
+      limitOrdersTable,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       getOrdersReservedConcurrency,
@@ -83,6 +86,12 @@ export class APIStack extends cdk.Stack {
       postOrderLambda,
       postLimitOrderLambda,
       checkStatusFunction,
+    })
+
+    new IamStack(this, `${SERVICE_NAME}IamStack`, {
+      stage: stage as STAGE,
+      ordersTable,
+      limitOrdersTable,
     })
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`, {
