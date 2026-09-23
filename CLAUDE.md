@@ -71,6 +71,23 @@ Renaming or removing a field breaks Dataform's `orders*` models. Do not override
 log-line shape (nested `body` / `orderInfo`) while the legacy cross-account filters to the parameterization
 API still exist; CloudWatch allows two filters per log group and both slots are in use until those are removed.
 
+## Cross-Account IAM Roles (backend monorepo, ECO-861)
+
+`bin/stacks/iam-stack.ts` creates two roles per stage that the UniswapX service being built in the
+`backend` monorepo assumes cross-account, scoped to `Orders` + `LimitOrders` only (never `Nonces`):
+
+- `uniswapx-shadow-read-<stage>` — Get/BatchGet/Query/DescribeTable on the tables and their indexes, plus
+  DescribeStream/GetRecords/GetShardIterator/ListStreams on their streams. Used first, by the shadow
+  comparator that diffs the new status tracker against the live tables.
+- `uniswapx-orders-write-<stage>` — Put/Update/Get/Query/ConditionCheckItem on the tables and indexes. No
+  Delete, no Scan, no batch writes. Stays unassumed until cutover; revoking it is the rollback.
+
+Trust is per stage: beta trusts backend dev (411170392337) + staging (413367642260), prod trusts backend prod
+(654200013602), each statement narrowed with `aws:PrincipalArn` to that account's ECS task role (`uniswapx-ecsTaskRole-*`,
+not the wider `uniswapx-*`, which would admit other roles and bypass the backend cutover flag). Local stacks
+do not create the nested stack at all (an empty nested stack fails to deploy). Role ARNs are stack outputs (`ShadowReadRoleArn`, `OrdersWriteRoleArn`). This is a
+transitional arrangement that goes away with the DynamoDB migration; do not widen it to other tables.
+
 ## Gotchas
 
 - `pair` on order entities (and the `pair-createdAt-all` GSI behind `GET /orders?pair=`) has had no writer since the Unimind quote-metadata path was removed in Sep 2026. Existing rows keep the attribute; new orders never set it.

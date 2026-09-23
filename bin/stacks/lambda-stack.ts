@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import { Alarm, ComparisonOperator, MathExpression, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
+import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import { CfnEIP, NatProvider, Vpc } from 'aws-cdk-lib/aws-ec2'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_kms from 'aws-cdk-lib/aws-kms'
@@ -56,6 +57,8 @@ export class LambdaStack extends cdk.NestedStack {
 
   public readonly chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
+  public readonly ordersTable: aws_dynamo.ITable
+  public readonly limitOrdersTable: aws_dynamo.ITable
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -120,6 +123,8 @@ export class LambdaStack extends cdk.NestedStack {
       tableCapacityConfig,
       indexCapacityConfig,
     })
+    this.ordersTable = databaseStack.ordersTable
+    this.limitOrdersTable = databaseStack.limitOrdersTable
 
     new ReaperStack(this, `${SERVICE_NAME}ReaperStack`, {
       environmentVariables: {
