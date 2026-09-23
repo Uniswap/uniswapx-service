@@ -16,15 +16,23 @@ export const BACKEND_ACCOUNTS: Record<STAGE, readonly string[]> = {
 }
 
 /**
- * The backend service's ECS task role is `<serviceShortName>-ecsTaskRole` with a Pulumi suffix,
- * i.e. `uniswapx-ecsTaskRole-<suffix>` (backend `buildEcsTaskRole`, shortName `uniswapx`). It does
- * not exist until the service's first deploy, so trust is pinned to the account plus this name
- * pattern rather than to an exact ARN. Deliberately not `uniswapx-*`: that would also admit every
- * other `uniswapx-`-prefixed role in the backend account (other services, deploy/CI roles), and
- * would let any of them assume the write role regardless of the backend side's cutover flag.
- * Tightening to the exact ARN after first deploy is a one-line change here.
+ * The backend roles allowed to assume the cross-account roles, by name pattern. Both are Pulumi-
+ * created with a random suffix and do not exist until the service's first deploy, so trust is
+ * pinned to the account plus these name patterns rather than to exact ARNs:
+ *
+ * - `uniswapx-ecsTaskRole-<suffix>`: the long-running service's ECS task role (backend
+ *   `buildEcsTaskRole`, shortName `uniswapx`). Used by the shadow comparator and, after cutover,
+ *   the status tracker.
+ * - `uniswapx-ecsTaskRunnerTaskRole-<suffix>`: the one-off standalone task runner's role (backend
+ *   `createTaskExecutionInfrastructure` → `buildTaskRunnerApplicationRoleWithRegistryPolicy`).
+ *   Used by the Orders/LimitOrders backfill task that copies the tables into the backend account.
+ *
+ * Deliberately not `uniswapx-*`: that would also admit every other `uniswapx-`-prefixed role in the
+ * backend account (other services, deploy/CI roles), and would let any of them assume the write
+ * role regardless of the backend side's cutover flag. Tightening to exact ARNs after first deploy
+ * is a one-line change here.
  */
-export const BACKEND_ROLE_NAME_PATTERN = 'uniswapx-ecsTaskRole-*'
+export const BACKEND_ROLE_NAME_PATTERNS = ['uniswapx-ecsTaskRole-*', 'uniswapx-ecsTaskRunnerTaskRole-*'] as const
 
 export type CrossAccountRoleKind = 'shadow-read' | 'orders-write'
 
@@ -123,12 +131,14 @@ export class IamStack extends cdk.NestedStack {
     accounts: readonly string[],
     statements: aws_iam.PolicyStatement[]
   ): aws_iam.Role {
-    // One trust statement per backend account, each narrowed to that account's own uniswapx-*
-    // task roles, so no statement is broader than the account it names.
+    // One trust statement per backend account, each narrowed to that account's own uniswapx task
+    // roles (a multi-valued ArnLike is an OR), so no statement is broader than the account it names.
     const assumedBy = new aws_iam.CompositePrincipal(
       ...accounts.map((account) =>
         new aws_iam.AccountPrincipal(account).withConditions({
-          ArnLike: { 'aws:PrincipalArn': `arn:aws:iam::${account}:role/${BACKEND_ROLE_NAME_PATTERN}` },
+          ArnLike: {
+            'aws:PrincipalArn': BACKEND_ROLE_NAME_PATTERNS.map((pattern) => `arn:aws:iam::${account}:role/${pattern}`),
+          },
         })
       )
     )

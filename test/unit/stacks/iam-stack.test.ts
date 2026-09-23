@@ -3,7 +3,7 @@ import { Match, Template } from 'aws-cdk-lib/assertions'
 import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import {
   BACKEND_ACCOUNTS,
-  BACKEND_ROLE_NAME_PATTERN,
+  BACKEND_ROLE_NAME_PATTERNS,
   crossAccountRoleName,
   IamStack,
   ORDERS_WRITE_ACTIONS,
@@ -44,6 +44,10 @@ function statementsOf(template: Template, logicalIdPattern: RegExp): Statement[]
   return matching[0][1].Properties.PolicyDocument.Statement as Statement[]
 }
 
+function expectedPrincipalArns(account: string): string[] {
+  return BACKEND_ROLE_NAME_PATTERNS.map((pattern) => `arn:aws:iam::${account}:role/${pattern}`)
+}
+
 function actionsOf(statements: Statement[]): string[] {
   return statements.flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action])).sort()
 }
@@ -70,7 +74,7 @@ describe('IamStack', () => {
       // Account root as principal, narrowed to the service's own task roles by name.
       expect(JSON.stringify(trust.Principal?.AWS)).toContain(':654200013602:root')
       expect(trust.Condition).toEqual({
-        ArnLike: { 'aws:PrincipalArn': `arn:aws:iam::654200013602:role/${BACKEND_ROLE_NAME_PATTERN}` },
+        ArnLike: { 'aws:PrincipalArn': expectedPrincipalArns('654200013602') },
       })
     }
   })
@@ -86,7 +90,7 @@ describe('IamStack', () => {
         const account = (principal.match(/:(\d{12}):root/) as RegExpMatchArray)[1]
         // The condition on each statement names only the account that statement trusts.
         expect(trust.Condition).toEqual({
-          ArnLike: { 'aws:PrincipalArn': `arn:aws:iam::${account}:role/${BACKEND_ROLE_NAME_PATTERN}` },
+          ArnLike: { 'aws:PrincipalArn': expectedPrincipalArns(account) },
         })
         return account
       })
@@ -131,13 +135,20 @@ describe('IamStack', () => {
     expect(JSON.stringify(prod.toJSON())).not.toMatch(/Nonce/)
   })
 
-  it('trusts only the ECS task role name, not every uniswapx-prefixed role in the account', () => {
+  it('trusts only the service task role and the standalone task-runner role, not every uniswapx-prefixed role', () => {
     // A bare service-prefix wildcard would also admit other services, deploy/CI roles, or anything
     // someone names with the prefix, and would bypass the backend side's cutover flag on the write role.
-    expect(BACKEND_ROLE_NAME_PATTERN).toEqual('uniswapx-ecsTaskRole-*')
+    // Two exact role families are admitted: the long-running service task and the one-off task runner
+    // (backend `createTaskExecutionInfrastructure`) that runs the Orders/LimitOrders backfill.
+    expect(BACKEND_ROLE_NAME_PATTERNS).toEqual(['uniswapx-ecsTaskRole-*', 'uniswapx-ecsTaskRunnerTaskRole-*'])
     for (const role of Object.values(prod.findResources('AWS::IAM::Role'))) {
       const [trust] = role.Properties.AssumeRolePolicyDocument.Statement as Statement[]
-      expect(trust.Condition?.ArnLike['aws:PrincipalArn']).toMatch(/:role\/uniswapx-ecsTaskRole-\*$/)
+      const arns = trust.Condition?.ArnLike['aws:PrincipalArn'] as string[]
+      expect(arns).toHaveLength(2)
+      for (const arn of arns) {
+        expect(arn).toMatch(/^arn:aws:iam::654200013602:role\/uniswapx-ecsTask(Runner)?(Task)?Role-\*$/)
+        expect(arn).not.toMatch(/role\/uniswapx-\*$/)
+      }
     }
   })
 
