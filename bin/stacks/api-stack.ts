@@ -13,7 +13,7 @@ import { SERVICE_NAME } from '../constants'
 import { AnalyticsStack } from './analytics-stack'
 import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
-import { IamStack } from './iam-stack'
+import { BACKEND_ACCOUNTS, IamStack } from './iam-stack'
 import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
 import { logRetentionDays } from './log-retention'
@@ -88,11 +88,14 @@ export class APIStack extends cdk.Stack {
       checkStatusFunction,
     })
 
-    new IamStack(this, `${SERVICE_NAME}IamStack`, {
-      stage: stage as STAGE,
-      ordersTable,
-      limitOrdersTable,
-    })
+    // Only where there is a backend account to trust: an empty nested stack fails to deploy.
+    if (BACKEND_ACCOUNTS[stage as STAGE].length > 0) {
+      new IamStack(this, `${SERVICE_NAME}IamStack`, {
+        stage: stage as STAGE,
+        ordersTable,
+        limitOrdersTable,
+      })
+    }
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`, {
       retention: logRetentionDays(stage as STAGE),

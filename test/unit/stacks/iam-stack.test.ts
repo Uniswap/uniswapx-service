@@ -59,7 +59,7 @@ describe('IamStack', () => {
     expect(crossAccountRoleName(STAGE.BETA, 'orders-write')).toEqual('uniswapx-orders-write-beta')
   })
 
-  it('lets only uniswapx-* roles in the stage-matched backend account assume either role', () => {
+  it('lets only the uniswapx ECS task role in the stage-matched backend account assume either role', () => {
     expect(BACKEND_ACCOUNTS[STAGE.PROD]).toEqual(['654200013602'])
     for (const role of Object.values(prod.findResources('AWS::IAM::Role'))) {
       const statements = role.Properties.AssumeRolePolicyDocument.Statement as Statement[]
@@ -75,7 +75,7 @@ describe('IamStack', () => {
     }
   })
 
-  it('beta trusts the backend dev and staging accounts, each pinned to its own uniswapx-* roles, never prod', () => {
+  it('beta trusts the backend dev and staging accounts, each pinned to its own task role pattern, never prod', () => {
     const beta = buildTemplate(STAGE.BETA)
     expect(BACKEND_ACCOUNTS[STAGE.BETA]).toEqual(['411170392337', '413367642260'])
     for (const role of Object.values(beta.findResources('AWS::IAM::Role'))) {
@@ -86,7 +86,7 @@ describe('IamStack', () => {
         const account = (principal.match(/:(\d{12}):root/) as RegExpMatchArray)[1]
         // The condition on each statement names only the account that statement trusts.
         expect(trust.Condition).toEqual({
-          ArnLike: { 'aws:PrincipalArn': `arn:aws:iam::${account}:role/uniswapx-*` },
+          ArnLike: { 'aws:PrincipalArn': `arn:aws:iam::${account}:role/${BACKEND_ROLE_NAME_PATTERN}` },
         })
         return account
       })
@@ -131,11 +131,19 @@ describe('IamStack', () => {
     expect(JSON.stringify(prod.toJSON())).not.toMatch(/Nonce/)
   })
 
-  it('creates nothing for local stacks', () => {
-    const local = buildTemplate(STAGE.LOCAL)
-    local.resourceCountIs('AWS::IAM::Role', 0)
-    local.resourceCountIs('AWS::IAM::Policy', 0)
+  it('trusts only the ECS task role name, not every uniswapx-prefixed role in the account', () => {
+    // A bare service-prefix wildcard would also admit other services, deploy/CI roles, or anything
+    // someone names with the prefix, and would bypass the backend side's cutover flag on the write role.
+    expect(BACKEND_ROLE_NAME_PATTERN).toEqual('uniswapx-ecsTaskRole-*')
+    for (const role of Object.values(prod.findResources('AWS::IAM::Role'))) {
+      const [trust] = role.Properties.AssumeRolePolicyDocument.Statement as Statement[]
+      expect(trust.Condition?.ArnLike['aws:PrincipalArn']).toMatch(/:role\/uniswapx-ecsTaskRole-\*$/)
+    }
+  })
+
+  it('refuses to be created for a stage with no backend accounts (an empty nested stack fails to deploy)', () => {
     expect(BACKEND_ACCOUNTS[STAGE.LOCAL]).toEqual([])
+    expect(() => buildTemplate(STAGE.LOCAL)).toThrow(/no backend accounts to trust/)
   })
 
   it('exports the role ARNs so the backend side can pin them', () => {

@@ -16,11 +16,15 @@ export const BACKEND_ACCOUNTS: Record<STAGE, readonly string[]> = {
 }
 
 /**
- * The backend service's ECS task roles are named `uniswapx-*`. They do not exist until the
- * service's first deploy, so trust is pinned to the account plus this name pattern rather than
- * to exact role ARNs. Tightening to exact ARNs after first deploy is a one-line change here.
+ * The backend service's ECS task role is `<serviceShortName>-ecsTaskRole` with a Pulumi suffix,
+ * i.e. `uniswapx-ecsTaskRole-<suffix>` (backend `buildEcsTaskRole`, shortName `uniswapx`). It does
+ * not exist until the service's first deploy, so trust is pinned to the account plus this name
+ * pattern rather than to an exact ARN. Deliberately not `uniswapx-*`: that would also admit every
+ * other `uniswapx-`-prefixed role in the backend account (other services, deploy/CI roles), and
+ * would let any of them assume the write role regardless of the backend side's cutover flag.
+ * Tightening to the exact ARN after first deploy is a one-line change here.
  */
-export const BACKEND_ROLE_NAME_PATTERN = 'uniswapx-*'
+export const BACKEND_ROLE_NAME_PATTERN = 'uniswapx-ecsTaskRole-*'
 
 export type CrossAccountRoleKind = 'shadow-read' | 'orders-write'
 
@@ -64,7 +68,8 @@ export interface IamStackProps extends cdk.NestedStackProps {
 
 /**
  * Cross-account IAM roles for the UniswapX service being built in the backend monorepo
- * (ECO-861). Two roles, scoped to Orders + LimitOrders only:
+ * (ECO-861). Created for beta and prod only (see BACKEND_ACCOUNTS). Two roles, scoped to
+ * Orders + LimitOrders only:
  *
  * - `uniswapx-shadow-read-<stage>`: read tables, indexes and streams (shadow comparison phase)
  * - `uniswapx-orders-write-<stage>`: conditional writes + the reads needed to make them (cutover)
@@ -74,8 +79,8 @@ export interface IamStackProps extends cdk.NestedStackProps {
  * Nonces or any other table.
  */
 export class IamStack extends cdk.NestedStack {
-  public readonly shadowReadRole?: aws_iam.Role
-  public readonly ordersWriteRole?: aws_iam.Role
+  public readonly shadowReadRole: aws_iam.Role
+  public readonly ordersWriteRole: aws_iam.Role
 
   constructor(scope: Construct, name: string, props: IamStackProps) {
     super(scope, name, props)
@@ -83,8 +88,10 @@ export class IamStack extends cdk.NestedStack {
 
     const accounts = BACKEND_ACCOUNTS[stage]
     if (accounts.length === 0) {
-      // Local stacks have no backend counterpart to trust.
-      return
+      // A nested stack with no resources is rejected by CloudFormation at deploy time (synth
+      // only validates top-level templates), so the caller must not create this stack for a
+      // stage with nothing to trust. APIStack gates on BACKEND_ACCOUNTS before constructing it.
+      throw new Error(`IamStack: stage '${stage}' has no backend accounts to trust; do not create it`)
     }
 
     const tables = [ordersTable, limitOrdersTable]

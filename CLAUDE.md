@@ -83,8 +83,9 @@ API still exist; CloudWatch allows two filters per log group and both slots are 
   Delete, no Scan, no batch writes. Stays unassumed until cutover; revoking it is the rollback.
 
 Trust is per stage: beta trusts backend dev (411170392337) + staging (413367642260), prod trusts backend prod
-(654200013602), each statement narrowed with `aws:PrincipalArn` to that account's `uniswapx-*` roles. Local
-stacks create nothing. Role ARNs are stack outputs (`ShadowReadRoleArn`, `OrdersWriteRoleArn`). This is a
+(654200013602), each statement narrowed with `aws:PrincipalArn` to that account's ECS task role (`uniswapx-ecsTaskRole-*`,
+not the wider `uniswapx-*`, which would admit other roles and bypass the backend cutover flag). Local stacks
+do not create the nested stack at all (an empty nested stack fails to deploy). Role ARNs are stack outputs (`ShadowReadRoleArn`, `OrdersWriteRoleArn`). This is a
 transitional arrangement that goes away with the DynamoDB migration; do not widen it to other tables.
 
 ## Gotchas
