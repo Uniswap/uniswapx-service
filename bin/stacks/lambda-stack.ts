@@ -15,7 +15,7 @@ import * as path from 'path'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { logRetentionDays } from './log-retention'
-import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
+import { SERVICE_NAME } from '../constants'
 import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
 import { StepFunctionStack } from './step-function-stack'
 import { ReaperStack } from './reaper-stack'
@@ -348,20 +348,6 @@ export class LambdaStack extends cdk.NestedStack {
       },
       logRetention: logRetentionDays(props.stage),
     })
-
-    if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
-      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
-        destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
-        filterPattern: FILTER_PATTERNS.ORDER_POSTED,
-        logGroupName: this.postOrderLambda.logGroup.logGroupName,
-      })
-
-      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedLimitOrderSub', {
-        destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
-        filterPattern: FILTER_PATTERNS.ORDER_POSTED,
-        logGroupName: this.postLimitOrderLambda.logGroup.logGroupName,
-      })
-    }
 
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 

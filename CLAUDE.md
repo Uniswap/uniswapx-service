@@ -67,9 +67,10 @@ Same-account subscription filters → Firehose (5 MB / 300 s, uncompressed, defa
 `lib/handlers/analytics-firehose-processor` (unwraps the CloudWatch envelope) → S3. Only prod is read; the
 loader is IAM user `bq-load-sa` (acct 867401673276), granted by bucket policy. The emitted record is the
 schema of record: adding a column means emitting it here and adding a field to the Data Eng load YAML.
-Renaming or removing a field breaks Dataform's `orders*` models. Do not override the S3 prefix or change the
-log-line shape (nested `body` / `orderInfo`) while the legacy cross-account filters to the parameterization
-API still exist; CloudWatch allows two filters per log group and both slots are in use until those are removed.
+Renaming or removing a field breaks Dataform's `orders*` models. Do not override the S3 prefix: the loader lists
+objects by hour under it. This is the only subscription filter on each of the three log groups; the
+parameterization API no longer receives these logs, so the nested `body` / `orderInfo` shape is now constrained
+only by the processor and the Data Eng schema.
 
 ## Cross-Account IAM Roles (backend monorepo, ECO-861)
 
