@@ -92,6 +92,24 @@ export class DutchV2Order extends Order {
   }
 
   public toGetResponse(): GetDutchV2OrderResponse {
+    const { input, outputs, cosignerData } = this.inner.info
+    // Mirrors V2DutchOrderReactor._updateWithCosignerAmounts: a non-zero override replaces
+    // startAmount. endAmount is not overridable.
+    const effectiveInput = {
+      token: input.token,
+      startAmount: (cosignerData.inputOverride.isZero() ? input.startAmount : cosignerData.inputOverride).toString(),
+      endAmount: input.endAmount.toString(),
+    }
+    const effectiveOutputs = outputs.map((o, i) => {
+      const override = cosignerData.outputOverrides[i]
+      return {
+        token: o.token,
+        startAmount: (override && !override.isZero() ? override : o.startAmount).toString(),
+        endAmount: o.endAmount.toString(),
+        recipient: o.recipient,
+      }
+    })
+
     return {
       type: OrderType.Dutch_V2,
       orderStatus: this.orderStatus as ORDER_STATUS,
@@ -119,6 +137,8 @@ export class DutchV2Order extends Order {
           recipient: o.recipient,
         }
       }),
+      effectiveInput,
+      effectiveOutputs,
       settledAmounts: this.settledAmounts,
       cosignerData: {
         decayStartTime: this.inner.info.cosignerData.decayStartTime,
