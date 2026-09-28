@@ -171,7 +171,11 @@ export class OffChainUniswapXOrderValidator {
       if (!outputsValidation.valid) {
         return outputsValidation
       }
-    } else if (orderType == OrderType.Dutch && (order instanceof DutchOrder || order instanceof CosignedV2DutchOrder)) {
+    } else if (
+      // Dutch_V2 shares V1's DutchInput/DutchOutput shape.
+      (orderType == OrderType.Dutch || orderType == OrderType.Dutch_V2) &&
+      (order instanceof DutchOrder || order instanceof CosignedV2DutchOrder)
+    ) {
       const input = order.info.input as DutchInput
       const inputStartAmountValidation = this.validateInputAmount(input.startAmount)
       if (!inputStartAmountValidation.valid) {
@@ -180,12 +184,22 @@ export class OffChainUniswapXOrderValidator {
 
       const inputEndAmountValidation = this.validateInputAmount(input.endAmount)
       if (!inputEndAmountValidation.valid) {
-        return inputStartAmountValidation
+        return inputEndAmountValidation
       }
 
       const outputsValidation = this.validateDutchOutputs(order.info.outputs as DutchOutput[])
       if (!outputsValidation.valid) {
         return outputsValidation
+      }
+
+      if (order instanceof CosignedV2DutchOrder) {
+        const outputOverridesValidation = this.validateV2OutputOverrides(
+          order.info.outputs as DutchOutput[],
+          order.info.cosignerData.outputOverrides
+        )
+        if (!outputOverridesValidation.valid) {
+          return outputOverridesValidation
+        }
       }
     }
 
@@ -408,6 +422,12 @@ export class OffChainUniswapXOrderValidator {
         errorString: `Invalid number of outputs: 0`,
       }
     }
+    if (outputOverrides.length != outputs.length) {
+      return {
+        valid: false,
+        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${outputs.length}`,
+      }
+    }
     for (let i = 0; i < outputs.length; i++) {
       const output = outputs[i]
       const { token, recipient, startAmount, curve, minAmount } = output
@@ -525,6 +545,30 @@ export class OffChainUniswapXOrderValidator {
       return {
         valid: false,
         errorString: `Invalid orderHash: ${error}`,
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  /**
+   * Mirrors V2DutchOrderReactor._updateWithCosignerAmounts, which reverts with
+   * InvalidCosignerOutput on a length mismatch or a non-zero override below startAmount.
+   */
+  private validateV2OutputOverrides(outputs: DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
+    if (outputOverrides.length != outputs.length) {
+      return {
+        valid: false,
+        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${outputs.length}`,
+      }
+    }
+    for (let i = 0; i < outputs.length; i++) {
+      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(outputs[i].startAmount)) {
+        return {
+          valid: false,
+          errorString: `Invalid outputOverride < startAmount`,
+        }
       }
     }
     return {
