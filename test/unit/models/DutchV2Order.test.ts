@@ -1,10 +1,12 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { BigNumber } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { GetDutchV2OrderResponse } from '../../../lib/handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { DutchV2Order } from '../../../lib/models'
 import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { MOCK_SIGNATURE } from '../../test-data'
+import { Tokens } from '../fixtures'
 
 describe('DutchV2 Model', () => {
   test('toEntity', () => {
@@ -82,5 +84,60 @@ describe('DutchV2 Model', () => {
     expect(order.createdAt).toEqual(100)
     expect(response.fillBlock).toEqual(42)
     expect(response.fillTimestamp).toEqual(1_700_000_000)
+  })
+
+  describe('toGetResponse effective amounts', () => {
+    // Overrides replace the signed startAmount only when non-zero.
+    const order = () =>
+      new DutchV2Order(
+        SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+          input: { token: Tokens.MAINNET.USDC, startAmount: '2000000', endAmount: '2000000' },
+          outputs: [
+            { token: Tokens.MAINNET.WETH, startAmount: '1000000000000000000', endAmount: '900000000000000000' },
+            { token: Tokens.MAINNET.WETH, startAmount: '1000000000000000', endAmount: '900000000000000' },
+          ],
+          cosignerData: {
+            inputOverride: '1500000',
+            outputOverrides: ['1100000000000000000', '1000000000000000'],
+          },
+        }),
+        MOCK_SIGNATURE,
+        ChainId.MAINNET,
+        ORDER_STATUS.OPEN
+      )
+
+    test('applies inputOverride and outputOverrides', () => {
+      const response = order().toGetResponse()
+
+      expect(response.effectiveInput).toEqual({
+        token: Tokens.MAINNET.USDC,
+        startAmount: '1500000',
+        endAmount: '2000000',
+      })
+      expect(response.effectiveOutputs?.map((o) => o.startAmount)).toEqual([
+        '1100000000000000000',
+        '1000000000000000',
+      ])
+      expect(response.effectiveOutputs?.map((o) => o.endAmount)).toEqual(['900000000000000000', '900000000000000'])
+    })
+
+    test('falls back to the signed amounts when an override is zero', () => {
+      const inner = order().inner
+      inner.info.cosignerData.inputOverride = BigNumber.from(0)
+      inner.info.cosignerData.outputOverrides = [BigNumber.from(0), BigNumber.from(0)]
+      const response = new DutchV2Order(inner, MOCK_SIGNATURE, ChainId.MAINNET, ORDER_STATUS.OPEN).toGetResponse()
+
+      expect(response.effectiveInput?.startAmount).toEqual(inner.info.input.startAmount.toString())
+      expect(response.effectiveOutputs?.map((o) => o.startAmount)).toEqual(
+        inner.info.outputs.map((o) => o.startAmount.toString())
+      )
+    })
+
+    test('leaves the signed input and outputs untouched', () => {
+      const response = order().toGetResponse()
+
+      expect(response.input.startAmount).toEqual('2000000')
+      expect(response.outputs.map((o) => o.startAmount)).toEqual(['1000000000000000000', '1000000000000000'])
+    })
   })
 })
