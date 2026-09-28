@@ -410,9 +410,7 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(outputs)
   }
 
   private validateV3DutchOutputs(outputs: V3DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
@@ -478,9 +476,7 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(outputs)
   }
 
   private validateMpsPerPriorityFeeWei(mpsPerPriorityFeeWei: BigNumber): OrderValidationResponse {
@@ -534,9 +530,7 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(priorityOutputs)
   }
 
   private validateHash(orderHash: string): OrderValidationResponse {
@@ -545,6 +539,27 @@ export class OffChainUniswapXOrderValidator {
       return {
         valid: false,
         errorString: `Invalid orderHash: ${error}`,
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  /**
+   * Every output must pay outputs[0].token. RFQ quotes an order as one tokenOut and a
+   * summed amount, so a mixed-token order would be priced against a total that mixes
+   * assets. Fee outputs share the swapper output's token, so multi-output orders pass.
+   * Call after each output's token address has been validated.
+   */
+  private validateOutputTokensMatch(outputs: { token: string }[]): OrderValidationResponse {
+    const expectedToken = outputs[0].token
+    for (const output of outputs) {
+      if (output.token.toLowerCase() != expectedToken.toLowerCase()) {
+        return {
+          valid: false,
+          errorString: `Invalid output token ${output.token}: all outputs must use ${expectedToken}`,
+        }
       }
     }
     return {
