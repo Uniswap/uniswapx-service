@@ -58,6 +58,8 @@ const providerGetBlockMock = jest.fn().mockImplementation(() => {
     timestamp: Math.floor(Date.now() / 1000), // Current timestamp at execution time
   })
 })
+// Every address is an EOA: the swapper signature check ecrecovers instead of calling ERC-1271.
+const providerGetCodeMock = jest.fn().mockResolvedValue('0x')
 
 export const MOCK_PROVIDER_MAP = new Map([
   [
@@ -65,6 +67,7 @@ export const MOCK_PROVIDER_MAP = new Map([
     {
       getBlockNumber: providerGetLatestBlockMock,
       getBlock: providerGetBlockMock,
+      getCode: providerGetCodeMock,
     },
   ],
   [
@@ -72,6 +75,7 @@ export const MOCK_PROVIDER_MAP = new Map([
     {
       getBlockNumber: providerGetLatestBlockMock,
       getBlock: providerGetBlockMock,
+      getCode: providerGetCodeMock,
     },
   ],
   [
@@ -79,6 +83,7 @@ export const MOCK_PROVIDER_MAP = new Map([
     {
       getBlockNumber: providerGetLatestBlockMock,
       getBlock: providerGetBlockMock,
+      getCode: providerGetCodeMock,
     },
   ],
   [
@@ -86,6 +91,7 @@ export const MOCK_PROVIDER_MAP = new Map([
     {
       getBlockNumber: providerGetLatestBlockMock,
       getBlock: providerGetBlockMock,
+      getCode: providerGetCodeMock,
     },
   ],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -6,9 +6,9 @@ import {
   CosignedV2DutchOrder,
   CosignedV3DutchOrder,
   DutchOrder,
+  OrderValidator as OnChainOrderValidator,
   OrderType,
   OrderValidation,
-  OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
 } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
@@ -39,6 +39,8 @@ import { hasExclusiveFiller } from '../util/address'
 import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
+import { OrderSignatureValidator } from '../util/OrderSignatureValidator'
+import { Permit2Validator } from '../util/Permit2Validator'
 import { getStateMachineArn } from '../util/stateMachineArn'
 import { AnalyticsServiceInterface } from './analytics-service'
 
@@ -63,9 +65,7 @@ export class UniswapXOrderService {
     private readonly maxQueryRetry: number = MAX_QUERY_RETRY
   ) {}
 
-  async createOrder(
-    order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order
-  ): Promise<string> {
+  async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order): Promise<string> {
     // Start the open-order count alongside validation; both must pass before the
     // order is accepted but neither depends on the other. All order entities
     // store offerer as the lowercased swapper address.
@@ -184,12 +184,25 @@ export class UniswapXOrderService {
         throw new OrderValidationFailedError("Permissioned tokens shouldn't work with priority/v3 dutch orders")
       }
       const permissionedOrder = order as DutchOrder | CosignedV2DutchOrder
+      // The order quoter cannot move permissioned tokens, so the onchain validation below is
+      // unavailable here. The quoter is also what authenticates an order, so its two checks
+      // that do not need the tokens are reproduced offchain: the swapper signature and
+      // cosignature (no RPC call for a forged one), then the Permit2 nonce and deadline. The
+      // token's own transfer policy is a compliance check on top, not a substitute.
+      const signatureValidation = await new OrderSignatureValidator(provider).validate(permissionedOrder, signature)
+      if (signatureValidation !== OrderValidation.OK) {
+        throw new OrderValidationFailedError(`Signature validation failed: ${OrderValidation[signatureValidation]}`)
+      }
+      const permitValidation = await new Permit2Validator(provider, chainId).validate(permissionedOrder)
+      if (permitValidation !== OrderValidation.OK) {
+        throw new OrderValidationFailedError(`Permit2 validation failed: ${OrderValidation[permitValidation]}`)
+      }
       const exclusiveFiller =
         permissionedOrder instanceof DutchOrder
           ? permissionedOrder.info.exclusiveFiller
           : permissionedOrder.info.cosignerData.exclusiveFiller
       const preTransferCheckResult = await PermissionedTokenValidator.preTransferCheck(
-        this.providerMap.get(chainId)!,
+        provider,
         token,
         order.info.swapper,
         exclusiveFiller,
