@@ -43,6 +43,8 @@ import {
   QUOTE_ID,
   REQUEST_ID,
   SIGNATURE,
+  Tokens,
+  ZERO_SIGNATURE,
 } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
@@ -786,8 +788,6 @@ describe('Testing post order handler.', () => {
     // The order quoter is bypassed for these, so the post path itself has to authenticate the
     // order. The token's transfer check is isolated as passing for an eligible swapper/filler
     // pair; everything from the request body to the write call is the real code.
-    const BUIDL = '0x7712c34205737192402172409a8F7ccef8aA2AEc'
-    const ZERO_SIGNATURE = `0x${'00'.repeat(65)}`
     const swapper = Wallet.createRandom()
     const cosigner = Wallet.createRandom()
 
@@ -800,7 +800,7 @@ describe('Testing post order handler.', () => {
       SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
         swapper: swapperAddress,
         cosigner: cosigner.address,
-        input: { token: BUIDL, startAmount: '1000000', endAmount: '1000000' },
+        input: { token: Tokens.MAINNET.BUIDL, startAmount: '1000000', endAmount: '1000000' },
       })
 
     const post = (encodedOrder: string, postedSignature: string) =>

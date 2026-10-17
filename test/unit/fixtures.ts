@@ -39,10 +39,15 @@ export const SIGNATURE =
 
 export const EVENT_CONTEXT = {} as unknown as Context
 
+// 65 zero bytes: passes the post schema's signature shape check, recovers nobody.
+export const ZERO_SIGNATURE = `0x${'00'.repeat(65)}`
+
 export const Tokens = {
   MAINNET: {
     USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    // In the SDK's PERMISSIONED_TOKENS list: orders with it as input skip the order quoter.
+    BUIDL: '0x7712c34205737192402172409a8F7ccef8aA2AEc',
   },
   ARBITRUM_ONE: {
     USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',

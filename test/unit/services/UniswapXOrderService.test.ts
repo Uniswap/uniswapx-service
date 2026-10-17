@@ -31,7 +31,7 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
-import { COSIGNATURE, MOCK_PROVIDER_MAP } from '../fixtures'
+import { COSIGNATURE, MOCK_PROVIDER_MAP, Tokens, ZERO_SIGNATURE } from '../fixtures'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -917,10 +917,7 @@ describe('UniswapXOrderService', () => {
   })
 
   describe('permissioned input tokens', () => {
-    // BUIDL on mainnet is in the SDK's PERMISSIONED_TOKENS list, so the real isPermissionedToken
-    // routes these orders away from the order quoter.
-    const BUIDL = '0x7712c34205737192402172409a8F7ccef8aA2AEc'
-    const ZERO_SIGNATURE = `0x${'00'.repeat(65)}`
+    // the real isPermissionedToken routes mainnet BUIDL orders away from the order quoter
     const swapper = Wallet.createRandom()
     const cosigner = Wallet.createRandom()
 
@@ -933,7 +930,7 @@ describe('UniswapXOrderService', () => {
       SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
         swapper: overrides.swapper ?? swapper.address,
         cosigner: cosigner.address,
-        input: { token: BUIDL, startAmount: '1000000', endAmount: '1000000' },
+        input: { token: Tokens.MAINNET.BUIDL, startAmount: '1000000', endAmount: '1000000' },
       })
 
     const buildService = () => {
@@ -984,7 +981,7 @@ describe('UniswapXOrderService', () => {
       expect(preTransferCheck).toHaveBeenCalled()
     })
 
-    test('rejects a signature that does not verify before any RPC call or write', async () => {
+    test('rejects a signature that does not verify before the Permit2 check, the transfer check or the write', async () => {
       const { service, repository } = buildService()
 
       await expect(service.createOrder(new DutchV2Order(order, ZERO_SIGNATURE, ChainId.MAINNET))).rejects.toThrow(
@@ -1014,6 +1011,19 @@ describe('UniswapXOrderService', () => {
 
       await expect(service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))).rejects.toThrow(
         'Permit2 validation failed: NonceUsed'
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+    })
+
+    test('rejects a permissioned-token V3 order instead of authenticating it as a Dutch order', async () => {
+      const { service, repository } = buildService()
+      const v3 = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.MAINNET, {
+        input: { token: Tokens.MAINNET.BUIDL },
+      })
+
+      await expect(service.createOrder(new DutchV3Order(v3, signature, ChainId.MAINNET))).rejects.toThrow(
+        "Permissioned tokens shouldn't work with priority/v3 dutch orders"
       )
 
       expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()

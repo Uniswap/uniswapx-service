@@ -180,36 +180,37 @@ export class UniswapXOrderService {
       }
       // Permissioned tokens shouldn't work with priority orders
       // TODO: excluded v3 orders because harder to handle trade type etc
-      if (order instanceof PriorityOrder || order instanceof DutchV3Order) {
+      if (order instanceof CosignedPriorityOrder || order instanceof CosignedV3DutchOrder) {
         throw new OrderValidationFailedError("Permissioned tokens shouldn't work with priority/v3 dutch orders")
       }
-      const permissionedOrder = order as DutchOrder | CosignedV2DutchOrder
       // The order quoter cannot move permissioned tokens, so the onchain validation below is
-      // unavailable here. The quoter is also what authenticates an order, so its two checks
-      // that do not need the tokens are reproduced offchain: the swapper signature and
-      // cosignature (no RPC call for a forged one), then the Permit2 nonce and deadline. The
-      // token's own transfer policy is a compliance check on top, not a substitute.
-      const signatureValidation = await new OrderSignatureValidator(provider).validate(permissionedOrder, signature)
+      // unavailable here. The quoter is also what authenticates an order, so its checks that
+      // do not need the tokens are reproduced offchain: the swapper signature and cosignature
+      // first (a forged cosignature costs no RPC call, a forged signature one eth_getCode),
+      // then the Permit2 nonce and deadline. The token's own transfer policy is a compliance
+      // check on top, not a substitute.
+      const signatureValidation = await new OrderSignatureValidator(provider).validate(order, signature)
       if (signatureValidation !== OrderValidation.OK) {
-        throw new OrderValidationFailedError(`Signature validation failed: ${OrderValidation[signatureValidation]}`)
+        const reason = OrderValidation[signatureValidation]
+        this.logger.warn('permissioned order failed authentication', { orderHash: order.hash(), chainId, reason })
+        metrics.putMetric('PermissionedOrderAuthenticationFailed', 1, Unit.Count)
+        throw new OrderValidationFailedError(`Signature validation failed: ${reason}`)
       }
-      const permitValidation = await new Permit2Validator(provider, chainId).validate(permissionedOrder)
+      const exclusiveFiller =
+        order instanceof DutchOrder ? order.info.exclusiveFiller : order.info.cosignerData.exclusiveFiller
+      const [permitValidation, preTransferCheckResult] = await Promise.all([
+        new Permit2Validator(provider, chainId).validate(order),
+        PermissionedTokenValidator.preTransferCheck(
+          provider,
+          token,
+          order.info.swapper,
+          exclusiveFiller,
+          this.isExactInput(order) ? order.info.input.startAmount.toString() : order.info.input.endAmount.toString() // exact_out 'decay' upwards
+        ),
+      ])
       if (permitValidation !== OrderValidation.OK) {
         throw new OrderValidationFailedError(`Permit2 validation failed: ${OrderValidation[permitValidation]}`)
       }
-      const exclusiveFiller =
-        permissionedOrder instanceof DutchOrder
-          ? permissionedOrder.info.exclusiveFiller
-          : permissionedOrder.info.cosignerData.exclusiveFiller
-      const preTransferCheckResult = await PermissionedTokenValidator.preTransferCheck(
-        provider,
-        token,
-        order.info.swapper,
-        exclusiveFiller,
-        this.isExactInput(permissionedOrder)
-          ? permissionedOrder.info.input.startAmount.toString()
-          : permissionedOrder.info.input.endAmount.toString() // exact_out 'decay' upwards
-      )
       if (!preTransferCheckResult) {
         throw new OrderValidationFailedError(`Permissioned Token Pre-transfer check failed`)
       }

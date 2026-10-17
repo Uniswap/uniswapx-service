@@ -1,15 +1,18 @@
 import { CosignedV2DutchOrder, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { ethers, Wallet } from 'ethers'
-import { OrderSignatureValidator, SignatureCheckProvider } from '../../../lib/util/OrderSignatureValidator'
+import {
+  ERC1271_MAGIC_VALUE,
+  OrderSignatureValidator,
+  SignatureCheckProvider,
+} from '../../../lib/util/OrderSignatureValidator'
 import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
+import { Tokens, ZERO_SIGNATURE } from '../fixtures'
 
-const BUIDL = '0x7712c34205737192402172409a8F7ccef8aA2AEc'
-const ERC1271_MAGIC_VALUE = '0x1626ba7e'
-const ZERO_SIGNATURE = `0x${'00'.repeat(65)}`
 const SOME_CONTRACT_CODE = '0x6080604052'
+const ethersError = (message: string, code: ethers.errors) => new ethers.utils.Logger('test').makeError(message, code)
 
 type CallRequest = Parameters<ethers.providers.Provider['call']>[0]
 
@@ -35,6 +38,9 @@ class FakeProvider implements SignatureCheckProvider {
 
 const eoaProvider = () => new FakeProvider('0x')
 const encodeMagic = (value: string) => ethers.utils.defaultAbiCoder.encode(['bytes4'], [value])
+// the same r and s with v rewritten: ecrecover onchain yields address(0) for v outside 27/28
+const withV = (signature: string, v: number) =>
+  ethers.utils.hexConcat([ethers.utils.hexDataSlice(signature, 0, 64), [v]])
 
 describe('OrderSignatureValidator', () => {
   const swapper = Wallet.createRandom()
@@ -45,7 +51,7 @@ describe('OrderSignatureValidator', () => {
     SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
       swapper: swapper.address,
       cosigner: overrides.cosigner ?? cosigner.address,
-      input: { token: BUIDL, startAmount: '1000000', endAmount: '1000000' },
+      input: { token: Tokens.MAINNET.BUIDL, startAmount: '1000000', endAmount: '1000000' },
     })
 
   let order: CosignedV2DutchOrder
@@ -81,6 +87,15 @@ describe('OrderSignatureValidator', () => {
       await expect(new OrderSignatureValidator(eoaProvider()).validate(order, forged)).resolves.toBe(
         OrderValidation.InvalidSignature
       )
+    })
+
+    it('rejects a 65-byte signature whose v is not 27 or 28, which ecrecover onchain would too', async () => {
+      const { v } = ethers.utils.splitSignature(signature)
+      for (const badV of [v - 27, v + 2]) {
+        await expect(new OrderSignatureValidator(eoaProvider()).validate(order, withV(signature, badV))).resolves.toBe(
+          OrderValidation.InvalidSignature
+        )
+      }
     })
 
     it('accepts a V1 Dutch order signed by its swapper', async () => {
@@ -119,7 +134,10 @@ describe('OrderSignatureValidator', () => {
     })
 
     it('rejects when the contract reverts', async () => {
-      const provider = new FakeProvider(SOME_CONTRACT_CODE, new Error('execution reverted'))
+      const provider = new FakeProvider(
+        SOME_CONTRACT_CODE,
+        ethersError('execution reverted', ethers.errors.CALL_EXCEPTION)
+      )
       await expect(new OrderSignatureValidator(provider).validate(order, signature)).resolves.toBe(
         OrderValidation.InvalidSignature
       )
@@ -130,6 +148,11 @@ describe('OrderSignatureValidator', () => {
       await expect(new OrderSignatureValidator(provider).validate(order, signature)).resolves.toBe(
         OrderValidation.InvalidSignature
       )
+    })
+
+    it('propagates an RPC failure instead of reporting the signature invalid', async () => {
+      const provider = new FakeProvider(SOME_CONTRACT_CODE, ethersError('timeout', ethers.errors.TIMEOUT))
+      await expect(new OrderSignatureValidator(provider).validate(order, signature)).rejects.toThrow('timeout')
     })
   })
 
@@ -157,6 +180,16 @@ describe('OrderSignatureValidator', () => {
       await expect(
         new OrderSignatureValidator(eoaProvider()).validate(prefixed, await signOrder(prefixed, swapper))
       ).resolves.toBe(OrderValidation.InvalidCosignature)
+    })
+
+    it('rejects a compact or non-27/28-v cosignature, which CosignerLib would also reject', async () => {
+      const { v, compact } = ethers.utils.splitSignature(order.info.cosignature)
+      for (const cosignature of [compact, withV(order.info.cosignature, v - 27)]) {
+        const malformed = new CosignedV2DutchOrder({ ...order.info, cosignature }, ChainId.MAINNET)
+        await expect(new OrderSignatureValidator(eoaProvider()).validate(malformed, signature)).resolves.toBe(
+          OrderValidation.InvalidCosignature
+        )
+      }
     })
   })
 })
