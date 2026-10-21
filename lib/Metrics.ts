@@ -17,7 +17,7 @@ const CheckOrderStatusHandlerPrefix = 'CheckOrderStatusHandler-'
 export const CheckOrderStatusHandlerMetricNames = {
   StepFunctionKickedOffCount: CheckOrderStatusHandlerPrefix + 'StepFunctionKickedOffCount',
   OrderTrackingAbandonedCount: CheckOrderStatusHandlerPrefix + 'OrderTrackingAbandonedCount',
-  // Abandons where no reaper backstop exists (deadline-less state, i.e. Relay):
+  // Abandons where no reaper backstop exists (deadline-less state):
   // the order stays non-terminal unless handled manually, so this deserves its
   // own alarm, separate from grace-period abandons the reaper will resolve.
   OrderTrackingAbandonedNoBackstopCount: CheckOrderStatusHandlerPrefix + 'OrderTrackingAbandonedNoBackstopCount',

@@ -1,6 +1,6 @@
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
-import { ORDER_STATUS, RelayOrderEntity, UniswapXOrderEntity } from '../../../../lib/entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { CheckOrderStatusUtils } from '../../../../lib/handlers/check-order-status/service'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { DutchOrdersRepository } from '../../../../lib/repositories/dutch-orders-repository'
@@ -16,7 +16,7 @@ describe('CheckOrderStatusUtils', () => {
   }: {
     serviceOrderType?: OrderType
     analyticsService?: AnalyticsServiceInterface
-    repository?: BaseOrdersRepository<UniswapXOrderEntity> | BaseOrdersRepository<RelayOrderEntity>
+    repository?: BaseOrdersRepository<UniswapXOrderEntity>
     calculateRetryWaitSeconds?: (chainId: ChainId, retryCount: number) => number
   }) {
     return new CheckOrderStatusUtils(serviceOrderType, analyticsService, repository, calculateRetryWaitSeconds)

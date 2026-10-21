@@ -1,14 +1,14 @@
 import * as cdk from 'aws-cdk-lib'
-import { aws_lambda, aws_logs, Duration } from 'aws-cdk-lib'
+import { aws_lambda, Duration } from 'aws-cdk-lib'
 import { Alarm, ComparisonOperator, MathExpression, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { CfnStateMachine } from 'aws-cdk-lib/aws-stepfunctions'
 import { Construct } from 'constructs'
 import path from 'path'
-import { checkDefined } from '../../lib/preconditions/preconditions'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
-import { STAGE, logRetentionDays } from '../../lib/util/stage'
-import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
+import { STAGE } from '../../lib/util/stage'
+import { logRetentionDays } from './log-retention'
+import { SERVICE_NAME } from '../constants'
 import orderStatusTrackingStateMachine from '../definitions/order-tracking-sfn.json'
 
 export class StepFunctionStack extends cdk.NestedStack {
@@ -51,7 +51,7 @@ export class StepFunctionStack extends cdk.NestedStack {
       },
       timeout: Duration.minutes(5),
       environment: {
-        VERSION: '4',
+        VERSION: '5',
         NODE_OPTIONS: '--enable-source-maps',
         ...props.envVars,
         stage: stage,
@@ -59,31 +59,6 @@ export class StepFunctionStack extends cdk.NestedStack {
       logRetention: logRetentionDays(stage),
     })
     this.checkStatusFunction = checkStatusFunction
-
-    /* Subscription Filter Initialization */
-    // This grabs log groups with the matching filter pattern and sends them
-    // to the parameterization-service where the analytics stack lives
-    // TODO: remove the if block after accounts are set up for parameterization-api
-    if (props.envVars['FILL_EVENT_DESTINATION_ARN']) {
-      new aws_logs.CfnSubscriptionFilter(this, 'TerminalStateSub', {
-        destinationArn: checkDefined(
-          props.envVars['FILL_EVENT_DESTINATION_ARN'],
-          'FILL_EVENT_DESTINATION_ARN is undefined'
-        ),
-        // filter patterns should match ORDER_STATUS.FILLED, ORDER_STATUS.CANCELLED
-        filterPattern: FILTER_PATTERNS.TERMINAL_ORDER_STATE,
-        logGroupName: checkStatusFunction.logGroup.logGroupName,
-      })
-
-      new aws_logs.CfnSubscriptionFilter(this, 'nonTerminalSub', {
-        destinationArn: checkDefined(
-          props.envVars['ACTIVE_ORDER_EVENT_DESTINATION_ARN'],
-          'ACTIVE_ORDER_EVENT_DESTINATION_ARN is undefined'
-        ),
-        filterPattern: FILTER_PATTERNS.INSUFFICIENT_FUNDS,
-        logGroupName: checkStatusFunction.logGroup.logGroupName,
-      })
-    }
 
     // We define a separate sfn for each chain so we can easily use step function metrics per chain
     for (const chainId of SUPPORTED_CHAINS) {

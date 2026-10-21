@@ -18,7 +18,6 @@ export type GetRequestInjected = {
   requestId: string
   log: Logger
   cursor?: string
-  executeAddress?: string
 }
 
 type RequestInjectedParams = {
@@ -59,7 +58,7 @@ export function getSharedRequestInjected({
 
 export const parseGetQueryParams = (
   requestQueryParams: RawGetOrdersQueryParams
-): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; orderType?: string, executeAddress?: string } => {
+): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; orderType?: string } => {
   // default to no limit
   const limit = requestQueryParams?.limit ?? 0
   const rawOrderStatus = requestQueryParams?.orderStatus
@@ -80,13 +79,11 @@ export const parseGetQueryParams = (
     requestQueryParams?.orderType && requestQueryParams?.orderType in GetOrderTypeQueryParamEnum
       ? requestQueryParams?.orderType
       : undefined
-  const executeAddress = requestQueryParams?.executeAddress
   const pair = requestQueryParams?.pair
 
   return {
     limit: limit,
     orderType,
-    executeAddress,
     queryFilters: {
       ...(orderStatus && { orderStatus: orderStatus }),
       ...(orderHash && { orderHash: orderHash }),

@@ -44,7 +44,7 @@ const mockOrdersRepository = {
     }
   }),
 
-  updateOrderStatus: jest.fn(async (orderHash, status, txHash, fillBlock, settledAmounts) => {
+  updateOrderStatus: jest.fn(async (orderHash, status, txHash, fillBlock, settledAmounts, fillTimestamp) => {
     const order = mockOrdersRepository.orders.get(orderHash)
     if (order) {
       mockOrdersRepository.orders.set(orderHash, {
@@ -52,6 +52,7 @@ const mockOrdersRepository = {
         orderStatus: status,
         txHash,
         fillBlock,
+        fillTimestamp,
         settledAmounts
       })
     }
@@ -618,7 +619,8 @@ describe('GSReaper', () => {
           [MOCK_ORDER_ENTITY.orderHash]: {
             status: ORDER_STATUS.FILLED,
             txHash: '0xmocktxhash',
-            fillBlock: mockFillBlockNumber
+            fillBlock: mockFillBlockNumber,
+            fillTimestamp: 1_700_000_000
           }
         },
         orderHashes: [],
@@ -633,6 +635,7 @@ describe('GSReaper', () => {
       expect(updatedOrder?.orderStatus).toBe(ORDER_STATUS.FILLED)
       expect(updatedOrder?.txHash).toBe('0xmocktxhash')
       expect(updatedOrder?.fillBlock).toBe(mockFillBlockNumber)
+      expect(updatedOrder?.fillTimestamp).toBe(1_700_000_000)
 
       // Verify we're moving to the next chain
       const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)

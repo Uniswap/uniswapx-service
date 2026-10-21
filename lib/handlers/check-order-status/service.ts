@@ -8,10 +8,9 @@ import {
   OrderValidation,
   OrderValidator,
   UniswapXEventWatcher,
-  CosignedHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
+import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
@@ -49,12 +48,9 @@ export function getFillCheckOverlapBlocks(chainId: number): number {
   }
 }
 
-// Type for legacy orders that have input at the info level
-type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
-
 /**
  * The block at which the order's auction/decay starts, for order types that
- * encode it as a block number (Dutch V3, Hybrid, Priority). Returns undefined
+ * encode it as a block number (Dutch V3, Priority). Returns undefined
  * for timestamp-based order types and for missing or non-positive values -- a
  * zero here is an absent field's default, not a real block, and anchoring a
  * search to block zero turns it into an unbounded getLogs.
@@ -64,9 +60,6 @@ export function getAuctionStartBlock(order: UniswapXOrderEntity, chainId: number
   switch (order.type) {
     case OrderType.Dutch_V3:
       block = order.cosignerData?.decayStartBlock
-      break
-    case OrderType.Hybrid:
-      block = order.cosignerData?.auctionTargetBlock
       break
     case OrderType.Priority:
       block =
@@ -96,6 +89,7 @@ export type ExtraUpdateInfo = {
   orderStatus: ORDER_STATUS
   txHash?: string
   fillBlock?: number
+  fillTimestamp?: number
   settledAmounts?: SettledAmount[]
   getFillLogAttempts?: number
 }
@@ -131,11 +125,7 @@ export class CheckOrderStatusService {
     const parsedOrder = parseOrder(order, chainId)
     // We only check for nonce used and expired for permissioned tokens
     // since the order quoter can't move input tokens
-    // For v4 orders like Hybrid, input is at a different level. Get input token safely.
-    const inputToken = parsedOrder instanceof CosignedHybridOrder 
-      ? parsedOrder.info.input.token 
-      : (parsedOrder as LegacyUniswapXOrder).info.input.token
-    const isPermissionedToken = PermissionedTokenValidator.isPermissionedToken(inputToken, chainId)
+    const isPermissionedToken = PermissionedTokenValidator.isPermissionedToken(parsedOrder.info.input.token, chainId)
     const validationPromise = isPermissionedToken
       ? new Permit2Validator(provider, chainId).validate(parsedOrder)
       : orderQuoter.validate({
@@ -249,7 +239,6 @@ export class CheckOrderStatusService {
               break;
             case OrderType.Dutch_V3: // Exact
             case OrderType.Priority: // Approximation
-            case OrderType.Hybrid: // Exact
               if (auctionStartBlock !== undefined) {
                 fillTimeBlocks = fillBlock - auctionStartBlock;
               }
@@ -284,6 +273,7 @@ export class CheckOrderStatusService {
             orderStatus: ORDER_STATUS.FILLED,
             txHash: fillEvent.txHash,
             fillBlock: fillEvent.blockNumber,
+            fillTimestamp: block.timestamp,
             settledAmounts,
           }
         } catch (e) {
@@ -317,7 +307,7 @@ export class CheckOrderStatusService {
 
   /**
    * Lower bound (inclusive) for the fill-event search. When the order's
-   * decay/auction start block is known exactly (Dutch V3, Hybrid, Priority) we
+   * decay/auction start block is known exactly (Dutch V3, Priority) we
    * anchor to it so fills that land at or just before it are always in range,
    * regardless of when polling first ran. For timestamp-based order types
    * (Dutch, Dutch V2) we keep the rolling lookback window. The pad below the
@@ -402,7 +392,7 @@ export class CheckOrderStatusUtils {
   constructor(
     private readonly serviceOrderType: OrderType,
     private readonly analyticsService: AnalyticsServiceInterface,
-    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity> | BaseOrdersRepository<RelayOrderEntity>,
+    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
     private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number
   ) {}
 
@@ -417,6 +407,7 @@ export class CheckOrderStatusUtils {
     quoteId: string
     txHash?: string
     fillBlock?: number
+    fillTimestamp?: number
     settledAmounts?: SettledAmount[]
     getFillLogAttempts?: number
     runIndex?: number
@@ -432,6 +423,7 @@ export class CheckOrderStatusUtils {
       orderStatus,
       txHash,
       fillBlock,
+      fillTimestamp,
       settledAmounts,
       getFillLogAttempts,
       validation,
@@ -448,7 +440,7 @@ export class CheckOrderStatusUtils {
         this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
       }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
-      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, fillBlock, settledAmounts)
+      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, fillBlock, settledAmounts, fillTimestamp)
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
@@ -483,6 +475,7 @@ export class CheckOrderStatusUtils {
       ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
       ...(fillBlock && { fillBlock }),
+      ...(fillTimestamp && { fillTimestamp }),
       ...(getFillLogAttempts && { getFillLogAttempts }),
       ...(deadline && { deadline }),
     }

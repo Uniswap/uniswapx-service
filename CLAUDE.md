@@ -9,7 +9,7 @@ TypeScript API service for propagating signed UniswapX orders. Swappers post sig
 ```bash
 yarn && yarn build      # Install dependencies and compile
 yarn test               # Run unit tests
-yarn test:integ         # Run integration tests (requires Java)
+yarn test:integ --runInBand  # Integration tests (requires Java); suites share one DynamoDB Local and race in parallel, so serialize as CI's yarn coverage does
 yarn test:e2e           # Run end-to-end tests (requires deployed API)
 yarn lint               # ESLint check
 yarn fix                # Auto-fix lint and prettier issues
@@ -33,7 +33,7 @@ cdk deploy GoudaServiceStack  # Deploy to AWS
 
 - `bin/` - CDK app entry and stack definitions
 - `lib/handlers/` - Lambda handlers (get-orders, post-order, check-status, etc.)
-- `lib/models/` - Order types (DutchV1/V2/V3, Priority, Relay, Limit)
+- `lib/models/` - Order types (DutchV1/V2/V3, Priority, Limit)
 - `lib/repositories/` - DynamoDB repositories
 - `lib/services/` - Business logic (OrderDispatcher, UniswapXOrderService)
 - `lib/util/` - Validators, helpers, constants
@@ -52,6 +52,46 @@ Optional:
 For tests:
 - `UNISWAP_API` - Deployed API URL (e2e tests)
 - `LABS_COSIGNER` - Valid EVM address (unit tests)
+
+## Analytics Feed (Data Eng)
+
+`bin/stacks/analytics-stack.ts` delivers two log-derived S3 feeds that Data Eng's `data-eng-workflows`
+(`lib/spaces/uniswap_x`) loads hourly into BigQuery `uniswap_x.posted_orders` / `archived_orders`:
+
+- `uniswapx-service-<stage>-analytics-posted-orders` — `body` of `AnalyticsService.logOrderPosted` lines
+  (`{ $.eventType = "OrderPosted" }` on the post-order and post-limit-order log groups).
+- `uniswapx-service-<stage>-analytics-fills` — `orderInfo` of `logFillInfo` / `logCancelled` lines
+  (`{ $.orderInfo.orderStatus = "filled" || "cancelled" }` on the check-order-status log group).
+
+Same-account subscription filters → Firehose (5 MB / 300 s, uncompressed, default `YYYY/MM/DD/HH/` prefix) →
+`lib/handlers/analytics-firehose-processor` (unwraps the CloudWatch envelope) → S3. Only prod is read; the
+loader is IAM user `bq-load-sa` (acct 867401673276), granted by bucket policy. The emitted record is the
+schema of record: adding a column means emitting it here and adding a field to the Data Eng load YAML.
+Renaming or removing a field breaks Dataform's `orders*` models. Do not override the S3 prefix: the loader lists
+objects by hour under it. This is the only subscription filter on each of the three log groups; the
+parameterization API no longer receives these logs, so the nested `body` / `orderInfo` shape is now constrained
+only by the processor and the Data Eng schema.
+
+## Cross-Account IAM Roles (backend monorepo, ECO-861)
+
+`bin/stacks/iam-stack.ts` creates two roles per stage that the UniswapX service being built in the
+`backend` monorepo assumes cross-account, scoped to `Orders` + `LimitOrders` only (never `Nonces`):
+
+- `uniswapx-shadow-read-<stage>` — Get/BatchGet/Query/DescribeTable on the tables and their indexes, plus
+  DescribeStream/GetRecords/GetShardIterator/ListStreams on their streams. Used first, by the shadow
+  comparator that diffs the new status tracker against the live tables.
+- `uniswapx-orders-write-<stage>` — Put/Update/Get/Query/ConditionCheckItem on the tables and indexes. No
+  Delete, no Scan, no batch writes. Stays unassumed until cutover; revoking it is the rollback.
+
+Trust is per stage: beta trusts backend dev (411170392337) + staging (413367642260), prod trusts backend prod
+(654200013602), each statement narrowed with `aws:PrincipalArn` to that account's ECS task role (`uniswapx-ecsTaskRole-*`,
+not the wider `uniswapx-*`, which would admit other roles and bypass the backend cutover flag). Local stacks
+do not create the nested stack at all (an empty nested stack fails to deploy). Role ARNs are stack outputs (`ShadowReadRoleArn`, `OrdersWriteRoleArn`). This is a
+transitional arrangement that goes away with the DynamoDB migration; do not widen it to other tables.
+
+## Gotchas
+
+- `pair` on order entities (and the `pair-createdAt-all` GSI behind `GET /orders?pair=`) has had no writer since the Unimind quote-metadata path was removed in Sep 2026. Existing rows keep the attribute; new orders never set it.
 
 ## Auto-Update Instructions
 

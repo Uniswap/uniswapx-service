@@ -135,7 +135,14 @@ describe('checkOrderStatusService', () => {
         const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
-        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
+        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalledWith(
+          MOCK_ORDER_HASH,
+          ORDER_STATUS.FILLED,
+          '0x1244345323',
+          12321312313,
+          expect.any(Array),
+          123456
+        )
         expect(watcherMock.getFillInfo).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
@@ -151,6 +158,8 @@ describe('checkOrderStatusService', () => {
               },
             ],
             txHash: '0x1244345323',
+            fillBlock: 12321312313,
+            fillTimestamp: 123456,
           })
         )
       })
@@ -407,10 +416,10 @@ describe('checkOrderStatusService', () => {
       })
 
       it('falls back to the rolling window when the anchor is zero (absent-field default)', () => {
-        // Regression: a Hybrid order with auctionTargetBlock=0 must not anchor
+        // Regression: a Dutch V3 order with decayStartBlock=0 must not anchor
         // the search to block zero -- that turns the lookup into an unbounded
         // getLogs from genesis. Zero is an absent field's default, not a block.
-        const order: any = { type: OrderType.Hybrid, cosignerData: { auctionTargetBlock: 0 } }
+        const order: any = { type: OrderType.Dutch_V3, cosignerData: { decayStartBlock: 0 } }
         const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
         expect(fromBlock).toBe(5000 - OVERLAP)
       })

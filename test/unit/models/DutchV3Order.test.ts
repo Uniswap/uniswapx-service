@@ -5,11 +5,8 @@ import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { MOCK_SIGNATURE } from '../../test-data'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
-import { mock } from 'jest-mock-extended'
-import { Logger } from '@aws-lambda-powertools/logger'
 
 describe('DutchV3 Model', () => {
-  const log = mock<Logger>()
   test('toEntity', () => {
     const order = new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(), MOCK_SIGNATURE, ChainId.ARBITRUM_ONE)
     const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
@@ -28,13 +25,14 @@ describe('DutchV3 Model', () => {
       ChainId.ARBITRUM_ONE,
       ORDER_STATUS.OPEN,
       undefined,
-      undefined,
+      42,
+      1_700_000_000,
       undefined,
       undefined,
       100
     )
     const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
-    const fromEntity = DutchV3Order.fromEntity(entity, log)
+    const fromEntity = DutchV3Order.fromEntity(entity)
 
     expect(order).toEqual(fromEntity)
     expect(order.createdAt).toEqual(100)
@@ -47,7 +45,8 @@ describe('DutchV3 Model', () => {
       ChainId.ARBITRUM_ONE,
       ORDER_STATUS.OPEN,
       undefined,
-      undefined,
+      42,
+      1_700_000_000,
       undefined,
       undefined,
       100
@@ -95,5 +94,7 @@ describe('DutchV3 Model', () => {
       expect(o).toEqual(order.inner.info.cosignerData.outputOverrides[i].toString())
     })
     expect(order.createdAt).toEqual(100)
+    expect(response.fillBlock).toEqual(42)
+    expect(response.fillTimestamp).toEqual(1_700_000_000)
   })
 })

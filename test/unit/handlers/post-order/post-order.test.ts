@@ -4,17 +4,13 @@ import {
   OrderType,
   OrderValidation,
   OrderValidator,
-  RelayEventWatcher,
-  RelayOrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { FillEventLogger } from '../../../../lib/handlers/check-order-status/fill-event-logger'
 import { DEFAULT_MAX_OPEN_ORDERS, PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../../lib/handlers/constants'
-import { EventWatcherMap } from '../../../../lib/handlers/EventWatcherMap'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../../lib/handlers/post-order/injector'
@@ -26,7 +22,6 @@ import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { PriorityOrder } from '../../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
-import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
@@ -45,7 +40,6 @@ import {
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
 import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
-import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 import { AVERAGE_BLOCK_TIME } from '../../../../lib/handlers/check-order-status/util'
 
 jest.mock('@aws-sdk/client-kms');
@@ -76,27 +70,6 @@ const MOCK_START_EXECUTION_INPUT = JSON.stringify({
   chainId: 1,
   orderStatus: ORDER_STATUS.OPEN,
 })
-const SAMPLE_QUOTE_METADATA = {
-  quoteId: '55e2cfca-5521-4a0a-b597-7bfb569032d7',
-  referencePrice: '4221.21',
-  priceImpact: 0.01,
-  pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-  blockNumber: 123456,
-  route: {
-    quote: '1234',
-    quoteGasAdjusted: '5678',
-    gasPriceWei: '1234',
-    gasUseEstimateQuote: '2345',
-    gasUseEstimate: '3456',
-    methodParameters: {
-      calldata: '0xabcdef',
-      value: '1234',
-      to: '0abcdef',
-    },
-  },
-  usedUnimind: true
-}
-
 const mockSfnClient = mockClient(SFNClient)
 mockSfnClient
   .on(StartExecutionCommand, {
@@ -120,7 +93,6 @@ describe('Testing post order handler.', () => {
   const validatorMock = jest.fn()
   const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
   const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
-  const quoteMetadataRepositoryMock = mock<QuoteMetadataRepository>()
 
   const mockLog = mock<Logger>()
   const requestInjected = {
@@ -176,31 +148,14 @@ describe('Testing post order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
-        quoteMetadataRepositoryMock,
         mockLog,
         getMaxOpenOrders,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-          logUnimindResponse: jest.fn(),
-          logUnimindParameterUpdate: jest.fn(),
         },
         MOCK_PROVIDER_MAP
-      ),
-      new RelayOrderService(
-        {
-          validate: validatorMock,
-        } as any,
-        new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
-        mock<EventWatcherMap<RelayEventWatcher>>(),
-        {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        } as any,
-        mockLog,
-        getMaxOpenOrders,
-        mock<FillEventLogger>()
       ),
       mockLog
     ),
@@ -278,6 +233,8 @@ describe('Testing post order handler.', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
         REQUEST_ID
       )
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
@@ -326,6 +283,8 @@ describe('Testing post order handler.', () => {
         SDKPriorityOrderFactory.buildPriorityOrder(),
         SIGNATURE,
         1,
+        undefined,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -390,6 +349,8 @@ describe('Testing post order handler.', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
         REQUEST_ID
       )
 
@@ -425,35 +386,18 @@ describe('Testing post order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
-        quoteMetadataRepositoryMock,
         mockLog,
         getMaxOpenOrders,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-          logUnimindResponse: jest.fn(),
-          logUnimindParameterUpdate: jest.fn(),
         },
         mockProviderMapWithOldTimestamp
       )
 
       const orderDispatcherWithOldTimestamp = new OrderDispatcher(
         uniswapXOrderServiceWithOldTimestamp,
-        new RelayOrderService(
-          {
-            validate: validatorMock,
-          } as any,
-          new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
-          mock<EventWatcherMap<RelayEventWatcher>>(),
-          {
-            putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-            countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-          } as any,
-          mockLog,
-          getMaxOpenOrders,
-          mock<FillEventLogger>()
-        ),
         mockLog
       )
 
@@ -494,6 +438,7 @@ describe('Testing post order handler.', () => {
         SDKDutchOrderV3Factory.buildDutchV3Order(),
         SIGNATURE,
         ChainId.ARBITRUM_ONE,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -572,42 +517,6 @@ describe('Testing post order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
-    })
-
-    it('Attaches quote metadata to DutchV3 order when available', async () => {
-      validatorMock.mockReturnValue({ valid: true })
-      countOrdersByOffererAndStatusMock.mockResolvedValue(0)
-  
-      quoteMetadataRepositoryMock.getByQuoteId.mockResolvedValue(SAMPLE_QUOTE_METADATA)
-    
-      const QUOTE_ID = SAMPLE_QUOTE_METADATA.quoteId
-    
-      const sdkOrder = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE)
-      const order = new DutchV3Order(
-        sdkOrder,
-        SIGNATURE,
-        ChainId.ARBITRUM_ONE,
-        ORDER_STATUS.OPEN,
-        undefined,
-        undefined,
-        QUOTE_ID,
-        REQUEST_ID
-      )
-      
-      await postOrderHandler.handler(
-        PostOrderRequestFactory.request({
-          encodedOrder: order.inner.serialize(),
-          signature: SIGNATURE,
-          orderType: OrderType.Dutch_V3,
-          quoteId: QUOTE_ID,
-          chainId: ChainId.ARBITRUM_ONE,
-        }),
-        EVENT_CONTEXT
-      )
-    
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN, SAMPLE_QUOTE_METADATA)
-      expect(putOrderAndUpdateNonceTransactionMock).toHaveBeenCalledWith(expectedOrderEntity)
-      expect(quoteMetadataRepositoryMock.getByQuoteId).toHaveBeenCalledWith(QUOTE_ID)
     })
   })
 

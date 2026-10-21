@@ -2,7 +2,6 @@ import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
 import { CheckOrderStatusHandlerMetricNames, powertoolsMetric } from '../../Metrics'
-import { RelayOrderService } from '../../services/RelayOrderService'
 import { SfnInjector, SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { kickoffOrderTrackingSfn } from '../shared/sfn'
 import { ContainerInjected, RequestInjected } from './injector'
@@ -17,8 +16,9 @@ import { log } from '../../Logging'
 // respawns executions forever.
 export const ORDER_TRACKING_ABANDON_GRACE_SECONDS = 2 * 60 * 60
 
-// Hard cap on execution respawns for state that carries no deadline (today:
-// Relay orders). The deadline grace above cannot fire without a deadline, so
+// Hard cap on execution respawns for state that carries no deadline (executions
+// started before `deadline` was echoed into the SFN state). The deadline grace
+// above cannot fire without a deadline, so
 // this cap is the only bound between a never-terminal order (e.g. one whose
 // validation keeps returning UnknownError) and an infinite chain of restarted
 // executions. Each run is ~300 polls, so this still gives short-lived orders
@@ -30,8 +30,7 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     handlerName: string,
     injectorPromise: Promise<SfnInjector<ContainerInjected, RequestInjected>>,
     private readonly checkOrderStatusService: CheckOrderStatusService,
-    private readonly checkLimitOrderStatusService: CheckOrderStatusService,
-    private readonly relayOrderService: RelayOrderService
+    private readonly checkLimitOrderStatusService: CheckOrderStatusService
   ) {
     super(handlerName, injectorPromise)
   }
@@ -45,8 +44,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     if (retryCount > 300) {
       // Only the Dutch and Limit services echo `deadline` into the SFN state,
       // so the deadline gate can only fire for order types the GS reaper can
-      // later resolve. State without a deadline (Relay orders) is bounded by
-      // the run-count cap instead.
+      // later resolve. State without a deadline is bounded by the run-count cap
+      // instead.
       const deadline = input.requestInjected.deadline
       const nowSec = Math.floor(Date.now() / 1000)
       const currentRunIndex = input.requestInjected.runIndex || 0
@@ -110,22 +109,6 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
 
     if (input.requestInjected.orderType === OrderType.Limit) {
       const response = await this.checkLimitOrderStatusService.handleRequest(input.requestInjected)
-      return {
-        ...response,
-        orderType: input.requestInjected.orderType,
-        stateMachineArn: input.requestInjected.stateMachineArn,
-        runIndex: input.requestInjected.runIndex,
-      }
-    } else if (input.requestInjected.orderType === OrderType.Relay) {
-      const response = await this.relayOrderService.checkOrderStatus(
-        input.requestInjected.orderHash,
-        input.requestInjected.quoteId,
-        input.requestInjected.startingBlockNumber,
-        input.requestInjected.orderStatus,
-        input.requestInjected.getFillLogAttempts,
-        input.requestInjected.retryCount,
-        input.requestInjected.provider
-      )
       return {
         ...response,
         orderType: input.requestInjected.orderType,

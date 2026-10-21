@@ -5,12 +5,9 @@ import {
   CosignedV2DutchOrder as SDKV2DutchOrder,
   DutchOrder as SDKDutchOrder,
   OrderType,
-  RelayOrder as SDKRelayOrder,
-  RelayOrderParser,
   UniswapXOrderParser,
   CosignedV3DutchOrder,
   CosignedV3DutchOrder as SDKV3DutchOrder,
-  CosignedHybridOrder as SDKHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { DutchV1Order } from '../../models/DutchV1Order'
@@ -18,9 +15,7 @@ import { DutchV2Order } from '../../models/DutchV2Order'
 import { LimitOrder } from '../../models/LimitOrder'
 import { Order } from '../../models/Order'
 import { PriorityOrder } from '../../models/PriorityOrder'
-import { RelayOrder } from '../../models/RelayOrder'
-import { HybridOrder } from '../../models/HybridOrder'
-import { PostOrderRequestBody, HardQuote } from './schema'
+import { PostOrderRequestBody } from './schema'
 import { DutchV3Order } from '../../models/DutchV3Order'
 import { metrics } from '../../util/metrics'
 import { Unit } from 'aws-embedded-metrics'
@@ -29,7 +24,6 @@ import { ChainId } from '../../util/chain'
 
 export class PostOrderBodyParser {
   private readonly uniswapXParser = new UniswapXOrderParser()
-  private readonly relayParser = new RelayOrderParser()
 
   constructor(private readonly logger: Logger) {}
   fromPostRequest(body: PostOrderRequestBody): Order {
@@ -44,35 +38,12 @@ export class PostOrderBodyParser {
         return this.tryParseDutchV2Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Dutch_V3:
         return this.tryParseDutchV3Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
-      case OrderType.Relay:
-        return this.tryParseRelayOrder(encodedOrder, signature, chainId)
       case OrderType.Priority:
         return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
-      case OrderType.Hybrid:
-        return this.tryParseHybridOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId, body.hardQuote)
       case undefined:
         // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
         // Try to parse both and see which hits.
         return this.tryParseDutchOrder(encodedOrder, signature, chainId, body.quoteId)
-    }
-  }
-
-  private tryParseRelayOrder(encodedOrder: string, signature: string, chainId: number): RelayOrder {
-    try {
-      const order = this.relayParser.parseOrder(encodedOrder, chainId)
-      const orderType = this.relayParser.getOrderType(order)
-      if (orderType === OrderType.Relay) {
-        return new RelayOrder(order as SDKRelayOrder, signature, chainId)
-      }
-      throw new UnexpectedOrderTypeError(orderType)
-    } catch (err) {
-      this.logger.error('Unable to parse Relay order', {
-        err,
-        encodedOrder,
-        chainId,
-        signature,
-      })
-      throw err
     }
   }
 
@@ -121,7 +92,17 @@ export class PostOrderBodyParser {
       const staleOrderMetricName = `OrderStaleness-chain-${chainId.toString()}`
       metrics.putMetric(staleOrderMetricName, timeDifference)
 
-      return new DutchV2Order(order as SDKV2DutchOrder, signature, chainId, undefined, undefined, quoteId, requestId)
+      return new DutchV2Order(
+        order as SDKV2DutchOrder,
+        signature,
+        chainId,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        quoteId,
+        requestId
+      )
     } catch (err) {
       this.logger.error('Unable to parse DutchV2 order', {
         err,
@@ -142,7 +123,17 @@ export class PostOrderBodyParser {
   ): DutchV3Order {
     try {
       const order = CosignedV3DutchOrder.parse(encodedOrder, chainId)
-      return new DutchV3Order(order as SDKV3DutchOrder, signature, chainId, undefined, undefined, undefined, quoteId, requestId)
+      return new DutchV3Order(
+        order as SDKV3DutchOrder,
+        signature,
+        chainId,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        quoteId,
+        requestId
+      )
     } catch (err) {
       this.logger.error('Unable to parse DutchV3 order', {
         err,
@@ -163,31 +154,9 @@ export class PostOrderBodyParser {
   ): PriorityOrder {
     try {
       const order = SDKPriorityOrder.parse(encodedOrder, chainId)
-      return new PriorityOrder(order, signature, chainId, undefined, undefined, quoteId, requestId)
+      return new PriorityOrder(order, signature, chainId, undefined, undefined, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse Priority order', {
-        err,
-        encodedOrder,
-        chainId,
-        signature,
-      })
-      throw err
-    }
-  }
-
-  private tryParseHybridOrder(
-    encodedOrder: string,
-    signature: string,
-    chainId: number,
-    quoteId?: string,
-    requestId?: string,
-    hardQuote?: HardQuote
-  ): HybridOrder {
-    try {
-      const order = SDKHybridOrder.parse(encodedOrder, chainId)
-      return new HybridOrder(order, signature, chainId, undefined, undefined, quoteId, requestId, undefined, undefined, undefined, hardQuote)
-    } catch (err) {
-      this.logger.error('Unable to parse Hybrid order', {
         err,
         encodedOrder,
         chainId,

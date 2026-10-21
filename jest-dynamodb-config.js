@@ -301,14 +301,6 @@ module.exports = {
       KeySchema: [{ AttributeName: 'offerer', KeyType: 'HASH' }],
       AttributeDefinitions: [{ AttributeName: 'offerer', AttributeType: 'S' }],
       ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-    },
-    {
-      TableName: 'UnimindParameters',
-      KeySchema: [{ AttributeName: 'pair', KeyType: 'HASH' }],
-      AttributeDefinitions: [
-        { AttributeName: 'pair', AttributeType: 'S' }
-      ],
-      ProvisionedThroughput: { ReadCapacityUnits: 1, WriteCapacityUnits: 1 }
     }
   ],
   port: 8000,

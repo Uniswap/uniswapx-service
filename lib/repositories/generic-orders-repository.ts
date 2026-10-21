@@ -180,7 +180,8 @@ export abstract class GenericOrdersRepository<
     status: ORDER_STATUS,
     txHash?: string,
     fillBlock?: number,
-    settledAmounts?: SettledAmount[]
+    settledAmounts?: SettledAmount[],
+    fillTimestamp?: number
   ): Promise<void> {
     try {
       const order = checkDefined(
@@ -199,6 +200,7 @@ export abstract class GenericOrdersRepository<
           ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
           ...(txHash && { txHash }),
           ...(fillBlock && { fillBlock }),
+          ...(fillTimestamp && { fillTimestamp }),
           ...(settledAmounts && { settledAmounts }),
         },
         conditions

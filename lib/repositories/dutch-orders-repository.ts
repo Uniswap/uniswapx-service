@@ -42,15 +42,8 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         cosignature: { type: DYNAMODB_TYPES.STRING },
         auctionStartBlock: { type: DYNAMODB_TYPES.NUMBER },
         baselinePriorityFeeWei: { type: DYNAMODB_TYPES.STRING },
-        scalingFactor: { type: DYNAMODB_TYPES.STRING },
-        priceCurve: { type: DYNAMODB_TYPES.LIST },
         startingBaseFee: { type: DYNAMODB_TYPES.STRING },
         cosigner: { type: DYNAMODB_TYPES.STRING },
-        referencePrice: { type: DYNAMODB_TYPES.STRING },
-        priceImpact: { type: DYNAMODB_TYPES.NUMBER },
-        blockNumber: { type: DYNAMODB_TYPES.NUMBER },
-        route: { type: DYNAMODB_TYPES.MAP },
-        usedUnimind: { type: DYNAMODB_TYPES.BOOLEAN },
         //on chain data
         nonce: { type: DYNAMODB_TYPES.STRING, required: true },
         offerer: { type: DYNAMODB_TYPES.STRING, required: true },
@@ -66,6 +59,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
         requestId: { type: DYNAMODB_TYPES.STRING },
         txHash: { type: DYNAMODB_TYPES.STRING },
         fillBlock: { type: DYNAMODB_TYPES.NUMBER },
+        fillTimestamp: { type: DYNAMODB_TYPES.NUMBER },
         settledAmounts: { type: DYNAMODB_TYPES.LIST },
 
         //indexes

@@ -2,7 +2,6 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import { KMSClient } from '@aws-sdk/client-kms'
 import { KmsSigner } from '@uniswap/signer'
 import {
-  CosignedHybridOrder,
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
   CosignedV3DutchOrder,
@@ -11,8 +10,6 @@ import {
   OrderValidation,
   OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
-  UNISWAPX_V4_ORDER_QUOTER_MAPPING as OnChainV4QuoterMapping,
-  V4OrderValidator as OnChainV4OrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { ethers } from 'ethers'
@@ -23,7 +20,6 @@ import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
-import { GetHybridOrderResponse } from '../handlers/get-orders/schema/GetHybridOrderResponse'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
@@ -34,13 +30,11 @@ import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
 import { DutchV1Order } from '../models/DutchV1Order'
 import { DutchV2Order } from '../models/DutchV2Order'
 import { DutchV3Order } from '../models/DutchV3Order'
-import { HybridOrder } from '../models/HybridOrder'
 import { LimitOrder } from '../models/LimitOrder'
 import { PriorityOrder } from '../models/PriorityOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { WebhookProvider } from '../providers/base'
 import { BaseOrdersRepository, QueryResult } from '../repositories/base'
-import { QuoteMetadata, QuoteMetadataRepository } from '../repositories/quote-metadata-repository'
 import { hasExclusiveFiller } from '../util/address'
 import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
@@ -58,13 +52,11 @@ export class UniswapXOrderService {
     private readonly onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>,
     private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
     private readonly limitRepository: BaseOrdersRepository<UniswapXOrderEntity>,
-    private readonly quoteMetadataRepository: QuoteMetadataRepository,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
     private analyticsService: AnalyticsServiceInterface,
     private readonly providerMap: ProviderMap,
     private readonly webhookProvider?: WebhookProvider,
-    private readonly onChainV4ValidatorMap?: OnChainValidatorMap<OnChainV4OrderValidator>,
     // How many extra pages fetchOrderPages may read to fill a type-filtered request. GET
     // /orders passes SINGLE_PAGE: every follow-up is an uncached read against the same hot
     // partition, and the handler discards the resulting cursor anyway.
@@ -72,7 +64,7 @@ export class UniswapXOrderService {
   ) {}
 
   async createOrder(
-    order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order | HybridOrder
+    order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order
   ): Promise<string> {
     // Start the open-order count alongside validation; both must pass before the
     // order is accepted but neither depends on the other. All order entities
@@ -87,11 +79,8 @@ export class UniswapXOrderService {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
     } else if (order instanceof DutchV2Order || order instanceof DutchV3Order) {
-      const [quoteMetadata] = await Promise.all([
-        order.quoteId ? this.fetchQuoteMetadata(order.quoteId) : undefined,
-        this.validateOrder(order.inner, order.signature, order.chainId),
-      ])
-      orderEntity = order.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
+      await this.validateOrder(order.inner, order.signature, order.chainId)
+      orderEntity = order.toEntity(ORDER_STATUS.OPEN)
     } else if (order instanceof PriorityOrder) {
       // following https://github.com/Uniswap/uniswapx-parameterization-api/pull/358
       // recreate KmsSigner every request
@@ -108,27 +97,6 @@ export class UniswapXOrderService {
         throw new OrderValidationFailedError('auctionStartBlock too low')
       }
       this.logger.info('cosigned priority order', { order: cosignedOrder })
-      const [quoteMetadata] = await Promise.all([
-        order.quoteId ? this.fetchQuoteMetadata(order.quoteId) : undefined,
-        this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId),
-      ])
-      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN, quoteMetadata)
-    } else if (order instanceof HybridOrder) {
-      const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
-      const awsRegion = checkDefined(process.env.REGION, 'REGION is not defined')
-      const cosigner = new KmsSigner(new KMSClient({ region: awsRegion }), kmsKeyId)
-      const provider = checkDefined(
-        this.providerMap.get(order.chainId),
-        `provider not found for chainId: ${order.chainId}`
-      )
-
-      // HybridOrder uses hardQuote passed from the POST request instead of fetching quoteMetadata,
-      // except in the case that it is strictly a priority order
-      const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner, order.hardQuote)
-      if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock > cosignedOrder.inner.info.auctionStartBlock) {
-        throw new OrderValidationFailedError('auctionStartBlock too low')
-      }
-      this.logger.info('cosigned hybrid order', { order: cosignedOrder })
       await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
       orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN)
     } else {
@@ -195,7 +163,7 @@ export class UniswapXOrderService {
   }
 
   private async validateOrder(
-    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder | CosignedHybridOrder,
+    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder,
     signature: string,
     chainId: number
   ): Promise<void> {
@@ -233,26 +201,10 @@ export class UniswapXOrderService {
         throw new OrderValidationFailedError(`Permissioned Token Pre-transfer check failed`)
       }
     } else {
-      let onChainValidationResult: OrderValidation
-
-      // Use V4 quoter for Hybrid orders if available on this chain
-      if (order instanceof CosignedHybridOrder) {
-        if (this.onChainV4ValidatorMap && OnChainV4QuoterMapping[chainId]) {
-          const onChainV4Validator = this.onChainV4ValidatorMap.get(chainId)
-          onChainValidationResult = await onChainV4Validator.validate({ order: order, signature: signature })
-        } else {
-          throw new Error(`Onchain validator not found for chainId: ${chainId}`)
-        }
-      } else {
-        const onChainValidator = this.onChainValidatorMap.get(chainId)
-        onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
-      }
-
-      // Still considered valid for Priority and Hybrid orders (both have block-based auctions)
-      if (
-        (order instanceof CosignedPriorityOrder || order instanceof CosignedHybridOrder) &&
-        onChainValidationResult == OrderValidation.OrderNotFillableYet
-      )
+      const onChainValidator = this.onChainValidatorMap.get(chainId)
+      const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
+      // Still considered valid
+      if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet)
         return
 
       if (onChainValidationResult !== OrderValidation.OK) {
@@ -362,7 +314,7 @@ export class UniswapXOrderService {
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
       if (order.type === OrderType.Dutch_V2) {
-        const dutchV2Order = DutchV2Order.fromEntity(order, this.logger)
+        const dutchV2Order = DutchV2Order.fromEntity(order)
         resultList.push(dutchV2Order.toGetResponse())
       } else {
         resultList.push(order)
@@ -374,15 +326,14 @@ export class UniswapXOrderService {
   public async getDutchV2Orders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined,
-    executeAddress: string | undefined
+    cursor: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V2], cursor)
 
     const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
-      const dutchV2Order = DutchV2Order.fromEntity(order, this.logger, executeAddress)
+      const dutchV2Order = DutchV2Order.fromEntity(order)
       dutchV2OrderResponses.push(dutchV2Order.toGetResponse())
     }
 
@@ -392,15 +343,14 @@ export class UniswapXOrderService {
   public async getDutchV3Orders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined,
-    executeAddress: string | undefined
+    cursor: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV3OrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V3], cursor)
 
     const dutchV3OrderResponses: GetDutchV3OrderResponse[] = []
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
-      const dutchV3Order = DutchV3Order.fromEntity(order, this.logger, executeAddress)
+      const dutchV3Order = DutchV3Order.fromEntity(order)
       dutchV3OrderResponses.push(dutchV3Order.toGetResponse())
     }
 
@@ -418,36 +368,18 @@ export class UniswapXOrderService {
   public async getPriorityOrders(
     limit: number,
     params: GetOrdersQueryParams,
-    cursor: string | undefined,
-    executeAddress: string | undefined
+    cursor: string | undefined
   ): Promise<GetOrdersResponse<GetPriorityOrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Priority], cursor)
 
     const priorityOrderResponses: GetPriorityOrderResponse[] = []
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
-      const priorityOrder = PriorityOrder.fromEntity(order, this.logger, executeAddress)
+      const priorityOrder = PriorityOrder.fromEntity(order)
       priorityOrderResponses.push(priorityOrder.toGetResponse())
     }
 
     return { orders: priorityOrderResponses, cursor: queryResults.cursor }
-  }
-
-  public async getHybridOrders(
-    limit: number,
-    params: GetOrdersQueryParams,
-    cursor: string | undefined
-  ): Promise<GetOrdersResponse<GetHybridOrderResponse>> {
-    const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Hybrid], cursor)
-
-    const hybridOrderResponses: GetHybridOrderResponse[] = []
-    for (let i = 0; i < queryResults.orders.length; i++) {
-      const order = queryResults.orders[i]
-      const hybridOrder = HybridOrder.fromEntity(order, this.logger)
-      hybridOrderResponses.push(hybridOrder.toGetResponse())
-    }
-
-    return { orders: hybridOrderResponses, cursor: queryResults.cursor }
   }
 
   public async getLimitOrders(
@@ -458,14 +390,6 @@ export class UniswapXOrderService {
     // TODO: DAT-313: Fix order type for Limit Orders
     const queryResults = await this.limitRepository.getOrdersFilteredByType(limit, params, [OrderType.Dutch], cursor)
     return queryResults
-  }
-
-  private async fetchQuoteMetadata(quoteId: string): Promise<QuoteMetadata | undefined> {
-    const quoteMetadata = await this.quoteMetadataRepository.getByQuoteId(quoteId)
-    if (!quoteMetadata) {
-      this.logger.warn({ quoteId, message: 'No quote metadata found for order' })
-    }
-    return quoteMetadata
   }
 
   private isExactInput(order: DutchOrder | CosignedV2DutchOrder): boolean {

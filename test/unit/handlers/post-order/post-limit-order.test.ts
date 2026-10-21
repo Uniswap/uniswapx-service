@@ -3,15 +3,11 @@ import {
   OrderType,
   OrderValidation,
   OrderValidator,
-  RelayEventWatcher,
-  RelayOrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { FillEventLogger } from '../../../../lib/handlers/check-order-status/fill-event-logger'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../../lib/handlers/constants'
-import { EventWatcherMap } from '../../../../lib/handlers/EventWatcherMap'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
 import { getMaxLimitOpenOrders } from '../../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
@@ -20,14 +16,12 @@ import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
-import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
-import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 
 jest.mock('../../../../lib/handlers/shared/sfn', () => {
   return {
@@ -103,31 +97,14 @@ describe('Testing post limit order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-        mock<QuoteMetadataRepository>(),
         mockLog,
         getMaxLimitOpenOrders,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-          logUnimindResponse: jest.fn(),
-          logUnimindParameterUpdate: jest.fn(),
         },
         new Map()
-      ),
-      new RelayOrderService(
-        {
-          validate: validatorMock,
-        } as any,
-        new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
-        mock<EventWatcherMap<RelayEventWatcher>>(),
-        {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        } as any,
-        mockLog,
-        getMaxLimitOpenOrders,
-        mock<FillEventLogger>()
       ),
       mockLog
     ),

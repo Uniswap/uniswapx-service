@@ -2,9 +2,6 @@ import { CosignedV3DutchOrder as SDKV3DutchOrder, OrderType } from '@uniswap/uni
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { Order } from './Order'
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
-import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
-import { Logger } from '@aws-lambda-powertools/logger'
-import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
 
 export class DutchV3Order extends Order {
   constructor(
@@ -14,6 +11,7 @@ export class DutchV3Order extends Order {
     readonly orderStatus?: ORDER_STATUS,
     readonly txHash?: string,
     readonly fillBlock?: number,
+    readonly fillTimestamp?: number,
     readonly quoteId?: string,
     readonly requestId?: string,
     readonly createdAt?: number,
@@ -22,8 +20,7 @@ export class DutchV3Order extends Order {
       amountOut: string
       tokenIn: string
       amountIn: string
-    }[],
-    readonly route?: Route
+    }[]
   ) {
     super()
   }
@@ -32,7 +29,7 @@ export class DutchV3Order extends Order {
     return OrderType.Dutch_V3
   }
 
-  public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): UniswapXOrderEntity {
+  public toEntity(orderStatus: ORDER_STATUS): UniswapXOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: UniswapXOrderEntity = {
@@ -77,35 +74,17 @@ export class DutchV3Order extends Order {
       },
       txHash: this.txHash,
       fillBlock: this.fillBlock,
+      fillTimestamp: this.fillTimestamp,
       cosignature: decodedOrder.info.cosignature,
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      usedUnimind: quoteMetadata?.usedUnimind ?? false,
-      ...(quoteMetadata && {
-        referencePrice: quoteMetadata.referencePrice,
-        priceImpact: quoteMetadata.priceImpact,
-        route: quoteMetadata.route,
-        pair: quoteMetadata.pair
-      })
     }
 
     return order
   }
 
-  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): DutchV3Order {
-    const route = executeAddress && entity.route ? {
-      quote: entity.route.quote,
-      quoteGasAdjusted: entity.route.quoteGasAdjusted,
-      gasPriceWei: entity.route.gasPriceWei,
-      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
-      gasUseEstimate: entity.route.gasUseEstimate,
-      methodParameters : {
-        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
-        value: entity.route.methodParameters.value,
-        to: entity.route.methodParameters.to,
-      },
-    } : entity.route
+  public static fromEntity(entity: UniswapXOrderEntity): DutchV3Order {
     return new DutchV3Order(
       SDKV3DutchOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
@@ -113,11 +92,11 @@ export class DutchV3Order extends Order {
       entity.orderStatus,
       entity.txHash,
       entity.fillBlock,
+      entity.fillTimestamp,
       entity.quoteId,
       entity.requestId,
       entity.createdAt,
-      entity.settledAmounts,
-      route
+      entity.settledAmounts
     )
   }
 
@@ -131,6 +110,7 @@ export class DutchV3Order extends Order {
       nonce: this.inner.info.nonce.toString(),
       txHash: this.txHash,
       fillBlock: this.fillBlock,
+      fillTimestamp: this.fillTimestamp,
       orderHash: this.inner.hash(),
       swapper: this.inner.info.swapper,
       reactor: this.inner.info.reactor,
@@ -170,7 +150,6 @@ export class DutchV3Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      route: this.route,
     }
   }
 }

@@ -6,7 +6,7 @@ import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS, BLOCKS_IN_24_HOURS } from '../../util/constants'
 import { ethers } from 'ethers'
-import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, CosignedHybridOrder, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
+import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../../handlers/OrderParser'
 import { AVERAGE_BLOCK_TIME, getSettledAmounts, IS_TERMINAL_STATE } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
@@ -15,13 +15,11 @@ import { LimitOrdersRepository } from '../../repositories/limit-orders-repositor
 import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { Permit2Validator } from '../../util/Permit2Validator'
 
-// Type for legacy orders that have input at the info level
-type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
-
 type OrderUpdate = {
   status: ORDER_STATUS,
   txHash?: string,
   fillBlock?: number,
+  fillTimestamp?: number,
   settledAmounts?: SettledAmount[]
 }
 
@@ -331,6 +329,7 @@ async function processBlockRange(
                   status: ORDER_STATUS.FILLED,
                   txHash: orderFillInfo.txHash,
                   fillBlock: orderFillInfo.fillBlock,
+                  fillTimestamp: orderFillInfo.fillTimestamp,
                   settledAmounts: orderFillInfo.settledAmounts,
                 }
                 orderHashSet.delete(e.orderHash)
@@ -469,11 +468,7 @@ async function checkCancelledOrders(
         }
         // We only check for nonce used and expired for permissioned tokens
         // since the order quoter can't move input tokens
-        // For v4 orders like Hybrid, input is at a different level
-        const inputToken = order instanceof CosignedHybridOrder
-          ? order.info.input.token
-          : (order as LegacyUniswapXOrder).info.input.token
-        const validation = PermissionedTokenValidator.isPermissionedToken(inputToken, chainId)
+        const validation = PermissionedTokenValidator.isPermissionedToken(order.info.input.token, chainId)
           ? await new Permit2Validator(provider, chainId).validate(order)
           : await quoter.validate({
             order: order,
@@ -570,7 +565,8 @@ async function updateOrders(
       orderUpdate.status,
       orderUpdate.txHash,
       orderUpdate.fillBlock,
-      orderUpdate.settledAmounts
+      orderUpdate.settledAmounts,
+      orderUpdate.fillTimestamp
     )
   }
   
@@ -664,7 +660,7 @@ async function getOrderFillInfo(
   provider: ethers.providers.StaticJsonRpcProvider,
   fillEvent: FillInfo,
   order: UniswapXOrder
-): Promise<{ txHash: string; fillBlock: number; settledAmounts: SettledAmount[] }> {
+): Promise<{ txHash: string; fillBlock: number; fillTimestamp: number; settledAmounts: SettledAmount[] }> {
   const [tx, block] = await Promise.all([
     provider.getTransaction(fillEvent.txHash),
     provider.getBlock(fillEvent.blockNumber),
@@ -682,6 +678,7 @@ async function getOrderFillInfo(
   return {
     txHash: fillEvent.txHash,
     fillBlock: fillEvent.blockNumber,
+    fillTimestamp: block.timestamp,
     settledAmounts,
   }
 }

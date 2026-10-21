@@ -15,7 +15,6 @@ import { log } from '../../../lib/Logging'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
-import { RelayOrderService } from '../../../lib/services/RelayOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
@@ -111,8 +110,7 @@ describe('Testing check order status handler', () => {
         mockLookbackFn,
         mock<FillEventLogger>(),
         mock<CheckOrderStatusUtils>()
-      ),
-      mock<RelayOrderService>()
+      )
     )
 
     it('Should throw when orderHash is not provided', async () => {
@@ -195,8 +193,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getFillInfoMock.mockReturnValue([])
@@ -227,8 +224,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getTransactionMock.mockReturnValueOnce({
@@ -279,8 +275,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock.mockReturnValue(OrderValidation.NonceUsed)
       getTransactionMock.mockReturnValueOnce({
@@ -330,8 +325,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock.mockReturnValue(OrderValidation.InsufficientFunds)
       expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
@@ -361,8 +355,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock
         .mockReturnValueOnce(OrderValidation.UnknownError)
@@ -404,8 +397,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
 
       validateMock.mockReturnValue(OrderValidation.OK)
@@ -445,8 +437,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
 
       // Mock that the token is permissioned
@@ -509,8 +500,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
 
       // Mock that the token is NOT permissioned

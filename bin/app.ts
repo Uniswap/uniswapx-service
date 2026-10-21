@@ -149,10 +149,6 @@ export class APIPipeline extends Stack {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-tenderly-Jh1BNl',
     })
 
-    const resourceArnSecret = sm.Secret.fromSecretAttributes(this, 'firehoseArn', {
-      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-resource-arns-wF51FW',
-    })
-
     const internalApiKey = sm.Secret.fromSecretAttributes(this, 'internal-api-key', {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:uniswapx-internal-api-key-new-RaBmoM',
     })
@@ -203,20 +199,6 @@ export class APIPipeline extends Stack {
         QUOTER_TENDERLY: tenderlySecrets.secretValueFromJson('QUOTER_TENDERLY').toString(),
         DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
-        FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
-        ACTIVE_ORDER_EVENT_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_BETA')
-          .toString(),
-        POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_BETA')
-          .toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_BETA')
-          .toString(),
-        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret
-          .secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_BETA')
-          .toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
         GET_ORDERS_CACHE_TTL_MS: '500',
@@ -227,10 +209,7 @@ export class APIPipeline extends Stack {
       tableCapacityConfig: {
         order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
       },
     })
 
@@ -258,20 +237,6 @@ export class APIPipeline extends Stack {
       envVars: {
         ...jsonRpcUrls,
         RPC_HEADER_SECRET: rpcHeaderSecret,
-        FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
-        ACTIVE_ORDER_EVENT_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_PROD')
-          .toString(),
-        POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_PROD')
-          .toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_PROD')
-          .toString(),
-        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret
-          .secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_PROD')
-          .toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
         GET_ORDERS_CACHE_TTL_MS: '500',
@@ -412,11 +377,6 @@ envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
-envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
-envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
-envVars['UNIMIND_RESPONSE_DESTINATION_ARN'] = process.env['UNIMIND_RESPONSE_DESTINATION_ARN'] || ''
-envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] = process.env['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] || ''
-envVars['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] = process.env['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] || ''
 envVars['LABS_COSIGNER'] = process.env['LABS_COSIGNER'] || ''
 envVars['LABS_PRIORITY_COSIGNER'] = process.env['LABS_PRIORITY_COSIGNER'] || ''
 envVars['GET_ORDERS_CACHE_TTL_MS'] = process.env['GET_ORDERS_CACHE_TTL_MS'] || ''
@@ -431,10 +391,7 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   tableCapacityConfig: {
     order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   },
 })
 
