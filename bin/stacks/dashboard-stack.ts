@@ -822,7 +822,7 @@ export class DashboardStack extends cdk.NestedStack {
           {
             height: 6,
             width: 12,
-            y: 68,
+            y: 74,
             x: 12,
             type: 'metric',
             properties: {
