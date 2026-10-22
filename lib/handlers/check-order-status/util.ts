@@ -263,12 +263,66 @@ export const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
   }
 }
 
-const watcherMap = new Map<string, UniswapXEventWatcher>()
+/*
+ * RPC providers cap the block range of a single eth_getLogs call. A limit order that sat
+ * without funds for a whole run searches back to the run's first block, which can be
+ * tens of thousands of blocks on fast chains, so the lookup is split into ranges.
+ */
+export const MAX_FILL_LOOKUP_BLOCK_RANGE = 10_000
+
+type FillLog = Awaited<ReturnType<UniswapXEventWatcher['getFillLogs']>>[number]
+
+/**
+ * Fill watcher that looks up one order's fill. The SDK's getFillInfo reads every Fill
+ * in the range and fetches a receipt for each in parallel; over the wide ranges a
+ * long-lived order searches, that fan-out exhausts file descriptors (EMFILE) and fails
+ * the execution. Filtering on the indexed orderHash returns only this order's fill, so
+ * at most one receipt is fetched.
+ *
+ * The FillInfo assembly mirrors EventWatcher.getFillInfo in @uniswap/uniswapx-sdk 3.1.0
+ * (fill args from the log, token transfers from the receipt); re-check it on SDK upgrades.
+ */
+export class OrderFillWatcher extends UniswapXEventWatcher {
+  async getFillInfoForOrder(orderHash: string, fromBlock: number, toBlock: number): Promise<FillInfo[]> {
+    const filter = this.reactor.filters.Fill(orderHash)
+    // Newest range first: a fill is usually recent relative to the poll that saw the
+    // used nonce, so this usually needs one call.
+    for (let end = toBlock; end >= fromBlock; end -= MAX_FILL_LOOKUP_BLOCK_RANGE) {
+      const start = Math.max(fromBlock, end - MAX_FILL_LOOKUP_BLOCK_RANGE + 1)
+      const logs = await this.reactor.queryFilter(filter, start, end)
+      if (logs.length > 0) {
+        return Promise.all(logs.map((log) => this.toFillInfo(log)))
+      }
+    }
+    return []
+  }
+
+  private async toFillInfo(log: FillLog): Promise<FillInfo> {
+    const receipt = await this.reactor.provider.getTransactionReceipt(log.transactionHash)
+    if (!receipt) {
+      // A load-balanced RPC can serve the log before the receipt; throw so the
+      // state machine retries instead of failing on a null receipt.
+      throw new Error(`receipt not yet available for fill tx ${log.transactionHash}`)
+    }
+    return {
+      orderHash: log.args.orderHash,
+      swapper: log.args.swapper,
+      filler: log.args.filler,
+      nonce: log.args.nonce,
+      blockNumber: receipt.blockNumber,
+      txHash: receipt.transactionHash,
+      inputs: this.getTokenTransfers(receipt.logs, log.args.filler),
+      outputs: this.getTokenTransfers(receipt.logs, log.args.swapper),
+    }
+  }
+}
+
+const watcherMap = new Map<string, OrderFillWatcher>()
 export function getWatcher(
   provider: ethers.providers.StaticJsonRpcProvider,
   chainId: number,
   orderType: OrderType
-): UniswapXEventWatcher {
+): OrderFillWatcher {
   const reactorType = orderType === OrderType.Limit ? OrderType.Dutch : orderType
   const address = REACTOR_ADDRESS_MAPPING[chainId]?.[reactorType]
   if (!address) {
@@ -277,7 +331,7 @@ export function getWatcher(
   const mapKey = `${chainId}-${reactorType}`
   let watcher = watcherMap.get(mapKey)
   if (!watcher) {
-    watcher = new UniswapXEventWatcher(provider, address)
+    watcher = new OrderFillWatcher(provider, address)
     watcherMap.set(mapKey, watcher)
   }
   return watcher
@@ -324,3 +378,52 @@ export function calculateDutchRetryWaitSeconds(chainId: ChainId, retryCount: num
       : 18000
   return Math.max(MIN_RETRY_WAIT_SECONDS, calculated)
 }
+
+export type RetryWaitContext = {
+  orderStatus: ORDER_STATUS
+  getFillLogAttempts?: number
+  createdAt?: number
+  nowSeconds: number
+}
+
+/*
+ * Limit orders live up to a year, so polling each one every block for its whole life
+ * costs Step Functions transitions in proportion to open orders x blocks. Poll every
+ * block while the order is young (when quick fills land) and while a nonce-used or
+ * expired grace poll is pending (so cancellations settle quickly), then slow down.
+ * Orders without funds cannot be filled until the swapper tops up, so they are
+ * polled least often.
+ */
+export const LIMIT_ORDER_BLOCK_CADENCE_AGE_SECONDS = 10 * 60
+export const LIMIT_ORDER_OPEN_POLL_SECONDS = 30
+export const LIMIT_ORDER_INSUFFICIENT_FUNDS_POLL_SECONDS = 300
+
+export function calculateLimitRetryWaitSeconds(
+  chainId: ChainId,
+  _retryCount: number,
+  context: RetryWaitContext
+): number {
+  const blockCadence = Math.max(MIN_RETRY_WAIT_SECONDS, Math.ceil(AVERAGE_BLOCK_TIME(chainId)))
+  if (context.getFillLogAttempts) {
+    return blockCadence
+  }
+  if (context.orderStatus === ORDER_STATUS.INSUFFICIENT_FUNDS) {
+    return Math.max(blockCadence, LIMIT_ORDER_INSUFFICIENT_FUNDS_POLL_SECONDS)
+  }
+  if (context.createdAt !== undefined && context.nowSeconds - context.createdAt < LIMIT_ORDER_BLOCK_CADENCE_AGE_SECONDS) {
+    return blockCadence
+  }
+  return Math.max(blockCadence, LIMIT_ORDER_OPEN_POLL_SECONDS)
+}
+
+/*
+ * A limit-order run that starts without a fill-search window (the first run, and every
+ * restart -- see the handler) searches back from its first poll. A restart is kicked
+ * off from the previous run's final poll, so the new run can see a nonce consumed by a
+ * fill that landed up to one poll interval before that. The lookback must cover the
+ * longest limit-order interval, or the new run misses the fill and records the used
+ * nonce as a cancellation.
+ */
+export const LIMIT_FILL_EVENT_LOOKBACK_BLOCKS = (chainId: ChainId): number =>
+  FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId) +
+  Math.ceil(LIMIT_ORDER_INSUFFICIENT_FUNDS_POLL_SECONDS / AVERAGE_BLOCK_TIME(chainId))

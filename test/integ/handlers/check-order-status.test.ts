@@ -79,7 +79,7 @@ describe('Testing check order status handler', () => {
           },
           orderWatcher: {
             getFillEvents: getFillEventsMock,
-            getFillInfo: getFillInfoMock,
+            getFillInfoForOrder: getFillInfoMock,
           },
           provider: {
             getBlockNumber: providerMock,
