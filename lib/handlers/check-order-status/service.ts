@@ -89,6 +89,7 @@ export type CheckOrderStatusRequest = {
   orderQuoter: OrderValidator
   quoteId: string //only used for logging
   orderType: OrderType
+  runIndex?: number
 }
 
 export type ExtraUpdateInfo = {
@@ -119,6 +120,7 @@ export class CheckOrderStatusService {
     orderQuoter,
     orderWatcher,
     orderStatus,
+    runIndex,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order: UniswapXOrderEntity = checkDefined(
       await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
@@ -170,7 +172,20 @@ export class CheckOrderStatusService {
       throw error
     }
 
-    const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
+    const rollingStartBlock = curBlockNumber - this.fillEventBlockLookback(chainId)
+    const fromBlock = startingBlockNumber
+      ? startingBlockNumber
+      : this.getRunStartBlock(order, chainId, runIndex, curBlockNumber, Math.floor(Date.now() / 1000))
+    if (!startingBlockNumber && fromBlock < rollingStartBlock) {
+      // Shows how often a first poll still runs long after the order was posted.
+      log.info('first tracking poll delayed; fill search reaches back to order creation', {
+        orderHash,
+        chainId,
+        extraBlocks: rollingStartBlock - fromBlock,
+      })
+      metrics.putMetric(`OrderSfn-FirstRunWindowExtended`, 1)
+      metrics.putMetric(`OrderSfn-FirstRunWindowExtended-chain-${chainId}`, 1)
+    }
 
     const commonUpdateInfo = {
       orderHash,
@@ -313,6 +328,43 @@ export class CheckOrderStatusService {
   }
 
   /**
+   * Where a run's fill-search window starts when it carries none. A restart starts
+   * from its first poll (see the handler). The first run starts no later than the
+   * order's creation: its first poll can be delayed (Step Functions throttling has
+   * held it back by hours), and a window anchored at that poll misses a fill that
+   * landed in the meantime, so the used nonce is recorded as a cancellation. Dutch V3
+   * and Priority orders skip this: their fill search already anchors to the exact
+   * auction start block (getFillSearchFromBlock).
+   */
+  private getRunStartBlock(
+    order: UniswapXOrderEntity,
+    chainId: number,
+    runIndex: number | undefined,
+    curBlockNumber: number,
+    nowSeconds: number
+  ): number {
+    const rollingStart = curBlockNumber - this.fillEventBlockLookback(chainId)
+    if (
+      runIndex ||
+      !order.createdAt ||
+      order.createdAt >= nowSeconds ||
+      getAuctionStartBlock(order, chainId) !== undefined
+    ) {
+      return rollingStart
+    }
+    let averageBlockTime: number
+    try {
+      averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
+    } catch {
+      return rollingStart
+    }
+    // Twice the elapsed blocks at the average cadence, so a chain running faster
+    // than its registered block time cannot push the estimate past creation.
+    const blocksSinceCreation = Math.floor((2 * (nowSeconds - order.createdAt)) / averageBlockTime)
+    return Math.max(0, Math.min(rollingStart, curBlockNumber - blocksSinceCreation - this.fillEventBlockLookback(chainId)))
+  }
+
+  /**
    * Lower bound (inclusive) for the fill-event search. When the order's
    * decay/auction start block is known exactly (Dutch V3, Priority) we
    * anchor to it so fills that land at or just before it are always in range,
@@ -351,7 +403,8 @@ export class CheckOrderStatusService {
     order: UniswapXOrderEntity,
     chainId: number,
     searchFromBlock: number,
-    curBlockNumber: number
+    curBlockNumber: number,
+    nowSeconds: number = Math.floor(Date.now() / 1000)
   ): number {
     if (!order.createdAt || !order.deadline || order.deadline <= order.createdAt) {
       return curBlockNumber
@@ -372,9 +425,17 @@ export class CheckOrderStatusService {
     // the order's fill range and re-create the misclassification the pad
     // exists to prevent.
     const lifespanBlocks = Math.ceil((order.deadline - order.createdAt) / averageBlockTime)
+    // A first run whose first poll was delayed searches from well before creation
+    // (getRunStartBlock), so measure the lifetime from the estimated creation block
+    // when that is later than the lower bound. Use the latest plausible creation
+    // block (half the elapsed blocks at the average cadence), mirroring the 2x on
+    // the lower bound, so a chain running slower than its registered block time
+    // cannot pull the cap below the fill.
+    const creationBlock = curBlockNumber - Math.floor((nowSeconds - order.createdAt) / (2 * averageBlockTime))
+    const lifetimeStart = Math.max(searchFromBlock, creationBlock)
     return Math.min(
       curBlockNumber,
-      searchFromBlock + getFillCheckOverlapBlocks(chainId) + 3 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS
+      lifetimeStart + getFillCheckOverlapBlocks(chainId) + 3 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS
     )
   }
 
