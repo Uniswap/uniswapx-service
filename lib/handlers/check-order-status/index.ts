@@ -4,7 +4,12 @@ import { DutchOrdersRepository } from '../../repositories/dutch-orders-repositor
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
-import { calculateDutchRetryWaitSeconds, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
+import {
+  calculateDutchRetryWaitSeconds,
+  calculateLimitRetryWaitSeconds,
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
+  LIMIT_FILL_EVENT_LOOKBACK_BLOCKS,
+} from '../check-order-status/util'
 import { CheckOrderStatusHandler } from './handler'
 import { CheckOrderStatusInjector } from './injector'
 import { CheckOrderStatusService, CheckOrderStatusUtils } from './service'
@@ -31,13 +36,13 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler(
 
   new CheckOrderStatusService(
     LimitOrdersRepository.create(documentClient),
-    FILL_EVENT_LOOKBACK_BLOCKS_ON,
-    new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create()),
+    LIMIT_FILL_EVENT_LOOKBACK_BLOCKS,
+    new FillEventLogger(LIMIT_FILL_EVENT_LOOKBACK_BLOCKS, AnalyticsService.create()),
     new CheckOrderStatusUtils(
       OrderType.Limit,
       AnalyticsService.create(),
       limitOrdersRepository,
-      calculateDutchRetryWaitSeconds
+      calculateLimitRetryWaitSeconds
     )
   )
 )

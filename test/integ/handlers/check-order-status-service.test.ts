@@ -38,7 +38,7 @@ describe('checkOrderStatusService', () => {
     logInsufficientFunds: jest.fn(),
   } as any
   describe('check order status', () => {
-    let watcherMock: { getFillEvents: jest.Mock<any, any>; getFillInfo: jest.Mock<any, any> },
+    let watcherMock: { getFillEvents: jest.Mock<any, any>; getFillInfoForOrder: jest.Mock<any, any> },
       providerMock: {
         getBlockNumber: jest.Mock<any, any>
         getTransaction: jest.Mock<any, any>
@@ -71,7 +71,7 @@ describe('checkOrderStatusService', () => {
 
       watcherMock = {
         getFillEvents: getFillEventsMock,
-        getFillInfo: getFillInfoMock,
+        getFillInfoForOrder: getFillInfoMock,
       }
       providerMock = {
         getBlockNumber: getBlockNumberMock,
@@ -143,7 +143,7 @@ describe('checkOrderStatusService', () => {
           expect.any(Array),
           123456
         )
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -173,7 +173,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).not.toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -195,7 +195,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).not.toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -231,7 +231,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -259,7 +259,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).not.toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -279,7 +279,7 @@ describe('checkOrderStatusService', () => {
         expect(analyticsMock.logCancelled).toHaveBeenCalled()
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).not.toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -301,7 +301,7 @@ describe('checkOrderStatusService', () => {
           checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
         ).rejects.toThrow('limit exceeded')
 
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(analyticsMock.logCancelled).not.toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
       })
@@ -566,7 +566,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -606,7 +606,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(

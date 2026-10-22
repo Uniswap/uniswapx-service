@@ -1,4 +1,4 @@
-import { OrderType, OrderValidator, UniswapXEventWatcher } from '@uniswap/uniswapx-sdk'
+import { OrderType, OrderValidator } from '@uniswap/uniswapx-sdk'
 import { MetricsLogger } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
@@ -9,7 +9,7 @@ import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { setGlobalMetrics } from '../../util/metrics'
 import { SfnInjector, SfnStateInputOutput } from '../base/index'
-import { getWatcher } from './util'
+import { getWatcher, OrderFillWatcher } from './util'
 import { getRpcUrl } from '../../Config'
 import { RPC_HEADERS } from '../../util/constants'
 
@@ -25,7 +25,7 @@ export interface RequestInjected {
   runIndex: number
   deadline?: number
   provider: ethers.providers.StaticJsonRpcProvider
-  orderWatcher: UniswapXEventWatcher
+  orderWatcher: OrderFillWatcher
   orderQuoter: OrderValidator
   orderType: OrderType
   stateMachineArn: string

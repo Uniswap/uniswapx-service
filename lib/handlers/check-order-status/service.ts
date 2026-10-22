@@ -7,7 +7,6 @@ import {
   OrderType,
   OrderValidation,
   OrderValidator,
-  UniswapXEventWatcher,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
@@ -20,7 +19,14 @@ import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import { AVERAGE_BLOCK_TIME, getSettledAmounts, IS_TERMINAL_STATE, timestampToBlockNumber } from './util'
+import {
+  AVERAGE_BLOCK_TIME,
+  getSettledAmounts,
+  IS_TERMINAL_STATE,
+  OrderFillWatcher,
+  RetryWaitContext,
+  timestampToBlockNumber,
+} from './util'
 import { parseOrder } from '../OrderParser'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../constants'
 import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
@@ -79,7 +85,7 @@ export type CheckOrderStatusRequest = {
   getFillLogAttempts: number
   retryCount: number
   provider: ethers.providers.StaticJsonRpcProvider
-  orderWatcher: UniswapXEventWatcher
+  orderWatcher: OrderFillWatcher
   orderQuoter: OrderValidator
   quoteId: string //only used for logging
   orderType: OrderType
@@ -177,6 +183,7 @@ export class CheckOrderStatusService {
       // Echoed into the SFN state so the handler can stop respawning
       // executions for orders long past their deadline.
       deadline: order.deadline,
+      createdAt: order.createdAt,
     }
 
     let extraUpdateInfo = undefined
@@ -375,10 +382,10 @@ export class CheckOrderStatusService {
     orderHash: string,
     fromBlock: number,
     toBlock: number,
-    orderWatcher: UniswapXEventWatcher
+    orderWatcher: OrderFillWatcher
   ): Promise<FillInfo | undefined> {
     const fillEvents = await wrapWithTimerMetric(
-      orderWatcher.getFillInfo(fromBlock, toBlock),
+      orderWatcher.getFillInfoForOrder(orderHash, fromBlock, toBlock),
       CheckOrderStatusHandlerMetricNames.GetFillEventsTime
     )
 
@@ -393,7 +400,7 @@ export class CheckOrderStatusUtils {
     private readonly serviceOrderType: OrderType,
     private readonly analyticsService: AnalyticsServiceInterface,
     private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
-    private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number
+    private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number, context: RetryWaitContext) => number
   ) {}
 
   public async updateStatusAndReturn(params: {
@@ -412,6 +419,7 @@ export class CheckOrderStatusUtils {
     getFillLogAttempts?: number
     runIndex?: number
     deadline?: number
+    createdAt?: number
   }): Promise<SfnStateInputOutput> {
     const {
       orderHash,
@@ -429,6 +437,7 @@ export class CheckOrderStatusUtils {
       validation,
       runIndex,
       deadline,
+      createdAt,
     } = params
 
     // Avoid updating the order if the status is unchanged.
@@ -468,7 +477,12 @@ export class CheckOrderStatusUtils {
       orderStatus: orderStatus,
       retryCount: (retryCount || 0) + 1,
       quoteId: quoteId,
-      retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount),
+      retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount, {
+        orderStatus,
+        getFillLogAttempts,
+        createdAt,
+        nowSeconds: Math.floor(Date.now() / 1000),
+      }),
       startingBlockNumber: startingBlockNumber,
       chainId: chainId,
       runIndex: runIndex || 0,
