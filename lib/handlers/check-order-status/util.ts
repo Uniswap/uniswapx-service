@@ -263,31 +263,57 @@ export const FILL_EVENT_LOOKBACK_BLOCKS_ON = (chainId: ChainId): number => {
   }
 }
 
+/*
+ * RPC providers cap the block range of a single eth_getLogs call. A limit order that sat
+ * without funds for a whole run searches back to the run's first block, which can be
+ * tens of thousands of blocks on fast chains, so the lookup is split into ranges.
+ */
+export const MAX_FILL_LOOKUP_BLOCK_RANGE = 10_000
+
+type FillLog = Awaited<ReturnType<UniswapXEventWatcher['getFillLogs']>>[number]
+
 /**
  * Fill watcher that looks up one order's fill. The SDK's getFillInfo reads every Fill
  * in the range and fetches a receipt for each in parallel; over the wide ranges a
  * long-lived order searches, that fan-out exhausts file descriptors (EMFILE) and fails
  * the execution. Filtering on the indexed orderHash returns only this order's fill, so
  * at most one receipt is fetched.
+ *
+ * The FillInfo assembly mirrors EventWatcher.getFillInfo in @uniswap/uniswapx-sdk 3.1.0
+ * (fill args from the log, token transfers from the receipt); re-check it on SDK upgrades.
  */
 export class OrderFillWatcher extends UniswapXEventWatcher {
   async getFillInfoForOrder(orderHash: string, fromBlock: number, toBlock: number): Promise<FillInfo[]> {
-    const logs = await this.reactor.queryFilter(this.reactor.filters.Fill(orderHash), fromBlock, toBlock)
-    return Promise.all(
-      logs.map(async (log) => {
-        const receipt = await this.reactor.provider.getTransactionReceipt(log.transactionHash)
-        return {
-          orderHash: log.args.orderHash,
-          swapper: log.args.swapper,
-          filler: log.args.filler,
-          nonce: log.args.nonce,
-          blockNumber: receipt.blockNumber,
-          txHash: receipt.transactionHash,
-          inputs: this.getTokenTransfers(receipt.logs, log.args.filler),
-          outputs: this.getTokenTransfers(receipt.logs, log.args.swapper),
-        }
-      })
-    )
+    const filter = this.reactor.filters.Fill(orderHash)
+    // Newest range first: a fill is usually recent relative to the poll that saw the
+    // used nonce, so this usually needs one call.
+    for (let end = toBlock; end >= fromBlock; end -= MAX_FILL_LOOKUP_BLOCK_RANGE) {
+      const start = Math.max(fromBlock, end - MAX_FILL_LOOKUP_BLOCK_RANGE + 1)
+      const logs = await this.reactor.queryFilter(filter, start, end)
+      if (logs.length > 0) {
+        return Promise.all(logs.map((log) => this.toFillInfo(log)))
+      }
+    }
+    return []
+  }
+
+  private async toFillInfo(log: FillLog): Promise<FillInfo> {
+    const receipt = await this.reactor.provider.getTransactionReceipt(log.transactionHash)
+    if (!receipt) {
+      // A load-balanced RPC can serve the log before the receipt; throw so the
+      // state machine retries instead of failing on a null receipt.
+      throw new Error(`receipt not yet available for fill tx ${log.transactionHash}`)
+    }
+    return {
+      orderHash: log.args.orderHash,
+      swapper: log.args.swapper,
+      filler: log.args.filler,
+      nonce: log.args.nonce,
+      blockNumber: receipt.blockNumber,
+      txHash: receipt.transactionHash,
+      inputs: this.getTokenTransfers(receipt.logs, log.args.filler),
+      outputs: this.getTokenTransfers(receipt.logs, log.args.swapper),
+    }
   }
 }
 
