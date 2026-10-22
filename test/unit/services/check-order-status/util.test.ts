@@ -1,7 +1,14 @@
 import { ethers } from 'ethers'
+import { ORDER_STATUS } from '../../../../lib/entities'
 import {
   AVERAGE_BLOCK_TIME,
   calculateDutchRetryWaitSeconds,
+  calculateLimitRetryWaitSeconds,
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
+  LIMIT_FILL_EVENT_LOOKBACK_BLOCKS,
+  LIMIT_ORDER_BLOCK_CADENCE_AGE_SECONDS,
+  LIMIT_ORDER_INSUFFICIENT_FUNDS_POLL_SECONDS,
+  LIMIT_ORDER_OPEN_POLL_SECONDS,
   MIN_RETRY_WAIT_SECONDS,
   timestampToBlockNumber,
 } from '../../../../lib/handlers/check-order-status/util'
@@ -89,4 +96,94 @@ describe('timestampToBlockNumber', () => {
     const result = timestampToBlockNumber(referenceBlock, refTimestamp + 30, ChainId.TEMPO)
     expect(result - refBlockNumber).toEqual(60)
   })
+})
+
+describe('calculateLimitRetryWaitSeconds', () => {
+  const nowSeconds = 1_800_000_000
+  const youngCreatedAt = nowSeconds - 60
+  const oldCreatedAt = nowSeconds - LIMIT_ORDER_BLOCK_CADENCE_AGE_SECONDS - 1
+
+  it('polls every block while the order is young', () => {
+    expect(
+      calculateLimitRetryWaitSeconds(ChainId.MAINNET, 1, {
+        orderStatus: ORDER_STATUS.OPEN,
+        createdAt: youngCreatedAt,
+        nowSeconds,
+      })
+    ).toEqual(12)
+  })
+
+  it('slows open orders down once they are past the young window', () => {
+    expect(
+      calculateLimitRetryWaitSeconds(ChainId.MAINNET, 1, {
+        orderStatus: ORDER_STATUS.OPEN,
+        createdAt: oldCreatedAt,
+        nowSeconds,
+      })
+    ).toEqual(LIMIT_ORDER_OPEN_POLL_SECONDS)
+  })
+
+  it('does not depend on retryCount, which resets on every execution restart', () => {
+    for (const retryCount of [0, 150, 300, 301, 1000]) {
+      expect(
+        calculateLimitRetryWaitSeconds(ChainId.MAINNET, retryCount, {
+          orderStatus: ORDER_STATUS.OPEN,
+          createdAt: oldCreatedAt,
+          nowSeconds,
+        })
+      ).toEqual(LIMIT_ORDER_OPEN_POLL_SECONDS)
+    }
+  })
+
+  it('polls orders without funds least often, even when young', () => {
+    for (const createdAt of [youngCreatedAt, oldCreatedAt]) {
+      expect(
+        calculateLimitRetryWaitSeconds(ChainId.MAINNET, 1, {
+          orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+          createdAt,
+          nowSeconds,
+        })
+      ).toEqual(LIMIT_ORDER_INSUFFICIENT_FUNDS_POLL_SECONDS)
+    }
+  })
+
+  it('polls every block while a nonce-used or expired grace poll is pending', () => {
+    expect(
+      calculateLimitRetryWaitSeconds(ChainId.MAINNET, 1, {
+        orderStatus: ORDER_STATUS.OPEN,
+        getFillLogAttempts: 1,
+        createdAt: oldCreatedAt,
+        nowSeconds,
+      })
+    ).toEqual(12)
+  })
+
+  it('treats an order of unknown age as past the young window', () => {
+    expect(calculateLimitRetryWaitSeconds(ChainId.MAINNET, 1, { orderStatus: ORDER_STATUS.OPEN, nowSeconds })).toEqual(
+      LIMIT_ORDER_OPEN_POLL_SECONDS
+    )
+  })
+
+  it('returns whole seconds of at least MIN_RETRY_WAIT_SECONDS on sub-second and fractional block-time chains', () => {
+    for (const chainId of [ChainId.TEMPO, ChainId.ROBINHOOD, ChainId.POLYGON]) {
+      const wait = calculateLimitRetryWaitSeconds(chainId, 1, {
+        orderStatus: ORDER_STATUS.OPEN,
+        createdAt: youngCreatedAt,
+        nowSeconds,
+      })
+      expect(Number.isInteger(wait)).toBe(true)
+      expect(wait).toBeGreaterThanOrEqual(MIN_RETRY_WAIT_SECONDS)
+    }
+  })
+})
+
+describe('LIMIT_FILL_EVENT_LOOKBACK_BLOCKS', () => {
+  it.each([ChainId.MAINNET, ChainId.POLYGON, ChainId.BASE, ChainId.ARBITRUM_ONE])(
+    'covers the longest limit-order poll interval on chainId %d',
+    (chainId) => {
+      const lookbackSeconds = LIMIT_FILL_EVENT_LOOKBACK_BLOCKS(chainId) * AVERAGE_BLOCK_TIME(chainId)
+      expect(lookbackSeconds).toBeGreaterThanOrEqual(LIMIT_ORDER_INSUFFICIENT_FUNDS_POLL_SECONDS)
+      expect(LIMIT_FILL_EVENT_LOOKBACK_BLOCKS(chainId)).toBeGreaterThan(FILL_EVENT_LOOKBACK_BLOCKS_ON(chainId))
+    }
+  )
 })

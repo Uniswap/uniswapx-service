@@ -10,7 +10,7 @@ import {
   CosignedV3DutchOrder as SDKV3DutchOrder,
 } from '@uniswap/uniswapx-sdk'
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
-import { DutchV1Order } from '../../models/DutchV1Order'
+import { UnsupportedOrderTypeError } from '../../errors/UnsupportedOrderTypeError'
 import { DutchV2Order } from '../../models/DutchV2Order'
 import { LimitOrder } from '../../models/LimitOrder'
 import { Order } from '../../models/Order'
@@ -31,8 +31,11 @@ export class PostOrderBodyParser {
     this.logger.info('Parsing order', { encodedOrder, signature, chainId, orderType })
     switch (orderType) {
       case OrderType.Dutch:
-        return this.tryParseDutchV1Order(encodedOrder, signature, chainId, body.quoteId)
+        // Decaying V1 orders are no longer accepted; the V1 reactor stays for limit orders only.
+        throw new UnsupportedOrderTypeError(OrderType.Dutch)
       case OrderType.Limit:
+      case undefined:
+        // Orders without an orderType use the legacy V1 encoding, which now only carries limit orders.
         return this.tryParseLimitOrder(encodedOrder, signature, chainId, body.quoteId)
       case OrderType.Dutch_V2:
         return this.tryParseDutchV2Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
@@ -40,33 +43,6 @@ export class PostOrderBodyParser {
         return this.tryParseDutchV3Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Priority:
         return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
-      case undefined:
-        // If an OrderType is not explicitly set, it is the legacy format which is either a DutchOrderV1 or a LimitOrder.
-        // Try to parse both and see which hits.
-        return this.tryParseDutchOrder(encodedOrder, signature, chainId, body.quoteId)
-    }
-  }
-
-  private tryParseDutchV1Order(
-    encodedOrder: string,
-    signature: string,
-    chainId: number,
-    quoteId?: string
-  ): DutchV1Order {
-    try {
-      const order = this.tryParseDutchOrder(encodedOrder, signature, chainId, quoteId)
-      if (order.orderType === OrderType.Dutch) {
-        return order
-      }
-      throw new UnexpectedOrderTypeError(order.orderType)
-    } catch (err) {
-      this.logger.error('Unable to parse DutchV1 order', {
-        err,
-        encodedOrder,
-        chainId,
-        signature,
-      })
-      throw err
     }
   }
 
@@ -168,35 +144,18 @@ export class PostOrderBodyParser {
 
   private tryParseLimitOrder(encodedOrder: string, signature: string, chainId: number, quoteId?: string): LimitOrder {
     try {
-      const order = this.tryParseDutchOrder(encodedOrder, signature, chainId, quoteId)
-      if (order.orderType === OrderType.Limit) {
-        return order
-      }
-      throw new UnexpectedOrderTypeError(order.orderType)
-    } catch (err) {
-      this.logger.error('Unable to parse Limit order', {
-        err,
-        encodedOrder,
-        chainId,
-        signature,
-      })
-      throw err
-    }
-  }
-
-  tryParseDutchOrder(encodedOrder: string, signature: string, chainId: number, quoteId?: string) {
-    try {
       const order = this.uniswapXParser.parseOrder(encodedOrder, chainId)
+      // The SDK labels a V1 order with any decay as Dutch and one without decay as Limit.
       const orderType = this.uniswapXParser.getOrderType(order)
       if (orderType === OrderType.Limit) {
         return new LimitOrder(order as SDKDutchOrder, signature, chainId, quoteId)
-      } else if (orderType === OrderType.Dutch) {
-        return new DutchV1Order(order as SDKDutchOrder, signature, chainId, quoteId)
-      } else {
-        throw new UnexpectedOrderTypeError(orderType)
       }
+      if (orderType === OrderType.Dutch) {
+        throw new UnsupportedOrderTypeError(orderType)
+      }
+      throw new UnexpectedOrderTypeError(orderType)
     } catch (err) {
-      this.logger.error('Unable to parse legacy Dutch order', {
+      this.logger.error('Unable to parse Limit order', {
         err,
         encodedOrder,
         chainId,
