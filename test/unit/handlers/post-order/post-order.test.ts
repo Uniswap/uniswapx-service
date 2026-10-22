@@ -15,6 +15,7 @@ import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMa
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
 import { getMaxOpenOrders } from '../../../../lib/handlers/post-order/injector'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
+import { DUTCH_AUCTION_ORDER_ROUTE } from '../../../../lib/handlers/post-order/routes'
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
@@ -159,7 +160,8 @@ describe('Testing post order handler.', () => {
       ),
       mockLog
     ),
-    new PostOrderBodyParser(mockLog)
+    new PostOrderBodyParser(mockLog),
+    DUTCH_AUCTION_ORDER_ROUTE
   )
 
   beforeAll(() => {
@@ -405,7 +407,8 @@ describe('Testing post order handler.', () => {
         'post-order',
         injectorPromiseMock,
         orderDispatcherWithOldTimestamp,
-        new PostOrderBodyParser(mockLog)
+        new PostOrderBodyParser(mockLog),
+        DUTCH_AUCTION_ORDER_ROUTE
       )
 
       const postOrderResponse = await postOrderHandlerWithOldTimestamp.handler(
@@ -720,6 +723,32 @@ describe('Testing post order handler.', () => {
         },
       })
     })
+  })
+
+  describe('Testing posts to the wrong route', () => {
+    it.each([undefined, OrderType.Limit])(
+      'rejects a limit order (orderType %s) and points to the limit order route',
+      async (orderType) => {
+        const order = SDKDutchOrderFactory.buildLimitOrder()
+        const postOrderResponse = await postOrderHandler.handler(
+          PostOrderRequestFactory.request({
+            encodedOrder: order.serialize(),
+            orderType,
+          }),
+          EVENT_CONTEXT
+        )
+
+        expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.BadRequest)
+        expect(JSON.parse(postOrderResponse.body)).toEqual({
+          detail: 'Limit orders must be posted to /limit/order (public API: /v2/limit-order)',
+          errorCode: ErrorCode.InvalidOrder,
+          id: 'testRequest',
+        })
+        expect(validatorMock).not.toHaveBeenCalled()
+        expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
+        expect(mockSfnClient.calls()).toHaveLength(0)
+      }
+    )
   })
 
   describe('When validation fails', () => {

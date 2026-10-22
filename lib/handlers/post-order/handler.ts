@@ -21,6 +21,7 @@ import {
 } from '../base'
 import { ContainerInjected as PostContainerInjected } from '../shared/post'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
+import { PostOrderRoute, wrongRouteDetail } from './routes'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
 export class PostOrderHandler extends APIGLambdaHandler<
@@ -34,7 +35,8 @@ export class PostOrderHandler extends APIGLambdaHandler<
     handlerName: string,
     injectorPromise: Promise<ApiInjector<PostContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
     private readonly orderDispatcher: OrderDispatcher,
-    private readonly bodyParser: PostOrderBodyParser
+    private readonly bodyParser: PostOrderBodyParser,
+    private readonly route: PostOrderRoute
   ) {
     super(handlerName, injectorPromise)
   }
@@ -58,6 +60,16 @@ export class PostOrderHandler extends APIGLambdaHandler<
         statusCode: HttpStatusCode.BadRequest,
         errorCode: ErrorCode.OrderParseFail,
         ...(e instanceof Error && { detail: e.message }),
+      }
+    }
+
+    if (!this.route.accepts(order.orderType)) {
+      log.warn({ orderType: order.orderType, route: this.route.path }, 'Rejected order posted to the wrong route')
+      metrics.putMetric('PostOrderWrongRoute', 1, Unit.Count)
+      return {
+        statusCode: HttpStatusCode.BadRequest,
+        errorCode: ErrorCode.InvalidOrder,
+        detail: wrongRouteDetail(order.orderType),
       }
     }
 
