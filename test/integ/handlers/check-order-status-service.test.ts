@@ -541,6 +541,40 @@ describe('checkOrderStatusService', () => {
         expect(toBlock).toBeGreaterThanOrEqual(fillBlock)
       })
 
+      it.each([
+        ['slower', 0.275],
+        ['faster', 0.225],
+      ])(
+        'keeps a delayed 2-minute Arbitrum order fill inside both bounds when the chain runs %s than registered',
+        (_label, actualBlockTime) => {
+          // Arbitrum is registered at 0.25s; the first poll runs 3h after creation.
+          const order: any = { type: OrderType.Dutch, createdAt: NOW - 3 * 3600, deadline: NOW - 3 * 3600 + 120 }
+          const head = 1_000_000
+          const fillBlock = head - Math.round((3 * 3600) / actualBlockTime) + 5
+          const runStart = (checkOrderStatusService as any).getRunStartBlock(order, 42161, 0, head, NOW)
+          const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 42161, runStart)
+          const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 42161, fromBlock, head, NOW)
+          expect(fromBlock).toBeLessThanOrEqual(fillBlock)
+          expect(toBlock).toBeGreaterThanOrEqual(fillBlock)
+        }
+      )
+
+      it('keeps the rolling window for order types anchored to their auction start block', () => {
+        const order: any = {
+          type: OrderType.Dutch_V3,
+          createdAt: NOW - 3 * 3600,
+          cosignerData: { decayStartBlock: 99_000 },
+        }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 100_000, NOW)
+        expect(start).toBe(100_000 - LOOKBACK)
+      })
+
+      it('does not move the window for time shorter than a block', () => {
+        const order: any = { createdAt: NOW - 1 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 100_000, NOW)
+        expect(start).toBe(100_000 - LOOKBACK)
+      })
+
       it('never returns a negative block', () => {
         const order: any = { createdAt: NOW - 3 * 3600 }
         expect((checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 50, NOW)).toBe(0)

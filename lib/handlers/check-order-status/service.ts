@@ -172,9 +172,20 @@ export class CheckOrderStatusService {
       throw error
     }
 
+    const rollingStartBlock = curBlockNumber - this.fillEventBlockLookback(chainId)
     const fromBlock = startingBlockNumber
       ? startingBlockNumber
       : this.getRunStartBlock(order, chainId, runIndex, curBlockNumber, Math.floor(Date.now() / 1000))
+    if (!startingBlockNumber && fromBlock < rollingStartBlock) {
+      // Shows how often a first poll still runs long after the order was posted.
+      log.info('first tracking poll delayed; fill search reaches back to order creation', {
+        orderHash,
+        chainId,
+        extraBlocks: rollingStartBlock - fromBlock,
+      })
+      metrics.putMetric(`OrderSfn-FirstRunWindowExtended`, 1)
+      metrics.putMetric(`OrderSfn-FirstRunWindowExtended-chain-${chainId}`, 1)
+    }
 
     const commonUpdateInfo = {
       orderHash,
@@ -321,7 +332,9 @@ export class CheckOrderStatusService {
    * from its first poll (see the handler). The first run starts no later than the
    * order's creation: its first poll can be delayed (Step Functions throttling has
    * held it back by hours), and a window anchored at that poll misses a fill that
-   * landed in the meantime, so the used nonce is recorded as a cancellation.
+   * landed in the meantime, so the used nonce is recorded as a cancellation. Dutch V3
+   * and Priority orders skip this: their fill search already anchors to the exact
+   * auction start block (getFillSearchFromBlock).
    */
   private getRunStartBlock(
     order: UniswapXOrderEntity,
@@ -331,7 +344,12 @@ export class CheckOrderStatusService {
     nowSeconds: number
   ): number {
     const rollingStart = curBlockNumber - this.fillEventBlockLookback(chainId)
-    if (runIndex || !order.createdAt || order.createdAt >= nowSeconds) {
+    if (
+      runIndex ||
+      !order.createdAt ||
+      order.createdAt >= nowSeconds ||
+      getAuctionStartBlock(order, chainId) !== undefined
+    ) {
       return rollingStart
     }
     let averageBlockTime: number
@@ -342,7 +360,7 @@ export class CheckOrderStatusService {
     }
     // Twice the elapsed blocks at the average cadence, so a chain running faster
     // than its registered block time cannot push the estimate past creation.
-    const blocksSinceCreation = Math.ceil((2 * (nowSeconds - order.createdAt)) / averageBlockTime)
+    const blocksSinceCreation = Math.floor((2 * (nowSeconds - order.createdAt)) / averageBlockTime)
     return Math.max(0, Math.min(rollingStart, curBlockNumber - blocksSinceCreation - this.fillEventBlockLookback(chainId)))
   }
 
@@ -409,8 +427,11 @@ export class CheckOrderStatusService {
     const lifespanBlocks = Math.ceil((order.deadline - order.createdAt) / averageBlockTime)
     // A first run whose first poll was delayed searches from well before creation
     // (getRunStartBlock), so measure the lifetime from the estimated creation block
-    // when that is later than the lower bound.
-    const creationBlock = curBlockNumber - Math.floor((nowSeconds - order.createdAt) / averageBlockTime)
+    // when that is later than the lower bound. Use the latest plausible creation
+    // block (half the elapsed blocks at the average cadence), mirroring the 2x on
+    // the lower bound, so a chain running slower than its registered block time
+    // cannot pull the cap below the fill.
+    const creationBlock = curBlockNumber - Math.floor((nowSeconds - order.createdAt) / (2 * averageBlockTime))
     const lifetimeStart = Math.max(searchFromBlock, creationBlock)
     return Math.min(
       curBlockNumber,
