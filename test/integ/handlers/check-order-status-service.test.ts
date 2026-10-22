@@ -487,6 +487,66 @@ describe('checkOrderStatusService', () => {
       })
     })
 
+    describe('run start block (getRunStartBlock)', () => {
+      // FILL_EVENT_LOOKBACK_BLOCKS_ON(1)
+      const LOOKBACK = 10
+      const NOW = 1_800_000_000
+
+      it('reaches back to the order creation on the first run when the first poll was delayed', () => {
+        // Created 3h ago on mainnet (~900 blocks); the window must cover all of it.
+        const order: any = { createdAt: NOW - 3 * 3600 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 100_000, NOW)
+        expect(start).toBeLessThanOrEqual(100_000 - 900 - LOOKBACK)
+        expect(start).toBe(100_000 - 1800 - LOOKBACK)
+      })
+
+      it('treats a missing runIndex as the first run', () => {
+        const order: any = { createdAt: NOW - 3 * 3600 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, undefined, 100_000, NOW)
+        expect(start).toBe(100_000 - 1800 - LOOKBACK)
+      })
+
+      it('keeps the rolling window for a fresh order', () => {
+        const order: any = { createdAt: NOW }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 100_000, NOW)
+        expect(start).toBe(100_000 - LOOKBACK)
+      })
+
+      it('keeps the rolling window on restarts, so year-old orders do not search their whole life', () => {
+        const order: any = { createdAt: NOW - 200 * 24 * 3600 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 3, 100_000, NOW)
+        expect(start).toBe(100_000 - LOOKBACK)
+      })
+
+      it('keeps the rolling window when createdAt is missing, in the future, or the chain has no registered block time', () => {
+        expect((checkOrderStatusService as any).getRunStartBlock({}, 1, 0, 100_000, NOW)).toBe(100_000 - LOOKBACK)
+        expect((checkOrderStatusService as any).getRunStartBlock({ createdAt: NOW + 60 }, 1, 0, 100_000, NOW)).toBe(
+          100_000 - LOOKBACK
+        )
+        expect(
+          (checkOrderStatusService as any).getRunStartBlock({ createdAt: NOW - 3600 }, 11155111, 0, 100_000, NOW)
+        ).toBe(100_000 - LOOKBACK)
+      })
+
+      it('keeps a delayed short-lived order fill inside both bounds', () => {
+        // A 2-minute Dutch order created 3h ago (~900 mainnet blocks) and filled
+        // 5 blocks after creation; its first poll only runs now.
+        const order: any = { type: OrderType.Dutch, createdAt: NOW - 3 * 3600, deadline: NOW - 3 * 3600 + 120 }
+        const head = 100_000
+        const fillBlock = head - 900 + 5
+        const runStart = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, head, NOW)
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, runStart)
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, fromBlock, head, NOW)
+        expect(fromBlock).toBeLessThanOrEqual(fillBlock)
+        expect(toBlock).toBeGreaterThanOrEqual(fillBlock)
+      })
+
+      it('never returns a negative block', () => {
+        const order: any = { createdAt: NOW - 3 * 3600 }
+        expect((checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 50, NOW)).toBe(0)
+      })
+    })
+
     describe('fill-search window capping (getFillSearchToBlock)', () => {
       it('caps the upper bound by the order lifetime so anchored searches cannot grow unbounded', () => {
         // Mainnet ~12s blocks: a 120s-lived order needs ~10 blocks; the cap is
