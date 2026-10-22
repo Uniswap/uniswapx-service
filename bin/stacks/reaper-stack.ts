@@ -72,6 +72,9 @@ export class ReaperStack extends Stack {
       taskDefinition,
       desiredCount: 1,
       assignPublicIp: false,
+      circuitBreaker: {
+        rollback: true,
+      },
     });
   }
 }
