@@ -90,8 +90,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
             // Limit orders can live up to a year: carrying their original
             // window across that lifetime would make the end-of-life fill
             // lookup one enormous getLogs that RPCs reject. A fresh window is
-            // safe for them -- block-cadence polling observes a consumed nonce
-            // within blocks of the fill.
+            // safe for them because the limit service's lookback covers a full
+            // poll interval (LIMIT_FILL_EVENT_LOOKBACK_BLOCKS).
             startingBlockNumber:
               input.requestInjected.orderType === OrderType.Limit
                 ? undefined
