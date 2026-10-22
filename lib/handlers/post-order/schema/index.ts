@@ -18,8 +18,8 @@ export const PostOrderResponseJoi = Joi.object({
 
 export type LegacyDutchOrderPostRequestBody = {
   // To maintain backwards compatibility, we assume if an orderType is undefined
-  // on the object, this is a legacy DutchOrderRequest which means it can either be a
-  // Dutch order or a limit order. The order type will be decided by the parser.
+  // on the object, this is a legacy DutchOrderRequest. The parser only accepts it
+  // as a limit order; decaying V1 orders are rejected.
   orderType: undefined
   chainId: number
   encodedOrder: string
@@ -28,6 +28,7 @@ export type LegacyDutchOrderPostRequestBody = {
   requestId?: string
 }
 
+// Still a valid request shape, but the parser rejects it: decaying V1 orders are no longer accepted.
 export type DutchV1OrderPostRequestBody = {
   orderType: OrderType.Dutch
   chainId: number
