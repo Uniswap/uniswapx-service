@@ -30,9 +30,6 @@ export class PostOrderBodyParser {
     const { encodedOrder, signature, chainId, orderType } = body
     this.logger.info('Parsing order', { encodedOrder, signature, chainId, orderType })
     switch (orderType) {
-      case OrderType.Dutch:
-        // Decaying V1 orders are no longer accepted; the V1 reactor stays for limit orders only.
-        throw new UnsupportedOrderTypeError(OrderType.Dutch)
       case OrderType.Limit:
       case undefined:
         // Orders without an orderType use the legacy V1 encoding, which now only carries limit orders.
@@ -43,6 +40,9 @@ export class PostOrderBodyParser {
         return this.tryParseDutchV3Order(encodedOrder, signature, chainId, body.quoteId, body.requestId)
       case OrderType.Priority:
         return this.tryParsePriorityOrder(encodedOrder, signature, chainId, body.quoteId, body.requestId)
+      default:
+        // The request schema still lets through order types we no longer accept (Dutch, DutchLimit).
+        throw new UnsupportedOrderTypeError(orderType)
     }
   }
 
