@@ -371,7 +371,7 @@ describe('Testing post limit order handler.', () => {
 
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.BadRequest)
       expect(JSON.parse(postOrderResponse.body)).toEqual({
-        detail: 'Dutch_V2 orders must be posted to /dutch-auction/order (public API: /v2/order)',
+        detail: 'Dutch_V2 orders must be posted to /v2/order',
         errorCode: ErrorCode.InvalidOrder,
         id: 'testRequest',
       })

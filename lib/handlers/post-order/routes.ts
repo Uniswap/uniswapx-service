@@ -23,5 +23,6 @@ export const LIMIT_ORDER_ROUTE: PostOrderRoute = {
 
 export function wrongRouteDetail(orderType: OrderType): string {
   const route = LIMIT_ORDER_ROUTE.accepts(orderType) ? LIMIT_ORDER_ROUTE : DUTCH_AUCTION_ORDER_ROUTE
-  return `${orderType} orders must be posted to ${route.path} (public API: ${route.publicPath})`
+  // Callers that hit this are on the public API, which rewrites paths, so name the public one.
+  return `${orderType} orders must be posted to ${route.publicPath}`
 }
