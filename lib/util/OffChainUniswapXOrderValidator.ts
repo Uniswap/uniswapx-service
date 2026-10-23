@@ -164,12 +164,18 @@ export class OffChainUniswapXOrderValidator {
         }
       }
 
-      const outputsValidation = this.validateV3DutchOutputs(
-        order.info.outputs as V3DutchOutput[],
-        dutchV3Order.info.cosignerData.outputOverrides
-      )
+      const outputs = order.info.outputs as V3DutchOutput[]
+      const outputsValidation = this.validateV3DutchOutputs(outputs)
       if (!outputsValidation.valid) {
         return outputsValidation
+      }
+
+      const outputOverridesValidation = this.validateOutputOverrides(
+        outputs.map((output) => output.startAmount),
+        dutchV3Order.info.cosignerData.outputOverrides
+      )
+      if (!outputOverridesValidation.valid) {
+        return outputOverridesValidation
       }
     } else if (
       // Dutch_V2 shares V1's DutchInput/DutchOutput shape.
@@ -193,8 +199,8 @@ export class OffChainUniswapXOrderValidator {
       }
 
       if (order instanceof CosignedV2DutchOrder) {
-        const outputOverridesValidation = this.validateV2OutputOverrides(
-          order.info.outputs as DutchOutput[],
+        const outputOverridesValidation = this.validateOutputOverrides(
+          order.info.outputs.map((output) => output.startAmount),
           order.info.cosignerData.outputOverrides
         )
         if (!outputOverridesValidation.valid) {
@@ -415,21 +421,14 @@ export class OffChainUniswapXOrderValidator {
     }
   }
 
-  private validateV3DutchOutputs(outputs: V3DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
+  private validateV3DutchOutputs(outputs: V3DutchOutput[]): OrderValidationResponse {
     if (outputs.length == 0) {
       return {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
       }
     }
-    if (outputOverrides.length != outputs.length) {
-      return {
-        valid: false,
-        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${outputs.length}`,
-      }
-    }
-    for (let i = 0; i < outputs.length; i++) {
-      const output = outputs[i]
+    for (const output of outputs) {
       const { token, recipient, startAmount, curve, minAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
         return {
@@ -469,13 +468,6 @@ export class OffChainUniswapXOrderValidator {
       const curveValidation = this.validateV3Curve(curve)
       if (!curveValidation.valid) {
         return curveValidation
-      }
-
-      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(startAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid outputOverride < startAmount`,
-        }
       }
     }
     return {
@@ -555,16 +547,17 @@ export class OffChainUniswapXOrderValidator {
   /**
    * Mirrors V2DutchOrderReactor._updateWithCosignerAmounts, which reverts with
    * InvalidCosignerOutput on a length mismatch or a non-zero override below startAmount.
+   * V3DutchOrderReactor applies the same rule.
    */
-  private validateV2OutputOverrides(outputs: DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
-    if (outputOverrides.length != outputs.length) {
+  private validateOutputOverrides(startAmounts: BigNumber[], outputOverrides: BigNumber[]): OrderValidationResponse {
+    if (outputOverrides.length != startAmounts.length) {
       return {
         valid: false,
-        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${outputs.length}`,
+        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${startAmounts.length}`,
       }
     }
-    for (let i = 0; i < outputs.length; i++) {
-      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(outputs[i].startAmount)) {
+    for (let i = 0; i < startAmounts.length; i++) {
+      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(startAmounts[i])) {
         return {
           valid: false,
           errorString: `Invalid outputOverride < startAmount`,
