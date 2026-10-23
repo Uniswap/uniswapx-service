@@ -6,9 +6,9 @@ import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS, BLOCKS_IN_24_HOURS } from '../../util/constants'
 import { ethers } from 'ethers'
-import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXEventWatcher, UniswapXOrder } from '@uniswap/uniswapx-sdk'
+import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, DutchOrder, FillInfo, OrderType, OrderValidation, OrderValidator, REACTOR_ADDRESS_MAPPING, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { parseOrder } from '../../handlers/OrderParser'
-import { AVERAGE_BLOCK_TIME, getSettledAmounts, IS_TERMINAL_STATE } from '../../handlers/check-order-status/util'
+import { AVERAGE_BLOCK_TIME, getSettledAmounts, IS_TERMINAL_STATE, OrderFillWatcher } from '../../handlers/check-order-status/util'
 import { ChainId } from '../../util/chain'
 import { getRpcUrl } from '../../Config'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
@@ -306,7 +306,7 @@ async function processBlockRange(
     if (!reactorAddress || reactorAddress === "0x0000000000000000000000000000000000000000") continue
     log.info(`Processing block range ${fromBlock} to ${toBlock} for chainId ${chainId} orderType ${orderType}`)
 
-    const watcher = new UniswapXEventWatcher(provider, reactorAddress)
+    const watcher = new OrderFillWatcher(provider, reactorAddress)
     let attempts = 0
     let recentErrors = 0
 
@@ -320,7 +320,9 @@ async function processBlockRange(
             log.info(`Fill event found for order ${e.orderHash}`)
             try {
               const { order } = await getOrderByHash(repo, e.orderHash)
-              const fillInfo = await watcher.getFillInfo(toBlock, fromBlock)
+              // The SDK's getFillInfo fetches a receipt for every fill in the range at once,
+              // which runs a busy reactor's range out of memory; look up only this order's fill.
+              const fillInfo = await watcher.getFillInfoForOrder(e.orderHash, toBlock, fromBlock)
               const fillEvent = fillInfo.find((f) => f.orderHash === e.orderHash)
 
               if (fillEvent) {
