@@ -19,6 +19,7 @@ import { LazyProviderMap } from '../shared/'
 import { PostOrderHandler } from './handler'
 import { getMaxOpenOrders, PostOrderInjector } from './injector'
 import { PostOrderBodyParser } from './PostOrderBodyParser'
+import { DUTCH_AUCTION_ORDER_ROUTE } from './routes'
 
 const providerMap = new LazyProviderMap()
 
@@ -54,7 +55,8 @@ const postOrderHandler = new PostOrderHandler(
   'postOrdersHandler',
   postOrderInjectorPromise,
   new OrderDispatcher(uniswapXOrderService, log),
-  new PostOrderBodyParser(log)
+  new PostOrderBodyParser(log),
+  DUTCH_AUCTION_ORDER_ROUTE
 )
 
 module.exports = {
