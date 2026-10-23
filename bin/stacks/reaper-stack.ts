@@ -105,11 +105,6 @@ export class ReaperStack extends Stack {
       cluster,
       taskDefinition,
       desiredCount: 1,
-      // Stop the old task before starting the new one: a short gap between
-      // Reaper runs is harmless, two Reapers working the same orders is not
-      // useful, and it takes the overlap out of every deploy.
-      minHealthyPercent: 0,
-      maxHealthyPercent: 100,
       assignPublicIp: false,
       circuitBreaker: {
         rollback: true,
