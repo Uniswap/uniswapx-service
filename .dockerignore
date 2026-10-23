@@ -1,4 +1,9 @@
-node_modules/
-build/
-dist/
-cdk.out/
+# Allowlist: the build context is the repo root, which in the pipeline also holds
+# the .npmrc that Synth writes with the npm token.
+*
+!Dockerfile
+!package.json
+!yarn.lock
+!tsconfig.json
+!lib/
+!bin/constants.ts
