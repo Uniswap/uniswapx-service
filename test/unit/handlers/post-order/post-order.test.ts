@@ -24,6 +24,7 @@ import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
+import { DUTCH_LIMIT } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { SDKPriorityOrderFactory } from '../../../factories/SDKPriorityOrderFactory'
@@ -555,6 +556,30 @@ describe('Testing post order handler.', () => {
       expect(JSON.parse(postOrderResponse.body)).toMatchObject({
         errorCode: ErrorCode.OrderParseFail,
         detail: 'Unsupported orderType: Dutch',
+      })
+      expect(validatorMock).not.toHaveBeenCalled()
+      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
+      expect(mockSfnClient.calls()).toHaveLength(0)
+    })
+  })
+
+  describe('Deprecated DutchLimit orders', () => {
+    it('rejects one posted with orderType DutchLimit', async () => {
+      validatorMock.mockReturnValue({ valid: true })
+      const order = SDKDutchOrderFactory.buildLimitOrder()
+
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.serialize(),
+          orderType: DUTCH_LIMIT,
+        }),
+        EVENT_CONTEXT
+      )
+
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.BadRequest)
+      expect(JSON.parse(postOrderResponse.body)).toMatchObject({
+        errorCode: ErrorCode.OrderParseFail,
+        detail: 'Unsupported orderType: DutchLimit',
       })
       expect(validatorMock).not.toHaveBeenCalled()
       expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()

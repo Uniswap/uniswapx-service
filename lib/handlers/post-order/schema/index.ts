@@ -28,16 +28,6 @@ export type LegacyDutchOrderPostRequestBody = {
   requestId?: string
 }
 
-// Still a valid request shape, but the parser rejects it: decaying V1 orders are no longer accepted.
-export type DutchV1OrderPostRequestBody = {
-  orderType: OrderType.Dutch
-  chainId: number
-  encodedOrder: string
-  signature: string
-  quoteId?: string
-  requestId?: string
-}
-
 export type LimitOrderPostRequestBody = {
   orderType: OrderType.Limit
   chainId: number
@@ -75,7 +65,6 @@ export type PriorityOrderPostRequestBody = {
 
 export type PostOrderRequestBody =
   | LegacyDutchOrderPostRequestBody
-  | DutchV1OrderPostRequestBody
   | DutchV2OrderPostRequestBody
   | DutchV3OrderPostRequestBody
   | LimitOrderPostRequestBody
