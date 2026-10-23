@@ -586,6 +586,29 @@
               "$ref": "#/components/schemas/OrderOutput"
             }
           },
+          "effectiveInput": {
+            "description": "`input` with a non-zero `cosignerData.inputOverride` replacing `startAmount`: what the filler receives.",
+            "type": "object",
+            "properties": {
+              "token": {
+                "$ref": "#/components/schemas/Address"
+              },
+              "startAmount": {
+                "$ref": "#/components/schemas/Amount"
+              },
+              "endAmount": {
+                "$ref": "#/components/schemas/Amount"
+              }
+            },
+            "required": ["token", "startAmount", "endAmount"]
+          },
+          "effectiveOutputs": {
+            "description": "`outputs` with non-zero `cosignerData.outputOverrides` replacing `startAmount`: what the filler pays. Still decays to `endAmount`, plus `cosignerData.exclusivityOverrideBps` for a non-exclusive filler.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderOutput"
+            }
+          },
           "cosignerData": {
             "type": "object",
             "properties": {
@@ -695,6 +718,56 @@
             "required": ["token", "startAmount"]
           },
           "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "$ref": "#/components/schemas/Address"
+                },
+                "startAmount": {
+                  "$ref": "#/components/schemas/Amount"
+                },
+                "curve": {
+                  "$ref": "#/components/schemas/NonlinearDutchDecayCurve"
+                },
+                "recipient": {
+                  "$ref": "#/components/schemas/Address"
+                },
+                "minAmount": {
+                  "$ref": "#/components/schemas/Amount"
+                },
+                "adjustmentPerGweiBaseFee": {
+                  "$ref": "#/components/schemas/Amount"
+                }
+              },
+              "required": ["token", "startAmount", "recipient"]
+            }
+          },
+          "effectiveInput": {
+            "description": "`input` with a non-zero `cosignerData.inputOverride` replacing `startAmount`: what the filler receives.",
+            "type": "object",
+            "properties": {
+              "token": {
+                "$ref": "#/components/schemas/Address"
+              },
+              "startAmount": {
+                "$ref": "#/components/schemas/Amount"
+              },
+              "curve": {
+                "$ref": "#/components/schemas/NonlinearDutchDecayCurve"
+              },
+              "maxAmount": {
+                "$ref": "#/components/schemas/Amount"
+              },
+              "adjustmentPerGweiBaseFee": {
+                "$ref": "#/components/schemas/Amount"
+              }
+            },
+            "required": ["token", "startAmount"]
+          },
+          "effectiveOutputs": {
+            "description": "`outputs` with non-zero `cosignerData.outputOverrides` replacing `startAmount`: what the filler pays. `curve` and `adjustmentPerGweiBaseFee` still apply, plus `cosignerData.exclusivityOverrideBps` for a non-exclusive filler.",
             "type": "array",
             "items": {
               "type": "object",
