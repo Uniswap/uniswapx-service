@@ -12,7 +12,7 @@ import {
   MIN_RETRY_WAIT_SECONDS,
   timestampToBlockNumber,
 } from '../../../../lib/handlers/check-order-status/util'
-import { ChainId } from '../../../../lib/util/chain'
+import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 
 describe('calculateDutchRetryWaitSeconds', () => {
   it('should do exponential backoff when retry count > 300', async () => {
@@ -78,6 +78,12 @@ describe('calculateDutchRetryWaitSeconds', () => {
 describe('AVERAGE_BLOCK_TIME', () => {
   it('returns 0.5 for Tempo (chainId 4217)', () => {
     expect(AVERAGE_BLOCK_TIME(ChainId.TEMPO)).toEqual(0.5)
+  })
+
+  // A chain added to SUPPORTED_CHAINS before sdk-core registers its block time
+  // throws on every status poll, so fail here instead.
+  it.each(SUPPORTED_CHAINS)('is registered in sdk-core for supported chainId %d', (chainId) => {
+    expect(AVERAGE_BLOCK_TIME(chainId)).toBeGreaterThan(0)
   })
 })
 
