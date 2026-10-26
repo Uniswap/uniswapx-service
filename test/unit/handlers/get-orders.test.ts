@@ -10,9 +10,8 @@ import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { HeaderExpectation } from '../../HeaderExpectation'
 import { REQUEST_ID } from '../fixtures'
 import Joi from 'joi'
-import { ethers } from 'ethers'
 import { GetDutchV3OrderResponse, GetDutchV3OrderResponseEntryJoi } from '../../../lib/handlers/get-orders/schema/GetDutchV3OrderResponse'
-import { GetHybridOrderResponseEntryJoi, HybridCosignerDataJoi } from '../../../lib/handlers/get-orders/schema/GetHybridOrderResponse'
+import { GetOrdersResponseJoi } from '../../../lib/handlers/get-orders/schema/GetOrdersResponse'
 
 describe('Testing get orders handler.', () => {
   const MOCK_ORDER = {
@@ -115,39 +114,6 @@ describe('Testing get orders handler.', () => {
         recipient: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
       },
     ],
-  }
-
-  const MOCK_HYBRID_ORDER = {
-    signature:
-      '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
-    orderStatus: ORDER_STATUS.OPEN,
-    orderHash: '0xa2444ef606a0d99809e1878f7b819541618f2b7990bb9a7275996b362680cae3',
-    swapper: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
-    encodedOrder: '0x00000000001325ad66ad5fa02621d3ad52c9323c6c2bff26820000000',
-    type: OrderType.Hybrid,
-    chainId: 1,
-    auctionStartBlock: 100,
-    baselinePriorityFee: '0',
-    scalingFactor: '1000000000000000000',
-    input: {
-      token: '0x0000000000000000000000000000000000000000',
-      maxAmount: '1000000000000000000',
-    },
-    outputs: [
-      {
-        token: '0x0000000000000000000000000000000000000001',
-        minAmount: '1000000000000000000',
-        recipient: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
-      },
-    ],
-    priceCurve: ['1000000000000000000'],
-    cosigner: '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa',
-    cosignerData: {
-      auctionTargetBlock: 95,
-      supplementalPriceCurve: ['1000000000000000000'],
-    },
-    cosignature:
-      '0x1c33da80f46194b0db3398de4243d695dfa5049c4cc341e80f5b630804a47f2f52b9d16cb65b2a2d8ed073da4b295c7cb3ccc13a49a16a07ad80b796c31b283414',
   }
 
   let getOrdersMock: any, queryFiltersMock: any, requestInjectedMock: any, injectorPromiseMock: any
@@ -434,6 +400,39 @@ describe('Testing get orders handler.', () => {
   })
 
   describe('response validation', () => {
+    const FILL_FIELDS = {
+      orderStatus: ORDER_STATUS.FILLED,
+      txHash: '0x8f0d2b6b5a4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e',
+      fillBlock: 12_345_678,
+      fillTimestamp: 1_700_000_000,
+    }
+
+    it('returns fillBlock and fillTimestamp for a filled order', async () => {
+      const event = {
+        queryStringParameters: queryFiltersMock,
+        body: null,
+      }
+      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
+        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+
+      getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...FILL_FIELDS }] })
+      const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
+
+      expect(getOrdersResponse.statusCode).toEqual(200)
+      expect(JSON.parse(getOrdersResponse.body).orders[0]).toEqual(expect.objectContaining(FILL_FIELDS))
+    })
+
+    it.each([
+      ['Dutch', { ...MOCK_ORDER, ...FILL_FIELDS }],
+      ['Dutch_V3', { ...MOCK_V3_ORDER, ...FILL_FIELDS }],
+    ])('keeps fillBlock and fillTimestamp on a %s entry through stripUnknown', (_type, order) => {
+      const result = GetOrdersResponseJoi.validate({ orders: [order] }, { allowUnknown: true, stripUnknown: true })
+
+      expect(result.error).toBeUndefined()
+      expect(result.value.orders[0].fillBlock).toEqual(FILL_FIELDS.fillBlock)
+      expect(result.value.orders[0].fillTimestamp).toEqual(FILL_FIELDS.fillTimestamp)
+    })
+
     it('DutchV3 order passes response validation', async () => {
 
       const v3order: GetDutchV3OrderResponse = JSON.parse('{"outputs":[{"recipient":"0x250a94c03b9b57c93cc5549760d59d6eacfb136d","minAmount":"6097025","startAmount":"6119175","curve":{"relativeAmounts":["22150"],"relativeBlocks":[8]},"token":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8","adjustmentPerGweiBaseFee":"0"}],"filler_offerer_orderStatus":"0x0000000000000000000000000000000000000000_0x250a94c03b9b57c93cc5549760d59d6eacfb136d_open","reactor":"0xb274d5f4b833b61b340b654d600a864fb604a87c","offerer_orderStatus":"0x250a94c03b9b57c93cc5549760d59d6eacfb136d_open","encodedOrder":"0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000004449cd34d1eb1fedcf02a1be3834ffde8e6a6180000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002e000000000000000000000000000000000000000000000000000000000000004600000000000000000000000000000000000000000000000000000000000000540000000000000000000000000b274d5f4b833b61b340b654d600a864fb604a87c000000000000000000000000250a94c03b9b57c93cc5549760d59d6eacfb136df038f18e74bf2b1cbb5d94d8029d443414976bd38efec768706eca33b004fa0000000000000000000000000000000000000000000000000000000000674ec602000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000082af49447d8a07e3bd95bd0d56f35241523fbab100000000000000000000000000000000000000000000000000060a24181e400000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000060a24181e40000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000ff970a61a04b1ca14834a43f5de4533ebddb5cc800000000000000000000000000000000000000000000000000000000005d5f0700000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000250a94c03b9b57c93cc5549760d59d6eacfb136d00000000000000000000000000000000000000000000000000000000005d0881000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000056860000000000000000000000000000000000000000000000000000000010bd7baa00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000041d1c99bcbee1bed23ee847cfe3d501f034f23b8ba67c249dc07a2ca7c376dd9c04f31eabe9dd15d9b3464cd72196975fbb71a1455233afe0d1050e312c58976fc1b00000000000000000000000000000000000000000000000000000000000000","requestId":"6fe3b04d-658a-4529-af66-76bcdd7d5265","signature":"0xaebea601f90e77d5ae72f5c28a14ccc71e88ac61e2af0fc8f45278c1367696fb080ddebb4b66b05559d5fe34533f756844b279fecc18c562233d9b0a2fbb870a1c","deadline":1733215746,"cosignature":"0xd1c99bcbee1bed23ee847cfe3d501f034f23b8ba67c249dc07a2ca7c376dd9c04f31eabe9dd15d9b3464cd72196975fbb71a1455233afe0d1050e312c58976fc1b","cosignerData":{"exclusiveFiller":"0x0000000000000000000000000000000000000000","inputOverride":"0","outputOverrides":["0"],"decayStartBlock":280853418},"modified":"2024-12-03T08:44:07.702Z","input":{"startAmount":"1700000000000000","maxAmount":"1700000000000000","curve":{"relativeAmounts":["0"],"relativeBlocks":[8]},"token":"0x82aF49447D8a07e3bd95BD0d56f35241523fBab1","adjustmentPerGweiBaseFee":"0"},"filler":"0x0000000000000000000000000000000000000000","orderStatus":"open","chainId_orderStatus_filler":"42161_open_0x0000000000000000000000000000000000000000","createdAt":1733215447,"chainId_filler":"42161_0x0000000000000000000000000000000000000000","entity":"Order","quoteId":"6fe3b04d-658a-4529-af66-76bcdd7d5265","filler_offerer":"0x0000000000000000000000000000000000000000_0x250a94c03b9b57c93cc5549760d59d6eacfb136d","filler_orderStatus":"0x0000000000000000000000000000000000000000_open","created":"2024-12-03T08:44:07.702Z","chainId":42161,"orderHash":"0xa694497e3644c2ce58a22b4b3fcd6004e3faf8057dc409a70da08aea85a92b4b","chainId_orderStatus":"42161_open","nonce":"108655694257088393948171748675121105290610995892134912696918847811839007717888","startingBaseFee":"0","type":"Dutch_V3","swapper":"0x250a94c03b9b57c93cc5549760d59d6eacfb136d"}');
@@ -457,97 +456,6 @@ describe('Testing get orders handler.', () => {
 
       expect(result.error).toBeUndefined()
     });
-
-    describe('Hybrid order priceCurve validation', () => {
-      const ONE_E18 = ethers.constants.WeiPerEther
-
-      it('accepts empty priceCurve array', () => {
-        const result = GetHybridOrderResponseEntryJoi.validate(
-          { ...MOCK_HYBRID_ORDER, priceCurve: [] },
-          { allowUnknown: true }
-        )
-        expect(result.error).toBeUndefined()
-      })
-
-      it('accepts all elements above 1e18', () => {
-        const priceCurve = [ONE_E18.add(1).toString(), ONE_E18.add(1000).toString(), ONE_E18.mul(2).toString()]
-        const result = GetHybridOrderResponseEntryJoi.validate(
-          { ...MOCK_HYBRID_ORDER, priceCurve },
-          { allowUnknown: true }
-        )
-        expect(result.error).toBeUndefined()
-      })
-
-      it('accepts all elements below 1e18', () => {
-        const priceCurve = [ONE_E18.sub(1).toString(), ONE_E18.div(2).toString(), '1']
-        const result = GetHybridOrderResponseEntryJoi.validate(
-          { ...MOCK_HYBRID_ORDER, priceCurve },
-          { allowUnknown: true }
-        )
-        expect(result.error).toBeUndefined()
-      })
-
-      it('accepts all elements equal to 1e18', () => {
-        const priceCurve = [ONE_E18.toString(), ONE_E18.toString()]
-        const result = GetHybridOrderResponseEntryJoi.validate(
-          { ...MOCK_HYBRID_ORDER, priceCurve },
-          { allowUnknown: true }
-        )
-        expect(result.error).toBeUndefined()
-      })
-
-      it('accepts elements at 1e18 mixed with above', () => {
-        const priceCurve = [ONE_E18.toString(), ONE_E18.add(100).toString()]
-        const result = GetHybridOrderResponseEntryJoi.validate(
-          { ...MOCK_HYBRID_ORDER, priceCurve },
-          { allowUnknown: true }
-        )
-        expect(result.error).toBeUndefined()
-      })
-
-      it('accepts elements at 1e18 mixed with below', () => {
-        const priceCurve = [ONE_E18.toString(), ONE_E18.sub(100).toString()]
-        const result = GetHybridOrderResponseEntryJoi.validate(
-          { ...MOCK_HYBRID_ORDER, priceCurve },
-          { allowUnknown: true }
-        )
-        expect(result.error).toBeUndefined()
-      })
-
-      it('rejects mix of elements above and below 1e18', () => {
-        const priceCurve = [ONE_E18.add(1).toString(), ONE_E18.sub(1).toString()]
-        const result = GetHybridOrderResponseEntryJoi.validate(
-          { ...MOCK_HYBRID_ORDER, priceCurve },
-          { allowUnknown: true }
-        )
-        expect(result.error).toBeDefined()
-      })
-
-      it('rejects when first element is below and later element is above 1e18', () => {
-        const priceCurve = [ONE_E18.sub(1000).toString(), ONE_E18.toString(), ONE_E18.add(1).toString()]
-        const result = GetHybridOrderResponseEntryJoi.validate(
-          { ...MOCK_HYBRID_ORDER, priceCurve },
-          { allowUnknown: true }
-        )
-        expect(result.error).toBeDefined()
-      })
-
-      it('accepts supplementalPriceCurve with all elements above 1e18', () => {
-        const result = HybridCosignerDataJoi.validate({
-          auctionTargetBlock: 100,
-          supplementalPriceCurve: [ONE_E18.add(1).toString(), ONE_E18.mul(2).toString()],
-        })
-        expect(result.error).toBeUndefined()
-      })
-
-      it('rejects supplementalPriceCurve with mix of elements above and below 1e18', () => {
-        const result = HybridCosignerDataJoi.validate({
-          auctionTargetBlock: 100,
-          supplementalPriceCurve: [ONE_E18.add(1).toString(), ONE_E18.sub(1).toString()],
-        })
-        expect(result.error).toBeDefined()
-      })
-    })
   })
 
   describe('parseGetQueryParams multi-status parsing', () => {

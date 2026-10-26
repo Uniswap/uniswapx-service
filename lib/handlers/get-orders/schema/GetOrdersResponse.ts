@@ -5,18 +5,14 @@ import FieldValidator from '../../../util/field-validator'
 import { DUTCH_LIMIT } from '../../../util/order'
 import { GetDutchV2OrderResponse, GetDutchV2OrderResponseEntryJoi } from './GetDutchV2OrderResponse'
 import { GetPriorityOrderResponse, GetPriorityOrderResponseEntryJoi } from './GetPriorityOrderResponse'
-import { GetHybridOrderResponse, GetHybridOrderResponseEntryJoi } from './GetHybridOrderResponse'
-import { GetRelayOrderResponse } from './GetRelayOrderResponse'
 import { GetDutchV3OrderResponse, GetDutchV3OrderResponseEntryJoi } from './GetDutchV3OrderResponse'
 
 export type GetOrdersResponse<
   T extends
     | UniswapXOrderEntity
-    | GetRelayOrderResponse
     | GetDutchV2OrderResponse
     | GetDutchV3OrderResponse
     | GetPriorityOrderResponse
-    | GetHybridOrderResponse
     | undefined
 > = {
   orders: T[]
@@ -54,7 +50,9 @@ export const OrderResponseEntryJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash(),
   swapper: FieldValidator.isValidEthAddress(),
   txHash: FieldValidator.isValidTxHash(),
-  type: Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT, OrderType.Limit, OrderType.Priority, OrderType.Dutch_V3, OrderType.Hybrid),
+  fillBlock: FieldValidator.isValidNumber(),
+  fillTimestamp: FieldValidator.isValidNumber(),
+  type: Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT, OrderType.Limit, OrderType.Priority, OrderType.Dutch_V3),
   input: OrderInputJoi,
   outputs: Joi.array().items(OrderOutputJoi),
   settledAmounts: Joi.array().items(SettledAmount),
@@ -72,8 +70,7 @@ export const GetOrdersResponseJoi = Joi.object({
       OrderResponseEntryJoi,
       GetDutchV2OrderResponseEntryJoi,
       GetDutchV3OrderResponseEntryJoi,
-      GetPriorityOrderResponseEntryJoi,
-      GetHybridOrderResponseEntryJoi
+      GetPriorityOrderResponseEntryJoi
     )
   ),
   cursor: FieldValidator.isValidCursor(),

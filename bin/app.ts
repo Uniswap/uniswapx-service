@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
 import * as chatbot from 'aws-cdk-lib/aws-chatbot'
-import { BuildEnvironmentVariableType, BuildSpec, ComputeType } from 'aws-cdk-lib/aws-codebuild'
+import { BuildEnvironmentVariableType, ComputeType } from 'aws-cdk-lib/aws-codebuild'
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 
 import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
@@ -87,7 +87,6 @@ export class APIPipeline extends Stack {
     const synthStep = new CodeBuildStep('Synth', {
       input: code,
       buildEnvironment: {
-        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -107,21 +106,10 @@ export class APIPipeline extends Stack {
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        'yarn install --network-concurrency 1 --skip-integrity-check --check-cache',
+        'yarn install --frozen-lockfile',
         'yarn build',
         'npx cdk synth',
       ],
-      partialBuildSpec: BuildSpec.fromObject({
-        // v0.2 runs all commands in the same context
-        version: '0.2',
-        phases: {
-          install: {
-            'runtime-versions': {
-              nodejs: '20',
-            },
-          },
-        },
-      }),
     })
 
     const pipeline = new CodePipeline(this, `${SERVICE_NAME}Pipeline`, {
@@ -130,20 +118,14 @@ export class APIPipeline extends Stack {
       crossAccountKeys: true,
       synth: synthStep,
       selfMutation: true,
-      selfMutationCodeBuildDefaults: {
+      useChangeSets: false,
+      publishAssetsInParallel: false,
+      codeBuildDefaults: {
         buildEnvironment: {
-          buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
+          // Node 24 is this image's default. Selecting a version through buildspec
+          // runtime-versions instead reinstalls Node with `n`, which costs ~55s per build.
+          buildImage: cdk.aws_codebuild.LinuxBuildImage.fromCodeBuildImageId('aws/codebuild/standard:8.0'),
         },
-        partialBuildSpec: BuildSpec.fromObject({
-          version: '0.2',
-          phases: {
-            install: {
-              'runtime-versions': {
-                nodejs: '20',
-              },
-            },
-          },
-        }),
       },
     })
 
@@ -155,10 +137,6 @@ export class APIPipeline extends Stack {
 
     const tenderlySecrets = sm.Secret.fromSecretAttributes(this, 'rpcTenderly', {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-tenderly-Jh1BNl',
-    })
-
-    const resourceArnSecret = sm.Secret.fromSecretAttributes(this, 'firehoseArn', {
-      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-resource-arns-wF51FW',
     })
 
     const internalApiKey = sm.Secret.fromSecretAttributes(this, 'internal-api-key', {
@@ -223,17 +201,6 @@ export class APIPipeline extends Stack {
         QUOTER_TENDERLY: tenderlySecrets.secretValueFromJson('QUOTER_TENDERLY').toString(),
         DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
         PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
-        FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
-        POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_BETA')
-          .toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_BETA')
-          .toString(),
-        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret
-          .secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_BETA')
-          .toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
         GET_ORDERS_CACHE_TTL_MS: '500',
@@ -244,10 +211,7 @@ export class APIPipeline extends Stack {
       tableCapacityConfig: {
         order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
       },
     })
 
@@ -276,17 +240,6 @@ export class APIPipeline extends Stack {
       envVars: {
         ...jsonRpcUrls,
         RPC_HEADER_SECRET: rpcHeaderSecret,
-        FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
-        POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_PROD')
-          .toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_PROD')
-          .toString(),
-        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret
-          .secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_PROD')
-          .toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
         // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
         GET_ORDERS_CACHE_TTL_MS: '500',
@@ -338,7 +291,6 @@ export class APIPipeline extends Stack {
         UNISWAP_API: apiStage.url,
       },
       buildEnvironment: {
-        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
         computeType: ComputeType.MEDIUM,
         environmentVariables: {
           NPM_TOKEN: {
@@ -394,19 +346,10 @@ export class APIPipeline extends Stack {
         'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
-        'yarn install --network-concurrency 1 --skip-integrity-check',
+        'yarn install --frozen-lockfile',
         'yarn build',
         'yarn run test:e2e',
       ],
-      partialBuildSpec: BuildSpec.fromObject({
-        phases: {
-          install: {
-            'runtime-versions': {
-              nodejs: '20',
-            },
-          },
-        },
-      }),
     })
 
     applicationStage.addPost(testAction)
@@ -427,11 +370,6 @@ envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''
 envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
 envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
 
-envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
-envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
-envVars['UNIMIND_RESPONSE_DESTINATION_ARN'] = process.env['UNIMIND_RESPONSE_DESTINATION_ARN'] || ''
-envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] = process.env['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] || ''
-envVars['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] = process.env['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] || ''
 envVars['LABS_COSIGNER'] = process.env['LABS_COSIGNER'] || ''
 envVars['LABS_PRIORITY_COSIGNER'] = process.env['LABS_PRIORITY_COSIGNER'] || ''
 envVars['GET_ORDERS_CACHE_TTL_MS'] = process.env['GET_ORDERS_CACHE_TTL_MS'] || ''
@@ -446,10 +384,7 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   tableCapacityConfig: {
     order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   },
 })
 

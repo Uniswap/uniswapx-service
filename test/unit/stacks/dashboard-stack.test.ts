@@ -14,7 +14,6 @@ describe('DashboardStack', () => {
       postOrderLambdaName: 'post-order-fn',
       getOrdersLambdaName: 'get-orders-fn',
       getNonceLambdaName: 'get-nonce-fn',
-      getUnimindLambdaName: 'get-unimind-fn',
       orderStatusLambdaName: 'order-status-fn',
       chainIdToStatusTrackingStateMachineArn: {},
       getOrdersReservedConcurrency: 3000,

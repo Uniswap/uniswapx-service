@@ -2,18 +2,14 @@ import { TABLE_KEY } from '../config/dynamodb'
 
 export enum TABLE_NAMES {
   LimitOrders = 'LimitOrders',
-  RelayOrders = 'RelayOrders',
   Orders = 'Orders',
   Nonces = 'Nonces',
-  QuoteMetadata = 'QuoteMetadata',
-  UnimindParameters = 'UnimindParameters',
 }
 
 export const getTableIndices = (tableName: TABLE_NAMES) => {
   switch (tableName) {
     case TABLE_NAMES.LimitOrders:
     case TABLE_NAMES.Orders:
-    case TABLE_NAMES.RelayOrders:
     default:
       return {
         [`${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`]: {

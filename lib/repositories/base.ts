@@ -1,10 +1,9 @@
-import { ORDER_STATUS, RelayOrderEntity, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
+import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export const MODEL_NAME = {
   DUTCH: 'Order',
   LIMIT: 'LimitOrder',
-  Relay: 'RelayOrder',
 }
 
 export type QueryResult<T extends OrderEntityType> = {
@@ -12,7 +11,7 @@ export type QueryResult<T extends OrderEntityType> = {
   cursor?: string
 }
 
-export type OrderEntityType = UniswapXOrderEntity | RelayOrderEntity
+export type OrderEntityType = UniswapXOrderEntity
 
 export interface BaseOrdersRepository<T extends OrderEntityType> {
   getByHash: (hash: string) => Promise<T | undefined>
@@ -34,13 +33,14 @@ export interface BaseOrdersRepository<T extends OrderEntityType> {
     sort?: string,
     desc?: boolean
   ) => Promise<QueryResult<T>>
-  getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string>
+  getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string | undefined>
   updateOrderStatus: (
     orderHash: string,
     status: ORDER_STATUS,
     txHash?: string,
     fillBlock?: number,
-    settledAmounts?: SettledAmount[]
+    settledAmounts?: SettledAmount[],
+    fillTimestamp?: number
   ) => Promise<void>
   deleteOrders: (orderHashes: string[]) => Promise<void>
 }

@@ -3,31 +3,27 @@ import {
   OrderType,
   OrderValidation,
   OrderValidator,
-  RelayEventWatcher,
-  RelayOrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { FillEventLogger } from '../../../../lib/handlers/check-order-status/fill-event-logger'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../../lib/handlers/constants'
-import { EventWatcherMap } from '../../../../lib/handlers/EventWatcherMap'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
 import { getMaxLimitOpenOrders } from '../../../../lib/handlers/post-limit-order/injector'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
+import { LIMIT_ORDER_ROUTE } from '../../../../lib/handlers/post-order/routes'
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
-import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
+import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
-import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 
 jest.mock('../../../../lib/handlers/shared/sfn', () => {
   return {
@@ -103,35 +99,19 @@ describe('Testing post limit order handler.', () => {
           countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
         } as any,
         mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-        mock<QuoteMetadataRepository>(),
         mockLog,
         getMaxLimitOpenOrders,
         {
           logOrderPosted: jest.fn(),
           logCancelled: jest.fn(),
           logInsufficientFunds: jest.fn(),
-          logUnimindResponse: jest.fn(),
-          logUnimindParameterUpdate: jest.fn(),
         },
         new Map()
       ),
-      new RelayOrderService(
-        {
-          validate: validatorMock,
-        } as any,
-        new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
-        mock<EventWatcherMap<RelayEventWatcher>>(),
-        {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        } as any,
-        mockLog,
-        getMaxLimitOpenOrders,
-        mock<FillEventLogger>()
-      ),
       mockLog
     ),
-    new PostOrderBodyParser(mockLog)
+    new PostOrderBodyParser(mockLog),
+    LIMIT_ORDER_ROUTE
   )
 
   beforeAll(() => {
@@ -375,6 +355,29 @@ describe('Testing post limit order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
+    })
+  })
+
+  describe('Testing posts to the wrong route', () => {
+    it('rejects a Dutch_V2 order and points to the Dutch auction order route', async () => {
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const postOrderResponse = await postOrderHandler.handler(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.serialize(),
+          orderType: OrderType.Dutch_V2,
+        }),
+        EVENT_CONTEXT
+      )
+
+      expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.BadRequest)
+      expect(JSON.parse(postOrderResponse.body)).toEqual({
+        detail: 'Dutch_V2 orders must be posted to /v2/order',
+        errorCode: ErrorCode.InvalidOrder,
+        id: 'testRequest',
+      })
+      expect(validatorMock).not.toHaveBeenCalled()
+      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
+      expect(kickoffOrderTrackingSfn).not.toHaveBeenCalled()
     })
   })
 

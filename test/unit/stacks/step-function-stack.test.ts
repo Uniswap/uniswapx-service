@@ -29,6 +29,11 @@ describe('StepFunctionStack', () => {
     }
   })
 
+  it('adds no subscription filter of its own', () => {
+    // The analytics stack owns the check-order-status log group's one feed filter; CloudWatch allows two.
+    cdk.assertions.Template.fromStack(buildStack()).resourceCountIs('AWS::Logs::SubscriptionFilter', 0)
+  })
+
   it('keeps the name map aligned with the ARN map', () => {
     const stack = buildStack()
     expect(Object.keys(stack.chainIdToStatusTrackingStateMachineName).sort()).toEqual(

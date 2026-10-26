@@ -36,10 +36,7 @@ export type IndexCapacityConfig = {
 export type TableCapacityConfig = {
   order: TableCapacityOptions
   limitOrder: TableCapacityOptions
-  relayOrder: TableCapacityOptions
   nonce: TableCapacityOptions
-  quoteMetadata: TableCapacityOptions
-  unimindParameters: TableCapacityOptions
 }
 
 export type DynamoStackProps = {
@@ -53,9 +50,6 @@ export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
   public readonly nonceTable: aws_dynamo.Table
   public readonly limitOrdersTable: aws_dynamo.Table
-  public readonly relayOrdersTable: aws_dynamo.Table
-  public readonly quoteMetadataTable: aws_dynamo.Table
-  public readonly unimindParametersTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
@@ -94,21 +88,6 @@ export class DynamoStack extends cdk.NestedStack {
     createCommonIndices(limitOrdersTable, indexCapacityConfig)
     this.limitOrdersTable = limitOrdersTable
 
-    const relayOrdersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}RelayOrdersTable`, {
-      tableName: 'RelayOrders',
-      partitionKey: {
-        name: TABLE_KEY.ORDER_HASH,
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      stream: aws_dynamo.StreamViewType.NEW_IMAGE,
-      deletionProtection: true,
-      pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
-      ...tableCapacityConfig.relayOrder,
-    })
-    createCommonIndices(relayOrdersTable, indexCapacityConfig)
-    this.relayOrdersTable = relayOrdersTable
-
     /* Nonces Table
      * This is needed because we want to do strongly-consistent reads on the nonce value,
      *  which is not possible to do on secondary indexes (if we work with only the Orders table).
@@ -130,41 +109,6 @@ export class DynamoStack extends cdk.NestedStack {
     this.alarmsPerTable(this.ordersTable, 'Orders', tableCapacityConfig.order, notifier)
     this.hotIndexAlarms(this.ordersTable, 'Orders', notifier)
 
-    const quoteMetadataTable = new aws_dynamo.Table(this, `${SERVICE_NAME}QuoteMetadataTable`, {
-      tableName: 'QuoteMetadata',
-      partitionKey: {
-        name: 'quoteId',
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      deletionProtection: true,
-      pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
-      ...tableCapacityConfig.quoteMetadata,
-    })
-    this.quoteMetadataTable = quoteMetadataTable
-
-    this.alarmsPerTable(this.quoteMetadataTable, 'QuoteMetadata', tableCapacityConfig.quoteMetadata, notifier)
-
-    const unimindParametersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}UnimindParametersTable`, {
-      tableName: 'UnimindParameters',
-      partitionKey: {
-        name: 'pair',
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      deletionProtection: true,
-      pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
-      ...tableCapacityConfig.unimindParameters,
-    })
-    this.unimindParametersTable = unimindParametersTable
-
-    this.alarmsPerTable(
-      this.unimindParametersTable,
-      'UnimindParameters',
-      tableCapacityConfig.unimindParameters,
-      notifier
-    )
-
     // Dynamos built-in PointInTimeRecovery retention is max 35 days.
     // In addition to PITR being enabled on the tables we do a monthly backup
     // in case we need to recover to a point older than 35 months.
@@ -174,7 +118,6 @@ export class DynamoStack extends cdk.NestedStack {
       resources: [
         aws_backup.BackupResource.fromDynamoDbTable(nonceTable),
         aws_backup.BackupResource.fromDynamoDbTable(ordersTable),
-        aws_backup.BackupResource.fromDynamoDbTable(unimindParametersTable),
       ],
     })
   }

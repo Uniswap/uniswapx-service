@@ -1,40 +1,18 @@
-import { OrderType, RelayOrderValidator as OnChainRelayOrderValidator } from '@uniswap/uniswapx-sdk'
-import { DynamoDB } from 'aws-sdk'
+import { OrderType } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import { log } from '../../Logging'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
-import { RelayOrderService } from '../../services/RelayOrderService'
-import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
 import { FillEventLogger } from '../check-order-status/fill-event-logger'
-import { calculateDutchRetryWaitSeconds, FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
-import { EventWatcherMap } from '../EventWatcherMap'
-import { OnChainValidatorMap } from '../OnChainValidatorMap'
-import { LazyProviderMap } from '../shared'
-import { getMaxOpenOrders } from '../post-order/injector'
+import {
+  calculateDutchRetryWaitSeconds,
+  calculateLimitRetryWaitSeconds,
+  FILL_EVENT_LOOKBACK_BLOCKS_ON,
+  LIMIT_FILL_EVENT_LOOKBACK_BLOCKS,
+} from '../check-order-status/util'
 import { CheckOrderStatusHandler } from './handler'
 import { CheckOrderStatusInjector } from './injector'
 import { CheckOrderStatusService, CheckOrderStatusUtils } from './service'
-
-const providerMap = new LazyProviderMap()
-
-const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
-const relayOrderValidatorMap = new OnChainValidatorMap<OnChainRelayOrderValidator>(
-  [],
-  (chainId) => new OnChainRelayOrderValidator(providerMap.get(chainId), chainId)
-)
-
-const relayOrderService = new RelayOrderService(
-  relayOrderValidator,
-  relayOrderValidatorMap,
-  EventWatcherMap.createRelayEventWatcherMap(),
-  RelayOrderRepository.create(new DynamoDB.DocumentClient()),
-  log,
-  getMaxOpenOrders,
-  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
-)
 
 const documentClient = new DocumentClient()
 const dutchOrdersRepository = DutchOrdersRepository.create(documentClient)
@@ -58,16 +36,15 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler(
 
   new CheckOrderStatusService(
     LimitOrdersRepository.create(documentClient),
-    FILL_EVENT_LOOKBACK_BLOCKS_ON,
-    new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create()),
+    LIMIT_FILL_EVENT_LOOKBACK_BLOCKS,
+    new FillEventLogger(LIMIT_FILL_EVENT_LOOKBACK_BLOCKS, AnalyticsService.create()),
     new CheckOrderStatusUtils(
       OrderType.Limit,
       AnalyticsService.create(),
       limitOrdersRepository,
-      calculateDutchRetryWaitSeconds
+      calculateLimitRetryWaitSeconds
     )
-  ),
-  relayOrderService
+  )
 )
 
 module.exports = {

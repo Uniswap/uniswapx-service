@@ -10,19 +10,6 @@ export const SettledAmountsValidation = Joi.array().items(
     })
 );
 
-export const RouteValidation = Joi.object({
-    quote: FieldValidator.isValidAmount(),
-    quoteGasAdjusted: FieldValidator.isValidAmount(),
-    gasPriceWei: FieldValidator.isValidAmount(),
-    gasUseEstimateQuote: FieldValidator.isValidAmount(),
-    gasUseEstimate: FieldValidator.isValidAmount(),
-    methodParameters: Joi.object({
-        calldata: Joi.string(),
-        value: Joi.string(),
-        to: FieldValidator.isValidEthAddress(),
-    }),
-})
-
 export const CommonOrderValidationFields = {
     encodedOrder: FieldValidator.isValidEncodedOrder().required(),
     signature: FieldValidator.isValidSignature().required(),
@@ -31,13 +18,14 @@ export const CommonOrderValidationFields = {
     chainId: FieldValidator.isValidChainId().required(),
     swapper: FieldValidator.isValidEthAddress().required(),
     txHash: FieldValidator.isValidTxHash(),
+    fillBlock: FieldValidator.isValidNumber(),
+    fillTimestamp: FieldValidator.isValidNumber(),
     quoteId: FieldValidator.isValidQuoteId(),
     requestId: FieldValidator.isValidRequestId(),
     nonce: FieldValidator.isValidNonce(),
     cosignature: Joi.string(),
     createdAt: Joi.number(),
     settledAmounts: SettledAmountsValidation,
-    route: RouteValidation,
 }
 
 

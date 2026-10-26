@@ -8,10 +8,7 @@ const INCIDENT_IO = 'arn:aws:sns:us-east-2:222222222222:CloudWatch-alerts-incide
 const onDemand: TableCapacityConfig = {
   order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-  relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-  quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-  unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
 }
 
 type AlarmResource = {

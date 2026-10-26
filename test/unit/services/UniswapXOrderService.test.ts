@@ -1,32 +1,37 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { KmsSigner } from '@uniswap/signer'
-import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
-import { BigNumber } from 'ethers'
+import {
+  CosignedV2DutchOrder,
+  OrderType,
+  OrderValidation,
+  OrderValidator,
+  PermissionedTokenValidator,
+} from '@uniswap/uniswapx-sdk'
+import { BigNumber, Wallet } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
-import { DutchV1Order, DutchV2Order } from '../../../lib/models'
+import { DutchV2Order } from '../../../lib/models'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
-import { HybridOrder } from '../../../lib/models/HybridOrder'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { PriorityOrder } from '../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
-import { QuoteMetadataRepository } from '../../../lib/repositories/quote-metadata-repository'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { MAX_QUERY_RETRY, SINGLE_PAGE, UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../lib/util/chain'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
-import { DUTCH_LIMIT } from '../../../lib/util/order'
+import { DUTCH_LIMIT, formatOrderEntity } from '../../../lib/util/order'
+import { Permit2Validator } from '../../../lib/util/Permit2Validator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
-import { SDKHybridOrderFactory } from '../../factories/SDKHybridOrderFactory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
+import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
-import { COSIGNATURE, MOCK_PROVIDER_MAP } from '../fixtures'
+import { COSIGNATURE, MOCK_PROVIDER_MAP, Tokens, ZERO_SIGNATURE } from '../fixtures'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -69,7 +74,6 @@ describe('UniswapXOrderService', () => {
       onChainValidatorMap,
       repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       logger,
       () => {
         return 10
@@ -121,7 +125,6 @@ describe('UniswapXOrderService', () => {
       onChainValidatorMap,
       repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-      mock<QuoteMetadataRepository>(),
       logger,
       () => {
         return 10
@@ -165,7 +168,6 @@ describe('UniswapXOrderService', () => {
       onChainValidatorMap,
       repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-      mock<QuoteMetadataRepository>(),
       logger,
       () => {
         return 10
@@ -199,7 +201,6 @@ describe('UniswapXOrderService', () => {
       onChainValidatorMap,
       repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-      mock<QuoteMetadataRepository>(),
       logger,
       () => {
         return 10
@@ -251,7 +252,6 @@ describe('UniswapXOrderService', () => {
       onChainValidatorMap,
       repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-      mock<QuoteMetadataRepository>(),
       logger,
       () => {
         return 10
@@ -279,7 +279,7 @@ describe('UniswapXOrderService', () => {
 
   test('getDutchOrders calls db with DUTCH_LIMIT and Dutch', async () => {
     const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      formatOrderEntity(SDKDutchOrderFactory.buildDutchOrder(), '', OrderType.Dutch, ORDER_STATUS.OPEN)
     )
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const mockResponse = { orders: mockOrder, cursor: undefined }
@@ -290,7 +290,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -316,7 +315,7 @@ describe('UniswapXOrderService', () => {
 
   test('getDutchOrders loops with empty response', async () => {
     const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      formatOrderEntity(SDKDutchOrderFactory.buildDutchOrder(), '', OrderType.Dutch, ORDER_STATUS.OPEN)
     )
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const mockResponse = { orders: mockOrder, cursor: undefined }
@@ -328,7 +327,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -369,7 +367,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -377,13 +374,12 @@ describe('UniswapXOrderService', () => {
       mock<AnalyticsService>(),
       MOCK_PROVIDER_MAP,
       undefined,
-      undefined,
       SINGLE_PAGE
     )
 
     const params = new QueryParamsBuilder().withChainId().build()
     await service.getDutchOrders(50, params, undefined)
-    await service.getDutchV2Orders(50, params, undefined, undefined)
+    await service.getDutchV2Orders(50, params, undefined)
 
     expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(2)
   })
@@ -397,7 +393,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -417,7 +412,7 @@ describe('UniswapXOrderService', () => {
 
   test('getDutchOrders returns more results than limit in looping edge case', async () => {
     const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      formatOrderEntity(SDKDutchOrderFactory.buildDutchOrder(), '', OrderType.Dutch, ORDER_STATUS.OPEN)
     )
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const mockResponse = { orders: mockOrder, cursor: undefined }
@@ -429,7 +424,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -461,7 +455,7 @@ describe('UniswapXOrderService', () => {
 
   test('getDutchV2AndDutchOrders calls db with DUTCH_LIMIT and Dutch', async () => {
     const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      formatOrderEntity(SDKDutchOrderFactory.buildDutchOrder(), '', OrderType.Dutch, ORDER_STATUS.OPEN)
     )
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const mockResponse = { orders: mockOrder, cursor: undefined }
@@ -472,7 +466,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -507,7 +500,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -518,9 +510,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
+    const response = await service.getDutchV2Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o, mock<Logger>()).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
       cursor: undefined,
     }
 
@@ -547,7 +539,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -558,9 +549,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
+    const response = await service.getDutchV2Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o, mock<Logger>()).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
       cursor: undefined,
     }
 
@@ -590,7 +581,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -601,7 +591,7 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
+    const response = await service.getDutchV2Orders(limit, params, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
     // initial query plus MAX_QUERY_RETRY follow-ups
@@ -620,7 +610,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -631,9 +620,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 1
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getDutchV2Orders(limit, params, undefined, undefined)
+    const response = await service.getDutchV2Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o, mock<Logger>()).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
       cursor: undefined,
     }
 
@@ -665,7 +654,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -676,9 +664,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getPriorityOrders(limit, params, undefined, undefined)
+    const response = await service.getPriorityOrders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o, mock<Logger>()).toGetResponse()),
+      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o).toGetResponse()),
       cursor: undefined,
     }
 
@@ -705,7 +693,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -716,9 +703,9 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getPriorityOrders(limit, params, undefined, undefined)
+    const response = await service.getPriorityOrders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o, mock<Logger>()).toGetResponse()),
+      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o).toGetResponse()),
       cursor: undefined,
     }
 
@@ -748,7 +735,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -759,7 +745,7 @@ describe('UniswapXOrderService', () => {
 
     const limit = 50
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getPriorityOrders(limit, params, undefined, undefined)
+    const response = await service.getPriorityOrders(limit, params, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
     // initial query plus MAX_QUERY_RETRY follow-ups
@@ -779,7 +765,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
       limitRepository, // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -816,7 +801,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -832,9 +816,9 @@ describe('UniswapXOrderService', () => {
       .withSortKey()
       .withChainId(ChainId.ARBITRUM_ONE)
       .build()
-    const response = await service.getDutchV3Orders(limit, params, undefined, undefined)
+    const response = await service.getDutchV3Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o, mock<Logger>()).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o).toGetResponse()),
       cursor: undefined,
     }
 
@@ -863,7 +847,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -879,9 +862,9 @@ describe('UniswapXOrderService', () => {
       .withSortKey()
       .withChainId(ChainId.ARBITRUM_ONE)
       .build()
-    const response = await service.getDutchV3Orders(limit, params, undefined, undefined)
+    const response = await service.getDutchV3Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o, mock<Logger>()).toGetResponse()),
+      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o).toGetResponse()),
       cursor: undefined,
     }
 
@@ -911,7 +894,6 @@ describe('UniswapXOrderService', () => {
       mock<OnChainValidatorMap<OrderValidator>>(),
       repository,
       mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
       mock<Logger>(),
       () => {
         return 10
@@ -927,122 +909,136 @@ describe('UniswapXOrderService', () => {
       .withSortKey()
       .withChainId(ChainId.ARBITRUM_ONE)
       .build()
-    const response = await service.getDutchV3Orders(limit, params, undefined, undefined)
+    const response = await service.getDutchV3Orders(limit, params, undefined)
 
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
     // initial query plus MAX_QUERY_RETRY follow-ups
     expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
   })
 
-  test('getHybridOrders calls db with Hybrid', async () => {
-    const hybridOrders = [1, 2, 3].map(() => new HybridOrder(SDKHybridOrderFactory.buildHybridOrder(), '', 1))
-    const mockOrder = hybridOrders.map((o) => o.toEntity(ORDER_STATUS.OPEN))
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    repository.getOrdersFilteredByType.mockResolvedValue({ orders: mockOrder })
+  describe('permissioned input tokens', () => {
+    // the real isPermissionedToken routes mainnet BUIDL orders away from the order quoter
+    const swapper = Wallet.createRandom()
+    const cosigner = Wallet.createRandom()
 
-    const service = new UniswapXOrderService(
-      mock<OffChainUniswapXOrderValidator>(),
-      mock<OnChainValidatorMap<OrderValidator>>(),
-      repository,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
-      mock<Logger>(),
-      () => {
-        return 10
-      },
-      mock<AnalyticsService>(),
-      MOCK_PROVIDER_MAP
-    )
+    let preTransferCheck: jest.SpyInstance
+    let permit2Validate: jest.SpyInstance
+    let order: CosignedV2DutchOrder
+    let signature: string
 
-    const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getHybridOrders(limit, params, undefined)
-    const expectedResponse = {
-      orders: mockOrder.map((o) => HybridOrder.fromEntity(o, mock<Logger>()).toGetResponse()),
-      cursor: undefined,
+    const buildPermissionedOrder = (overrides: { swapper?: string } = {}) =>
+      SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+        swapper: overrides.swapper ?? swapper.address,
+        cosigner: cosigner.address,
+        input: { token: Tokens.MAINNET.BUIDL, startAmount: '1000000', endAmount: '1000000' },
+      })
+
+    const buildService = () => {
+      const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
+      mockOrderValidator.validate.mockReturnValue({ valid: true })
+      const onChainValidator = mock<OrderValidator>()
+      const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
+      onChainValidatorMap.get.mockReturnValue(onChainValidator)
+      const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+      const service = new UniswapXOrderService(
+        mockOrderValidator,
+        onChainValidatorMap,
+        repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
+        mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
+        mock<Logger>(),
+        () => 10,
+        mock<AnalyticsService>(),
+        MOCK_PROVIDER_MAP
+      )
+      return { service, repository, onChainValidator }
     }
 
-    expect(response.orders).toHaveLength(3)
-    expect(response).toEqual(expectedResponse)
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(1)
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      [OrderType.Hybrid],
-      undefined // cursor
-    )
-  })
+    beforeAll(async () => {
+      order = await cosignOrder(buildPermissionedOrder(), cosigner)
+      signature = await signOrder(order, swapper)
+    })
 
-  test('getHybridOrders loops with empty response', async () => {
-    const hybridOrders = [1, 2, 3].map(() => new HybridOrder(SDKHybridOrderFactory.buildHybridOrder(), '', 1))
-    const mockOrder = hybridOrders.map((o) => o.toEntity(ORDER_STATUS.OPEN))
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    repository.getOrdersFilteredByType.mockResolvedValueOnce({ orders: [], cursor: 'cursor' })
-    repository.getOrdersFilteredByType.mockResolvedValueOnce({ orders: mockOrder })
+    beforeEach(() => {
+      preTransferCheck = jest.spyOn(PermissionedTokenValidator, 'preTransferCheck').mockResolvedValue(true)
+      permit2Validate = jest.spyOn(Permit2Validator.prototype, 'validate').mockResolvedValue(OrderValidation.OK)
+    })
 
-    const service = new UniswapXOrderService(
-      mock<OffChainUniswapXOrderValidator>(),
-      mock<OnChainValidatorMap<OrderValidator>>(),
-      repository,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
-      mock<Logger>(),
-      () => {
-        return 10
-      },
-      mock<AnalyticsService>(),
-      MOCK_PROVIDER_MAP
-    )
+    afterEach(() => {
+      preTransferCheck.mockRestore()
+      permit2Validate.mockRestore()
+    })
 
-    const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getHybridOrders(limit, params, undefined)
-    const expectedResponse = {
-      orders: mockOrder.map((o) => HybridOrder.fromEntity(o, mock<Logger>()).toGetResponse()),
-      cursor: undefined,
-    }
+    test('stores an order whose swapper signature and cosignature verify, without the order quoter', async () => {
+      const { service, repository, onChainValidator } = buildService()
 
-    expect(response.orders).toHaveLength(3)
-    expect(response).toEqual(expectedResponse)
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(2)
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      [OrderType.Hybrid],
-      undefined // cursor
-    )
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      [OrderType.Hybrid],
-      'cursor'
-    )
-  })
+      await service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))
 
-  test('getHybridOrders applies limit to loop retry', async () => {
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    repository.getOrdersFilteredByType.mockResolvedValue({ orders: [], cursor: 'cursor' })
+      expect(repository.putOrderAndUpdateNonceTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ orderHash: order.hash().toLowerCase(), signature })
+      )
+      expect(onChainValidator.validate).not.toHaveBeenCalled()
+      expect(permit2Validate).toHaveBeenCalledWith(order)
+      expect(preTransferCheck).toHaveBeenCalled()
+    })
 
-    const service = new UniswapXOrderService(
-      mock<OffChainUniswapXOrderValidator>(),
-      mock<OnChainValidatorMap<OrderValidator>>(),
-      repository,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      mock<QuoteMetadataRepository>(),
-      mock<Logger>(),
-      () => {
-        return 10
-      },
-      mock<AnalyticsService>(),
-      MOCK_PROVIDER_MAP
-    )
+    test('rejects a signature that does not verify before the Permit2 check, the transfer check or the write', async () => {
+      const { service, repository } = buildService()
 
-    const limit = 50
-    const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
-    const response = await service.getHybridOrders(limit, params, undefined)
+      await expect(service.createOrder(new DutchV2Order(order, ZERO_SIGNATURE, ChainId.MAINNET))).rejects.toThrow(
+        'Signature validation failed: InvalidSignature'
+      )
 
-    expect(response).toEqual({ orders: [], cursor: 'cursor' })
-    // initial query plus MAX_QUERY_RETRY follow-ups
-    expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(permit2Validate).not.toHaveBeenCalled()
+      expect(preTransferCheck).not.toHaveBeenCalled()
+    })
+
+    test('rejects an order under another swapper with no cosignature', async () => {
+      const { service, repository } = buildService()
+      const forged = buildPermissionedOrder({ swapper: Wallet.createRandom().address })
+
+      await expect(service.createOrder(new DutchV2Order(forged, ZERO_SIGNATURE, ChainId.MAINNET))).rejects.toThrow(
+        'Signature validation failed: InvalidCosignature'
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(preTransferCheck).not.toHaveBeenCalled()
+    })
+
+    test('rejects an order whose Permit2 nonce is already used', async () => {
+      const { service, repository } = buildService()
+      permit2Validate.mockResolvedValue(OrderValidation.NonceUsed)
+
+      await expect(service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))).rejects.toThrow(
+        'Permit2 validation failed: NonceUsed'
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+    })
+
+    test('rejects a permissioned-token V3 order instead of authenticating it as a Dutch order', async () => {
+      const { service, repository } = buildService()
+      const v3 = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.MAINNET, {
+        input: { token: Tokens.MAINNET.BUIDL },
+      })
+
+      await expect(service.createOrder(new DutchV3Order(v3, signature, ChainId.MAINNET))).rejects.toThrow(
+        "Permissioned tokens shouldn't work with priority/v3 dutch orders"
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(preTransferCheck).not.toHaveBeenCalled()
+    })
+
+    test('still rejects an authenticated order the token would not let transfer', async () => {
+      const { service, repository } = buildService()
+      preTransferCheck.mockResolvedValue(false)
+
+      await expect(service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))).rejects.toThrow(
+        'Permissioned Token Pre-transfer check failed'
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+    })
   })
 })

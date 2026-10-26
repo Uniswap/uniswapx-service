@@ -2,20 +2,10 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities/Order'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
-import { generateRandomNonce } from '../../../lib/util/nonce'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
 import { deleteAllRepoEntries } from './deleteAllRepoEntries'
 
 jest.mock('../../../lib/util/time')
-
-jest.mock('../../../lib/util/nonce', () => {
-  const originalModule = jest.requireActual('../../../lib/util/nonce')
-
-  return {
-    ...originalModule,
-    generateRandomNonce: jest.fn(originalModule.generateRandomNonce),
-  }
-})
 
 const dynamoConfig = {
   convertEmptyValues: true,
@@ -505,10 +495,9 @@ describe('OrdersRepository get nonce test', () => {
     expect(nonce).toEqual('2')
   })
 
-  it('should generate random nonce for new address', async () => {
+  it('should return undefined for new address', async () => {
     const res = await ordersRepository.getNonceByAddressAndChain('random.eth', 1)
-    expect(res).not.toBeUndefined()
-    expect(generateRandomNonce).toHaveBeenCalled()
+    expect(res).toBeUndefined()
   })
 
   it('should track nonce for the same address on different chains separately', async () => {
@@ -542,15 +531,22 @@ describe('OrdersRepository get order count by offerer test', () => {
 
 describe('OrdersRepository update status test', () => {
   it('should successfully update orderStatus of an order identified by orderHash', async () => {
-    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash', 1, [
-      { tokenOut: '0x1', amountOut: '1' } as any,
-    ])
+    await ordersRepository.updateOrderStatus(
+      '0x1',
+      ORDER_STATUS.FILLED,
+      'txHash',
+      1,
+      [{ tokenOut: '0x1', amountOut: '1' } as any],
+      1_700_000_000
+    )
     await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
       orderStatus: ORDER_STATUS.FILLED,
       offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
       chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
       chainId_orderStatus_filler: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}_${(MOCK_ORDER_1 as any).filler}`,
       txHash: 'txHash',
+      fillBlock: 1,
+      fillTimestamp: 1_700_000_000,
       settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
     })
   })

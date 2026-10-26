@@ -2,9 +2,6 @@ import { CosignedV2DutchOrder as SDKV2DutchOrder, OrderType } from '@uniswap/uni
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { Order } from './Order'
-import { QuoteMetadata, Route } from '../repositories/quote-metadata-repository'
-import { artemisModifyCalldata } from '../util/UniversalRouterCalldata'
-import { Logger } from '@aws-lambda-powertools/logger'
 
 export class DutchV2Order extends Order {
   constructor(
@@ -13,6 +10,8 @@ export class DutchV2Order extends Order {
     readonly chainId: number,
     readonly orderStatus?: ORDER_STATUS,
     readonly txHash?: string,
+    readonly fillBlock?: number,
+    readonly fillTimestamp?: number,
     readonly quoteId?: string,
     readonly requestId?: string,
     readonly createdAt?: number,
@@ -21,8 +20,7 @@ export class DutchV2Order extends Order {
       amountOut: string
       tokenIn: string
       amountIn: string
-    }[],
-    readonly route?: Route
+    }[]
   ) {
     super()
   }
@@ -31,7 +29,7 @@ export class DutchV2Order extends Order {
     return OrderType.Dutch_V2
   }
 
-  public toEntity(orderStatus: ORDER_STATUS, quoteMetadata?: QuoteMetadata): UniswapXOrderEntity {
+  public toEntity(orderStatus: ORDER_STATUS): UniswapXOrderEntity {
     const { input, outputs } = this.inner.info
     const decodedOrder = this.inner
     const order: UniswapXOrderEntity = {
@@ -67,46 +65,51 @@ export class DutchV2Order extends Order {
         outputOverrides: decodedOrder.info.cosignerData.outputOverrides.map((o) => o.toString()),
       },
       txHash: this.txHash,
+      fillBlock: this.fillBlock,
+      fillTimestamp: this.fillTimestamp,
       cosignature: decodedOrder.info.cosignature,
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      referencePrice: quoteMetadata?.referencePrice,
-      priceImpact: quoteMetadata?.priceImpact,
-      route: quoteMetadata?.route,
-      pair: quoteMetadata?.pair,
     }
 
     return order
   }
-  public static fromEntity(entity: UniswapXOrderEntity, log: Logger, executeAddress?: string): DutchV2Order {
-    const route = executeAddress && entity.route ? {
-      quote: entity.route.quote,
-      quoteGasAdjusted: entity.route.quoteGasAdjusted,
-      gasPriceWei: entity.route.gasPriceWei,
-      gasUseEstimateQuote: entity.route.gasUseEstimateQuote,
-      gasUseEstimate: entity.route.gasUseEstimate,
-      methodParameters : {
-        calldata: artemisModifyCalldata(entity.route.methodParameters.calldata, log, executeAddress),
-        value: entity.route.methodParameters.value,
-        to: entity.route.methodParameters.to,
-      },
-    } : entity.route
+  public static fromEntity(entity: UniswapXOrderEntity): DutchV2Order {
     return new DutchV2Order(
       SDKV2DutchOrder.parse(entity.encodedOrder, entity.chainId),
       entity.signature,
       entity.chainId,
       entity.orderStatus,
       entity.txHash,
+      entity.fillBlock,
+      entity.fillTimestamp,
       entity.quoteId,
       entity.requestId,
       entity.createdAt,
-      entity.settledAmounts,
-      route
+      entity.settledAmounts
     )
   }
 
   public toGetResponse(): GetDutchV2OrderResponse {
+    const { input, outputs, cosignerData } = this.inner.info
+    // Mirrors V2DutchOrderReactor._updateWithCosignerAmounts: a non-zero override replaces
+    // startAmount. endAmount is not overridable.
+    const effectiveInput = {
+      token: input.token,
+      startAmount: (cosignerData.inputOverride.isZero() ? input.startAmount : cosignerData.inputOverride).toString(),
+      endAmount: input.endAmount.toString(),
+    }
+    const effectiveOutputs = outputs.map((o, i) => {
+      const override = cosignerData.outputOverrides[i]
+      return {
+        token: o.token,
+        startAmount: (override && !override.isZero() ? override : o.startAmount).toString(),
+        endAmount: o.endAmount.toString(),
+        recipient: o.recipient,
+      }
+    })
+
     return {
       type: OrderType.Dutch_V2,
       orderStatus: this.orderStatus as ORDER_STATUS,
@@ -115,6 +118,8 @@ export class DutchV2Order extends Order {
       chainId: this.chainId,
       nonce: this.inner.info.nonce.toString(),
       txHash: this.txHash,
+      fillBlock: this.fillBlock,
+      fillTimestamp: this.fillTimestamp,
       orderHash: this.inner.hash(),
       swapper: this.inner.info.swapper,
       reactor: this.inner.info.reactor,
@@ -132,6 +137,8 @@ export class DutchV2Order extends Order {
           recipient: o.recipient,
         }
       }),
+      effectiveInput,
+      effectiveOutputs,
       settledAmounts: this.settledAmounts,
       cosignerData: {
         decayStartTime: this.inner.info.cosignerData.decayStartTime,
@@ -144,7 +151,6 @@ export class DutchV2Order extends Order {
       quoteId: this.quoteId,
       requestId: this.requestId,
       createdAt: this.createdAt,
-      route: this.route,
     }
   }
 }

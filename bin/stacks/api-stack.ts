@@ -3,19 +3,21 @@ import { CfnOutput, Duration } from 'aws-cdk-lib'
 import * as aws_apigateway from 'aws-cdk-lib/aws-apigateway'
 import { MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
-import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 import * as aws_logs from 'aws-cdk-lib/aws-logs'
 import * as aws_sns from 'aws-cdk-lib/aws-sns'
 import * as aws_sns_subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
 import { Construct } from 'constructs'
-import { STAGE, logRetentionDays } from '../../lib/util/stage'
+import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
+import { AlarmNotifier } from './alerting'
+import { AnalyticsStack } from './analytics-stack'
 import { DashboardStack } from './dashboard-stack'
 import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
+import { BACKEND_ACCOUNTS, IamStack } from './iam-stack'
 import { KmsStack } from './kms-stack'
-import { AlarmNotifier } from './alerting'
 import { LambdaStack } from './lambda-stack'
+import { logRetentionDays } from './log-retention'
 
 export class APIStack extends cdk.Stack {
   public readonly url: CfnOutput
@@ -84,14 +86,14 @@ export class APIStack extends cdk.Stack {
       postOrderLambdaAlias,
       postOrderLambda,
       postLimitOrderLambdaAlias,
-      // postLimitOrderLambda, TODO: dashboard
+      postLimitOrderLambda,
       getLimitOrdersLambdaAlias,
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
       checkStatusFunction,
-      getUnimindLambdaAlias,
-      getUnimindLambda,
+      ordersTable,
+      limitOrdersTable,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       getOrdersReservedConcurrency,
@@ -103,6 +105,22 @@ export class APIStack extends cdk.Stack {
       chatbotSNSArn,
       incidentIoSNSArn,
     })
+
+    new AnalyticsStack(this, `${SERVICE_NAME}AnalyticsStack`, {
+      stage: stage as STAGE,
+      postOrderLambda,
+      postLimitOrderLambda,
+      checkStatusFunction,
+    })
+
+    // Only where there is a backend account to trust: an empty nested stack fails to deploy.
+    if (BACKEND_ACCOUNTS[stage as STAGE].length > 0) {
+      new IamStack(this, `${SERVICE_NAME}IamStack`, {
+        stage: stage as STAGE,
+        ordersTable,
+        limitOrdersTable,
+      })
+    }
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`, {
       retention: logRetentionDays(stage as STAGE),
@@ -411,7 +429,6 @@ export class APIStack extends cdk.Stack {
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
     const getDocsUILambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsUILambdaAlias, {})
-    const getUnimindLambdaIntegration = new aws_apigateway.LambdaIntegration(getUnimindLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -460,23 +477,11 @@ export class APIStack extends cdk.Stack {
     orders.addMethod('GET', getOrdersLambdaIntegration, {})
     nonce.addMethod('GET', getNonceLambdaIntegration, {})
 
-    const unimind = api.root.addResource('unimind', {
-      defaultCorsPreflightOptions: {
-        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
-        allowMethods: ['GET'],
-      },
-    })
-
-    unimind.addMethod('GET', getUnimindLambdaIntegration, {
-      apiKeyRequired: false, // TODO: Set to true once URA has integrated
-    })
-
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
       postOrderLambdaName: postOrderLambda.functionName,
       getNonceLambdaName: getNonceLambda.functionName,
       getOrdersLambdaName: getOrdersLambda.functionName,
-      getUnimindLambdaName: getUnimindLambda.functionName,
       chainIdToStatusTrackingStateMachineArn,
       orderStatusLambdaName: checkStatusFunction.functionName,
       getOrdersReservedConcurrency,
@@ -544,16 +549,6 @@ export class APIStack extends cdk.Stack {
       apiAlarmLatencySev3,
       apiAlarmLatencySev2
     )
-
-    const dynamoPolicy = new PolicyStatement({
-      actions: ['dynamodb:PutItem', 'dynamodb:GetItem'],
-      resources: [
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/QuoteMetadata`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/UnimindParameters`,
-      ],
-    })
-
-    getUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)
 
     // Add API keys and usage plan
     const tradingAPIKey = new aws_apigateway.ApiKey(this, 'TradingAPIKey', {
