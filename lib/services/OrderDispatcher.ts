@@ -1,31 +1,14 @@
-import { Logger } from '@aws-lambda-powertools/logger'
-import { OrderType } from '@uniswap/uniswapx-sdk'
 import { UniswapXOrderEntity } from '../entities'
-import { NoHandlerConfiguredError } from '../errors/NoHandlerConfiguredError'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetOrderTypeQueryParamEnum } from '../handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
-import { Order } from '../models/Order'
-import { UniswapXOrder } from '../models/UniswapXOrder'
 import { UniswapXOrderService } from './UniswapXOrderService'
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
 
 export class OrderDispatcher {
-  constructor(
-    private readonly uniswapXService: UniswapXOrderService,
-    private readonly logger: Logger
-  ) {}
-
-  createOrder(order: Order): Promise<string> {
-    if (this.isUniswapXOrder(order)) {
-      return this.uniswapXService.createOrder(order)
-    }
-
-    this.logger.error(`No createOrder handler configured for orderType: ${order.orderType}!`)
-    throw new NoHandlerConfiguredError(order.orderType)
-  }
+  constructor(private readonly uniswapXService: UniswapXOrderService) {}
 
   async getOrder(
     orderType: GetOrderTypeQueryParamEnum,
@@ -51,14 +34,5 @@ export class OrderDispatcher {
       default:
         throw new Error('OrderDispatcher Not Implemented')
     }
-  }
-
-  private isUniswapXOrder(order: Order): order is UniswapXOrder {
-    return (
-      order.orderType === OrderType.Limit ||
-      order.orderType === OrderType.Dutch_V2 ||
-      order.orderType === OrderType.Dutch_V3 ||
-      order.orderType === OrderType.Priority
-    )
   }
 }

@@ -4,9 +4,7 @@ import {
 import { DynamoDB } from 'aws-sdk'
 import { log } from '../../Logging'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
-import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { AnalyticsService } from '../../services/analytics-service'
-import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
 import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
@@ -31,7 +29,6 @@ const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 
 const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
-const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
 const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
 
 // Set up webhook provider for immediate notifications
@@ -43,7 +40,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   orderValidator,
   onChainValidatorMap,
   repo,
-  limitRepo,
+  repo, // unused on the post path; getLimitOrders is GET-only
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),
@@ -54,7 +51,7 @@ const uniswapXOrderService = new UniswapXOrderService(
 const postOrderHandler = new PostOrderHandler(
   'postOrdersHandler',
   postOrderInjectorPromise,
-  new OrderDispatcher(uniswapXOrderService, log),
+  uniswapXOrderService,
   new PostOrderBodyParser(log),
   DUTCH_AUCTION_ORDER_ROUTE
 )

@@ -5,7 +5,7 @@ import {
   OrderValidator,
 } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
+import { UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
@@ -16,7 +16,6 @@ import { LIMIT_ORDER_ROUTE } from '../../../../lib/handlers/post-order/routes'
 import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
-import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
@@ -88,27 +87,24 @@ describe('Testing post limit order handler.', () => {
   const postOrderHandler = new PostOrderHandler(
     'post-limit-order',
     injectorPromiseMock,
-    new OrderDispatcher(
-      new UniswapXOrderService(
-        {
-          validate: validatorMock,
-        } as any,
-        new OnChainValidatorMap<OrderValidator>(validatorMockMapping),
-        {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        } as any,
-        mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-        mockLog,
-        getMaxLimitOpenOrders,
-        {
-          logOrderPosted: jest.fn(),
-          logCancelled: jest.fn(),
-          logInsufficientFunds: jest.fn(),
-        },
-        new Map()
-      ),
-      mockLog
+    new UniswapXOrderService(
+      {
+        validate: validatorMock,
+      } as any,
+      new OnChainValidatorMap<OrderValidator>(validatorMockMapping),
+      {
+        putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+        countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+      } as any,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
+      mockLog,
+      getMaxLimitOpenOrders,
+      {
+        logOrderPosted: jest.fn(),
+        logCancelled: jest.fn(),
+        logInsufficientFunds: jest.fn(),
+      },
+      new Map()
     ),
     new PostOrderBodyParser(mockLog),
     LIMIT_ORDER_ROUTE
@@ -133,7 +129,7 @@ describe('Testing post limit order handler.', () => {
       const order = SDKDutchOrderFactory.buildLimitOrder()
 
       // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
+      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({
@@ -171,7 +167,7 @@ describe('Testing post limit order handler.', () => {
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.SEPOLIA)
 
       // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
+      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({
@@ -336,7 +332,7 @@ describe('Testing post limit order handler.', () => {
 
       const order = SDKDutchOrderFactory.buildLimitOrder()
       // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
+      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, QUOTE_ID)
 
       const postOrderResponse = await postOrderHandler.handler(
         PostOrderRequestFactory.request({

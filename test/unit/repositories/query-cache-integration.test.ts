@@ -71,8 +71,8 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      const first = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
-      const second = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      const first = await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
+      const second = await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
       expect(second.orders).toEqual(first.orders)
@@ -82,7 +82,7 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 10)
+      await repository.getOrders(10, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(lastQueryParams()).toEqual(
         expect.objectContaining({ Limit: String(CACHED_QUERY_PAGE_SIZE), ScanIndexForward: false })
@@ -93,8 +93,8 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
 
-      const two = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 2)
-      const all = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      const two = await repository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN })
+      const all = await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
       expect(two.orders.map((o) => o.orderHash)).toEqual(['0xv2-newest', '0xpriority'])
@@ -122,8 +122,8 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
 
-      const negative = await repository.getByOrderStatus(ORDER_STATUS.OPEN, -1)
-      const fractional = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 1.5)
+      const negative = await repository.getOrders(-1, { orderStatus: ORDER_STATUS.OPEN })
+      const fractional = await repository.getOrders(1.5, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(negative.orders).toHaveLength(3)
       expect(fractional.orders).toHaveLength(1)
@@ -134,7 +134,7 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse(page))
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50) // cached read
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN }) // cached read
       const cached = lastQueryParams()
       await repository.getOrders(50, { offerer: '0xofferer' }) // uncached read
       const uncached = lastQueryParams()
@@ -178,7 +178,7 @@ describe('GenericOrdersRepository query caching', () => {
       const many = Array.from({ length: 80 }, (_, i) => ({ ...mockOrder, orderHash: `0x${i}`, createdAt: 80 - i }))
       mockDocumentClient.query.mockReturnValue(mockQueryResponse(many))
 
-      const result = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 0)
+      const result = await repository.getOrders(0, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(result.orders).toHaveLength(MAX_ORDERS)
     })
@@ -187,8 +187,8 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
-      await repository.getByOrderStatus(ORDER_STATUS.EXPIRED, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.EXPIRED })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
     })
@@ -198,8 +198,8 @@ describe('GenericOrdersRepository query caching', () => {
       const limitRepository = LimitOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      await dutchRepository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
-      await limitRepository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await dutchRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
+      await limitRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
     })
@@ -208,10 +208,10 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      const first = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      const first = await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
       first.orders.push({ ...mockOrder, orderHash: '0xinjected' } as any)
 
-      const second = await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      const second = await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
       expect(second.orders).toHaveLength(1)
@@ -223,9 +223,9 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
       now += TTL_MS
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
     })
@@ -242,10 +242,10 @@ describe('GenericOrdersRepository query caching', () => {
         },
       } as any)
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(1)
     })
@@ -516,8 +516,8 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
       expect(lastQueryParams()).toEqual(expect.objectContaining({ Limit: '50', ScanIndexForward: false }))
@@ -530,8 +530,8 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, cache)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(putMetric).toHaveBeenCalledWith('GetOrdersQueryCacheMiss', 1, expect.anything())
       expect(putMetric).toHaveBeenCalledWith('GetOrdersQueryCacheHit', 1, expect.anything())
@@ -545,14 +545,14 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, tiny)
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
       expect(putMetric).not.toHaveBeenCalledWith(
         'GetOrdersQueryCacheCapacityEviction',
         expect.anything(),
         expect.anything()
       )
 
-      await repository.getByOrderStatus(ORDER_STATUS.EXPIRED, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.EXPIRED })
       expect(putMetric).toHaveBeenCalledWith('GetOrdersQueryCacheCapacityEviction', 1, expect.anything())
     })
 
@@ -562,8 +562,8 @@ describe('GenericOrdersRepository query caching', () => {
       const lek = { orderHash: '0xhash', orderStatus: 'open', createdAt: 1 }
       mockDocumentClient.query.mockReturnValue(mockQueryResponse([mockOrder], lek))
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       const missLogs = info.mock.calls.filter((call) => call[1] === 'Query cache miss')
       expect(missLogs).toHaveLength(1)
@@ -584,8 +584,8 @@ describe('GenericOrdersRepository query caching', () => {
       const repository = DutchOrdersRepository.create(mockDocumentClient, new QueryCache(0, 'GetOrdersQueryCache'))
       mockDocumentClient.query.mockReturnValue(mockQueryResponse())
 
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
-      await repository.getByOrderStatus(ORDER_STATUS.OPEN, 50)
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
+      await repository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })
 
       expect(mockDocumentClient.query).toHaveBeenCalledTimes(2)
       expect(lastQueryParams()).toEqual(expect.objectContaining({ Limit: '50' }))

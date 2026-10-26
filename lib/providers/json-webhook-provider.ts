@@ -1,22 +1,5 @@
-import { OrderFilter, WebhookProvider } from './base'
+import { OrderFilter } from './base'
 import { FILTER_FIELD, Webhook, WebhookDefinition } from './types'
-
-export class JsonWebhookProvider implements WebhookProvider {
-  static create(jsonDocument: WebhookDefinition): JsonWebhookProvider {
-    return new JsonWebhookProvider(jsonDocument)
-  }
-
-  private constructor(private readonly jsonDocument: WebhookDefinition) {}
-
-  // get registered endpoints for a filter set
-  public async getEndpoints(filter: OrderFilter): Promise<Webhook[]> {
-    return findEndpointsMatchingFilter(filter, this.jsonDocument)
-  }
-
-  public async getExclusiveFillerEndpoints(filler: string): Promise<Webhook[]> {
-    return this.jsonDocument.filter[FILTER_FIELD.FILLER][filler] ?? []
-  }
-}
 
 export function findEndpointsMatchingFilter(filter: OrderFilter, definition: WebhookDefinition): Webhook[] {
   const endpoints: Webhook[] = []

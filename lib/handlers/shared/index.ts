@@ -5,7 +5,7 @@ import { ChainId } from '../../util/chain'
 import { RPC_HEADERS, RPC_PROVIDER_TIMEOUT_MS } from '../../util/constants'
 
 export interface ProviderMap {
-  get(chainId: ChainId): StaticJsonRpcProvider | undefined
+  get(chainId: ChainId): StaticJsonRpcProvider
 }
 
 export class LazyProviderMap implements ProviderMap {

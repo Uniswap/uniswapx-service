@@ -36,7 +36,7 @@ const getLimitOrdersInjectorPromise = new GetLimitOrdersInjector('getLimitOrders
 const getLimitOrdersHandler = new GetOrdersHandler(
   'getLimitOrdersHandler',
   getLimitOrdersInjectorPromise,
-  new OrderDispatcher(uniswapXOrderService, log),
+  new OrderDispatcher(uniswapXOrderService),
   GET_LIMIT_ORDERS_HANDLER_OPTIONS
 )
 

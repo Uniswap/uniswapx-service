@@ -65,7 +65,7 @@ changing the other and `yarn test` names the exact divergence. See
 | `bin/`              | CDK app: `api-stack` (API Gateway + WAF), `lambda-stack`, `dynamo-stack`, `step-function-stack`, `reaper-stack` (ECS), `dashboard-stack`, `kms-stack`               |
 | `lib/handlers/`     | Lambda entry points: `post-order`, `get-orders`, `get-limit-orders`, `get-nonce`, `check-order-status`, `order-notification`, `get-docs`                |
 | `lib/models/`       | Order types: Dutch V1/V2/V3, Priority, Limit                                                                                                |
-| `lib/services/`     | `OrderDispatcher` routes by order type into the order services                                                                              |
+| `lib/services/`     | `UniswapXOrderService` holds the order logic; `OrderDispatcher` routes GET reads by order type                                              |
 | `lib/repositories/` | DynamoDB access, one repository per order family, plus index mappers                                                                        |
 | `lib/crons/`        | `gs-reaper` (status hygiene)                                                                                                                |
 
@@ -87,7 +87,6 @@ Environment (`.env`):
 | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
 | `RPC_PREFIX_URL`               | Base RPC URL. `getRpcUrl(chainId)` appends `/<chainId>`, so the endpoint must route per-chain on that suffix |
 | `RPC_HEADER_SECRET`            | Sent as `x-internal-service-secret` on every RPC request; omitted when unset                               |
-| `FAILED_EVENT_DESTINATION_ARN` | SNS destination for failed lambda events                                                                   |
 | `LABS_COSIGNER`                | Any valid EVM address — certain unit tests only                                                            |
 
 ## Tests

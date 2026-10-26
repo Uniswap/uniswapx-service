@@ -24,7 +24,7 @@ export class DutchOrdersRepository extends GenericOrdersRepository<string, strin
       name: TABLE_NAMES.Orders,
       partitionKey: 'orderHash',
       DocumentClient: documentClient,
-      indexes: getTableIndices(TABLE_NAMES.Orders),
+      indexes: getTableIndices(),
     })
 
     const orderEntity = new Entity({
