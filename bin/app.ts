@@ -287,9 +287,6 @@ export class APIPipeline extends Stack {
           resources: ['arn:aws:kms:us-east-2:644039819003:key/2df28f63-7535-49e9-892a-8ea0471366bf'],
         }),
       ],
-      envFromCfnOutputs: {
-        UNISWAP_API: apiStage.url,
-      },
       buildEnvironment: {
         computeType: ComputeType.MEDIUM,
         environmentVariables: {
@@ -337,22 +334,17 @@ export class APIPipeline extends Stack {
             value: 'all/gouda-service/integ-test/test-wallet-pk',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          TEST_FILLER_PK: {
-            value: 'all/gouda-service/integ-test/test-filler-pk',
-            type: BuildEnvironmentVariableType.SECRETS_MANAGER,
-          },
         },
       },
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        'echo "UNISWAP_API=${UNISWAP_API}" > .env',
         // Lifecycle (order expiry) e2e tests post real dust orders on mainnet.
         // They run only against the beta gate: a beta failure already blocks
         // prod promotion, and running them against prod would skew prod's
-        // expired-rate alarms (a ratio; deploy-time dust expiries can be a
+        // per-chain expiry rate (a ratio; deploy-time dust expiries can be a
         // large share of a quiet 15-minute window on chain 1).
-        `echo "RUN_LIFECYCLE_TESTS=${stage === STAGE.BETA ? 'true' : 'false'}" >> .env`,
+        `echo "RUN_LIFECYCLE_TESTS=${stage === STAGE.BETA ? 'true' : 'false'}" > .env`,
         'echo "TAPI_QUOTE_URL=${TAPI_QUOTE_URL}" >> .env',
         'echo "TAPI_API_KEY=${TAPI_API_KEY}" >> .env',
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
@@ -360,7 +352,6 @@ export class APIPipeline extends Stack {
         'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
         'echo "RPC_HEADER_SECRET=${RPC_HEADER_SECRET}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
-        'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
         'yarn install --frozen-lockfile',
         'yarn build',
         'yarn run test:e2e',
