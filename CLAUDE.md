@@ -50,7 +50,7 @@ Optional:
 - `GET_ORDERS_CACHE_TTL_MS` - TTL for the read-path query cache on the get-orders/get-limit-orders Lambdas (default 500; set to `0` to disable the cache). One entry per partition; the DynamoDB read rate it allows is roughly `executionEnvironments / TTL` per hot partition, which the Get Orders Lambda's reserved concurrency (`bin/app.ts`) caps.
 
 For tests:
-- `UNISWAP_API` - Deployed API URL (e2e tests)
+- e2e (`yarn test:e2e`) - the variables listed under `# e2e suite` in `.env.example`; `RUN_LIFECYCLE_TESTS=true` also posts dust mainnet limit orders and tracks them to expiry (only the beta pipeline gate sets it)
 - `LABS_COSIGNER` - Valid EVM address (unit tests)
 
 ## Analytics Feed (Data Eng)

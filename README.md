@@ -88,7 +88,6 @@ Environment (`.env`):
 | `RPC_PREFIX_URL`               | Base RPC URL. `getRpcUrl(chainId)` appends `/<chainId>`, so the endpoint must route per-chain on that suffix |
 | `RPC_HEADER_SECRET`            | Sent as `x-internal-service-secret` on every RPC request; omitted when unset                               |
 | `FAILED_EVENT_DESTINATION_ARN` | SNS destination for failed lambda events                                                                   |
-| `UNISWAP_API`                  | Deployed API url — e2e tests only                                                                          |
 | `LABS_COSIGNER`                | Any valid EVM address — certain unit tests only                                                            |
 
 ## Tests
@@ -97,9 +96,13 @@ Environment (`.env`):
 | ----------- | ---------------- | ---------------------------------- |
 | Unit        | `yarn test`      | Java (DynamoDB Local)              |
 | Integration | `yarn test:integ`| Java                               |
-| End-to-end  | `yarn test:e2e`  | A deployed stack + `UNISWAP_API`   |
+| End-to-end  | `yarn test:e2e`  | A deployed stack, `RPC_PREFIX_URL`/`RPC_HEADER_SECRET`, and the e2e variables in `.env.example` |
 
-CI runs lint, unit tests, and `rdme openapi:validate` against the swagger.
+The e2e lifecycle tests post real dust limit orders on mainnet and track them to expiry; they run
+only when `RUN_LIFECYCLE_TESTS=true`, which the beta pipeline gate sets.
+
+CI runs lint, build, `rdme openapi:validate` against the swagger, and the factory, unit and
+integration suites via `yarn coverage`.
 
 ## Alerting
 

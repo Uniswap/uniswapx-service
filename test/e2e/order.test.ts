@@ -1,9 +1,9 @@
 /* eslint-disable jest/no-disabled-tests */
-import { UnsignedV2DutchOrder, V2DutchOrderBuilder } from '@uniswap/uniswapx-sdk'
+import { DutchOrder, DutchOrderBuilder, UnsignedV2DutchOrder, V2DutchOrderBuilder } from '@uniswap/uniswapx-sdk'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import { BigNumber, Contract, ethers, Wallet } from 'ethers'
-import { MAX_UINT96, PERMIT2, UNI, WETH } from './constants'
+import { MAX_UINT96, PERMIT2, UNI, WETH, ZERO_ADDRESS } from './constants'
 import { v4 as uuidv4 } from 'uuid'
 
 import { UniswapXOrderEntity } from '../../lib/entities'
@@ -20,18 +20,25 @@ if (!process.argv.includes('--runInBand')) {
   throw new Error('Integration tests must be run with --runInBand flag')
 }
 
-/// @dev these integration tests require two wallets with enough ETH and erc20 balance to fill orders
-/// if tests are failing in the beforeAll hook, it's likely because their balances have fallen
-/// below the minimum balances below
-/// Addresses on goerli:
-///   alice address: 0xE001E6F6879c07b9Ac24291A490F2795106D348C
-///   filler address: 0x8943EA25bBfe135450315ab8678f2F79559F4630 (also needs to have at least 0.1 ETH)
-// constants
-// Another potential problem can arise if the priority fee on GOERLI moves higher causing timeouts in beforeAll
-// const MIN_WETH_BALANCE = ethers.utils.parseEther('0.05')
-// const MIN_UNI_BALANCE = ethers.utils.parseEther('0.05')
+/// @dev These tests run against MAINNET (testChainId below) and are gasless by
+/// design: limit orders are posted with a dust-sized, funded input (so the
+/// tracker's on-chain quote passes) and an absurdly large output (so no filler
+/// will ever take them), then tracked to expiry. CI never sends a transaction.
+///
+/// Wallet precondition, asserted read-only in beforeAll:
+///   alice (TEST_WALLET_PK, 0xE001E6F6879c07b9Ac24291A490F2795106D348C):
+///     UNI balance >= DUST_INPUT_AMOUNT and a standing UNI->Permit2 max
+///     allowance (set once, tx nonce 1 on mainnet). If either regresses,
+///     beforeAll fails with instructions rather than sending a tx from CI.
 
-describe('/dutch-auction/order', () => {
+// Lifecycle tests post real (dust, unfillable) orders and track them to
+// expiry. Only the beta pipeline gate sets RUN_LIFECYCLE_TESTS=true — see
+// addIntegTests in bin/app.ts for why prod does not.
+const describeLifecycle = process.env.RUN_LIFECYCLE_TESTS === 'true' ? describe : describe.skip
+const itLifecycle = process.env.RUN_LIFECYCLE_TESTS === 'true' ? it : it.skip
+
+describe('order service', () => {
+  const DEFAULT_DEADLINE_SECONDS = 48
   jest.setTimeout(240 * 1000)
   jest.retryTimes(2)
   let alice: Wallet
@@ -53,6 +60,13 @@ describe('/dutch-auction/order', () => {
   const amount = BigNumber.from("5000000000000000000000")
   // Use this amount for the actual order to not trigger a fill
   const replacementAmount = BigNumber.from("500")
+  // Lifecycle (expiry) tests post orders that must be FUNDED but UNFILLABLE:
+  // - input: dust the test wallet actually holds, so the status tracker's
+  //   on-chain quote succeeds and the order verifies to 'open' (an input the
+  //   wallet cannot cover resolves to 'insufficient-funds', not 'expired').
+  // - output: absurdly large, so filling is never economical for anyone.
+  const DUST_INPUT_AMOUNT = BigNumber.from("500")
+  const UNFILLABLE_OUTPUT_AMOUNT = ethers.utils.parseEther("100000")
 
   beforeAll(async () => {
     if (!process.env.UNISWAPX_SERVICE_URL) {
@@ -91,59 +105,15 @@ describe('/dutch-auction/order', () => {
 
     uni = new Contract(uniAddress, abi, provider)
 
-    // make sure filler wallet has enough ETH for gas
-    // const fillerMinBalance = ethers.utils.parseEther('0.1')
-    // if (!(await provider.getBalance(filler.address)).gte(fillerMinBalance)) {
-    //   throw new Error('filler wallet does not has enough ETH for gas')
-    // }
-    // make sure both wallets have enough erc20 balance
+    // make sure alice has enough erc20 balance
     if (!((await uni.balanceOf(alice.address)) as BigNumber).gte(replacementAmount)) {
       throw new Error(`alice wallet ${alice.address} does not have enough UNI ${await uni.balanceOf(alice.address)}`)
     }
 
-    // approve Permit2
-    checkApprovals(uni, alice)
-
-    // if (!((await weth.balanceOf(alice.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
-    //   throw new Error('alice wallet does not have enough WETH')
-    // }
-    // if (!((await uni.balanceOf(filler.address)) as BigNumber).gte(MIN_UNI_BALANCE)) {
-    //   throw new Error('filler wallet does not have enough UNI')
-    // }
-    // if (!((await weth.balanceOf(filler.address)) as BigNumber).gte(MIN_WETH_BALANCE)) {
-    //   throw new Error('filler wallet does not have enough ETH')
-    // }
-
-    // const checkApprovals = async (wallets: Wallet[]) => {
-    //   for (const wallet of wallets) {
-    //     // check approvals on Permit2
-    //     const wethAllowance = await weth.allowance(wallet.address, PERMIT2)
-    //     const uniAllowance = await uni.allowance(wallet.address, PERMIT2)
-    //     if (wethAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-    //       const receipt = await weth.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-    //       await receipt.wait()
-    //     }
-    //     if (uniAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-    //       const receipt = await uni.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-    //       await receipt.wait()
-    //     }
-
-    //     const reactorAddress = REACTOR_ADDRESS_MAPPING[testChainId]['Dutch']
-    //     // check approvals on reactor
-    //     const wethReactorAllowance = await weth.allowance(wallet.address, reactorAddress)
-    //     const uniReactorAllowance = await uni.allowance(wallet.address, reactorAddress)
-    //     if (wethReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-    //       const receipt = await weth.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
-    //       await receipt.wait()
-    //     }
-    //     if (uniReactorAllowance.lt(ethers.constants.MaxUint256.div(2))) {
-    //       const receipt = await uni.connect(wallet).approve(reactorAddress, ethers.constants.MaxUint256)
-    //       await receipt.wait()
-    //     }
-    //   }
-    // }
-
-    // await checkApprovals([alice, filler])
+    // Read-only precondition check (throws with instructions; never sends a
+    // tx from CI). Was previously an unawaited call, so any failure surfaced
+    // as an unhandled rejection instead of a beforeAll error.
+    await checkApprovals(uni, alice)
 
     const getResponse = await axios.get(`${URL}dutch-auction/nonce?address=${aliceAddress}`)
     expect(getResponse.status).toEqual(200)
@@ -154,6 +124,113 @@ describe('/dutch-auction/order', () => {
   beforeEach(() => {
     nonce = nonce.add(1)
   })
+
+  async function expectOrdersToBeOpen(orderHashes: string[]) {
+    // check that orders are open, retrying if status is unverified, with backoff
+    for (let i = 0; i < 5; i++) {
+      const promises = orderHashes.map((orderHash) =>
+        axios.get<GetOrdersResponse<UniswapXOrderEntity>>(`${URL}limit/orders?orderHash=${orderHash}`)
+      )
+      const responses = await Promise.all(promises)
+      expect(responses.every((resp) => resp.status === 200)).toBe(true)
+      const orders = responses.map((resp) => resp.data.orders[0])
+      expect(orders.length).toEqual(orderHashes.length)
+      const orderStatuses = orders.map((order) => order!.orderStatus)
+      if (orderStatuses.every((status) => status === 'open')) {
+        return true
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2 ** i * 1000))
+    }
+    return false
+  }
+
+  async function getOrderStatus(orderHash: string): Promise<string> {
+    const resp = await axios.get<GetOrdersResponse<UniswapXOrderEntity>>(`${URL}limit/orders?orderHash=${orderHash}`)
+    expect(resp.status).toEqual(200)
+    expect(resp.data.orders.length).toEqual(1)
+    const order = resp.data.orders[0]
+    expect(order).toBeDefined()
+    expect(order!.orderHash).toEqual(orderHash)
+    return order!.orderStatus
+  }
+
+  const TERMINAL_STATUSES = ['expired', 'filled', 'cancelled', 'error', 'insufficient-funds']
+
+  /**
+   * Poll until the order reaches `expectedStatus` or any terminal status,
+   * whichever comes first, then return what it reached.
+   *
+   * The predecessor slept a fixed interval and checked exactly once, which
+   * raced the status-tracking step function's ~12s (jittered, backing-off)
+   * cadence: landing between the deadline and the next SFN tick failed the
+   * test with 'open' even though tracking was healthy. Polling makes the test
+   * assert the outcome, not the scheduler's timing. Reaching a *different*
+   * terminal status returns immediately so the assertion diff shows what
+   * actually happened instead of burning the whole budget.
+   */
+  async function pollOrderStatusUntil(
+    orderHash: string,
+    expectedStatus: string,
+    notBeforeMs: number,
+    budgetMs: number,
+    pollIntervalMs = 5000
+  ): Promise<string> {
+    if (notBeforeMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, notBeforeMs))
+    }
+    const startedAt = Date.now()
+    let status = await getOrderStatus(orderHash)
+    while (Date.now() - startedAt < budgetMs) {
+      if (status === expectedStatus || TERMINAL_STATUSES.includes(status)) {
+        return status
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+      status = await getOrderStatus(orderHash)
+    }
+    return status
+  }
+
+  const buildOrder = async (
+    swapper: string,
+    amount: BigNumber,
+    deadlineSeconds: number,
+    inputToken: string,
+    outputToken: string,
+    outputAmount: BigNumber = amount
+  ): Promise<{ order: DutchOrder; payload: { encodedOrder: string; signature: string; chainId: ChainId } }> => {
+    const deadline = Math.round(new Date().getTime() / 1000) + deadlineSeconds
+    const decayStartTime = Math.round(new Date().getTime() / 1000)
+    const order = new DutchOrderBuilder(testChainId)
+      .deadline(deadline)
+      .decayEndTime(deadline)
+      .decayStartTime(decayStartTime)
+      .swapper(swapper)
+      .exclusiveFiller(ZERO_ADDRESS, BigNumber.from(0))
+      .nonce(nonce)
+      .input({
+        token: inputToken,
+        // A limit order is a Dutch V1 order that never decays: every start
+        // amount equals its end amount. Decaying V1 is rejected since #721.
+        startAmount: amount,
+        endAmount: amount,
+      })
+      .output({
+        token: outputToken,
+        startAmount: outputAmount,
+        endAmount: outputAmount,
+        recipient: swapper,
+      })
+      .build()
+
+    const { domain, types, values } = order.permitData()
+    const signature = await alice._signTypedData(domain, types, values)
+    const encodedOrder = order.serialize()
+
+    return {
+      order,
+      payload: { encodedOrder: encodedOrder, signature: signature, chainId: testChainId },
+    }
+  }
 
   const getDutchv2OrderFromQuoteAPI = async (
     swapper: string,
@@ -220,6 +297,29 @@ describe('/dutch-auction/order', () => {
 
   }
 
+  const submitOrder = async (
+    payload: {
+      encodedOrder: string
+      signature: string
+      chainId: ChainId,
+      orderType?: string,
+      quoteId?: string,
+      requestId?: string
+    }
+  ): Promise<void> => {
+    try {
+      const postResponse = await axios({
+        method: 'post',
+        url: `${URL}limit/order`,
+        data: payload,
+      })
+      expect(postResponse.status).toEqual(201)
+    } catch (err: any) {
+      console.log(err.message)
+      throw err
+    }
+  }
+
   const submitV2Order = async (
     payload: {
       quoteId: string,
@@ -254,22 +354,48 @@ describe('/dutch-auction/order', () => {
     expect(response.data.orderHash).toBeDefined()
   }
 
-  // Set max allowance for Permit2 on each token if not set already
+  const buildAndSubmitOrder = async (
+    swapper: string,
+    amount: BigNumber,
+    deadlineSeconds: number,
+    inputToken: string,
+    outputToken: string,
+    outputAmount: BigNumber = amount
+  ): Promise<{
+    order: DutchOrder
+    signature: string
+  }> => {
+    const { order, payload } = await buildOrder(swapper, amount, deadlineSeconds, inputToken, outputToken, outputAmount)
+
+    await submitOrder(payload)
+    return { order, signature: payload.signature }
+  }
+
+  // Assert the standing Permit2 allowance is in place. Deliberately read-only:
+  // auto-approving from CI is what caused the old "timeouts in beforeAll" on
+  // gas spikes, and a mainnet tx should be a human action, not a test side
+  // effect. The allowance is set once per wallet and never consumed down —
+  // permit2 transfers spend signature allowances, not this ERC20 allowance.
   async function checkApprovals(tokenContract: Contract, wallet: Wallet) {
-    console.log(`Checking approvals for wallet ${wallet.address}`)
-    // check approvals on Permit2
     const allowance = await tokenContract.allowance(wallet.address, PERMIT2)
     if (allowance.lt(MAX_UINT96)) {
-      console.log(`Approving max allowance for PERMIT2 for ${tokenContract.address}`)
-      const receipt = await tokenContract.connect(wallet).approve(PERMIT2, ethers.constants.MaxUint256)
-      await receipt.wait()
+      throw new Error(
+        `wallet ${wallet.address} has no standing Permit2 allowance for ` +
+          `${tokenContract.address} (found ${allowance.toString()}). Approve it ` +
+          `once manually: token.approve(${PERMIT2}, MaxUint256) from that wallet.`
+      )
     }
   }
 
   describe('order endpoint sanity checks', () => {
     
     /**
-     * Currently the only test that runs
+     * Skipped: depends on three live services agreeing (trading-api quote ->
+     * this service -> parameterization-api /hard-quote with forceOpenOrder),
+     * plus COSIGNER_ADDRESS matching GPA's actual cosigner. It was disabled in
+     * #649 without a recorded reason — almost certainly pipeline flakiness in
+     * that chain of dependencies. Revive deliberately, with its own
+     * budget/polling treatment, not as a side effect of another change.
      */
     it.skip('2xx with an order from quote API', async () => {
       const unsignedOrderResult = await getDutchv2OrderFromQuoteAPI(
@@ -280,9 +406,38 @@ describe('/dutch-auction/order', () => {
       )
       await submitV2Order({...unsignedOrderResult})
     })
+
+    itLifecycle('2xx', async () => {
+      // Dust-funded UNI input so the order verifies to open rather than
+      // resolving to insufficient-funds when the tracker quotes it on-chain.
+      await buildAndSubmitOrder(
+        aliceAddress,
+        DUST_INPUT_AMOUNT,
+        DEFAULT_DEADLINE_SECONDS,
+        uniAddress,
+        wethAddress,
+        UNFILLABLE_OUTPUT_AMOUNT
+      )
+    })
+
+    it('4xx', async () => {
+      const { payload } = await buildOrder(
+        aliceAddress,
+        amount,
+        DEFAULT_DEADLINE_SECONDS,
+        wethAddress,
+        uniAddress
+      )
+      await expect(submitOrder({ ...payload, chainId: 'xyz' } as any)).rejects.toMatchObject({
+        response: {
+          status: 400,
+        },
+      })
+    })
   })
 
-  describe.skip('orders endpoint sanity checks', () => {
+  // Pure HTTP query-param coverage; no chain or wallet dependency.
+  describe('orders endpoint sanity checks', () => {
     it.each([
       [{ orderStatus: 'open' }, 200],
       [{ chainId: 1 }, 200],
@@ -332,5 +487,70 @@ describe('/dutch-auction/order', () => {
         }
       }
     )
+  })
+
+  // End-to-end lifecycle coverage: posted -> open -> (SFN tracks) -> expired.
+  // This is the only e2e coverage of the status-tracking step function; if
+  // trackers stop starting, these are the tests that catch it post-deploy.
+  //
+  // Orders are limit orders with a dust UNI input (alice holds it; tracker's
+  // on-chain quote passes) and an unfillable output (nobody will take
+  // dust-for-100k). The input token must be UNI on mainnet: it is the only
+  // token the test wallet holds and has a standing Permit2 allowance for.
+  describeLifecycle('checking expiry', () => {
+    // Limit orders are polled every block for their first 10 minutes (~12s on
+    // mainnet, jittered) and statuses land a tick
+    // or two after the deadline; 90s of budget past the deadline keeps this
+    // deterministic without letting a genuine failure run long. The reaper
+    // backstop resolves in tens of minutes, so a pass inside this budget is
+    // evidence the SFN path specifically is alive.
+    const EXPIRY_BUDGET_MS = 90 * 1000
+
+    it('erc20 to erc20', async () => {
+      const { order } = await buildAndSubmitOrder(
+        aliceAddress,
+        DUST_INPUT_AMOUNT,
+        DEFAULT_DEADLINE_SECONDS,
+        uniAddress,
+        wethAddress,
+        UNFILLABLE_OUTPUT_AMOUNT
+      )
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      expect(
+        await pollOrderStatusUntil(order.hash(), 'expired', DEFAULT_DEADLINE_SECONDS * 1000, EXPIRY_BUDGET_MS)
+      ).toBe('expired')
+    })
+
+    it('erc20 to eth', async () => {
+      const { order } = await buildAndSubmitOrder(
+        aliceAddress,
+        DUST_INPUT_AMOUNT,
+        DEFAULT_DEADLINE_SECONDS,
+        uniAddress,
+        ZERO_ADDRESS,
+        UNFILLABLE_OUTPUT_AMOUNT
+      )
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      expect(
+        await pollOrderStatusUntil(order.hash(), 'expired', DEFAULT_DEADLINE_SECONDS * 1000, EXPIRY_BUDGET_MS)
+      ).toBe('expired')
+    })
+
+    it('does not expire order before deadline', async () => {
+      const { order } = await buildAndSubmitOrder(
+        aliceAddress,
+        DUST_INPUT_AMOUNT,
+        DEFAULT_DEADLINE_SECONDS,
+        uniAddress,
+        ZERO_ADDRESS,
+        UNFILLABLE_OUTPUT_AMOUNT
+      )
+      expect(await expectOrdersToBeOpen([order.hash()])).toBeTruthy()
+      // Negative check: well before the 48s deadline the order must still be
+      // open. A single read 15s in is deterministic — expiry cannot have
+      // legitimately happened yet, so any terminal status here is a bug.
+      await new Promise((resolve) => setTimeout(resolve, 15 * 1000))
+      expect(await getOrderStatus(order.hash())).toBe('open')
+    })
   })
 })

@@ -287,9 +287,6 @@ export class APIPipeline extends Stack {
           resources: ['arn:aws:kms:us-east-2:644039819003:key/2df28f63-7535-49e9-892a-8ea0471366bf'],
         }),
       ],
-      envFromCfnOutputs: {
-        UNISWAP_API: apiStage.url,
-      },
       buildEnvironment: {
         computeType: ComputeType.MEDIUM,
         environmentVariables: {
@@ -325,12 +322,16 @@ export class APIPipeline extends Stack {
             value: 'all/gouda-service/integ-test/rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          TEST_WALLET_PK: {
-            value: 'all/gouda-service/integ-test/test-wallet-pk',
+          // The integ-test RPC gateway authenticates via the same
+          // x-internal-service-secret header the service itself sends (see
+          // RPC_HEADERS in lib/util/constants.ts, which picks this up from
+          // the environment when set).
+          RPC_HEADER_SECRET: {
+            value: 'gouda-service-rpc-urls-2:RPC_HEADER_SECRET',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          TEST_FILLER_PK: {
-            value: 'all/gouda-service/integ-test/test-filler-pk',
+          TEST_WALLET_PK: {
+            value: 'all/gouda-service/integ-test/test-wallet-pk',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
         },
@@ -338,14 +339,19 @@ export class APIPipeline extends Stack {
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        'echo "UNISWAP_API=${UNISWAP_API}" > .env',
+        // Lifecycle (order expiry) e2e tests post real dust orders on mainnet.
+        // They run only against the beta gate: a beta failure already blocks
+        // prod promotion, and running them against prod would skew prod's
+        // per-chain expiry rate (a ratio; deploy-time dust expiries can be a
+        // large share of a quiet 15-minute window on chain 1).
+        `echo "RUN_LIFECYCLE_TESTS=${stage === STAGE.BETA ? 'true' : 'false'}" > .env`,
         'echo "TAPI_QUOTE_URL=${TAPI_QUOTE_URL}" >> .env',
         'echo "TAPI_API_KEY=${TAPI_API_KEY}" >> .env',
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
         'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" >> .env',
         'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
+        'echo "RPC_HEADER_SECRET=${RPC_HEADER_SECRET}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
-        'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
         'yarn install --frozen-lockfile',
         'yarn build',
         'yarn run test:e2e',
