@@ -1,4 +1,5 @@
 import { Context } from 'aws-lambda'
+import { Wallet } from 'ethers'
 import { ChainId } from '../../lib/util/chain'
 
 export const COSIGNATURE =
@@ -13,6 +14,14 @@ export const EVENT_CONTEXT = {} as unknown as Context
 
 // 65 zero bytes: passes the post schema's signature shape check, recovers nobody.
 export const ZERO_SIGNATURE = `0x${'00'.repeat(65)}`
+
+// Anvil/Hardhat default dev accounts #0-#2: publicly known throwaway keys, so signed orders are
+// the same on every run. Never use them outside tests.
+export const TestWallets = {
+  swapper: new Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'),
+  cosigner: new Wallet('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'),
+  stranger: new Wallet('0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a'),
+}
 
 export const Tokens = {
   MAINNET: {
