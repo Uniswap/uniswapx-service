@@ -1,5 +1,5 @@
 import { CosignedV2DutchOrder, OrderValidation } from '@uniswap/uniswapx-sdk'
-import { ethers, Wallet } from 'ethers'
+import { ethers } from 'ethers'
 import {
   ERC1271_MAGIC_VALUE,
   OrderSignatureValidator,
@@ -9,7 +9,7 @@ import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
-import { Tokens, ZERO_SIGNATURE } from '../fixtures'
+import { TestWallets, Tokens, ZERO_SIGNATURE } from '../fixtures'
 
 const SOME_CONTRACT_CODE = '0x6080604052'
 const ethersError = (message: string, code: ethers.errors) => new ethers.utils.Logger('test').makeError(message, code)
@@ -43,9 +43,7 @@ const withV = (signature: string, v: number) =>
   ethers.utils.hexConcat([ethers.utils.hexDataSlice(signature, 0, 64), [v]])
 
 describe('OrderSignatureValidator', () => {
-  const swapper = Wallet.createRandom()
-  const cosigner = Wallet.createRandom()
-  const stranger = Wallet.createRandom()
+  const { swapper, cosigner, stranger } = TestWallets
 
   const buildV2 = (overrides: { cosigner?: string } = {}) =>
     SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {

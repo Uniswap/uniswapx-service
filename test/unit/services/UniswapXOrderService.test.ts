@@ -1,5 +1,4 @@
 import { Logger } from '@aws-lambda-powertools/logger'
-import { KmsSigner } from '@uniswap/signer'
 import {
   CosignedV2DutchOrder,
   OrderType,
@@ -7,13 +6,12 @@ import {
   OrderValidator,
   PermissionedTokenValidator,
 } from '@uniswap/uniswapx-sdk'
-import { BigNumber, Wallet } from 'ethers'
+import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
-import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
 import { DutchV2Order } from '../../../lib/models/DutchV2Order'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
@@ -30,8 +28,9 @@ import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
+import { makePostOrderService } from '../builders/post-path'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
-import { COSIGNATURE, MOCK_PROVIDER_MAP, Tokens, ZERO_SIGNATURE } from '../fixtures'
+import { MOCK_PROVIDER_MAP, TestWallets, Tokens, ZERO_SIGNATURE } from '../fixtures'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -49,99 +48,55 @@ const MOCK_SM_ARN_1 = 'arn:aws:states:region:123456789012:stateMachine:MOCK_SM_1
 
 describe('UniswapXOrderService', () => {
   beforeAll(() => {
-    jest.spyOn(KmsSigner.prototype, 'signDigest').mockResolvedValue(COSIGNATURE)
     process.env['STATE_MACHINE_NAMES'] = JSON.stringify({ 1: 'MOCK_SM_1' })
     process.env['ACCOUNT_ID'] = '123456789012'
     process.env['REGION'] = 'region'
   })
 
   test('createOrder with LimitOrder, propagates correct type', async () => {
-    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
-    mockOrderValidator.validate.mockReturnValue({ valid: true })
-
-    const onChainValidator = mock<OrderValidator>()
-    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
-
-    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
-    onChainValidatorMap.get.mockReturnValue(onChainValidator)
-
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    const logger = mock<Logger>()
-    const AnalyticsService = mock<AnalyticsService>()
-
-    const service = new UniswapXOrderService(
-      mockOrderValidator,
-      onChainValidatorMap,
-      repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-      logger,
-      () => {
-        return 10
-      },
-      AnalyticsService,
-      MOCK_PROVIDER_MAP
-    )
+    const { service, orderValidator, onChainValidator, repository, analytics, tracking } = makePostOrderService({
+      getMaxOpenOrders: () => 10,
+    })
 
     const order = SDKDutchOrderFactory.buildLimitOrder()
 
     const response = await service.createOrder(new LimitOrder(order, '0x00', 1))
 
     expect(response).not.toBeNull()
-    expect(mockOrderValidator.validate).toHaveBeenCalled()
-    expect(onChainValidatorMap.get(1).validate).toHaveBeenCalled()
-    expect(repository.countOrdersByOffererAndStatus).toHaveBeenCalled()
-    expect(repository.putOrderAndUpdateNonceTransaction).toHaveBeenCalled()
-    expect(AnalyticsService.logOrderPosted).toHaveBeenCalledWith(expect.anything(), OrderType.Limit)
-    expect(kickoffOrderTrackingSfn).toHaveBeenCalledWith(
+    expect(orderValidator.calls).toHaveLength(1)
+    expect(onChainValidator.calls).toHaveLength(1)
+    expect(repository.countCalls).toHaveLength(1)
+    expect(repository.puts).toHaveLength(1)
+    expect(analytics.posted).toEqual([{ order: expect.anything(), orderType: OrderType.Limit }])
+    expect(tracking.calls).toEqual([
       {
-        chainId: 1,
-        orderHash: response,
-        orderStatus: 'open',
-        orderType: 'Limit',
-        quoteId: '',
-        runIndex: 0,
+        input: {
+          chainId: 1,
+          orderHash: response,
+          orderStatus: 'open',
+          orderType: 'Limit',
+          quoteId: '',
+          runIndex: 0,
+          stateMachineArn: MOCK_SM_ARN_1,
+        },
         stateMachineArn: MOCK_SM_ARN_1,
       },
-      MOCK_SM_ARN_1
-    )
+    ])
   })
 
   test('createOrder returns the order hash when post-persist tracking kickoff fails', async () => {
-    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
-    mockOrderValidator.validate.mockReturnValue({ valid: true })
-
-    const onChainValidator = mock<OrderValidator>()
-    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
-
-    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
-    onChainValidatorMap.get.mockReturnValue(onChainValidator)
-
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const logger = mock<Logger>()
-    const analyticsService = mock<AnalyticsService>()
-
-    const service = new UniswapXOrderService(
-      mockOrderValidator,
-      onChainValidatorMap,
-      repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-      logger,
-      () => {
-        return 10
-      },
-      analyticsService,
-      MOCK_PROVIDER_MAP
-    )
+    const { service, repository, tracking } = makePostOrderService({ logger, getMaxOpenOrders: () => 10 })
 
     const order = SDKDutchOrderFactory.buildLimitOrder()
-    ;(kickoffOrderTrackingSfn as jest.Mock).mockRejectedValueOnce(new Error('sfn unavailable'))
+    tracking.failNextWith(new Error('sfn unavailable'))
 
     // The order is persisted before tracking starts; the caller must still
     // receive the hash or an accepted order is misreported as rejected.
     const response = await service.createOrder(new LimitOrder(order, '0x00', 1))
 
     expect(response).not.toBeNull()
-    expect(repository.putOrderAndUpdateNonceTransaction).toHaveBeenCalled()
+    expect(repository.puts).toHaveLength(1)
     expect(logger.error).toHaveBeenCalledWith(
       'Post-persist processing failed for accepted order',
       expect.objectContaining({ orderHash: response })
@@ -149,116 +104,48 @@ describe('UniswapXOrderService', () => {
   })
 
   test('createOrder throws TooManyOpenOrdersError and does not persist when open order limit is reached', async () => {
-    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
-    mockOrderValidator.validate.mockReturnValue({ valid: true })
-
-    const onChainValidator = mock<OrderValidator>()
-    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
-
-    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
-    onChainValidatorMap.get.mockReturnValue(onChainValidator)
-
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    repository.countOrdersByOffererAndStatus.mockResolvedValue(11)
-    const logger = mock<Logger>()
-    const analyticsService = mock<AnalyticsService>()
-
-    const service = new UniswapXOrderService(
-      mockOrderValidator,
-      onChainValidatorMap,
-      repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-      logger,
-      () => {
-        return 10
-      },
-      analyticsService,
-      MOCK_PROVIDER_MAP
-    )
+    const { service, repository } = makePostOrderService({ getMaxOpenOrders: () => 10 })
+    repository.openOrderCount = 11
 
     const order = SDKDutchOrderFactory.buildLimitOrder()
 
     await expect(service.createOrder(new LimitOrder(order, '0x00', 1))).rejects.toThrow(TooManyOpenOrdersError)
-    expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+    expect(repository.puts).toEqual([])
   })
 
   test('createOrder with PriorityOrder, propagates correct type', async () => {
-    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
-    mockOrderValidator.validate.mockReturnValue({ valid: true })
-
-    const onChainValidator = mock<OrderValidator>()
-    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
-
-    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
-    onChainValidatorMap.get.mockReturnValue(onChainValidator)
-
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    const logger = mock<Logger>()
-    const AnalyticsService = mock<AnalyticsService>()
-
-    const service = new UniswapXOrderService(
-      mockOrderValidator,
-      onChainValidatorMap,
-      repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-      logger,
-      () => {
-        return 10
-      },
-      AnalyticsService,
-      MOCK_PROVIDER_MAP
-    )
+    const { service, orderValidator, onChainValidator, repository, analytics, tracking } = makePostOrderService({
+      getMaxOpenOrders: () => 10,
+    })
 
     const order = SDKPriorityOrderFactory.buildPriorityOrder()
 
     const response = await service.createOrder(new PriorityOrder(order, '0x00', 1))
 
     expect(response).not.toBeNull()
-    expect(mockOrderValidator.validate).toHaveBeenCalled()
-    expect(onChainValidatorMap.get(1).validate).toHaveBeenCalled()
-    expect(repository.countOrdersByOffererAndStatus).toHaveBeenCalled()
-    expect(repository.putOrderAndUpdateNonceTransaction).toHaveBeenCalled()
-    expect(AnalyticsService.logOrderPosted).toHaveBeenCalledWith(expect.anything(), OrderType.Priority)
-    expect(kickoffOrderTrackingSfn).toHaveBeenCalledWith(
+    expect(orderValidator.calls).toHaveLength(1)
+    expect(onChainValidator.calls).toHaveLength(1)
+    expect(repository.countCalls).toHaveLength(1)
+    expect(repository.puts).toHaveLength(1)
+    expect(analytics.posted).toEqual([{ order: expect.anything(), orderType: OrderType.Priority }])
+    expect(tracking.calls).toEqual([
       {
-        chainId: 1,
-        orderHash: response,
-        orderStatus: 'open',
-        orderType: 'Priority',
-        quoteId: '',
-        runIndex: 0,
+        input: {
+          chainId: 1,
+          orderHash: response,
+          orderStatus: 'open',
+          orderType: 'Priority',
+          quoteId: '',
+          runIndex: 0,
+          stateMachineArn: MOCK_SM_ARN_1,
+        },
         stateMachineArn: MOCK_SM_ARN_1,
       },
-      MOCK_SM_ARN_1
-    )
+    ])
   })
 
   test('createOrder with PriorityOrder rejects stale order when auctionTargetBlock > auctionStartBlock', async () => {
-    const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
-    mockOrderValidator.validate.mockReturnValue({ valid: true })
-
-    const onChainValidator = mock<OrderValidator>()
-    onChainValidator.validate.mockResolvedValue(OrderValidation.OK)
-
-    const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
-    onChainValidatorMap.get.mockReturnValue(onChainValidator)
-
-    const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-    const logger = mock<Logger>()
-    const AnalyticsService = mock<AnalyticsService>()
-
-    const service = new UniswapXOrderService(
-      mockOrderValidator,
-      onChainValidatorMap,
-      repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
-      mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-      logger,
-      () => {
-        return 10
-      },
-      AnalyticsService,
-      MOCK_PROVIDER_MAP
-    )
+    const { service, orderValidator, repository } = makePostOrderService({ getMaxOpenOrders: () => 10 })
 
     // Create a priority order with a very low auctionStartBlock (block 1)
     // When reparameterizeAndCosign runs, it will set auctionTargetBlock to current block + buffer (~103)
@@ -273,8 +160,8 @@ describe('UniswapXOrderService', () => {
     await expect(service.createOrder(priorityOrder)).rejects.toThrow('auctionStartBlock too low')
 
     // Verify that validation and persistence were not called
-    expect(mockOrderValidator.validate).not.toHaveBeenCalled()
-    expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+    expect(orderValidator.calls).toEqual([])
+    expect(repository.puts).toEqual([])
   })
 
   test('getDutchOrders calls db with DUTCH_LIMIT and Dutch', async () => {
@@ -908,8 +795,7 @@ describe('UniswapXOrderService', () => {
 
   describe('permissioned input tokens', () => {
     // the real isPermissionedToken routes mainnet BUIDL orders away from the order quoter
-    const swapper = Wallet.createRandom()
-    const cosigner = Wallet.createRandom()
+    const { swapper, cosigner } = TestWallets
 
     let preTransferCheck: jest.SpyInstance
     let permit2Validate: jest.SpyInstance
@@ -922,26 +808,6 @@ describe('UniswapXOrderService', () => {
         cosigner: cosigner.address,
         input: { token: Tokens.MAINNET.BUIDL, startAmount: '1000000', endAmount: '1000000' },
       })
-
-    const buildService = () => {
-      const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
-      mockOrderValidator.validate.mockReturnValue({ valid: true })
-      const onChainValidator = mock<OrderValidator>()
-      const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
-      onChainValidatorMap.get.mockReturnValue(onChainValidator)
-      const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
-      const service = new UniswapXOrderService(
-        mockOrderValidator,
-        onChainValidatorMap,
-        repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
-        mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
-        mock<Logger>(),
-        () => 10,
-        mock<AnalyticsService>(),
-        MOCK_PROVIDER_MAP
-      )
-      return { service, repository, onChainValidator }
-    }
 
     beforeAll(async () => {
       order = await cosignOrder(buildPermissionedOrder(), cosigner)
@@ -959,55 +825,53 @@ describe('UniswapXOrderService', () => {
     })
 
     test('stores an order whose swapper signature and cosignature verify, without the order quoter', async () => {
-      const { service, repository, onChainValidator } = buildService()
+      const { service, repository, onChainValidator } = makePostOrderService()
 
       await service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))
 
-      expect(repository.putOrderAndUpdateNonceTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ orderHash: order.hash().toLowerCase(), signature })
-      )
-      expect(onChainValidator.validate).not.toHaveBeenCalled()
+      expect(repository.puts).toEqual([expect.objectContaining({ orderHash: order.hash().toLowerCase(), signature })])
+      expect(onChainValidator.calls).toEqual([])
       expect(permit2Validate).toHaveBeenCalledWith(order)
       expect(preTransferCheck).toHaveBeenCalled()
     })
 
     test('rejects a signature that does not verify before the Permit2 check, the transfer check or the write', async () => {
-      const { service, repository } = buildService()
+      const { service, repository } = makePostOrderService()
 
       await expect(service.createOrder(new DutchV2Order(order, ZERO_SIGNATURE, ChainId.MAINNET))).rejects.toThrow(
         'Signature validation failed: InvalidSignature'
       )
 
-      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(repository.puts).toEqual([])
       expect(permit2Validate).not.toHaveBeenCalled()
       expect(preTransferCheck).not.toHaveBeenCalled()
     })
 
     test('rejects an order under another swapper with no cosignature', async () => {
-      const { service, repository } = buildService()
-      const forged = buildPermissionedOrder({ swapper: Wallet.createRandom().address })
+      const { service, repository } = makePostOrderService()
+      const forged = buildPermissionedOrder({ swapper: TestWallets.stranger.address })
 
       await expect(service.createOrder(new DutchV2Order(forged, ZERO_SIGNATURE, ChainId.MAINNET))).rejects.toThrow(
         'Signature validation failed: InvalidCosignature'
       )
 
-      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(repository.puts).toEqual([])
       expect(preTransferCheck).not.toHaveBeenCalled()
     })
 
     test('rejects an order whose Permit2 nonce is already used', async () => {
-      const { service, repository } = buildService()
+      const { service, repository } = makePostOrderService()
       permit2Validate.mockResolvedValue(OrderValidation.NonceUsed)
 
       await expect(service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))).rejects.toThrow(
         'Permit2 validation failed: NonceUsed'
       )
 
-      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(repository.puts).toEqual([])
     })
 
     test('rejects a permissioned-token V3 order instead of authenticating it as a Dutch order', async () => {
-      const { service, repository } = buildService()
+      const { service, repository } = makePostOrderService()
       const v3 = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.MAINNET, {
         input: { token: Tokens.MAINNET.BUIDL },
       })
@@ -1016,19 +880,19 @@ describe('UniswapXOrderService', () => {
         "Permissioned tokens shouldn't work with priority/v3 dutch orders"
       )
 
-      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(repository.puts).toEqual([])
       expect(preTransferCheck).not.toHaveBeenCalled()
     })
 
     test('still rejects an authenticated order the token would not let transfer', async () => {
-      const { service, repository } = buildService()
+      const { service, repository } = makePostOrderService()
       preTransferCheck.mockResolvedValue(false)
 
       await expect(service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))).rejects.toThrow(
         'Permissioned Token Pre-transfer check failed'
       )
 
-      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(repository.puts).toEqual([])
     })
   })
 })
