@@ -449,11 +449,10 @@ describe('checkOrderStatusService', () => {
         expect(fromBlock).toBe(5344413 - 2400)
       })
 
-      it('keeps the legacy 20-block pad on mainnet and on chains without a registered cadence', () => {
+      it('keeps the legacy 20-block pad on 12s chains', () => {
         const order: any = { type: OrderType.Dutch }
-        // mainnet: 240s / 12s = exactly the old 20 blocks
+        // 240s / 12s = exactly the old 20 blocks
         expect((checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)).toBe(5000 - 20)
-        // unregistered chain (Sepolia): falls back to 20 rather than throwing
         expect((checkOrderStatusService as any).getFillSearchFromBlock(order, 11155111, 5000)).toBe(5000 - 20)
       })
 
@@ -461,7 +460,8 @@ describe('checkOrderStatusService', () => {
         expect(getFillCheckOverlapBlocks(1)).toBe(20) // 240s / 12s
         expect(getFillCheckOverlapBlocks(42161)).toBe(960) // 240s / 0.25s
         expect(getFillCheckOverlapBlocks(4663)).toBe(2400) // 240s / 0.1s
-        expect(getFillCheckOverlapBlocks(11155111)).toBe(20) // unregistered -> legacy pad
+        expect(getFillCheckOverlapBlocks(11155111)).toBe(20) // Sepolia, 240s / 12s
+        expect(getFillCheckOverlapBlocks(1301)).toBe(240) // Unichain Sepolia, 240s / 1s
       })
 
       it('keeps the fill inside BOTH bounds for a short-lived order on a sub-second chain', () => {
@@ -518,14 +518,18 @@ describe('checkOrderStatusService', () => {
         expect(start).toBe(100_000 - LOOKBACK)
       })
 
-      it('keeps the rolling window when createdAt is missing, in the future, or the chain has no registered block time', () => {
+      it('keeps the rolling window when createdAt is missing or in the future', () => {
         expect((checkOrderStatusService as any).getRunStartBlock({}, 1, 0, 100_000, NOW)).toBe(100_000 - LOOKBACK)
         expect((checkOrderStatusService as any).getRunStartBlock({ createdAt: NOW + 60 }, 1, 0, 100_000, NOW)).toBe(
           100_000 - LOOKBACK
         )
-        expect(
-          (checkOrderStatusService as any).getRunStartBlock({ createdAt: NOW - 3600 }, 11155111, 0, 100_000, NOW)
-        ).toBe(100_000 - LOOKBACK)
+      })
+
+      it('reaches back to the order creation on testnets too', () => {
+        // Created 1h ago on Sepolia (12s blocks, ~300 blocks); doubled to 600.
+        const order: any = { createdAt: NOW - 3600 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 11155111, 0, 100_000, NOW)
+        expect(start).toBe(100_000 - 600 - LOOKBACK)
       })
 
       it('keeps a delayed short-lived order fill inside both bounds', () => {
@@ -604,13 +608,11 @@ describe('checkOrderStatusService', () => {
         expect(toBlock).toBe(500_000)
       })
 
-      it('uses the current head on chains without a registered block time (testnets)', () => {
-        // getAverageBlockTimeSecs throws for chains missing from its registry
-        // (e.g. Sepolia); the cap must degrade to the old uncapped behavior
-        // instead of failing the poll before the fill lookup.
+      it('caps the upper bound on testnets too', () => {
         const order: any = { createdAt: 1_000_000, deadline: 1_000_120 }
         const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 11155111, 1000, 500_000)
-        expect(toBlock).toBe(500_000)
+        expect(toBlock).toBeLessThan(500_000)
+        expect(toBlock).toBeGreaterThan(1000)
       })
     })
 

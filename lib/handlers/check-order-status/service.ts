@@ -46,12 +46,7 @@ const FILL_CHECK_OVERLAP_SECONDS = 240
 const FILL_SEARCH_SLACK_BLOCKS = 500
 
 export function getFillCheckOverlapBlocks(chainId: number): number {
-  try {
-    return Math.max(FILL_CHECK_OVERLAP_BLOCK, Math.ceil(FILL_CHECK_OVERLAP_SECONDS / AVERAGE_BLOCK_TIME(chainId)))
-  } catch {
-    // Chains without a registered cadence (testnets) keep the legacy pad.
-    return FILL_CHECK_OVERLAP_BLOCK
-  }
+  return Math.max(FILL_CHECK_OVERLAP_BLOCK, Math.ceil(FILL_CHECK_OVERLAP_SECONDS / AVERAGE_BLOCK_TIME(chainId)))
 }
 
 /**
@@ -352,12 +347,7 @@ export class CheckOrderStatusService {
     ) {
       return rollingStart
     }
-    let averageBlockTime: number
-    try {
-      averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
-    } catch {
-      return rollingStart
-    }
+    const averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
     // Twice the elapsed blocks at the average cadence, so a chain running faster
     // than its registered block time cannot push the estimate past creation.
     const blocksSinceCreation = Math.floor((2 * (nowSeconds - order.createdAt)) / averageBlockTime)
@@ -409,14 +399,7 @@ export class CheckOrderStatusService {
     if (!order.createdAt || !order.deadline || order.deadline <= order.createdAt) {
       return curBlockNumber
     }
-    // getAverageBlockTimeSecs throws for chains it doesn't know (testnets);
-    // fall back to the uncapped window rather than failing the poll.
-    let averageBlockTime: number
-    try {
-      averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
-    } catch {
-      return curBlockNumber
-    }
+    const averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
     // 3x, not a snug bound: the registry is a hand-maintained constant, and a
     // chain speeding up past it shrinks this window in real blocks -- the
     // multiplier is headroom against that drift. The overlap pad is added
