@@ -3,13 +3,6 @@ import { OrderValidation, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { ChainId } from './chain'
 import { permit2Address, SignatureProvider, PermitTransferFrom, TokenPermissions } from '@uniswap/permit2-sdk'
 
-export interface ValidationContext {
-  chainId: ChainId
-  currentBlock: number
-  currentTimestamp: number
-  provider: ethers.providers.Provider
-}
-
 /**
  * Permit2Validator performs on-chain validation checks for UniswapX orders.
  * It checks for Expired and NonceUsed conditions.

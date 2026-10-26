@@ -27,7 +27,7 @@ import { GetNonceQueryParams } from './schema/index'
 export class RequestTimeProviderMap implements ProviderMap {
   private delegate: ProviderMap | undefined
 
-  get(chainId: ChainId): StaticJsonRpcProvider | undefined {
+  get(chainId: ChainId): StaticJsonRpcProvider {
     if (!this.delegate) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { LazyProviderMap } = require('../shared') as typeof import('../shared')

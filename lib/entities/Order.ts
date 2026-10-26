@@ -155,11 +155,3 @@ export function isPriorityOrderEntity(order: UniswapXOrderEntity): order is Prio
 export function isDutchV3OrderEntity(order: UniswapXOrderEntity): order is DutchV3OrderEntity {
   return order.type === OrderType.Dutch_V3
 }
-
-export function isDutchV2OrderEntity(order: UniswapXOrderEntity): order is DutchV2OrderEntity {
-  return order.type === OrderType.Dutch_V2
-}
-
-export function isDutchV1OrderEntity(order: UniswapXOrderEntity): order is DutchV1OrderEntity {
-  return order.type === OrderType.Dutch || order.type === OrderType.Limit
-}

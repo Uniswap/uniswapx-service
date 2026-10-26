@@ -2,6 +2,7 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { ORDER_STATUS, SORT_FIELDS } from '../../../lib/entities/Order'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
+import { TABLE_NAMES } from '../../../lib/repositories/util'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
 import { deleteAllRepoEntries } from './deleteAllRepoEntries'
 
@@ -111,7 +112,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await deleteAllRepoEntries(ordersRepository)
+  await deleteAllRepoEntries(ordersRepository, documentClient, TABLE_NAMES.LimitOrders)
 })
 
 describe('LimitOrdersRepository put item test', () => {
@@ -555,27 +556,5 @@ describe('OrdersRepository update status test', () => {
     await expect(ordersRepository.updateOrderStatus('nonexistent', ORDER_STATUS.FILLED)).rejects.toEqual(
       new Error('cannot find order by hash when updating order status, hash: nonexistent')
     )
-  })
-})
-
-describe('OrdersRepository delete test', () => {
-  it('should delete orders by list of orderHashes', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_1,
-      nonce: '1',
-    } as any)
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_2,
-      nonce: '2',
-    } as any)
-    let order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
-    expect(order).toBeDefined()
-    order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
-    expect(order).toBeDefined()
-    await ordersRepository.deleteOrders([MOCK_ORDER_1.orderHash, MOCK_ORDER_2.orderHash])
-    order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
-    expect(order).not.toBeDefined()
-    order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
-    expect(order).not.toBeDefined()
   })
 })

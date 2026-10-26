@@ -149,17 +149,6 @@ describe('Testing get nonce handler.', () => {
       }
     })
 
-    it('Falls back to the stored nonce when no provider is available for the chain.', async () => {
-      providerMapGetMock.mockReturnValueOnce(undefined)
-      const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-      expect(findUnusedNonceMock).not.toHaveBeenCalled()
-      expect(getNonceResponse).toMatchObject({
-        body: JSON.stringify({ nonce: MOCK_NONCE }),
-        statusCode: 200,
-      })
-      expect(putMetricMock).toHaveBeenCalledWith('GetNonceOnChainCheckFallback', 1, expect.anything())
-    })
-
     it('Falls back to the stored nonce when building the provider throws.', async () => {
       providerMapGetMock.mockImplementationOnce(() => {
         throw new Error('RPC_PREFIX_URL not set')

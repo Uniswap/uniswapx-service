@@ -2,18 +2,15 @@ import { Logger } from '@aws-lambda-powertools/logger'
 import {
   CosignedPriorityOrder as SDKPriorityOrder,
   CosignedV2DutchOrder,
-  CosignedV2DutchOrder as SDKV2DutchOrder,
   DutchOrder as SDKDutchOrder,
   OrderType,
   UniswapXOrderParser,
   CosignedV3DutchOrder,
-  CosignedV3DutchOrder as SDKV3DutchOrder,
 } from '@uniswap/uniswapx-sdk'
 import { UnexpectedOrderTypeError } from '../../errors/UnexpectedOrderTypeError'
 import { UnsupportedOrderTypeError } from '../../errors/UnsupportedOrderTypeError'
 import { DutchV2Order } from '../../models/DutchV2Order'
 import { LimitOrder } from '../../models/LimitOrder'
-import { Order } from '../../models/Order'
 import { PriorityOrder } from '../../models/PriorityOrder'
 import { PostOrderRequestBody } from './schema'
 import { DutchV3Order } from '../../models/DutchV3Order'
@@ -22,11 +19,13 @@ import { Unit } from 'aws-embedded-metrics'
 import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../constants'
 import { ChainId } from '../../util/chain'
 
+export type PostableOrder = LimitOrder | DutchV2Order | DutchV3Order | PriorityOrder
+
 export class PostOrderBodyParser {
   private readonly uniswapXParser = new UniswapXOrderParser()
 
   constructor(private readonly logger: Logger) {}
-  fromPostRequest(body: PostOrderRequestBody): Order {
+  fromPostRequest(body: PostOrderRequestBody): PostableOrder {
     const { encodedOrder, signature, chainId, orderType } = body
     this.logger.info('Parsing order', { encodedOrder, signature, chainId, orderType })
     switch (orderType) {
@@ -68,17 +67,7 @@ export class PostOrderBodyParser {
       const staleOrderMetricName = `OrderStaleness-chain-${chainId.toString()}`
       metrics.putMetric(staleOrderMetricName, timeDifference)
 
-      return new DutchV2Order(
-        order as SDKV2DutchOrder,
-        signature,
-        chainId,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        quoteId,
-        requestId
-      )
+      return new DutchV2Order(order, signature, chainId, undefined, undefined, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV2 order', {
         err,
@@ -99,17 +88,7 @@ export class PostOrderBodyParser {
   ): DutchV3Order {
     try {
       const order = CosignedV3DutchOrder.parse(encodedOrder, chainId)
-      return new DutchV3Order(
-        order as SDKV3DutchOrder,
-        signature,
-        chainId,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        quoteId,
-        requestId
-      )
+      return new DutchV3Order(order, signature, chainId, undefined, undefined, undefined, undefined, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV3 order', {
         err,

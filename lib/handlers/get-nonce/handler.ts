@@ -71,9 +71,6 @@ export class GetNonceHandler extends APIGLambdaHandler<
     let timeout: NodeJS.Timeout | undefined = undefined
     try {
       const provider = providerMap.get(chainId)
-      if (!provider) {
-        throw new Error(`no provider found for chainId: ${chainId}`)
-      }
       const adjustedNonce = await Promise.race([
         findUnusedNonce(provider, chainId, address, lastUsedNonce),
         new Promise<never>((_, reject) => {

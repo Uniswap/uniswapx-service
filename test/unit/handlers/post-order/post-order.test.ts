@@ -26,7 +26,6 @@ import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
 import { PriorityOrder } from '../../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
-import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { DUTCH_LIMIT } from '../../../../lib/util/order'
@@ -144,27 +143,24 @@ describe('Testing post order handler.', () => {
   const postOrderHandler = new PostOrderHandler(
     'post-order',
     injectorPromiseMock,
-    new OrderDispatcher(
-      new UniswapXOrderService(
-        {
-          validate: validatorMock,
-        } as any,
-        new OnChainValidatorMap<OrderValidator>(validatorMockMapping),
-        {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        } as any,
-        mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
-        mockLog,
-        getMaxOpenOrders,
-        {
-          logOrderPosted: jest.fn(),
-          logCancelled: jest.fn(),
-          logInsufficientFunds: jest.fn(),
-        },
-        MOCK_PROVIDER_MAP
-      ),
-      mockLog
+    new UniswapXOrderService(
+      {
+        validate: validatorMock,
+      } as any,
+      new OnChainValidatorMap<OrderValidator>(validatorMockMapping),
+      {
+        putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
+        countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
+      } as any,
+      mock<BaseOrdersRepository<UniswapXOrderEntity>>(), //limit repo
+      mockLog,
+      getMaxOpenOrders,
+      {
+        logOrderPosted: jest.fn(),
+        logCancelled: jest.fn(),
+        logInsufficientFunds: jest.fn(),
+      },
+      MOCK_PROVIDER_MAP
     ),
     new PostOrderBodyParser(mockLog),
     DUTCH_AUCTION_ORDER_ROUTE
@@ -433,12 +429,10 @@ describe('Testing post order handler.', () => {
         mockProviderMapWithOldTimestamp
       )
 
-      const orderDispatcherWithOldTimestamp = new OrderDispatcher(uniswapXOrderServiceWithOldTimestamp, mockLog)
-
       const postOrderHandlerWithOldTimestamp = new PostOrderHandler(
         'post-order',
         injectorPromiseMock,
-        orderDispatcherWithOldTimestamp,
+        uniswapXOrderServiceWithOldTimestamp,
         new PostOrderBodyParser(mockLog),
         DUTCH_AUCTION_ORDER_ROUTE
       )

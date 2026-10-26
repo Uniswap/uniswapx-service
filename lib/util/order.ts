@@ -48,19 +48,17 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
 export const formatOrderEntity = (
   decodedOrder: DutchOrder,
   signature: string,
-  orderType: OrderType.Dutch | OrderType.Limit,
-  orderStatus: ORDER_STATUS,
   quoteId?: string
 ): UniswapXOrderEntity => {
   const { input, outputs } = decodedOrder.info
   const order: UniswapXOrderEntity = {
-    type: orderType,
+    type: OrderType.Dutch,
     encodedOrder: decodedOrder.serialize(),
     signature,
     nonce: decodedOrder.info.nonce.toString(),
     orderHash: decodedOrder.hash().toLowerCase(),
     chainId: decodedOrder.chainId,
-    orderStatus: orderStatus,
+    orderStatus: ORDER_STATUS.OPEN,
     offerer: decodedOrder.info.swapper.toLowerCase(),
     input: {
       token: input.token,

@@ -3,12 +3,10 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda
 import Joi from 'joi'
 
 import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
-import { NoHandlerConfiguredError } from '../../errors/NoHandlerConfiguredError'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
-import { Order } from '../../models/Order'
-import { OrderDispatcher } from '../../services/OrderDispatcher'
+import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
 import {
   APIGLambdaHandler,
@@ -20,7 +18,7 @@ import {
   Response,
 } from '../base'
 import { ContainerInjected as PostContainerInjected } from '../shared/post'
-import { PostOrderBodyParser } from './PostOrderBodyParser'
+import { PostableOrder, PostOrderBodyParser } from './PostOrderBodyParser'
 import { PostOrderRoute, wrongRouteDetail } from './routes'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
@@ -34,7 +32,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
   constructor(
     handlerName: string,
     injectorPromise: Promise<ApiInjector<PostContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
-    private readonly orderDispatcher: OrderDispatcher,
+    private readonly orderService: Pick<UniswapXOrderService, 'createOrder'>,
     private readonly bodyParser: PostOrderBodyParser,
     private readonly route: PostOrderRoute
   ) {
@@ -49,7 +47,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
       requestInjected: { log },
     } = params
 
-    let order: Order
+    let order: PostableOrder
 
     try {
       order = this.bodyParser.fromPostRequest(requestBody)
@@ -74,7 +72,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     }
 
     try {
-      const orderHash = await this.orderDispatcher.createOrder(order)
+      const orderHash = await this.orderService.createOrder(order)
       return {
         statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },
@@ -99,12 +97,6 @@ export class PostOrderHandler extends APIGLambdaHandler<
         return {
           statusCode: HttpStatusCode.BadRequest,
           errorCode: ErrorCode.InvalidTokenInAddress,
-        }
-      }
-
-      if (err instanceof NoHandlerConfiguredError) {
-        return {
-          statusCode: HttpStatusCode.InternalServerError,
         }
       }
 

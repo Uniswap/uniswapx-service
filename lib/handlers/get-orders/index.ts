@@ -42,7 +42,7 @@ const getOrdersInjectorPromise = new GetOrdersInjector('getOrdersInjector').buil
 const getOrdersHandler = new GetOrdersHandler(
   'getOrdersHandler',
   getOrdersInjectorPromise,
-  new OrderDispatcher(uniswapXOrderService, log)
+  new OrderDispatcher(uniswapXOrderService)
 )
 
 module.exports = {

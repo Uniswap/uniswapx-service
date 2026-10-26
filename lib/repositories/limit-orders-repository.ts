@@ -24,7 +24,7 @@ export class LimitOrdersRepository extends GenericOrdersRepository<string, strin
       name: TABLE_NAMES.LimitOrders,
       partitionKey: 'orderHash',
       DocumentClient: documentClient,
-      indexes: getTableIndices(TABLE_NAMES.LimitOrders),
+      indexes: getTableIndices(),
     })
 
     const limitOrderEntity = new Entity({

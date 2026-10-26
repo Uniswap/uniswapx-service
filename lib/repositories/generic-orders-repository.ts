@@ -62,10 +62,6 @@ const CACHEABLE_INDEXES: string[] = [TABLE_KEY.ORDER_STATUS, TABLE_KEY.CHAIN_ID,
  */
 const SMALL_PARTITION_STATUSES: string[] = [ORDER_STATUS.OPEN, ORDER_STATUS.INSUFFICIENT_FUNDS]
 
-function sortParams(sortKey?: SORT_FIELDS, sort?: string, desc?: boolean): GetOrdersQueryParams {
-  return { ...(sortKey && { sortKey }), ...(sort && { sort }), ...(desc !== undefined && { desc }) }
-}
-
 // Drops the query params that name a caller rather than an enum value.
 function withoutCallerParams(queryFilters: GetOrdersQueryParams): GetOrdersQueryParams {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -100,28 +96,6 @@ export abstract class GenericOrdersRepository<
     private readonly indexMapper: IndexMapper<T>,
     private readonly queryCache?: OrdersQueryCache
   ) {}
-
-  public async getByOfferer(
-    offerer: string,
-    limit: number,
-    cursor?: string,
-    sortKey?: SORT_FIELDS,
-    sort?: string,
-    desc?: boolean
-  ): Promise<QueryResult<T>> {
-    return this.getOrdersWithFilters(limit, { offerer, ...sortParams(sortKey, sort, desc) }, cursor)
-  }
-
-  public async getByOrderStatus(
-    orderStatus: string,
-    limit: number,
-    cursor?: string,
-    sortKey?: SORT_FIELDS,
-    sort?: string,
-    desc?: boolean
-  ): Promise<QueryResult<T>> {
-    return this.getOrdersWithFilters(limit, { orderStatus, ...sortParams(sortKey, sort, desc) }, cursor)
-  }
 
   public async getByHash(hash: string): Promise<T | undefined> {
     const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
@@ -214,13 +188,6 @@ export abstract class GenericOrdersRepository<
       log.error('updateOrderStatus error', { error: e })
       throw e
     }
-  }
-
-  public async deleteOrders(orderHashes: string[]): Promise<void> {
-    await this.table.batchWrite(
-      orderHashes.map((hash) => this.entity.deleteBatch({ orderHash: hash })),
-      { execute: true }
-    )
   }
 
   public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult<T>> {

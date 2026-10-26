@@ -1,4 +1,4 @@
-import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
+import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../entities'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
 
 export const MODEL_NAME = {
@@ -24,15 +24,6 @@ export interface BaseOrdersRepository<T extends OrderEntityType> {
     types: string[],
     cursor?: string
   ) => Promise<QueryResult<T>>
-  getByOfferer: (offerer: string, limit: number) => Promise<QueryResult<T>>
-  getByOrderStatus: (
-    orderStatus: string,
-    limit: number,
-    cursor?: string,
-    sortKey?: SORT_FIELDS,
-    sort?: string,
-    desc?: boolean
-  ) => Promise<QueryResult<T>>
   getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string | undefined>
   updateOrderStatus: (
     orderHash: string,
@@ -42,5 +33,4 @@ export interface BaseOrdersRepository<T extends OrderEntityType> {
     settledAmounts?: SettledAmount[],
     fillTimestamp?: number
   ) => Promise<void>
-  deleteOrders: (orderHashes: string[]) => Promise<void>
 }

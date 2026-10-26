@@ -3,9 +3,10 @@ import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '.
 import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { QueryCache } from '../../../lib/repositories/QueryCache'
+import { TABLE_NAMES } from '../../../lib/repositories/util'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
 import { QUOTE_ID, REQUEST_ID } from '../../unit/fixtures'
-import { deleteAllRepoEntries } from './deleteAllRepoEntries'
+import { deleteAllRepoEntries, deleteOrdersByHash } from './deleteAllRepoEntries'
 
 jest.mock('../../../lib/util/time')
 
@@ -177,7 +178,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await deleteAllRepoEntries(ordersRepository)
+  await deleteAllRepoEntries(ordersRepository, documentClient, TABLE_NAMES.Orders)
 })
 
 describe('OrdersRepository put item test', () => {
@@ -418,7 +419,7 @@ describe('OrdersRepository getOrders test', () => {
     })
     expect(orders.orders).toHaveLength(1)
     expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_6))
-    await ordersRepository.deleteOrders([MOCK_ORDER_6.orderHash])
+    await deleteOrdersByHash(documentClient, TABLE_NAMES.Orders, [MOCK_ORDER_6.orderHash])
   })
 
   it('should successfully get orders given multiple orderStatuses', async () => {
@@ -474,8 +475,7 @@ describe('OrdersRepository getOrders test', () => {
       expect(orders.orders).toHaveLength(1)
       expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_6))
     } finally {
-      await ordersRepository.deleteOrders([MOCK_ORDER_6.orderHash])
-      await ordersRepository.deleteOrders([MOCK_ORDER_5.orderHash])
+      await deleteOrdersByHash(documentClient, TABLE_NAMES.Orders, [MOCK_ORDER_6.orderHash, MOCK_ORDER_5.orderHash])
     }
   })
 })
@@ -795,7 +795,7 @@ describe('OrdersRepository legacy millisecond timestamps', () => {
       }
       expect(byHash.orders.map((o) => o.orderHash)).toEqual([LEGACY_ORDER.orderHash])
     } finally {
-      await ordersRepository.deleteOrders([LEGACY_ORDER.orderHash])
+      await deleteOrdersByHash(documentClient, TABLE_NAMES.Orders, [LEGACY_ORDER.orderHash])
     }
   })
 })
@@ -827,28 +827,6 @@ describe('OrdersRepository query cache with caller filters', () => {
     } while (cursor)
 
     expect(paged.map((o) => o.orderHash)).toEqual(expected.orders.map((o) => o.orderHash))
-  })
-})
-
-describe('OrdersRepository delete test', () => {
-  it('should delete orders by list of orderHashes', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_1,
-      nonce: '1',
-    } as UniswapXOrderEntity)
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_2,
-      nonce: '2',
-    } as UniswapXOrderEntity)
-    let order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
-    expect(order).toBeDefined()
-    order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
-    expect(order).toBeDefined()
-    await ordersRepository.deleteOrders([MOCK_ORDER_1.orderHash, MOCK_ORDER_2.orderHash])
-    order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
-    expect(order).not.toBeDefined()
-    order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
-    expect(order).not.toBeDefined()
   })
 })
 

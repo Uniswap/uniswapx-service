@@ -35,7 +35,7 @@ cdk deploy GoudaServiceStack  # Deploy to AWS
 - `lib/handlers/` - Lambda handlers (get-orders, post-order, check-status, etc.)
 - `lib/models/` - Order types (DutchV1/V2/V3, Priority, Limit)
 - `lib/repositories/` - DynamoDB repositories
-- `lib/services/` - Business logic (OrderDispatcher, UniswapXOrderService)
+- `lib/services/` - Business logic (UniswapXOrderService; OrderDispatcher routes GET reads by order type)
 - `lib/util/` - Validators, helpers, constants
 - `test/` - Unit, integration, and e2e tests
 
@@ -44,7 +44,6 @@ cdk deploy GoudaServiceStack  # Deploy to AWS
 Required for deployment:
 - `RPC_PREFIX_URL` - Base RPC URL; `getRpcUrl(chainId)` in `lib/Config.ts` appends `/<chainId>`.
 - `RPC_HEADER_SECRET` - Value sent as the `x-internal-service-secret` header on all RPC requests (see `RPC_HEADERS` in `lib/util/constants.ts`). Omitted when unset.
-- `FAILED_EVENT_DESTINATION_ARN` - Failed event SNS ARN
 
 Optional:
 - `GET_ORDERS_CACHE_TTL_MS` - TTL for the read-path query cache on the get-orders/get-limit-orders Lambdas (default 500; set to `0` to disable the cache). One entry per partition; the DynamoDB read rate it allows is roughly `executionEnvironments / TTL` per hot partition, which the Get Orders Lambda's reserved concurrency (`bin/app.ts`) caps.

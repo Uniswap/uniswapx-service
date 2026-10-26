@@ -3,7 +3,6 @@ import { DynamoDB } from 'aws-sdk'
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { AnalyticsService } from '../../services/analytics-service'
-import { OrderDispatcher } from '../../services/OrderDispatcher'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
@@ -42,7 +41,7 @@ const uniswapXOrderService = new UniswapXOrderService(
 const postLimitOrderHandler = new PostOrderHandler(
   'postLimitOrdersHandler',
   postLimitOrderInjectorPromise,
-  new OrderDispatcher(uniswapXOrderService, log),
+  uniswapXOrderService,
   new PostOrderBodyParser(log),
   LIMIT_ORDER_ROUTE
 )

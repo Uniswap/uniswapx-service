@@ -24,19 +24,4 @@ export class OnChainValidatorMap<T extends OrderValidator> {
 
     return validator
   }
-
-  set(chainId: ChainId, validator: T): void {
-    this.chainIdToValidators.set(chainId, validator)
-  }
-
-  debug(): {
-    [chainId: number]: string
-  } {
-    const result: Record<number, string> = {}
-
-    for (const [chainId, validator] of this.chainIdToValidators.entries()) {
-      result[chainId] = validator.orderQuoterAddress
-    }
-    return result
-  }
 }

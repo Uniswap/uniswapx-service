@@ -78,7 +78,7 @@ export class UniswapXOrderService {
     let orderEntity: UniswapXOrderEntity
     if (order instanceof LimitOrder) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
-      orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
+      orderEntity = formatOrderEntity(order.inner, order.signature, order.quoteId)
     } else if (order instanceof DutchV2Order || order instanceof DutchV3Order) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = order.toEntity(ORDER_STATUS.OPEN)
@@ -88,10 +88,7 @@ export class UniswapXOrderService {
       const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
       const awsRegion = checkDefined(process.env.REGION, 'REGION is not defined')
       const cosigner = new KmsSigner(new KMSClient({ region: awsRegion }), kmsKeyId)
-      const provider = checkDefined(
-        this.providerMap.get(order.chainId),
-        `provider not found for chainId: ${order.chainId}`
-      )
+      const provider = this.providerMap.get(order.chainId)
 
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner)
       if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock > cosignedOrder.inner.info.auctionStartBlock) {
@@ -149,9 +146,7 @@ export class UniswapXOrderService {
         })
       }
 
-      // TODO: cleanup with generic order model
-      const quoteId = 'quoteId' in order ? order.quoteId : undefined
-      await this.startOrderTracker(orderEntity.orderHash, order.chainId, quoteId, realOrderType)
+      await this.startOrderTracker(orderEntity.orderHash, order.chainId, order.quoteId, realOrderType)
     } catch (err) {
       this.logger.error('Post-persist processing failed for accepted order', {
         orderHash: orderEntity.orderHash,
@@ -184,9 +179,6 @@ export class UniswapXOrderService {
 
     if (PermissionedTokenValidator.isPermissionedToken(token, chainId)) {
       const provider = this.providerMap.get(chainId)
-      if (!provider) {
-        throw new OrderValidationFailedError(`Provider not found for chainId: ${chainId}`)
-      }
       // Permissioned tokens shouldn't work with priority orders
       // TODO: excluded v3 orders because harder to handle trade type etc
       if (order instanceof CosignedPriorityOrder || order instanceof CosignedV3DutchOrder) {
