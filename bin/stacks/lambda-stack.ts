@@ -14,11 +14,12 @@ import { Construct } from 'constructs'
 import * as path from 'path'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
-import { logRetentionDays } from './log-retention'
 import { SERVICE_NAME } from '../constants'
+import { AlarmNotifier } from './alerting'
 import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
-import { StepFunctionStack } from './step-function-stack'
+import { logRetentionDays } from './log-retention'
 import { ReaperStack } from './reaper-stack'
+import { StepFunctionStack } from './step-function-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
@@ -36,6 +37,7 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   tableCapacityConfig: TableCapacityConfig
   indexCapacityConfig?: IndexCapacityConfig
   chatbotSNSArn?: string
+  incidentIoSNSArn?: string
 }
 export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
@@ -69,6 +71,7 @@ export class LambdaStack extends cdk.NestedStack {
       tableCapacityConfig,
       indexCapacityConfig,
       chatbotSNSArn,
+      incidentIoSNSArn,
     } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
@@ -122,6 +125,8 @@ export class LambdaStack extends cdk.NestedStack {
     const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {
       tableCapacityConfig,
       indexCapacityConfig,
+      chatbotSNSArn,
+      incidentIoSNSArn,
     })
     this.ordersTable = databaseStack.ordersTable
     this.limitOrdersTable = databaseStack.limitOrdersTable
@@ -519,10 +524,30 @@ export class LambdaStack extends cdk.NestedStack {
       })
     }
 
-    let chatBotTopic: cdk.aws_sns.ITopic | undefined
-    if (chatbotSNSArn) {
-      chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
-    }
+    const notifier = new AlarmNotifier(this, { chatbotSNSArn, incidentIoSNSArn })
+
+    // Reserved concurrency turns a Get Orders poll storm into Lambda throttles instead of a
+    // DynamoDB throttle spiral. Sustained throttling is the earliest signal that the endpoint is
+    // over its ceiling: on Sep 2 it led the API 5xx rate by five minutes. A ratio, not a count:
+    // the cap sheds bursts of ~10k throttles (under 1% of requests) most days, which is the cap
+    // doing its job; on Sep 2 the ratio went 21% -> 86% in two periods.
+    const getOrdersThrottlesAlarm = new Alarm(this, `${SERVICE_NAME}-SEV2-GetOrders-LambdaThrottles`, {
+      alarmName: `${SERVICE_NAME}-SEV2-GetOrders-LambdaThrottles`,
+      metric: new MathExpression({
+        expression: '100 * FILL(throttles, 0) / (FILL(invocations, 0) + FILL(throttles, 0))',
+        period: Duration.minutes(5),
+        usingMetrics: {
+          throttles: this.getOrdersLambda.metricThrottles({ period: Duration.minutes(5), statistic: 'sum' }),
+          invocations: this.getOrdersLambda.metricInvocations({ period: Duration.minutes(5), statistic: 'sum' }),
+        },
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+    })
+    notifier.page(getOrdersThrottlesAlarm)
 
     const postOrder4xxRateMetric = new MathExpression({
       expression: '(por4xx/por) * 100',
@@ -563,10 +588,9 @@ export class LambdaStack extends cdk.NestedStack {
       datapointsToAlarm: 2,
     })
 
-    if (chatBotTopic) {
-      sev2PostOrder4xxRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      sev3PostOrder4xxRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-    }
+    // Slack only despite SEV2: the 4xx rate is client-driven and crossed 60% for two periods
+    // ~150 times in the two months to Oct 26, so it is not a paging signal.
+    notifier.notify(sev2PostOrder4xxRate, sev3PostOrder4xxRate)
 
     // 5xx error-rate alarms per endpoint. Each endpoint emits a `<Endpoint>Request` counter
     // and a `<Endpoint>Status5XX` counter via embedded metrics in the handler's afterResponseHook.
@@ -630,10 +654,7 @@ export class LambdaStack extends cdk.NestedStack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
       })
 
-      if (chatBotTopic) {
-        sustainedAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-        catastrophicAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      }
+      notifier.page(sustainedAlarm, catastrophicAlarm)
     }
 
     for (const chainId of SUPPORTED_CHAINS) {
@@ -678,10 +699,8 @@ export class LambdaStack extends cdk.NestedStack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       })
 
-      if (chatBotTopic) {
-        sev2OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-        sev3OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      }
+      notifier.page(sev2OrderNotificationErrorRate)
+      notifier.notify(sev3OrderNotificationErrorRate)
     }
   }
 }
