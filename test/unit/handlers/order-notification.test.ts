@@ -110,6 +110,28 @@ describe('Testing new order Notification handler.', () => {
     expect(response).toMatchObject({ batchItemFailures: [] })
   })
 
+  it('logs webhook URLs but never their auth headers', async () => {
+    const secret = 'test-webhook-secret'
+    const endpoints = [{ url: 'webhook.com/1', headers: { 'x-api-key': secret } }]
+    getEndpointsMock.mockImplementationOnce(() => Promise.resolve(endpoints))
+    // axios echoes the request config, headers included, on the response
+    mockedAxios.post.mockReturnValue(
+      Promise.resolve({ status: 200, data: 'ok', config: { headers: { 'x-api-key': secret } }, request: {} })
+    )
+
+    await orderNotificationHandler()
+
+    expect(logInfoMock).toBeCalledWith(
+      expect.objectContaining({ registeredEndpoints: [{ url: 'webhook.com/1' }] }),
+      'Sending order to registered webhooks.'
+    )
+    expect(logInfoMock).toBeCalledWith(
+      { result: { status: 200, data: 'ok' } },
+      'Success: New order record sent to registered webhook webhook.com/1.'
+    )
+    expect(JSON.stringify([...logInfoMock.mock.calls, ...logErrorMock.mock.calls])).not.toContain(secret)
+  })
+
   it('Testing invalid order with no order hash.', async () => {
     await orderNotificationHandler({ ...MOCK_ORDER, orderHash: undefined })
     expect(logErrorMock).toBeCalledWith(
