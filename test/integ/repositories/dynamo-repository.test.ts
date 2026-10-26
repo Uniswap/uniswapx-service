@@ -4,6 +4,7 @@ import { ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../../../lib/entities/
 import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
 import { MODEL_NAME } from '../../../lib/repositories/base'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
+import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { QueryCache } from '../../../lib/repositories/QueryCache'
 import { TABLE_NAMES } from '../../../lib/repositories/util'
 import { freezeClock, restoreClock } from '../../fakes/clock'
@@ -26,7 +27,25 @@ import {
 const SETTLED_AMOUNT: SettledAmount = { tokenOut: '0xtoken-out', amountOut: '1', tokenIn: '0xtoken-in', amountIn: '2' }
 
 const documentClient = new DocumentClient(DYNAMO_LOCAL_CONFIG)
-const ordersRepository = DutchOrdersRepository.create(documentClient)
+
+// The store cases every order table must pass. LimitOrders maps no requestId, so only the
+// Orders rows carry one.
+const TABLES = [
+  {
+    tableName: TABLE_NAMES.Orders,
+    create: DutchOrdersRepository.create,
+    entity: MODEL_NAME.DUTCH,
+    scope: 'orders',
+    rowExtras: { quoteId: QUOTE_ID, requestId: REQUEST_ID },
+  },
+  {
+    tableName: TABLE_NAMES.LimitOrders,
+    create: LimitOrdersRepository.create,
+    entity: MODEL_NAME.LIMIT,
+    scope: 'limit',
+    rowExtras: {},
+  },
+]
 
 beforeAll(() => {
   freezeClock(tickMs(0))
@@ -36,8 +55,9 @@ afterAll(() => {
   restoreClock()
 })
 
-describe('Orders store', () => {
-  const f = storeFixtures('orders', { quoteId: QUOTE_ID, requestId: REQUEST_ID })
+describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, rowExtras }) => {
+  const ordersRepository = create(documentClient)
+  const f = storeFixtures(scope, rowExtras)
   const { order1, order2, order3, order4, order5, order6 } = f
 
   beforeAll(async () => {
@@ -51,8 +71,8 @@ describe('Orders store', () => {
   })
 
   afterAll(async () => {
-    await deleteAllRepoEntries(ordersRepository, documentClient, TABLE_NAMES.Orders, f.chainIds, f.offerers)
-    expect(await findLeftoverRows(documentClient, TABLE_NAMES.Orders, f.prefix)).toEqual([])
+    await deleteAllRepoEntries(ordersRepository, documentClient, tableName, f.chainIds, f.offerers)
+    expect(await findLeftoverRows(documentClient, tableName, f.prefix)).toEqual([])
   })
 
   describe('OrdersRepository put item test', () => {
@@ -66,10 +86,10 @@ describe('Orders store', () => {
       })
       try {
         await ordersRepository.putOrderAndUpdateNonceTransaction(order)
-        expect(await ordersRepository.getByHash(order.orderHash)).toEqual(storedItem(order, 1, MODEL_NAME.DUTCH))
+        expect(await ordersRepository.getByHash(order.orderHash)).toEqual(storedItem(order, 1, entity))
         expect(await ordersRepository.getNonceByAddressAndChain(order.offerer, order.chainId)).toEqual('7')
       } finally {
-        await deleteOrdersByHash(documentClient, TABLE_NAMES.Orders, [order.orderHash])
+        await deleteOrdersByHash(documentClient, tableName, [order.orderHash])
       }
     })
   })
@@ -277,7 +297,7 @@ describe('Orders store', () => {
         })
         expect(orders.orders).toEqual([expect.objectContaining(order6)])
       } finally {
-        await deleteOrdersByHash(documentClient, TABLE_NAMES.Orders, [order6.orderHash])
+        await deleteOrdersByHash(documentClient, tableName, [order6.orderHash])
       }
     })
 
@@ -295,7 +315,7 @@ describe('Orders store', () => {
         )
         expect(orders.orders).toEqual([expect.objectContaining(order6)])
       } finally {
-        await deleteOrdersByHash(documentClient, TABLE_NAMES.Orders, [order6.orderHash, order5.orderHash])
+        await deleteOrdersByHash(documentClient, tableName, [order6.orderHash, order5.orderHash])
       }
     })
   })
@@ -532,6 +552,7 @@ describe('Orders-only store cases', () => {
   const PRIORITY_CHAIN_A = 8453
   const PRIORITY_CHAIN_B = 130
   const DUTCH_V3_CHAIN = 42161
+  const ordersRepository = DutchOrdersRepository.create(documentClient)
 
   beforeAll(async () => {
     setClockToTick(1)
