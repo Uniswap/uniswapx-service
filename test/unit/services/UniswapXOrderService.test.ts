@@ -1,7 +1,13 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { KmsSigner } from '@uniswap/signer'
-import { OrderType, OrderValidation, OrderValidator } from '@uniswap/uniswapx-sdk'
-import { BigNumber } from 'ethers'
+import {
+  CosignedV2DutchOrder,
+  OrderType,
+  OrderValidation,
+  OrderValidator,
+  PermissionedTokenValidator,
+} from '@uniswap/uniswapx-sdk'
+import { BigNumber, Wallet } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
@@ -18,12 +24,14 @@ import { MAX_QUERY_RETRY, SINGLE_PAGE, UniswapXOrderService } from '../../../lib
 import { ChainId } from '../../../lib/util/chain'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../../../lib/util/order'
+import { Permit2Validator } from '../../../lib/util/Permit2Validator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
+import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
-import { COSIGNATURE, MOCK_PROVIDER_MAP } from '../fixtures'
+import { COSIGNATURE, MOCK_PROVIDER_MAP, Tokens, ZERO_SIGNATURE } from '../fixtures'
 
 jest.mock('../../../lib/handlers/shared/sfn', () => {
   return { kickoffOrderTrackingSfn: jest.fn() }
@@ -906,5 +914,131 @@ describe('UniswapXOrderService', () => {
     expect(response).toEqual({ orders: [], cursor: 'cursor' })
     // initial query plus MAX_QUERY_RETRY follow-ups
     expect(repository.getOrdersFilteredByType).toHaveBeenCalledTimes(MAX_QUERY_RETRY + 1)
+  })
+
+  describe('permissioned input tokens', () => {
+    // the real isPermissionedToken routes mainnet BUIDL orders away from the order quoter
+    const swapper = Wallet.createRandom()
+    const cosigner = Wallet.createRandom()
+
+    let preTransferCheck: jest.SpyInstance
+    let permit2Validate: jest.SpyInstance
+    let order: CosignedV2DutchOrder
+    let signature: string
+
+    const buildPermissionedOrder = (overrides: { swapper?: string } = {}) =>
+      SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+        swapper: overrides.swapper ?? swapper.address,
+        cosigner: cosigner.address,
+        input: { token: Tokens.MAINNET.BUIDL, startAmount: '1000000', endAmount: '1000000' },
+      })
+
+    const buildService = () => {
+      const mockOrderValidator = mock<OffChainUniswapXOrderValidator>()
+      mockOrderValidator.validate.mockReturnValue({ valid: true })
+      const onChainValidator = mock<OrderValidator>()
+      const onChainValidatorMap = mock<OnChainValidatorMap<OrderValidator>>()
+      onChainValidatorMap.get.mockReturnValue(onChainValidator)
+      const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
+      const service = new UniswapXOrderService(
+        mockOrderValidator,
+        onChainValidatorMap,
+        repository as unknown as BaseOrdersRepository<UniswapXOrderEntity>,
+        mock<BaseOrdersRepository<UniswapXOrderEntity>>(),
+        mock<Logger>(),
+        () => 10,
+        mock<AnalyticsService>(),
+        MOCK_PROVIDER_MAP
+      )
+      return { service, repository, onChainValidator }
+    }
+
+    beforeAll(async () => {
+      order = await cosignOrder(buildPermissionedOrder(), cosigner)
+      signature = await signOrder(order, swapper)
+    })
+
+    beforeEach(() => {
+      preTransferCheck = jest.spyOn(PermissionedTokenValidator, 'preTransferCheck').mockResolvedValue(true)
+      permit2Validate = jest.spyOn(Permit2Validator.prototype, 'validate').mockResolvedValue(OrderValidation.OK)
+    })
+
+    afterEach(() => {
+      preTransferCheck.mockRestore()
+      permit2Validate.mockRestore()
+    })
+
+    test('stores an order whose swapper signature and cosignature verify, without the order quoter', async () => {
+      const { service, repository, onChainValidator } = buildService()
+
+      await service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))
+
+      expect(repository.putOrderAndUpdateNonceTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ orderHash: order.hash().toLowerCase(), signature })
+      )
+      expect(onChainValidator.validate).not.toHaveBeenCalled()
+      expect(permit2Validate).toHaveBeenCalledWith(order)
+      expect(preTransferCheck).toHaveBeenCalled()
+    })
+
+    test('rejects a signature that does not verify before the Permit2 check, the transfer check or the write', async () => {
+      const { service, repository } = buildService()
+
+      await expect(service.createOrder(new DutchV2Order(order, ZERO_SIGNATURE, ChainId.MAINNET))).rejects.toThrow(
+        'Signature validation failed: InvalidSignature'
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(permit2Validate).not.toHaveBeenCalled()
+      expect(preTransferCheck).not.toHaveBeenCalled()
+    })
+
+    test('rejects an order under another swapper with no cosignature', async () => {
+      const { service, repository } = buildService()
+      const forged = buildPermissionedOrder({ swapper: Wallet.createRandom().address })
+
+      await expect(service.createOrder(new DutchV2Order(forged, ZERO_SIGNATURE, ChainId.MAINNET))).rejects.toThrow(
+        'Signature validation failed: InvalidCosignature'
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(preTransferCheck).not.toHaveBeenCalled()
+    })
+
+    test('rejects an order whose Permit2 nonce is already used', async () => {
+      const { service, repository } = buildService()
+      permit2Validate.mockResolvedValue(OrderValidation.NonceUsed)
+
+      await expect(service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))).rejects.toThrow(
+        'Permit2 validation failed: NonceUsed'
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+    })
+
+    test('rejects a permissioned-token V3 order instead of authenticating it as a Dutch order', async () => {
+      const { service, repository } = buildService()
+      const v3 = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.MAINNET, {
+        input: { token: Tokens.MAINNET.BUIDL },
+      })
+
+      await expect(service.createOrder(new DutchV3Order(v3, signature, ChainId.MAINNET))).rejects.toThrow(
+        "Permissioned tokens shouldn't work with priority/v3 dutch orders"
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+      expect(preTransferCheck).not.toHaveBeenCalled()
+    })
+
+    test('still rejects an authenticated order the token would not let transfer', async () => {
+      const { service, repository } = buildService()
+      preTransferCheck.mockResolvedValue(false)
+
+      await expect(service.createOrder(new DutchV2Order(order, signature, ChainId.MAINNET))).rejects.toThrow(
+        'Permissioned Token Pre-transfer check failed'
+      )
+
+      expect(repository.putOrderAndUpdateNonceTransaction).not.toHaveBeenCalled()
+    })
   })
 })

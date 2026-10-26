@@ -1,15 +1,18 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn'
 import {
+  CosignedV2DutchOrder,
   OrderType,
   OrderValidation,
   OrderValidator,
+  PermissionedTokenValidator,
 } from '@uniswap/uniswapx-sdk'
 import { mockClient } from 'aws-sdk-client-mock'
-import { BigNumber } from 'ethers'
+import { BigNumber, Wallet } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
+import { AVERAGE_BLOCK_TIME } from '../../../../lib/handlers/check-order-status/util'
 import { DEFAULT_MAX_OPEN_ORDERS, PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
@@ -20,15 +23,19 @@ import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
 import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
+import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
 import { PriorityOrder } from '../../../../lib/models/PriorityOrder'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 import { DUTCH_LIMIT } from '../../../../lib/util/order'
+import { Permit2Validator } from '../../../../lib/util/Permit2Validator'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
+import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../../factories/SDKPriorityOrderFactory'
+import { cosignOrder, signOrder } from '../../../factories/SignedOrderFactory'
 import {
   COSIGNATURE,
   EVENT_CONTEXT,
@@ -37,13 +44,12 @@ import {
   QUOTE_ID,
   REQUEST_ID,
   SIGNATURE,
+  Tokens,
+  ZERO_SIGNATURE,
 } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
-import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
-import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
-import { AVERAGE_BLOCK_TIME } from '../../../../lib/handlers/check-order-status/util'
 
-jest.mock('@aws-sdk/client-kms');
+jest.mock('@aws-sdk/client-kms')
 jest.mock('@uniswap/signer', () => {
   return {
     KmsSigner: jest.fn().mockImplementation(() => {
@@ -54,8 +60,8 @@ jest.mock('@uniswap/signer', () => {
   }
 })
 
-process.env.KMS_KEY_ID = 'test-key-id';
-process.env.REGION = 'us-east-2';
+process.env.KMS_KEY_ID = 'test-key-id'
+process.env.REGION = 'us-east-2'
 
 // The handler rebuilds these from STATE_MACHINE_NAMES + REGION + ACCOUNT_ID
 // (see lib/util/stateMachineArn.ts), so the expected values are full ARNs.
@@ -332,7 +338,9 @@ describe('Testing post order handler.', () => {
       // cosignature and cosignerData gets overwritten within the handler
       order.inner.info.cosignature = COSIGNATURE
       order.inner.info.cosignerData = {
-        auctionTargetBlock: BigNumber.from(MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]!), // No extra block since timestamp difference should be 0
+        auctionTargetBlock: BigNumber.from(
+          MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]!
+        ), // No extra block since timestamp difference should be 0
       }
       const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
@@ -386,8 +394,8 @@ describe('Testing post order handler.', () => {
       // Mock provider with old timestamp to trigger extra block logic
       const currentTime = Math.floor(Date.now() / 1000)
       const blockTimeSeconds = AVERAGE_BLOCK_TIME(ChainId.MAINNET)
-      const oldTimestamp = currentTime - (blockTimeSeconds * 0.8) // 80% of block time ago (above 75% threshold)
-      
+      const oldTimestamp = currentTime - blockTimeSeconds * 0.8 // 80% of block time ago (above 75% threshold)
+
       // Create a new provider map with the old timestamp
       const mockProviderWithOldTimestamp = {
         getBlockNumber: jest.fn().mockResolvedValue(MOCK_LATEST_BLOCK),
@@ -425,10 +433,7 @@ describe('Testing post order handler.', () => {
         mockProviderMapWithOldTimestamp
       )
 
-      const orderDispatcherWithOldTimestamp = new OrderDispatcher(
-        uniswapXOrderServiceWithOldTimestamp,
-        mockLog
-      )
+      const orderDispatcherWithOldTimestamp = new OrderDispatcher(uniswapXOrderServiceWithOldTimestamp, mockLog)
 
       const postOrderHandlerWithOldTimestamp = new PostOrderHandler(
         'post-order',
@@ -821,6 +826,96 @@ describe('Testing post order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
+    })
+  })
+
+  describe('Permissioned input token (BUIDL) orders', () => {
+    // The order quoter is bypassed for these, so the post path itself has to authenticate the
+    // order. The token's transfer check is isolated as passing for an eligible swapper/filler
+    // pair; everything from the request body to the write call is the real code.
+    const swapper = Wallet.createRandom()
+    const cosigner = Wallet.createRandom()
+
+    let preTransferCheck: jest.SpyInstance
+    let permit2Validate: jest.SpyInstance
+    let order: CosignedV2DutchOrder
+    let signature: string
+
+    const buildPermissionedOrder = (swapperAddress: string) =>
+      SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+        swapper: swapperAddress,
+        cosigner: cosigner.address,
+        input: { token: Tokens.MAINNET.BUIDL, startAmount: '1000000', endAmount: '1000000' },
+      })
+
+    const post = (encodedOrder: string, postedSignature: string) =>
+      postOrderHandler.handler(
+        PostOrderRequestFactory.request({ encodedOrder, signature: postedSignature, orderType: OrderType.Dutch_V2 }),
+        EVENT_CONTEXT
+      )
+
+    beforeAll(async () => {
+      order = await cosignOrder(buildPermissionedOrder(swapper.address), cosigner)
+      signature = await signOrder(order, swapper)
+    })
+
+    beforeEach(() => {
+      validatorMock.mockReturnValue({ valid: true })
+      // an earlier suite leaves the write mock throwing; clearAllMocks keeps implementations
+      putOrderAndUpdateNonceTransactionMock.mockResolvedValue(undefined)
+      preTransferCheck = jest.spyOn(PermissionedTokenValidator, 'preTransferCheck').mockResolvedValue(true)
+      permit2Validate = jest.spyOn(Permit2Validator.prototype, 'validate').mockResolvedValue(OrderValidation.OK)
+    })
+
+    afterEach(() => {
+      preTransferCheck.mockRestore()
+      permit2Validate.mockRestore()
+    })
+
+    it('accepts the order with its swapper signature and cosignature, without the order quoter', async () => {
+      const response = await post(order.serialize(), signature)
+
+      expect(response.statusCode).toEqual(HttpStatusCode.Created)
+      expect(putOrderAndUpdateNonceTransactionMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderHash: order.hash().toLowerCase(),
+          signature,
+          offerer: swapper.address.toLowerCase(),
+        })
+      )
+      expect(onchainValidationSucceededMock).not.toHaveBeenCalled()
+    })
+
+    it('rejects the same order bytes with a zeroed signature, so a stored order cannot be overwritten', async () => {
+      const response = await post(order.serialize(), ZERO_SIGNATURE)
+
+      expect(response).toMatchObject({
+        statusCode: HttpStatusCode.BadRequest,
+        body: JSON.stringify({
+          detail: 'Signature validation failed: InvalidSignature',
+          errorCode: ErrorCode.InvalidOrder,
+          id: 'testRequest',
+        }),
+      })
+      // the write is one transaction with the swapper's nonce update, so neither happens
+      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
+      expect(preTransferCheck).not.toHaveBeenCalled()
+    })
+
+    it("rejects an order fabricated under another wallet's address with an empty cosignature", async () => {
+      const victim = Wallet.createRandom()
+      const response = await post(buildPermissionedOrder(victim.address).serialize(), ZERO_SIGNATURE)
+
+      expect(response).toMatchObject({
+        statusCode: HttpStatusCode.BadRequest,
+        body: JSON.stringify({
+          detail: 'Signature validation failed: InvalidCosignature',
+          errorCode: ErrorCode.InvalidOrder,
+          id: 'testRequest',
+        }),
+      })
+      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
+      expect(countOrdersByOffererAndStatusMock).toHaveBeenCalledWith(victim.address.toLowerCase(), ORDER_STATUS.OPEN)
     })
   })
 })
