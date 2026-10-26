@@ -10,6 +10,7 @@ import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrder
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from '../post-order/handler'
 import { PostOrderBodyParser } from '../post-order/PostOrderBodyParser'
+import { LIMIT_ORDER_ROUTE } from '../post-order/routes'
 import { LazyProviderMap } from '../shared'
 import { getMaxLimitOpenOrders, PostLimitOrderInjector } from './injector'
 
@@ -42,7 +43,8 @@ const postLimitOrderHandler = new PostOrderHandler(
   'postLimitOrdersHandler',
   postLimitOrderInjectorPromise,
   new OrderDispatcher(uniswapXOrderService, log),
-  new PostOrderBodyParser(log)
+  new PostOrderBodyParser(log),
+  LIMIT_ORDER_ROUTE
 )
 
 module.exports = {

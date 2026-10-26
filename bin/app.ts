@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
 import * as chatbot from 'aws-cdk-lib/aws-chatbot'
-import { BuildEnvironmentVariableType, BuildSpec, ComputeType } from 'aws-cdk-lib/aws-codebuild'
+import { BuildEnvironmentVariableType, ComputeType } from 'aws-cdk-lib/aws-codebuild'
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 
 import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
@@ -79,7 +79,6 @@ export class APIPipeline extends Stack {
     const synthStep = new CodeBuildStep('Synth', {
       input: code,
       buildEnvironment: {
-        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -99,21 +98,10 @@ export class APIPipeline extends Stack {
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        'yarn install --network-concurrency 1 --skip-integrity-check --check-cache',
+        'yarn install --frozen-lockfile',
         'yarn build',
         'npx cdk synth',
       ],
-      partialBuildSpec: BuildSpec.fromObject({
-        // v0.2 runs all commands in the same context
-        version: '0.2',
-        phases: {
-          install: {
-            'runtime-versions': {
-              nodejs: '20',
-            },
-          },
-        },
-      }),
     })
 
     const pipeline = new CodePipeline(this, `${SERVICE_NAME}Pipeline`, {
@@ -122,20 +110,14 @@ export class APIPipeline extends Stack {
       crossAccountKeys: true,
       synth: synthStep,
       selfMutation: true,
-      selfMutationCodeBuildDefaults: {
+      useChangeSets: false,
+      publishAssetsInParallel: false,
+      codeBuildDefaults: {
         buildEnvironment: {
-          buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
+          // Node 24 is this image's default. Selecting a version through buildspec
+          // runtime-versions instead reinstalls Node with `n`, which costs ~55s per build.
+          buildImage: cdk.aws_codebuild.LinuxBuildImage.fromCodeBuildImageId('aws/codebuild/standard:8.0'),
         },
-        partialBuildSpec: BuildSpec.fromObject({
-          version: '0.2',
-          phases: {
-            install: {
-              'runtime-versions': {
-                nodejs: '20',
-              },
-            },
-          },
-        }),
       },
     })
 
@@ -288,7 +270,6 @@ export class APIPipeline extends Stack {
         UNISWAP_API: apiStage.url,
       },
       buildEnvironment: {
-        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
         computeType: ComputeType.MEDIUM,
         environmentVariables: {
           NPM_TOKEN: {
@@ -344,19 +325,10 @@ export class APIPipeline extends Stack {
         'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
         'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
-        'yarn install --network-concurrency 1 --skip-integrity-check',
+        'yarn install --frozen-lockfile',
         'yarn build',
         'yarn run test:e2e',
       ],
-      partialBuildSpec: BuildSpec.fromObject({
-        phases: {
-          install: {
-            'runtime-versions': {
-              nodejs: '20',
-            },
-          },
-        },
-      }),
     })
 
     applicationStage.addPost(testAction)

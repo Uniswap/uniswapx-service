@@ -4,7 +4,6 @@ import { ANALYTICS_EVENTS } from '../lib/util/analytics-events'
 // do not change again. Changing would cause every piece of infrastructure to change
 // name, and thus be redeployed. Should be camel case and contain no non-alphanumeric characters.
 export const SERVICE_NAME = 'GoudaService'
-export const HEALTH_CHECK_PORT = 80
 
 // CloudWatch Logs subscription filter patterns
 export const FILTER_PATTERNS = {

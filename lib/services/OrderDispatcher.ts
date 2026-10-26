@@ -55,7 +55,6 @@ export class OrderDispatcher {
 
   private isUniswapXOrder(order: Order): order is UniswapXOrder {
     return (
-      order.orderType === OrderType.Dutch ||
       order.orderType === OrderType.Limit ||
       order.orderType === OrderType.Dutch_V2 ||
       order.orderType === OrderType.Dutch_V3 ||

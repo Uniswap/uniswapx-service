@@ -1,4 +1,3 @@
-export * from './DutchV1Order'
 export * from './DutchV2Order'
 export * from './DutchV3Order'
 export * from './LimitOrder'

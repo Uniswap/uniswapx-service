@@ -14,7 +14,7 @@ import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationF
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { kickoffOrderTrackingSfn } from '../../../lib/handlers/shared/sfn'
-import { DutchV1Order, DutchV2Order } from '../../../lib/models'
+import { DutchV2Order } from '../../../lib/models'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { PriorityOrder } from '../../../lib/models/PriorityOrder'
@@ -23,7 +23,7 @@ import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { MAX_QUERY_RETRY, SINGLE_PAGE, UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../lib/util/chain'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
-import { DUTCH_LIMIT } from '../../../lib/util/order'
+import { DUTCH_LIMIT, formatOrderEntity } from '../../../lib/util/order'
 import { Permit2Validator } from '../../../lib/util/Permit2Validator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
@@ -279,7 +279,7 @@ describe('UniswapXOrderService', () => {
 
   test('getDutchOrders calls db with DUTCH_LIMIT and Dutch', async () => {
     const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      formatOrderEntity(SDKDutchOrderFactory.buildDutchOrder(), '', OrderType.Dutch, ORDER_STATUS.OPEN)
     )
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const mockResponse = { orders: mockOrder, cursor: undefined }
@@ -315,7 +315,7 @@ describe('UniswapXOrderService', () => {
 
   test('getDutchOrders loops with empty response', async () => {
     const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      formatOrderEntity(SDKDutchOrderFactory.buildDutchOrder(), '', OrderType.Dutch, ORDER_STATUS.OPEN)
     )
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const mockResponse = { orders: mockOrder, cursor: undefined }
@@ -412,7 +412,7 @@ describe('UniswapXOrderService', () => {
 
   test('getDutchOrders returns more results than limit in looping edge case', async () => {
     const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      formatOrderEntity(SDKDutchOrderFactory.buildDutchOrder(), '', OrderType.Dutch, ORDER_STATUS.OPEN)
     )
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const mockResponse = { orders: mockOrder, cursor: undefined }
@@ -455,7 +455,7 @@ describe('UniswapXOrderService', () => {
 
   test('getDutchV2AndDutchOrders calls db with DUTCH_LIMIT and Dutch', async () => {
     const mockOrder = [1, 2, 3].map(() =>
-      new DutchV1Order(SDKDutchOrderFactory.buildDutchOrder(), '', 1).toEntity(ORDER_STATUS.OPEN)
+      formatOrderEntity(SDKDutchOrderFactory.buildDutchOrder(), '', OrderType.Dutch, ORDER_STATUS.OPEN)
     )
     const repository = mock<BaseOrdersRepository<UniswapXOrderEntity>>()
     const mockResponse = { orders: mockOrder, cursor: undefined }

@@ -164,14 +164,24 @@ export class OffChainUniswapXOrderValidator {
         }
       }
 
-      const outputsValidation = this.validateV3DutchOutputs(
-        order.info.outputs as V3DutchOutput[],
-        dutchV3Order.info.cosignerData.outputOverrides
-      )
+      const outputs = order.info.outputs as V3DutchOutput[]
+      const outputsValidation = this.validateV3DutchOutputs(outputs)
       if (!outputsValidation.valid) {
         return outputsValidation
       }
-    } else if (orderType == OrderType.Dutch && (order instanceof DutchOrder || order instanceof CosignedV2DutchOrder)) {
+
+      const outputOverridesValidation = this.validateOutputOverrides(
+        outputs.map((output) => output.startAmount),
+        dutchV3Order.info.cosignerData.outputOverrides
+      )
+      if (!outputOverridesValidation.valid) {
+        return outputOverridesValidation
+      }
+    } else if (
+      // Dutch_V2 shares V1's DutchInput/DutchOutput shape.
+      (orderType == OrderType.Dutch || orderType == OrderType.Dutch_V2) &&
+      (order instanceof DutchOrder || order instanceof CosignedV2DutchOrder)
+    ) {
       const input = order.info.input as DutchInput
       const inputStartAmountValidation = this.validateInputAmount(input.startAmount)
       if (!inputStartAmountValidation.valid) {
@@ -180,12 +190,22 @@ export class OffChainUniswapXOrderValidator {
 
       const inputEndAmountValidation = this.validateInputAmount(input.endAmount)
       if (!inputEndAmountValidation.valid) {
-        return inputStartAmountValidation
+        return inputEndAmountValidation
       }
 
       const outputsValidation = this.validateDutchOutputs(order.info.outputs as DutchOutput[])
       if (!outputsValidation.valid) {
         return outputsValidation
+      }
+
+      if (order instanceof CosignedV2DutchOrder) {
+        const outputOverridesValidation = this.validateOutputOverrides(
+          order.info.outputs.map((output) => output.startAmount),
+          order.info.cosignerData.outputOverrides
+        )
+        if (!outputOverridesValidation.valid) {
+          return outputOverridesValidation
+        }
       }
     }
 
@@ -396,20 +416,17 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(outputs)
   }
 
-  private validateV3DutchOutputs(outputs: V3DutchOutput[], outputOverrides: BigNumber[]): OrderValidationResponse {
+  private validateV3DutchOutputs(outputs: V3DutchOutput[]): OrderValidationResponse {
     if (outputs.length == 0) {
       return {
         valid: false,
         errorString: `Invalid number of outputs: 0`,
       }
     }
-    for (let i = 0; i < outputs.length; i++) {
-      const output = outputs[i]
+    for (const output of outputs) {
       const { token, recipient, startAmount, curve, minAmount } = output
       if (FieldValidator.isValidEthAddress().validate(token).error) {
         return {
@@ -450,17 +467,8 @@ export class OffChainUniswapXOrderValidator {
       if (!curveValidation.valid) {
         return curveValidation
       }
-
-      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(startAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid outputOverride < startAmount`,
-        }
-      }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(outputs)
   }
 
   private validateMpsPerPriorityFeeWei(mpsPerPriorityFeeWei: BigNumber): OrderValidationResponse {
@@ -514,9 +522,7 @@ export class OffChainUniswapXOrderValidator {
         }
       }
     }
-    return {
-      valid: true,
-    }
+    return this.validateOutputTokensMatch(priorityOutputs)
   }
 
   private validateHash(orderHash: string): OrderValidationResponse {
@@ -525,6 +531,52 @@ export class OffChainUniswapXOrderValidator {
       return {
         valid: false,
         errorString: `Invalid orderHash: ${error}`,
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  /**
+   * Every output must pay outputs[0].token. RFQ quotes an order as one tokenOut and a
+   * summed amount, so a mixed-token order would be priced against a total that mixes
+   * assets. Fee outputs share the swapper output's token, so multi-output orders pass.
+   * Call after each output's token address has been validated.
+   */
+  private validateOutputTokensMatch(outputs: { token: string }[]): OrderValidationResponse {
+    const expectedToken = outputs[0].token
+    for (const output of outputs) {
+      if (output.token.toLowerCase() != expectedToken.toLowerCase()) {
+        return {
+          valid: false,
+          errorString: `Invalid output token ${output.token}: all outputs must use ${expectedToken}`,
+        }
+      }
+    }
+    return {
+      valid: true,
+    }
+  }
+
+  /**
+   * Mirrors V2DutchOrderReactor._updateWithCosignerAmounts, which reverts with
+   * InvalidCosignerOutput on a length mismatch or a non-zero override below startAmount.
+   * V3DutchOrderReactor applies the same rule.
+   */
+  private validateOutputOverrides(startAmounts: BigNumber[], outputOverrides: BigNumber[]): OrderValidationResponse {
+    if (outputOverrides.length != startAmounts.length) {
+      return {
+        valid: false,
+        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${startAmounts.length}`,
+      }
+    }
+    for (let i = 0; i < startAmounts.length; i++) {
+      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(startAmounts[i])) {
+        return {
+          valid: false,
+          errorString: `Invalid outputOverride < startAmount`,
+        }
       }
     }
     return {

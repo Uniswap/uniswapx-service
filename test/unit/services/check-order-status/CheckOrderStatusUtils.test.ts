@@ -2,6 +2,7 @@ import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { CheckOrderStatusUtils } from '../../../../lib/handlers/check-order-status/service'
+import { RetryWaitContext } from '../../../../lib/handlers/check-order-status/util'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
 import { DutchOrdersRepository } from '../../../../lib/repositories/dutch-orders-repository'
 import { AnalyticsService, AnalyticsServiceInterface } from '../../../../lib/services/analytics-service'
@@ -17,7 +18,7 @@ describe('CheckOrderStatusUtils', () => {
     serviceOrderType?: OrderType
     analyticsService?: AnalyticsServiceInterface
     repository?: BaseOrdersRepository<UniswapXOrderEntity>
-    calculateRetryWaitSeconds?: (chainId: ChainId, retryCount: number) => number
+    calculateRetryWaitSeconds?: (chainId: ChainId, retryCount: number, context: RetryWaitContext) => number
   }) {
     return new CheckOrderStatusUtils(serviceOrderType, analyticsService, repository, calculateRetryWaitSeconds)
   }
@@ -138,6 +139,35 @@ describe('CheckOrderStatusUtils', () => {
       })
 
       expect(response).toEqual({ orderStatus: 'open' })
+    })
+  })
+
+  describe('updateStatusAndReturn', () => {
+    test('passes the new status, grace-poll progress and order age to the retry wait calculation', async () => {
+      const calculateRetryWaitSeconds = jest.fn().mockReturnValue(30)
+      const service = buildService({ calculateRetryWaitSeconds })
+      const createdAt = Math.floor(Date.now() / 1000) - 3600
+
+      const response = await service.updateStatusAndReturn({
+        orderHash: '0xhash',
+        quoteId: 'quoteId',
+        retryCount: 5,
+        startingBlockNumber: 100,
+        chainId: ChainId.MAINNET,
+        lastStatus: ORDER_STATUS.OPEN,
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+        validation: OrderValidation.InsufficientFunds,
+        getFillLogAttempts: 1,
+        createdAt,
+      })
+
+      expect(calculateRetryWaitSeconds).toHaveBeenCalledWith(
+        ChainId.MAINNET,
+        5,
+        expect.objectContaining({ orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS, getFillLogAttempts: 1, createdAt })
+      )
+      expect(response.retryWaitSeconds).toEqual(30)
+      expect(response).not.toHaveProperty('createdAt')
     })
   })
 })

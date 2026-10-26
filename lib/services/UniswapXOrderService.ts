@@ -6,9 +6,9 @@ import {
   CosignedV2DutchOrder,
   CosignedV3DutchOrder,
   DutchOrder,
-  OrderValidator as OnChainOrderValidator,
   OrderType,
   OrderValidation,
+  OrderValidator as OnChainOrderValidator,
   PermissionedTokenValidator,
 } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
@@ -27,7 +27,6 @@ import { sendImmediateExclusiveFillerNotification } from '../handlers/order-noti
 import { ExclusiveFillerWebhookOrder } from '../handlers/order-notification/types'
 import { ProviderMap } from '../handlers/shared'
 import { kickoffOrderTrackingSfn } from '../handlers/shared/sfn'
-import { DutchV1Order } from '../models/DutchV1Order'
 import { DutchV2Order } from '../models/DutchV2Order'
 import { DutchV3Order } from '../models/DutchV3Order'
 import { LimitOrder } from '../models/LimitOrder'
@@ -65,7 +64,9 @@ export class UniswapXOrderService {
     private readonly maxQueryRetry: number = MAX_QUERY_RETRY
   ) {}
 
-  async createOrder(order: DutchV1Order | LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order): Promise<string> {
+  async createOrder(
+    order: LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order
+  ): Promise<string> {
     // Start the open-order count alongside validation; both must pass before the
     // order is accepted but neither depends on the other. All order entities
     // store offerer as the lowercased swapper address.
@@ -75,7 +76,7 @@ export class UniswapXOrderService {
     canPlaceNewOrderPromise.catch(() => undefined)
 
     let orderEntity: UniswapXOrderEntity
-    if (order instanceof DutchV1Order || order instanceof LimitOrder) {
+    if (order instanceof LimitOrder) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = formatOrderEntity(order.inner, order.signature, OrderType.Dutch, ORDER_STATUS.OPEN, order.quoteId)
     } else if (order instanceof DutchV2Order || order instanceof DutchV3Order) {
@@ -169,6 +170,14 @@ export class UniswapXOrderService {
   ): Promise<void> {
     const offChainValidationResult = this.orderValidator.validate(order)
     if (!offChainValidationResult.valid) {
+      // Otherwise a rule that starts rejecting real traffic only shows up as caller 400s.
+      metrics.putMetric('OffchainValidationFailure', 1, Unit.Count)
+      this.logger.info('offchain validation failed', {
+        chainId,
+        orderHash: order.hash(),
+        swapper: order.info.swapper,
+        reason: offChainValidationResult.errorString,
+      })
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
     const token = order.info.input.token
