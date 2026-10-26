@@ -18,27 +18,33 @@ export interface AlarmTopics {
 }
 
 export class AlarmNotifier {
-  private readonly alarmActions: SnsAction[] = []
-  private readonly okActions: SnsAction[] = []
+  private readonly slack?: SnsAction
+  private readonly incidentIo?: SnsAction
 
   constructor(scope: Construct, topics: AlarmTopics) {
     if (topics.chatbotSNSArn) {
-      this.alarmActions.push(
-        new SnsAction(aws_sns.Topic.fromTopicArn(scope, 'ChatbotAlarmTopic', topics.chatbotSNSArn))
-      )
+      this.slack = new SnsAction(aws_sns.Topic.fromTopicArn(scope, 'ChatbotAlarmTopic', topics.chatbotSNSArn))
     }
     if (topics.incidentIoSNSArn) {
-      const action = new SnsAction(aws_sns.Topic.fromTopicArn(scope, 'IncidentIoAlarmTopic', topics.incidentIoSNSArn))
-      this.alarmActions.push(action)
-      this.okActions.push(action)
+      this.incidentIo = new SnsAction(
+        aws_sns.Topic.fromTopicArn(scope, 'IncidentIoAlarmTopic', topics.incidentIoSNSArn)
+      )
     }
   }
 
-  /** Attach every configured ALARM and OK action. Safe to call with no topics configured. */
-  public wire(...alarms: Alarm[]): void {
+  /** Slack only. For SEV3 alarms, which flap often enough that paging on them would be noise. */
+  public notify(...alarms: Alarm[]): void {
+    if (!this.slack) return
+    for (const alarm of alarms) alarm.addAlarmAction(this.slack)
+  }
+
+  /** Slack, plus incident.io on ALARM and OK. For SEV2 alarms. */
+  public page(...alarms: Alarm[]): void {
+    this.notify(...alarms)
+    if (!this.incidentIo) return
     for (const alarm of alarms) {
-      this.alarmActions.forEach((action) => alarm.addAlarmAction(action))
-      this.okActions.forEach((action) => alarm.addOkAction(action))
+      alarm.addAlarmAction(this.incidentIo)
+      alarm.addOkAction(this.incidentIo)
     }
   }
 }

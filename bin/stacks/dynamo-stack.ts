@@ -136,7 +136,7 @@ export class DynamoStack extends cdk.NestedStack {
     if (capacity.billingMode !== aws_dynamo.BillingMode.PAY_PER_REQUEST) {
       const period = cdk.Duration.minutes(5)
       const eightyPercentOver = (unitsPerSecond: number) => 0.8 * unitsPerSecond * period.toSeconds()
-      notifier.wire(
+      notifier.notify(
         new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`, {
           alarmName: `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`,
           metric: table.metricConsumedReadCapacityUnits({ period, statistic: 'Sum' }),
@@ -161,16 +161,7 @@ export class DynamoStack extends cdk.NestedStack {
     const readThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadThrottlesAlarm`, {
       alarmName: `${SERVICE_NAME}-SEV3-${name}-ReadThrottlesAlarm`,
       metric: table.metricThrottledRequestsForOperations({
-        operations: [
-          Operation.GET_ITEM,
-          Operation.BATCH_GET_ITEM,
-          Operation.BATCH_WRITE_ITEM,
-          Operation.PUT_ITEM,
-          Operation.QUERY,
-          Operation.SCAN,
-          Operation.UPDATE_ITEM,
-          Operation.DELETE_ITEM,
-        ],
+        operations: [Operation.GET_ITEM, Operation.BATCH_GET_ITEM, Operation.QUERY, Operation.SCAN],
       }),
       threshold: 10,
       evaluationPeriods: 2,
@@ -180,16 +171,7 @@ export class DynamoStack extends cdk.NestedStack {
     const writeThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-WriteThrottlesAlarm`, {
       alarmName: `${SERVICE_NAME}-SEV3-${name}-WriteThrottlesAlarm`,
       metric: table.metricThrottledRequestsForOperations({
-        operations: [
-          Operation.GET_ITEM,
-          Operation.BATCH_GET_ITEM,
-          Operation.BATCH_WRITE_ITEM,
-          Operation.PUT_ITEM,
-          Operation.QUERY,
-          Operation.SCAN,
-          Operation.UPDATE_ITEM,
-          Operation.DELETE_ITEM,
-        ],
+        operations: [Operation.PUT_ITEM, Operation.UPDATE_ITEM, Operation.DELETE_ITEM, Operation.BATCH_WRITE_ITEM],
       }),
       threshold: 10,
       evaluationPeriods: 2,
@@ -223,25 +205,25 @@ export class DynamoStack extends cdk.NestedStack {
       ...quietIsHealthy,
     })
 
-    notifier.wire(userErrorsAlarm, systemErrorsAlarm, writeThrottleAlarm, readThrottleAlarm)
+    notifier.notify(userErrorsAlarm, systemErrorsAlarm, writeThrottleAlarm, readThrottleAlarm)
   }
 
   /**
-   * Read throttles on the GSIs the Get Orders cache serves. The table-level ThrottledRequests
-   * alarms above did not move on Sep 2 while these indexes were rejecting over a million reads
-   * every five minutes: a single hot partition key throttles at the index, and that is where the
-   * signal is. Zero in steady state, so any sustained count is an incident.
+   * Read throttles on the GSIs the Get Orders cache serves: a single hot partition key throttles
+   * at the index. chainId_orderStatus crossed 5,000 per period for 3 periods only during the
+   * Aug 31 and Sep 2 outages, which the Get Orders throttle alarm already pages on, so these are
+   * SEV3. chainId-createdAt-all is left out: it has throttled most days since Sep 7 and would sit
+   * in ALARM for hundreds of hours at any threshold that still catches an outage.
    */
   private hotIndexAlarms(table: aws_dynamo.Table, name: string, notifier: AlarmNotifier): void {
     const hotIndexes = [
       `${TABLE_KEY.CHAIN_ID_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
       `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-      `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`,
     ]
     for (const index of hotIndexes) {
-      notifier.wire(
-        new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-${name}-${index}-ReadThrottles`, {
-          alarmName: `${SERVICE_NAME}-SEV2-${name}-GSI-${index}-ReadThrottles`,
+      notifier.notify(
+        new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-${index}-ReadThrottles`, {
+          alarmName: `${SERVICE_NAME}-SEV3-${name}-GSI-${index}-ReadThrottles`,
           metric: new aws_cloudwatch.Metric({
             namespace: 'AWS/DynamoDB',
             metricName: 'ReadThrottleEvents',
@@ -249,9 +231,9 @@ export class DynamoStack extends cdk.NestedStack {
             statistic: 'Sum',
             period: cdk.Duration.minutes(5),
           }),
-          threshold: 1000,
-          evaluationPeriods: 2,
-          datapointsToAlarm: 2,
+          threshold: 5000,
+          evaluationPeriods: 3,
+          datapointsToAlarm: 3,
           comparisonOperator: aws_cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
           treatMissingData: aws_cloudwatch.TreatMissingData.NOT_BREACHING,
         })

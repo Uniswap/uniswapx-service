@@ -143,7 +143,6 @@ export class LambdaStack extends cdk.NestedStack {
         ...props.envVars,
       },
       lambdaRole: lambdaRole,
-      chatbotSNSArn,
     })
     this.chainIdToStatusTrackingStateMachineArn = sfnStack.chainIdToStatusTrackingStateMachineArn
     this.checkStatusFunction = sfnStack.checkStatusFunction
@@ -529,17 +528,26 @@ export class LambdaStack extends cdk.NestedStack {
 
     // Reserved concurrency turns a Get Orders poll storm into Lambda throttles instead of a
     // DynamoDB throttle spiral. Sustained throttling is the earliest signal that the endpoint is
-    // over its ceiling: on Sep 2 it led the API 5xx rate by five minutes.
+    // over its ceiling: on Sep 2 it led the API 5xx rate by five minutes. A ratio, not a count:
+    // the cap sheds bursts of ~10k throttles (under 1% of requests) most days, which is the cap
+    // doing its job; on Sep 2 the ratio went 21% -> 86% in two periods.
     const getOrdersThrottlesAlarm = new Alarm(this, `${SERVICE_NAME}-SEV2-GetOrders-LambdaThrottles`, {
       alarmName: `${SERVICE_NAME}-SEV2-GetOrders-LambdaThrottles`,
-      metric: this.getOrdersLambda.metricThrottles({ period: Duration.minutes(5), statistic: 'sum' }),
-      threshold: 1000,
+      metric: new MathExpression({
+        expression: '100 * FILL(throttles, 0) / (FILL(invocations, 0) + FILL(throttles, 0))',
+        period: Duration.minutes(5),
+        usingMetrics: {
+          throttles: this.getOrdersLambda.metricThrottles({ period: Duration.minutes(5), statistic: 'sum' }),
+          invocations: this.getOrdersLambda.metricInvocations({ period: Duration.minutes(5), statistic: 'sum' }),
+        },
+      }),
+      threshold: 10,
       evaluationPeriods: 2,
       datapointsToAlarm: 2,
       treatMissingData: TreatMissingData.NOT_BREACHING,
       comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
     })
-    notifier.wire(getOrdersThrottlesAlarm)
+    notifier.page(getOrdersThrottlesAlarm)
 
     const postOrder4xxRateMetric = new MathExpression({
       expression: '(por4xx/por) * 100',
@@ -580,7 +588,9 @@ export class LambdaStack extends cdk.NestedStack {
       datapointsToAlarm: 2,
     })
 
-    notifier.wire(sev2PostOrder4xxRate, sev3PostOrder4xxRate)
+    // Slack only despite SEV2: the 4xx rate is client-driven and crossed 60% for two periods
+    // ~150 times in the two months to Oct 26, so it is not a paging signal.
+    notifier.notify(sev2PostOrder4xxRate, sev3PostOrder4xxRate)
 
     // 5xx error-rate alarms per endpoint. Each endpoint emits a `<Endpoint>Request` counter
     // and a `<Endpoint>Status5XX` counter via embedded metrics in the handler's afterResponseHook.
@@ -644,7 +654,7 @@ export class LambdaStack extends cdk.NestedStack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
       })
 
-      notifier.wire(sustainedAlarm, catastrophicAlarm)
+      notifier.page(sustainedAlarm, catastrophicAlarm)
     }
 
     for (const chainId of SUPPORTED_CHAINS) {
@@ -689,7 +699,8 @@ export class LambdaStack extends cdk.NestedStack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       })
 
-      notifier.wire(sev2OrderNotificationErrorRate, sev3OrderNotificationErrorRate)
+      notifier.page(sev2OrderNotificationErrorRate)
+      notifier.notify(sev3OrderNotificationErrorRate)
     }
   }
 }

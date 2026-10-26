@@ -19,6 +19,8 @@ type AlarmResource = {
     TreatMissingData?: string
     Threshold?: number
     Period?: number
+    EvaluationPeriods?: number
+    DatapointsToAlarm?: number
     Statistic?: string
     Metrics?: { MetricStat?: { Metric: { MetricName: string; Dimensions?: { Name: string; Value: unknown }[] } } }[]
     MetricName?: string
@@ -37,18 +39,16 @@ describe('DynamoStack alarms', () => {
   const byName = (alarms: AlarmResource[], needle: string) =>
     alarms.filter((a) => JSON.stringify(a.Properties.AlarmName).includes(needle))
 
-  it('notifies incident.io on ALARM and OK, and Slack on ALARM only', () => {
+  it('notifies Slack on ALARM and never pages incident.io', () => {
+    // Every DynamoDB alarm is SEV3: the Orders throttle alarms alone transitioned 22 times in
+    // the two months before this change.
     const { alarms } = build({ chatbotSNSArn: CHATBOT, incidentIoSNSArn: INCIDENT_IO })
     expect(alarms.length).toBeGreaterThan(0)
     for (const alarm of alarms) {
-      const alarmActions = JSON.stringify(alarm.Properties.AlarmActions ?? [])
-      const okActions = JSON.stringify(alarm.Properties.OKActions ?? [])
-      expect(alarmActions).toContain(CHATBOT)
-      expect(alarmActions).toContain(INCIDENT_IO)
-      // incident.io only resolves an alert on OK; without it every later ALARM is folded into
-      // the first one and pages nobody.
-      expect(okActions).toContain(INCIDENT_IO)
-      expect(okActions).not.toContain(CHATBOT)
+      expect(alarm.Properties.AlarmName).toContain('-SEV3-')
+      expect(JSON.stringify(alarm.Properties.AlarmActions ?? [])).toContain(CHATBOT)
+      expect(JSON.stringify(alarm.Properties.AlarmActions ?? [])).not.toContain(INCIDENT_IO)
+      expect(alarm.Properties.OKActions ?? []).toHaveLength(0)
     }
   })
 
@@ -100,17 +100,36 @@ describe('DynamoStack alarms', () => {
     }
   })
 
-  it('alarms on read throttles for each hot GSI of the Orders table', () => {
-    const { alarms } = build({ incidentIoSNSArn: INCIDENT_IO })
+  it('alarms on sustained read throttles for the hot status GSIs of the Orders table', () => {
+    const { alarms } = build()
     const gsiAlarms = byName(alarms, 'GSI-')
     const indexes = gsiAlarms
       .map((a) => a.Properties.Dimensions?.find((d) => d.Name === 'GlobalSecondaryIndexName')?.Value)
       .sort()
-    expect(indexes).toEqual(['chainId-createdAt-all', 'chainId_orderStatus-createdAt-all', 'orderStatus-createdAt-all'])
+    // chainId-createdAt-all throttles most days and is deliberately not alarmed.
+    expect(indexes).toEqual(['chainId_orderStatus-createdAt-all', 'orderStatus-createdAt-all'])
     for (const alarm of gsiAlarms) {
-      expect(alarm.Properties.MetricName).toEqual('ReadThrottleEvents')
-      expect(alarm.Properties.TreatMissingData).toEqual('notBreaching')
-      expect(JSON.stringify(alarm.Properties.OKActions)).toContain(INCIDENT_IO)
+      expect(alarm.Properties).toMatchObject({
+        MetricName: 'ReadThrottleEvents',
+        TreatMissingData: 'notBreaching',
+        Threshold: 5000,
+        EvaluationPeriods: 3,
+        DatapointsToAlarm: 3,
+      })
     }
+  })
+
+  it('splits table throttle alarms into read and write operations', () => {
+    const { alarms } = build()
+    const ops = (needle: string) =>
+      JSON.stringify(byName(alarms, needle)[0].Properties.Metrics)
+        .match(/"Value":"(\w+)"/g)
+        ?.filter((v) => !v.includes('Orders') && !v.includes('Nonces'))
+    expect(ops('Orders-ReadThrottlesAlarm')).toEqual(
+      ['GetItem', 'BatchGetItem', 'Query', 'Scan'].map((op) => `"Value":"${op}"`)
+    )
+    expect(ops('Orders-WriteThrottlesAlarm')).toEqual(
+      ['PutItem', 'UpdateItem', 'DeleteItem', 'BatchWriteItem'].map((op) => `"Value":"${op}"`)
+    )
   })
 })

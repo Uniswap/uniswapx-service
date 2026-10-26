@@ -104,14 +104,15 @@ CI runs lint, unit tests, and `rdme openapi:validate` against the swagger.
 ## Alerting
 
 CloudWatch alarms live in `api-stack` (API Gateway 5xx/4xx/latency), `lambda-stack` (per-endpoint
-5xx rates, Get Orders Lambda throttles, notification and step-function error rates) and
-`dynamo-stack` (table throttles/errors and read throttles on the hot Orders GSIs). Every alarm
-notifies through `bin/stacks/alerting.ts`: the Slack chatbot topic on ALARM, and the incident.io
-CloudWatch connector on ALARM **and** OK. incident.io only resolves an alert on OK and folds later
-ALARMs into an unresolved one, so an alarm without an OK action pages exactly once, ever. The
-connector endpoint is a credential (the alert-source id in the URL authorizes the caller) and is
-read from Secrets Manager via `INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN` in `bin/app.ts`; it must
-never be committed.
+5xx rates, Get Orders Lambda throttle ratio, notification error rates), `dynamo-stack` (table
+throttles/errors and read throttles on the hot Orders status GSIs) and `step-function-stack`.
+`bin/stacks/alerting.ts` wires them: `page()` for SEV2 alarms (except the client-driven PostOrder 4xx rate) sends Slack on ALARM and the incident.io
+CloudWatch connector on ALARM **and** OK; `notify()` for SEV3 alarms sends Slack only. incident.io
+only resolves an alert on OK and folds later ALARMs into an unresolved one, so an alarm without an
+OK action pages exactly once, ever. The step-function alarms have no actions: the per-chain expiry
+rate alarms transition ~2,000 times a month and need retuning first. The connector endpoint is a
+credential (the alert-source id in the URL authorizes the caller) and is read from Secrets Manager
+via `INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN` in `bin/app.ts`; it must never be committed.
 
 ## Sharp edges
 

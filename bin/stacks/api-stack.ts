@@ -542,13 +542,9 @@ export class APIStack extends cdk.Stack {
       evaluationPeriods: 3,
     })
 
-    new AlarmNotifier(this, { chatbotSNSArn, incidentIoSNSArn }).wire(
-      apiAlarm5xxSev2,
-      apiAlarm5xxSev3,
-      apiAlarm4xxSev3,
-      apiAlarmLatencySev3,
-      apiAlarmLatencySev2
-    )
+    const notifier = new AlarmNotifier(this, { chatbotSNSArn, incidentIoSNSArn })
+    notifier.page(apiAlarm5xxSev2, apiAlarmLatencySev2)
+    notifier.notify(apiAlarm5xxSev3, apiAlarm4xxSev3, apiAlarmLatencySev3)
 
     // Add API keys and usage plan
     const tradingAPIKey = new aws_apigateway.ApiKey(this, 'TradingAPIKey', {
