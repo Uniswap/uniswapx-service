@@ -74,14 +74,3 @@ export const MOCK_V2_ORDER_ENTITY: UniswapXOrderEntity = {
   },
   cosignature: '0x0',
 }
-
-export const dynamoConfig = {
-  convertEmptyValues: true,
-  endpoint: 'localhost:8000',
-  region: 'local-env',
-  sslEnabled: false,
-  credentials: {
-    accessKeyId: 'fakeMyKeyId',
-    secretAccessKey: 'fakeSecretAccessKey',
-  },
-}
