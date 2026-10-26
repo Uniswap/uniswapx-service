@@ -54,7 +54,7 @@ export class DutchV2Order extends Order {
       })),
       reactor: decodedOrder.info.reactor.toLowerCase(),
       decayStartTime: decodedOrder.info.cosignerData.decayStartTime,
-      decayEndTime: decodedOrder.info.deadline,
+      decayEndTime: decodedOrder.info.cosignerData.decayEndTime,
       deadline: decodedOrder.info.deadline,
       filler: decodedOrder.info?.cosignerData?.exclusiveFiller.toLowerCase(),
       cosignerData: {

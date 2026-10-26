@@ -83,8 +83,7 @@ export const AcceptedPosts = {
         },
         createdAt: 4102444800,
         deadline: 4102444920,
-        // the deadline, not cosignerData.decayEndTime; deliberate, for parity
-        decayEndTime: 4102444920,
+        decayEndTime: 4102444884,
         decayStartTime: 4102444824,
         encodedOrder: Orders.dutchV2.encodedOrder,
         filler: '0x1111111111111111111111111111111111111111',
@@ -155,7 +154,7 @@ export const AcceptedPosts = {
               tokenOut: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
               orderType: 'Dutch_V2',
               startTime: 4102444824,
-              endTime: 4102444920,
+              endTime: 4102444884,
               inputStartAmount: '1000000',
               inputEndAmount: '1000000',
               // the string comparison picks the fee output ('99999...' > '2000...'); deliberate, for parity
