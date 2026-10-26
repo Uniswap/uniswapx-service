@@ -21,6 +21,7 @@ import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
+import { DYNAMO_LOCAL_CONFIG } from '../dynamo-local'
 
 // Mock the Permit2Validator
 jest.mock('../../../lib/util/Permit2Validator', () => ({
@@ -38,18 +39,7 @@ describe('Testing check order status handler', () => {
   const providerMock = jest.fn().mockReturnValue(mockedBlockNumber)
   const getTransactionMock = jest.fn()
 
-  const dynamoConfig = {
-    convertEmptyValues: true,
-    endpoint: 'localhost:8000',
-    region: 'local-env',
-    sslEnabled: false,
-    credentials: {
-      accessKeyId: 'fakeMyKeyId',
-      secretAccessKey: 'fakeSecretAccessKey',
-    },
-  }
-
-  const localDocumentClient = new DocumentClient(dynamoConfig)
+  const localDocumentClient = new DocumentClient(DYNAMO_LOCAL_CONFIG)
   const mockLookbackFn = () => 10
 
   beforeAll(() => {
