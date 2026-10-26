@@ -91,7 +91,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
         return {
           statusCode: 200,
-          body: this.withCursor(getOrdersResult),
+          body: this.withCursor({ ...getOrdersResult, orders: getOrdersResult.orders.map(offererToSwapper) }),
         }
       }
 
@@ -101,18 +101,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       return {
         statusCode: 200,
         body: this.withCursor({
-          // w/o specifying orderType, the orderDispatcher uses the legacy get implementation
-          //   and for priority orders, the returned object will contain offerer instead of swapper
-          orders: getOrdersResult.orders.map((order: any) => {
-            if (order.offerer) {
-              const { offerer, ...rest } = order
-              return {
-                ...rest,
-                swapper: offerer,
-              }
-            }
-            return order
-          }),
+          orders: getOrdersResult.orders.map(offererToSwapper),
           cursor: getOrdersResult.cursor,
         }),
       }
@@ -174,4 +163,16 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     const getOrdersRequestByChainIdMetricName = `GetOrdersRequestChainId${chainId.toString()}`
     metrics.putMetric(getOrdersRequestByChainIdMetricName, 1, Unit.Count)
   }
+}
+
+// Stored rows key the swapper as `offerer`, but the response schema only has `swapper` and strips
+// unknown fields, so a row returned as stored would lose its swapper. This covers both the
+// no-orderType path and the typed paths that return stored rows (Dutch, Dutch_V1_V2's V1 rows,
+// Limit); responses built from the decoded order already carry `swapper` and pass through.
+function offererToSwapper<T>(order: T): T {
+  if (order && typeof order === 'object' && 'offerer' in order) {
+    const { offerer, ...rest } = order as T & { offerer: string }
+    return { ...rest, swapper: offerer } as T
+  }
+  return order
 }
