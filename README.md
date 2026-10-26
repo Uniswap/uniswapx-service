@@ -96,13 +96,13 @@ Environment (`.env`):
 | ----------- | ---------------- | ---------------------------------- |
 | Unit        | `yarn test`      | Java (DynamoDB Local)              |
 | Integration | `yarn test:integ`| Java                               |
-| End-to-end  | `yarn test:e2e`  | A deployed stack + the e2e variables in `.env.example` |
+| End-to-end  | `yarn test:e2e`  | A deployed stack, `RPC_PREFIX_URL`/`RPC_HEADER_SECRET`, and the e2e variables in `.env.example` |
 
 The e2e lifecycle tests post real dust limit orders on mainnet and track them to expiry; they run
 only when `RUN_LIFECYCLE_TESTS=true`, which the beta pipeline gate sets.
 
-CI runs lint, build, `rdme openapi:validate` against the swagger, and the unit and integration
-suites via `yarn coverage`.
+CI runs lint, build, `rdme openapi:validate` against the swagger, and the factory, unit and
+integration suites via `yarn coverage`.
 
 ## Alerting
 
