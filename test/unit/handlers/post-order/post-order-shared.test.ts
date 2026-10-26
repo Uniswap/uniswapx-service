@@ -5,6 +5,7 @@ import { ErrorCode } from '../../../../lib/handlers/base'
 import {
   DEFAULT_MAX_OPEN_LIMIT_ORDERS,
   DEFAULT_MAX_OPEN_ORDERS,
+  HIGH_MAX_OPEN_ORDERS,
   HIGH_MAX_OPEN_ORDERS_SWAPPERS,
 } from '../../../../lib/handlers/constants'
 import {
@@ -122,14 +123,18 @@ describe.each(ROUTES)('$suite', ({ route, maxOpenOrders, post }) => {
       })
 
       it('should allow more orders if in the high list', async () => {
-        harness.repository.openOrderCount = 100
+        // Above this route's default limit and within the high list's, so only the list lets it through.
+        const openOrderCount = maxOpenOrders + 1
+        expect(openOrderCount).toBeLessThanOrEqual(HIGH_MAX_OPEN_ORDERS)
+        harness.repository.openOrderCount = openOrderCount
 
+        expect(await handle(post().request)).toMatchObject({ statusCode: HttpStatusCode.Forbidden })
         expect(await handle(post(HIGH_LIST_SWAPPER).request)).toMatchObject({
           statusCode: HttpStatusCode.Created,
         })
-        expect(harness.repository.countCalls).toHaveLength(1)
-        expect(harness.onChainValidator.calls).toHaveLength(1)
+        expect(harness.repository.countCalls).toHaveLength(2)
         expect(harness.repository.puts).toHaveLength(1)
+        expect(harness.repository.puts[0].offerer).toEqual(HIGH_LIST_SWAPPER)
       })
 
       it('should reject order submission for offerer in high list at higher order count', async () => {
