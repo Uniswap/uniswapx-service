@@ -13,7 +13,6 @@ describe('DashboardStack', () => {
       apiName: 'test-api',
       postOrderLambdaName: 'post-order-fn',
       getOrdersLambdaName: 'get-orders-fn',
-      getNonceLambdaName: 'get-nonce-fn',
       orderStatusLambdaName: 'order-status-fn',
       chainIdToStatusTrackingStateMachineArn: {},
       getOrdersReservedConcurrency: 3000,

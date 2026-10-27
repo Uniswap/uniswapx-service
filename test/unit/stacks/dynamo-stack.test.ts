@@ -28,6 +28,58 @@ type AlarmResource = {
   }
 }
 
+// The GSIs as CloudFormation had them before the list was shared with the repositories and
+// DynamoDB Local, in creation order: [partition key, attribute type]. Pinned literally so a change
+// to the shared list shows up here as an index change, not silently.
+const EXPECTED_GSI_PARTITION_KEYS: [string, 'S' | 'N'][] = [
+  ['offerer', 'S'],
+  ['orderStatus', 'S'],
+  ['filler', 'S'],
+  ['filler_orderStatus', 'S'],
+  ['filler_offerer', 'S'],
+  ['filler_offerer_orderStatus', 'S'],
+  ['offerer_orderStatus', 'S'],
+  ['chainId', 'N'],
+  ['chainId_filler', 'S'],
+  ['chainId_orderStatus', 'S'],
+  ['chainId_orderStatus_filler', 'S'],
+  ['pair', 'S'],
+]
+
+describe('DynamoStack tables', () => {
+  const tables = () => {
+    const app = new cdk.App()
+    const parent = new cdk.Stack(app, 'TestParent', { env: { account: '111111111111', region: 'us-east-2' } })
+    const stack = new DynamoStack(parent, 'TestDynamo', { tableCapacityConfig: onDemand })
+    const resources = Template.fromStack(stack).findResources('AWS::DynamoDB::Table')
+    return Object.fromEntries(Object.values(resources).map((r) => [r.Properties.TableName, r.Properties]))
+  }
+
+  it.each(['Orders', 'LimitOrders'])('gives %s the same 12 GSIs and key attributes as before', (tableName) => {
+    const table = tables()[tableName]
+    expect(table.GlobalSecondaryIndexes).toEqual(
+      EXPECTED_GSI_PARTITION_KEYS.map(([partitionKey]) => ({
+        IndexName: `${partitionKey}-createdAt-all`,
+        KeySchema: [
+          { AttributeName: partitionKey, KeyType: 'HASH' },
+          { AttributeName: 'createdAt', KeyType: 'RANGE' },
+        ],
+        Projection: { ProjectionType: 'ALL' },
+      }))
+    )
+    // CDK emits each attribute the first time an index uses it, so createdAt follows offerer.
+    expect(table.AttributeDefinitions).toEqual(
+      [['orderHash', 'S'], ['offerer', 'S'], ['createdAt', 'N'], ...EXPECTED_GSI_PARTITION_KEYS.slice(1)].map(
+        ([AttributeName, AttributeType]) => ({ AttributeName, AttributeType })
+      )
+    )
+  })
+
+  it('gives Nonces no GSIs', () => {
+    expect(tables()['Nonces'].GlobalSecondaryIndexes).toBeUndefined()
+  })
+})
+
 describe('DynamoStack alarms', () => {
   const build = (topics: { chatbotSNSArn?: string; incidentIoSNSArn?: string } = {}) => {
     const app = new cdk.App()
@@ -50,6 +102,22 @@ describe('DynamoStack alarms', () => {
       expect(JSON.stringify(alarm.Properties.AlarmActions ?? [])).not.toContain(INCIDENT_IO)
       expect(alarm.Properties.OKActions ?? []).toHaveLength(0)
     }
+  })
+
+  it('creates exactly the table and hot-GSI alarms it did before', () => {
+    const { alarms } = build()
+    expect(alarms.map((a) => a.Properties.AlarmName).sort()).toEqual([
+      'GoudaService-SEV3-Nonces-ReadThrottlesAlarm',
+      'GoudaService-SEV3-Nonces-SystemErrorsAlarm',
+      'GoudaService-SEV3-Nonces-UserErrorsAlarm',
+      'GoudaService-SEV3-Nonces-WriteThrottlesAlarm',
+      'GoudaService-SEV3-Orders-GSI-chainId_orderStatus-createdAt-all-ReadThrottles',
+      'GoudaService-SEV3-Orders-GSI-orderStatus-createdAt-all-ReadThrottles',
+      'GoudaService-SEV3-Orders-ReadThrottlesAlarm',
+      'GoudaService-SEV3-Orders-SystemErrorsAlarm',
+      'GoudaService-SEV3-Orders-UserErrorsAlarm',
+      'GoudaService-SEV3-Orders-WriteThrottlesAlarm',
+    ])
   })
 
   it('still synthesizes with no topics configured', () => {

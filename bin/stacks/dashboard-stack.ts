@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
 import { Construct } from 'constructs'
 import * as _ from 'lodash'
-import { TABLE_KEY } from '../../lib/config/dynamodb'
+import { gsiName, TABLE_KEY } from '../../lib/config/dynamodb'
 import { TABLE_NAMES } from '../../lib/repositories/util'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { SERVICE_NAME } from '../constants'
@@ -11,24 +11,14 @@ export const METRIC_NAMESPACE = 'Uniswap'
 
 // The three GSIs the query cache serves (the enum-keyed partitions); see getTableIndices and
 // CACHEABLE_INDEXES in the repository.
-const CHAIN_STATUS_GSI = `${TABLE_KEY.CHAIN_ID_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`
-const STATUS_GSI = `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`
-const CHAIN_GSI = `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`
-
-export type LambdaWidget = {
-  type: string
-  x: number
-  y: number
-  width: number
-  height: number
-  properties: { view: string; stacked: boolean; metrics: string[][]; region: string; title: string; stat: string }
-}
+const CHAIN_STATUS_GSI = gsiName(TABLE_KEY.CHAIN_ID_ORDER_STATUS)
+const STATUS_GSI = gsiName(TABLE_KEY.ORDER_STATUS)
+const CHAIN_GSI = gsiName(TABLE_KEY.CHAIN_ID)
 
 export interface DashboardProps extends cdk.NestedStackProps {
   apiName: string
   postOrderLambdaName: string
   getOrdersLambdaName: string
-  getNonceLambdaName: string
   orderStatusLambdaName: string
   chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
   // Drawn as a line on the Get Orders concurrency chart when set.

@@ -13,7 +13,7 @@ import { SERVICE_NAME } from '../constants'
 import { AlarmNotifier } from './alerting'
 import { AnalyticsStack } from './analytics-stack'
 import { DashboardStack } from './dashboard-stack'
-import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
+import { TableCapacityConfig } from './dynamo-stack'
 import { BACKEND_ACCOUNTS, IamStack } from './iam-stack'
 import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
@@ -39,7 +39,6 @@ export class APIStack extends cdk.Stack {
       stage: string
       envVars: { [key: string]: string }
       tableCapacityConfig: TableCapacityConfig
-      indexCapacityConfig?: IndexCapacityConfig
     }
   ) {
     super(parent, name, props)
@@ -54,7 +53,6 @@ export class APIStack extends cdk.Stack {
       provisionedConcurrency,
       internalApiKey,
       tableCapacityConfig,
-      indexCapacityConfig,
     } = props
 
     // KMS initialization
@@ -82,7 +80,6 @@ export class APIStack extends cdk.Stack {
       getOrdersLambdaAlias,
       getOrdersLambda,
       getNonceLambdaAlias,
-      getNonceLambda,
       postOrderLambdaAlias,
       postOrderLambda,
       postLimitOrderLambdaAlias,
@@ -101,7 +98,6 @@ export class APIStack extends cdk.Stack {
       envVars: props.envVars,
       kmsKey: kmsStack.key,
       tableCapacityConfig,
-      indexCapacityConfig,
       chatbotSNSArn,
       incidentIoSNSArn,
     })
@@ -480,7 +476,6 @@ export class APIStack extends cdk.Stack {
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
       postOrderLambdaName: postOrderLambda.functionName,
-      getNonceLambdaName: getNonceLambda.functionName,
       getOrdersLambdaName: getOrdersLambda.functionName,
       chainIdToStatusTrackingStateMachineArn,
       orderStatusLambdaName: checkStatusFunction.functionName,
