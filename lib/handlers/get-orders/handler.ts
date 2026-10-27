@@ -1,9 +1,9 @@
 import Joi from 'joi'
 import { Unit } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
+import Logger from 'bunyan'
 import { UniswapXOrderEntity } from '../../entities'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { log } from '../../util/log'
 import { metrics } from '../../util/metrics'
 import {
   APIGLambdaHandler,
@@ -72,14 +72,14 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
   ): Promise<Response<GetOrdersBody> | ErrorResponse> {
     const {
-      requestInjected: { limit, queryFilters, orderType },
+      requestInjected: { limit, queryFilters, orderType, log },
       containerInjected: { dbInterface },
     } = params
     // The single-page schema already rejects a cursor; this keeps the contract even if the
     // schema and the option ever disagree.
     const cursor = this.options.paginated ? params.requestInjected.cursor : undefined
 
-    this.logMetrics(queryFilters)
+    this.logMetrics(log, queryFilters)
 
     try {
       if (orderType) {
@@ -132,7 +132,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     return this.options.paginated ? result : { ...result, cursor: undefined }
   }
 
-  private logMetrics(queryFilters: GetOrdersQueryParams) {
+  private logMetrics(log: Logger, queryFilters: GetOrdersQueryParams) {
     // This log is used for generating a metrics dashboard, do not modify.
     log.info({ queryFiltersSorted: Object.keys(queryFilters).sort().join(',') }, 'Get orders query filters for metrics')
   }

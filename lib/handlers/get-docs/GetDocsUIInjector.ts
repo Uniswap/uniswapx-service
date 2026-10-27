@@ -14,7 +14,7 @@ export class GetDocsUIInjector extends ApiInjector<ContainerInjected, RequestInj
   }
 
   public async getRequestInjected(
-    containerInjected: ContainerInjected,
+    _containerInjected: ContainerInjected,
     _requestBody: void,
     _requestQueryParams: void,
     _event: APIGatewayProxyEvent,
@@ -25,7 +25,6 @@ export class GetDocsUIInjector extends ApiInjector<ContainerInjected, RequestInj
 
     log = log.child({
       serializers: bunyan.stdSerializers,
-      containerInjected: containerInjected,
       requestId,
     })
 

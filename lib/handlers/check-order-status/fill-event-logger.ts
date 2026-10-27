@@ -10,7 +10,7 @@ import {
 import { AnalyticsService } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
-import { log } from '../../util/log'
+import { log } from '../../Logging'
 
 export type ProcessFillEventRequest = {
   fillEvent: FillInfo

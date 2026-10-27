@@ -7,7 +7,6 @@ import { UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { ChainId } from '../../util/chain'
-import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
 import type { ProviderMap } from '../shared'
@@ -56,7 +55,7 @@ export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInje
   }
 
   public async getRequestInjected(
-    containerInjected: ContainerInjected,
+    _containerInjected: ContainerInjected,
     _requestBody: void,
     requestQueryParams: GetNonceQueryParams,
     _event: APIGatewayProxyEvent,
@@ -72,11 +71,8 @@ export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInje
 
     log = log.child({
       serializers: bunyan.stdSerializers,
-      containerInjected: containerInjected,
       requestId,
     })
-
-    setGlobalLogger(log)
 
     return {
       log,

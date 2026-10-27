@@ -27,7 +27,7 @@ export class GetLimitOrdersInjector extends ApiInjector<
   }
 
   public async getRequestInjected(
-    containerInjected: ContainerInjected,
+    _containerInjected: ContainerInjected,
     _requestBody: void,
     requestQueryParams: RawGetOrdersQueryParams,
     _event: APIGatewayProxyEvent,
@@ -35,6 +35,6 @@ export class GetLimitOrdersInjector extends ApiInjector<
     log: Logger,
     metrics: MetricsLogger
   ): Promise<RequestInjected> {
-    return getSharedRequestInjected({ containerInjected, requestQueryParams, log, metrics, context })
+    return getSharedRequestInjected({ requestQueryParams, log, metrics, context })
   }
 }

@@ -31,7 +31,7 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
   }
 
   public async getRequestInjected(
-    containerInjected: ContainerInjected,
+    _containerInjected: ContainerInjected,
     _requestBody: void,
     requestQueryParams: RawGetOrdersQueryParams,
     _event: APIGatewayProxyEvent,
@@ -39,6 +39,6 @@ export class GetOrdersInjector extends ApiInjector<ContainerInjected, RequestInj
     log: Logger,
     metrics: MetricsLogger
   ): Promise<RequestInjected> {
-    return getSharedRequestInjected({ containerInjected, requestQueryParams, log, metrics, context })
+    return getSharedRequestInjected({ requestQueryParams, log, metrics, context })
   }
 }
