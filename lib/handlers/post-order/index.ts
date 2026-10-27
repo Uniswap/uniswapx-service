@@ -11,6 +11,7 @@ import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_
 import { STAGE } from '../../util/stage'
 import { checkDefined } from '../../preconditions/preconditions'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
+import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { LazyProviderMap } from '../shared/'
@@ -29,7 +30,11 @@ const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
 const postOrderInjectorPromise = new PostOrderInjector('postOrderInjector').build()
 
 const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
-const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
+const orderValidator = new OffChainUniswapXOrderValidator({
+  getCurrentTime: () => new Date().getTime() / 1000,
+  deadlineValidityPeriodSeconds: ONE_DAY_IN_SECONDS,
+  ...cosignersFromEnv(),
+})
 
 // Set up webhook provider for immediate notifications
 const stage = checkDefined(process.env['stage'], 'stage should be defined in the .env')

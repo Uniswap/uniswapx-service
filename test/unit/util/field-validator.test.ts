@@ -1,9 +1,6 @@
-import dotenv from 'dotenv'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { ChainId, SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import FieldValidator from '../../../lib/util/field-validator'
-
-dotenv.config()
 
 describe('Testing each field on the FieldValidator class.', () => {
   describe('Testing createdAt field.', () => {
@@ -323,20 +320,6 @@ describe('Testing each field on the FieldValidator class.', () => {
       expect(validatedField.error?.details[0].message).toEqual(
         '"value" must be one of [Dutch, DutchLimit, Dutch_V2, Dutch_V3, Limit, Priority]'
       )
-    })
-  })
-
-  describe('Testing cosigner field.', () => {
-    it('should validate field.', async () => {
-      const cosigner = process.env.LABS_COSIGNER
-      expect(FieldValidator.isValidCosigner().validate(cosigner)).toEqual({ value: cosigner })
-    })
-
-    it('should invalidate field.', async () => {
-      const cosigner = process.env.LABS_COSIGNER + 'foo'
-      const validatedField = FieldValidator.isValidCosigner().validate(cosigner)
-      expect(validatedField.error).toBeTruthy()
-      expect(validatedField.error?.details[0].message).toMatch(/^"value" must be/)
     })
   })
 })

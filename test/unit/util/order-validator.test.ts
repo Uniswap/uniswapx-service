@@ -6,7 +6,6 @@ import {
   OrderType,
   REACTOR_ADDRESS_MAPPING,
 } from '@uniswap/uniswapx-sdk'
-import dotenv from 'dotenv'
 import { BigNumber } from 'ethers'
 import { ChainId, SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { ONE_DAY_IN_SECONDS, ONE_YEAR_IN_SECONDS } from '../../../lib/util/constants'
@@ -17,16 +16,25 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { Tokens } from '../fixtures'
 
-dotenv.config()
-
-// The cosigners the validator accepts, fixed here so no case depends on a .env.
+// The cosigners the validator accepts.
 const COSIGNER = '0x0000000000000000000000000000000000001105'
 const PRIORITY_COSIGNER = '0x0000000000000000000000000000000000002205'
-process.env.LABS_COSIGNER = COSIGNER
-process.env.LABS_PRIORITY_COSIGNER = PRIORITY_COSIGNER
+
+const newValidator = (
+  getCurrentTime: () => number,
+  deadlineValidityPeriodSeconds: number,
+  skipDecayStartTimeValidation?: boolean
+) =>
+  new OffChainUniswapXOrderValidator({
+    getCurrentTime,
+    deadlineValidityPeriodSeconds,
+    cosigner: COSIGNER,
+    priorityCosigner: PRIORITY_COSIGNER,
+    skipDecayStartTimeValidation,
+  })
 
 const CURRENT_TIME = 10
-const validationProvider = new OffChainUniswapXOrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
+const validationProvider = newValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
 const INPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000022'
 const OUTPUT_TOKEN_ADDRESS = '0x0000000000000000000000000000000000000033'
 const EXCLUSIVE_FILLER = '0x0000000000000000000000000000000000000044'
@@ -80,27 +88,21 @@ function newOrder({
 describe('Testing off chain validation', () => {
   describe('Testing orderType', () => {
     it('Should set orderType with CosignedV2DutchOrder', () => {
-      const order = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, { cosigner: process.env.LABS_COSIGNER })
-      const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
-        order
-      )
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, { cosigner: COSIGNER })
+      const validationResp = newValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
       expect(validationResp).toEqual({ valid: true })
     })
 
     it('Should set orderType with DutchOrder', () => {
       const order = SDKDutchOrderFactory.buildDutchOrder()
-      const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
-        order
-      )
+      const validationResp = newValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
       expect(validationResp).toEqual({ valid: true })
     })
 
     it('Should throw with invalid orderType', () => {
       const order = SDKDutchOrderV2Factory.buildDutchV2Order()
       const noInstanceOrder = { ...order }
-      const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
-        noInstanceOrder as any
-      )
+      const validationResp = newValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(noInstanceOrder as any)
       expect(validationResp).toEqual({ valid: false, errorString: 'Invalid orderType' })
     })
   })
@@ -134,9 +136,7 @@ describe('Testing off chain validation', () => {
     })
     it('Testing parsed decayStartTime > deadline but ignored', async () => {
       const order = newOrder({ deadline: 20, decayStartTime: 21 })
-      const validationProvider = new OffChainUniswapXOrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS, {
-        SkipDecayStartTimeValidation: true,
-      })
+      const validationProvider = newValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS, true)
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({ valid: true })
     })
@@ -379,7 +379,7 @@ describe('Testing off chain validation', () => {
   describe('Testing v3 order validation', () => {
     it('Should return valid', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-        cosigner: process.env.LABS_COSIGNER,
+        cosigner: COSIGNER,
       })
       order.info.deadline = CURRENT_TIME + ONE_DAY
       const validationResp = validationProvider.validate(order)
@@ -390,7 +390,7 @@ describe('Testing off chain validation', () => {
 
     it('Should throw invalid deadline', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-        cosigner: process.env.LABS_COSIGNER,
+        cosigner: COSIGNER,
       })
       const validationResp = validationProvider.validate(order)
       expect(validationResp).toEqual({
@@ -413,7 +413,7 @@ describe('Testing off chain validation', () => {
 
     it('Should throw invalid input curve with mismatched lengths', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-        cosigner: process.env.LABS_COSIGNER,
+        cosigner: COSIGNER,
         input: {
           curve: {
             relativeBlocks: [1],
@@ -433,7 +433,7 @@ describe('Testing off chain validation', () => {
 
     it('Should throw invalid input curve with non-increasing relativeBlocks', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-        cosigner: process.env.LABS_COSIGNER,
+        cosigner: COSIGNER,
         input: {
           curve: {
             relativeBlocks: [1, 2],
@@ -453,7 +453,7 @@ describe('Testing off chain validation', () => {
 
     it('Should throw invalid input override if greater than startAmount', () => {
       const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-        cosigner: process.env.LABS_COSIGNER,
+        cosigner: COSIGNER,
         input: {
           startAmount: BigNumber.from(100),
           maxAmount: BigNumber.from(100),
@@ -472,7 +472,7 @@ describe('Testing off chain validation', () => {
 
   it('Should throw invalid output curve with mismatched lengths', () => {
     const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-      cosigner: process.env.LABS_COSIGNER,
+      cosigner: COSIGNER,
       outputs: [
         {
           curve: {
@@ -494,7 +494,7 @@ describe('Testing off chain validation', () => {
 
   it('Should throw invalid output curve with non-increasing relativeBlocks', () => {
     const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-      cosigner: process.env.LABS_COSIGNER,
+      cosigner: COSIGNER,
       outputs: [
         {
           curve: {
@@ -516,7 +516,7 @@ describe('Testing off chain validation', () => {
 
   it('Should throw invalid max input amount', () => {
     const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-      cosigner: process.env.LABS_COSIGNER,
+      cosigner: COSIGNER,
       cosignerData: {
         inputOverride: BigNumber.from(100),
       },
@@ -535,7 +535,7 @@ describe('Testing off chain validation', () => {
 
   it('Should throw invalid min output amount', () => {
     const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-      cosigner: process.env.LABS_COSIGNER,
+      cosigner: COSIGNER,
       cosignerData: {
         outputOverrides: [BigInt(100)],
       },
@@ -556,7 +556,7 @@ describe('Testing off chain validation', () => {
 
   it('Should throw invalid output override if less than startAmount', () => {
     const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-      cosigner: process.env.LABS_COSIGNER,
+      cosigner: COSIGNER,
       outputs: [
         {
           startAmount: BigNumber.from(100),
@@ -576,7 +576,7 @@ describe('Testing off chain validation', () => {
 
   it('Should throw when outputs pay different tokens', () => {
     const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-      cosigner: process.env.LABS_COSIGNER,
+      cosigner: COSIGNER,
       outputs: [{ token: Tokens.ARBITRUM_ONE.WETH }, { token: Tokens.ARBITRUM_ONE.USDC }],
       cosignerData: { outputOverrides: [BigInt(0), BigInt(0)] },
     })
@@ -590,7 +590,7 @@ describe('Testing off chain validation', () => {
 
   it('Should throw when outputOverrides length does not match outputs', () => {
     const order = SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, {
-      cosigner: process.env.LABS_COSIGNER,
+      cosigner: COSIGNER,
       outputs: [{}, {}],
       cosignerData: { outputOverrides: [BigInt(0), BigInt(0)] },
     })
@@ -609,11 +609,11 @@ const mutableOutputs = (order: CosignedV2DutchOrder) =>
   order.info.outputs as unknown as { token: string; startAmount: BigNumber; endAmount: BigNumber }[]
 
 describe('Testing v2 order validation', () => {
-  const v2ValidationProvider = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS)
+  const v2ValidationProvider = newValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS)
 
   const buildV2 = (overrides: Parameters<typeof SDKDutchOrderV2Factory.buildDutchV2Order>[1] = {}) =>
     SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
-      cosigner: process.env.LABS_COSIGNER,
+      cosigner: COSIGNER,
       ...overrides,
     })
 
@@ -690,9 +690,7 @@ describe('Testing output tokens across order types', () => {
     const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
     })
-    const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
-      order
-    )
+    const validationResp = newValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
     expect(validationResp).toEqual({
       valid: false,
       errorString: `Invalid output token ${Tokens.MAINNET.USDC}: all outputs must use ${Tokens.MAINNET.WETH}`,
@@ -701,12 +699,10 @@ describe('Testing output tokens across order types', () => {
 
   it('Should throw for a priority order whose outputs pay different tokens', () => {
     const order = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, {
-      cosigner: process.env.LABS_PRIORITY_COSIGNER,
+      cosigner: PRIORITY_COSIGNER,
       outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
     })
-    const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
-      order
-    )
+    const validationResp = newValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(order)
     expect(validationResp).toEqual({
       valid: false,
       errorString: `Invalid output token ${Tokens.MAINNET.USDC}: all outputs must use ${Tokens.MAINNET.WETH}`,
@@ -735,10 +731,8 @@ const MPS_ERROR = 'Invalid mpsPerPriorityFeeWei: ValidationError: "value" must b
 
 // Every errorString the validator returns, and which one wins when an order is invalid more than one way.
 describe('Every errorString path', () => {
-  const liveValidator = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS)
-  const limitValidator = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_YEAR_IN_SECONDS, {
-    SkipDecayStartTimeValidation: true,
-  })
+  const liveValidator = newValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS)
+  const limitValidator = newValidator(() => Date.now() / 1000, ONE_YEAR_IN_SECONDS, true)
 
   const buildV2 = () => SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, { cosigner: COSIGNER })
   const buildV3 = () => SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, { cosigner: COSIGNER })

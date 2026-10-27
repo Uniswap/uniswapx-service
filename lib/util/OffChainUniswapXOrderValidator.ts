@@ -2,608 +2,268 @@ import {
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
   CosignedV3DutchOrder,
-  DutchInput,
   DutchOrder,
   DutchOutput,
   NonlinearDutchDecay,
   OrderType,
-  PriorityInput,
   PriorityOutput,
   REACTOR_ADDRESS_MAPPING,
   V3DutchOutput,
 } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import Joi from 'joi'
-import { ONE_DAY_IN_SECONDS } from './constants'
 import FieldValidator from './field-validator'
 import { OrderValidationResponse } from './OrderValidationResponse'
 
-export type SkipValidationMap = {
-  SkipDecayStartTimeValidation: boolean
+export type OffChainOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
+
+export type OffChainOrderValidatorConfig = {
+  getCurrentTime: () => number
+  deadlineValidityPeriodSeconds: number
+  // The only cosigner a Dutch_V2 or Dutch_V3 order may carry (LABS_COSIGNER).
+  cosigner: string
+  // The only cosigner a Priority order may carry (LABS_PRIORITY_COSIGNER).
+  priorityCosigner: string
+  // The limit route: its orders' decayStartTime is not checked against the deadline.
+  skipDecayStartTimeValidation?: boolean
 }
 
+// One check on an order: the errorString it fails with, or undefined when it passes.
+type Check<O> = (order: O) => string | undefined
+
+const UINT256_LIMIT = BigNumber.from(1).shl(256)
+const MPS_PER_PRIORITY_FEE_WEI_JOI = Joi.number().min(0)
+
+/**
+ * The off-chain checks for a posted order. Each order type runs its own list of checks in
+ * order and the first failure is the response; the order of every list, and every
+ * errorString, is part of the API (see test/unit/util/order-validator.test.ts).
+ */
 export class OffChainUniswapXOrderValidator {
-  constructor(
-    private readonly getCurrentTime: () => number,
-    private readonly deadlineValidityPeriodSeconds = ONE_DAY_IN_SECONDS,
-    private readonly skipValidationMap?: SkipValidationMap
-  ) {}
+  private readonly dutchChecks: Check<DutchOrder>[]
+  private readonly dutchV2Checks: Check<CosignedV2DutchOrder>[]
+  private readonly dutchV3Checks: Check<CosignedV3DutchOrder>[]
+  private readonly priorityChecks: Check<CosignedPriorityOrder>[]
 
-  validate(
-    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder
-  ): OrderValidationResponse {
-    let orderType
-    if (order instanceof DutchOrder) {
-      orderType = OrderType.Dutch
-    } else if (order instanceof CosignedV2DutchOrder) {
-      orderType = OrderType.Dutch_V2
-    } else if (order instanceof CosignedV3DutchOrder) {
-      orderType = OrderType.Dutch_V3
-    } else if (order instanceof CosignedPriorityOrder) {
-      orderType = OrderType.Priority
-    } else {
-      return {
-        valid: false,
-        errorString: 'Invalid orderType',
+  constructor(config: OffChainOrderValidatorConfig) {
+    const { getCurrentTime, deadlineValidityPeriodSeconds } = config
+    const cosignerJoi = Joi.string().valid(config.cosigner)
+    const priorityCosignerJoi = Joi.string().valid(config.priorityCosigner)
+
+    const checkDeadline: Check<OffChainOrder> = ({ info: { deadline } }) => {
+      const now = getCurrentTime()
+      if (deadline < now) return 'Deadline must be in the future'
+      if (deadline > now + deadlineValidityPeriodSeconds) {
+        return `Deadline field invalid: Order expiry cannot be larger than ${
+          deadlineValidityPeriodSeconds / 60
+        } minutes`
       }
+      return undefined
     }
 
-    if (orderType == OrderType.Dutch_V2 || orderType == OrderType.Dutch_V3) {
-      const dutchOrder = order as CosignedV2DutchOrder | CosignedV3DutchOrder
-      const cosignerValidation = this.validateCosigner(dutchOrder.info.cosigner)
-      if (!cosignerValidation.valid) {
-        return cosignerValidation
-      }
+    // Before the per-type checks: the chain, the type's reactor on that chain, the deadline,
+    // and, where the type has one, its decayStartTime.
+    const placement = <O extends OffChainOrder>(
+      orderType: OrderType,
+      decayStartTime?: (order: O) => number
+    ): Check<O>[] => [
+      ({ chainId }) => FieldValidator.isValidChainId().validate(chainId).error?.message,
+      ({ chainId, info: { reactor } }) => {
+        const expected = REACTOR_ADDRESS_MAPPING[chainId]?.[orderType]
+        return !expected || reactor.toLowerCase() != expected.toLowerCase() ? 'Invalid reactor address' : undefined
+      },
+      checkDeadline,
+      ...(decayStartTime && !config.skipDecayStartTimeValidation
+        ? [
+            (order: O) =>
+              decayStartTime(order) > order.info.deadline
+                ? 'Invalid decayStartTime: decayStartTime > deadline'
+                : undefined,
+          ]
+        : []),
+    ]
 
-      // If input override is set, it must be less than the start amount
-      if (
-        !dutchOrder.info.cosignerData.inputOverride.isZero() &&
-        dutchOrder.info.cosignerData.inputOverride.gt(dutchOrder.info.input.startAmount)
-      ) {
-        return {
-          valid: false,
-          errorString: 'Invalid inputOverride > startAmount',
-        }
-      }
+    const fields: Check<OffChainOrder>[] = [
+      ({ info: { nonce } }) => joiCheck(FieldValidator.isValidNonce(), nonce.toString(), 'Invalid nonce: '),
+      ({ info: { swapper } }) => joiCheck(FieldValidator.isValidEthAddress(), swapper, 'Invalid swapper: '),
+      // TODO: Once deployed contracts are finalized, we can restrict this
+      // to check against a known set of addresses.
+      ({ info: { reactor } }) => joiCheck(FieldValidator.isValidEthAddress(), reactor, 'Invalid reactor: '),
+      ({ info: { input } }) => joiCheck(FieldValidator.isValidEthAddress(), input.token, 'Invalid input token: '),
+    ]
+
+    const checkHash: Check<OffChainOrder> = (order) =>
+      joiCheck(FieldValidator.isValidOrderHash(), order.hash(), 'Invalid orderHash: ')
+
+    const checkCosigner: Check<CosignedV2DutchOrder | CosignedV3DutchOrder> = ({ info: { cosigner } }) =>
+      joiCheck(cosignerJoi, cosigner, 'Invalid cosigner: ')
+
+    const checkInputOverride: Check<CosignedV2DutchOrder | CosignedV3DutchOrder> = ({ info }) => {
+      const { inputOverride } = info.cosignerData
+      return !inputOverride.isZero() && inputOverride.gt(info.input.startAmount)
+        ? 'Invalid inputOverride > startAmount'
+        : undefined
     }
 
-    const token = order.info.input.token
+    this.dutchChecks = [
+      ...placement<DutchOrder>(OrderType.Dutch, (order) => order.info.decayStartTime),
+      ...fields,
+      ({ info: { input } }) => checkInputAmount(input.startAmount),
+      ({ info: { input } }) => checkInputAmount(input.endAmount),
+      ({ info: { outputs } }) => checkOutputs(outputs, checkDutchOutputAmounts),
+      checkHash,
+    ]
 
-    if (orderType == OrderType.Priority && order instanceof CosignedPriorityOrder) {
-      const priorityCosignerValidation = this.validatePriorityCosigner((order as CosignedPriorityOrder).info.cosigner)
-      if (!priorityCosignerValidation.valid) {
-        return priorityCosignerValidation
-      }
-    }
+    this.dutchV2Checks = [
+      checkCosigner,
+      checkInputOverride,
+      ...placement<CosignedV2DutchOrder>(OrderType.Dutch_V2, (order) => order.info.cosignerData.decayStartTime),
+      ...fields,
+      ({ info: { input } }) => checkInputAmount(input.startAmount),
+      ({ info: { input } }) => checkInputAmount(input.endAmount),
+      ({ info: { outputs } }) => checkOutputs(outputs, checkDutchOutputAmounts),
+      ({ info }) => checkOutputOverrides(info.outputs, info.cosignerData.outputOverrides),
+      checkHash,
+    ]
 
-    const chainIdValidation = this.validateChainId(order.chainId)
-    if (!chainIdValidation.valid) {
-      return chainIdValidation
-    }
+    this.dutchV3Checks = [
+      checkCosigner,
+      checkInputOverride,
+      ...placement<CosignedV3DutchOrder>(OrderType.Dutch_V3),
+      ...fields,
+      ({ info: { input } }) => checkInputAmount(input.startAmount),
+      ({ info: { input } }) => checkCurve(input.curve),
+      ({ info: { input } }) => checkInputAmount(input.maxAmount),
+      ({ info: { input } }) => (input.startAmount.gt(input.maxAmount) ? 'Invalid maxAmount < startAmount' : undefined),
+      ({ info: { outputs } }) => checkOutputs(outputs, checkV3OutputAmounts),
+      ({ info }) => checkOutputOverrides(info.outputs, info.cosignerData.outputOverrides),
+      checkHash,
+    ]
 
-    const reactorAddressValidation = this.validateReactorAddress(order.info.reactor, order.chainId, orderType)
-    if (!reactorAddressValidation.valid) {
-      return reactorAddressValidation
-    }
-
-    const deadlineValidation = this.validateDeadline(order.info.deadline)
-    if (!deadlineValidation.valid) {
-      return deadlineValidation
-    }
-
-    //TODO: split validator to multiple classes
-    if (!this.skipValidationMap || !this.skipValidationMap.SkipDecayStartTimeValidation) {
-      let decayStartTime = 0
-      if ((order as DutchOrder).info.decayStartTime) {
-        decayStartTime = (order as DutchOrder).info.decayStartTime
-      } else if ((order as CosignedV2DutchOrder).info.cosignerData) {
-        decayStartTime = (order as CosignedV2DutchOrder).info.cosignerData.decayStartTime
-      }
-      const decayStartTimeValidation = this.validateDecayStartTime(decayStartTime, order.info.deadline)
-      if (!decayStartTimeValidation.valid) {
-        return decayStartTimeValidation
-      }
-    }
-
-    const nonceValidation = this.validateNonce(order.info.nonce)
-    if (!nonceValidation.valid) {
-      return nonceValidation
-    }
-
-    const swapperValidation = this.validateSwapper(order.info.swapper)
-    if (!swapperValidation.valid) {
-      return swapperValidation
-    }
-
-    const reactorValidation = this.validateReactor(order.info.reactor)
-    if (!reactorValidation.valid) {
-      return reactorValidation
-    }
-
-    const inputTokenValidation = this.validateInputToken(token)
-    if (!inputTokenValidation.valid) {
-      return inputTokenValidation
-    }
-
-    if (orderType == OrderType.Priority && order instanceof CosignedPriorityOrder) {
-      const input = order.info.input as PriorityInput
-      const inputAmountValidation = this.validateInputAmount(input.amount)
-      if (!inputAmountValidation.valid) {
-        return inputAmountValidation
-      }
-      const inputMpsValidation = this.validateMpsPerPriorityFeeWei(input.mpsPerPriorityFeeWei)
-      if (!inputMpsValidation.valid) {
-        return inputMpsValidation
-      }
-
-      const outputs = order.info.outputs as PriorityOutput[]
-      const outputsValidation = this.validatePriorityOutputs(outputs)
-      if (!outputsValidation.valid) {
-        return outputsValidation
-      }
-    } else if (orderType == OrderType.Dutch_V3 && order instanceof CosignedV3DutchOrder) {
-      const dutchV3Order = order as CosignedV3DutchOrder
-      const inputStartAmountValidation = this.validateInputAmount(dutchV3Order.info.input.startAmount)
-      if (!inputStartAmountValidation.valid) {
-        return inputStartAmountValidation
-      }
-
-      const curveValidation = this.validateV3Curve(dutchV3Order.info.input.curve)
-      if (!curveValidation.valid) {
-        return curveValidation
-      }
-
-      const inputMaxAmountValidation = this.validateInputAmount(dutchV3Order.info.input.maxAmount)
-      if (!inputMaxAmountValidation.valid) {
-        return inputMaxAmountValidation
-      }
-      if (dutchV3Order.info.input.startAmount.gt(dutchV3Order.info.input.maxAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid maxAmount < startAmount`,
-        }
-      }
-
-      const outputs = order.info.outputs as V3DutchOutput[]
-      const outputsValidation = this.validateV3DutchOutputs(outputs)
-      if (!outputsValidation.valid) {
-        return outputsValidation
-      }
-
-      const outputOverridesValidation = this.validateOutputOverrides(
-        outputs.map((output) => output.startAmount),
-        dutchV3Order.info.cosignerData.outputOverrides
-      )
-      if (!outputOverridesValidation.valid) {
-        return outputOverridesValidation
-      }
-    } else if (
-      // Dutch_V2 shares V1's DutchInput/DutchOutput shape.
-      (orderType == OrderType.Dutch || orderType == OrderType.Dutch_V2) &&
-      (order instanceof DutchOrder || order instanceof CosignedV2DutchOrder)
-    ) {
-      const input = order.info.input as DutchInput
-      const inputStartAmountValidation = this.validateInputAmount(input.startAmount)
-      if (!inputStartAmountValidation.valid) {
-        return inputStartAmountValidation
-      }
-
-      const inputEndAmountValidation = this.validateInputAmount(input.endAmount)
-      if (!inputEndAmountValidation.valid) {
-        return inputEndAmountValidation
-      }
-
-      const outputsValidation = this.validateDutchOutputs(order.info.outputs as DutchOutput[])
-      if (!outputsValidation.valid) {
-        return outputsValidation
-      }
-
-      if (order instanceof CosignedV2DutchOrder) {
-        const outputOverridesValidation = this.validateOutputOverrides(
-          order.info.outputs.map((output) => output.startAmount),
-          order.info.cosignerData.outputOverrides
-        )
-        if (!outputOverridesValidation.valid) {
-          return outputOverridesValidation
-        }
-      }
-    }
-
-    const orderHashValidation = this.validateHash(order.hash())
-    if (!orderHashValidation.valid) {
-      return orderHashValidation
-    }
-    return {
-      valid: true,
-    }
+    this.priorityChecks = [
+      ({ info: { cosigner } }) => joiCheck(priorityCosignerJoi, cosigner, 'Invalid priority order cosigner: '),
+      ...placement<CosignedPriorityOrder>(OrderType.Priority),
+      ...fields,
+      ({ info: { input } }) => checkInputAmount(input.amount),
+      ({ info: { input } }) => checkMpsPerPriorityFeeWei(input.mpsPerPriorityFeeWei),
+      ({ info: { outputs } }) => checkOutputs(outputs, checkPriorityOutputAmounts),
+      checkHash,
+    ]
   }
 
-  private validateChainId(chainId: number): OrderValidationResponse {
-    const error = FieldValidator.isValidChainId().validate(chainId).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: error.message,
-      }
-    }
-    return {
-      valid: true,
-    }
+  validate(order: OffChainOrder): OrderValidationResponse {
+    const errorString = this.firstError(order)
+    return errorString === undefined ? { valid: true } : { valid: false, errorString }
   }
 
-  private validateReactorAddress(
-    reactor: string,
-    chainId: number,
-    orderType: OrderType | undefined
-  ): OrderValidationResponse {
-    const expected = orderType ? REACTOR_ADDRESS_MAPPING[chainId]?.[orderType] : undefined
-    if (!expected || reactor.toLowerCase() != expected.toLowerCase()) {
-      return {
-        valid: false,
-        errorString: `Invalid reactor address`,
-      }
-    }
-    return {
-      valid: true,
+  private firstError(order: OffChainOrder): string | undefined {
+    if (order instanceof DutchOrder) return firstError(order, this.dutchChecks)
+    if (order instanceof CosignedV2DutchOrder) return firstError(order, this.dutchV2Checks)
+    if (order instanceof CosignedV3DutchOrder) return firstError(order, this.dutchV3Checks)
+    if (order instanceof CosignedPriorityOrder) return firstError(order, this.priorityChecks)
+    return 'Invalid orderType'
+  }
+}
+
+function firstError<T>(value: T, checks: Check<T>[]): string | undefined {
+  for (const check of checks) {
+    const error = check(value)
+    if (error !== undefined) return error
+  }
+  return undefined
+}
+
+// `${prefix}${error}` when `value` fails `schema`; a Joi error prints as "ValidationError: <message>".
+function joiCheck(schema: Joi.Schema, value: unknown, prefix: string): string | undefined {
+  const error = schema.validate(value).error
+  return error ? `${prefix}${error}` : undefined
+}
+
+function isValidUint256(value: BigNumber): boolean {
+  return value.gte(0) && value.lt(UINT256_LIMIT)
+}
+
+function isValidAddress(value: string): boolean {
+  return !FieldValidator.isValidEthAddress().validate(value).error
+}
+
+function checkInputAmount(amount: BigNumber): string | undefined {
+  return isValidUint256(amount) ? undefined : `Invalid input amount: ${amount.toString()}`
+}
+
+function checkMpsPerPriorityFeeWei(mpsPerPriorityFeeWei: BigNumber): string | undefined {
+  const error = MPS_PER_PRIORITY_FEE_WEI_JOI.validate(mpsPerPriorityFeeWei.toString()).error
+  return error ? `Invalid mpsPerPriorityFeeWei: ${error}; must >= 0` : undefined
+}
+
+/**
+ * Each output's token and recipient, then the type's amount checks, output by output; then
+ * every output must pay outputs[0].token. RFQ quotes an order as one tokenOut and a summed
+ * amount, so a mixed-token order would be priced against a total that mixes assets. Fee
+ * outputs share the swapper output's token, so multi-output orders pass.
+ */
+function checkOutputs<T extends { token: string; recipient: string }>(
+  outputs: readonly T[],
+  checkAmounts: Check<T>
+): string | undefined {
+  if (outputs.length == 0) return 'Invalid number of outputs: 0'
+  for (const output of outputs) {
+    if (!isValidAddress(output.token)) return `Invalid output token ${output.token}`
+    if (!isValidAddress(output.recipient)) return `Invalid recipient ${output.recipient}`
+    const error = checkAmounts(output)
+    if (error !== undefined) return error
+  }
+  const expectedToken = outputs[0].token
+  const mismatch = outputs.find(({ token }) => token.toLowerCase() != expectedToken.toLowerCase())
+  return mismatch ? `Invalid output token ${mismatch.token}: all outputs must use ${expectedToken}` : undefined
+}
+
+const checkDutchOutputAmounts: Check<DutchOutput> = ({ startAmount, endAmount }) => {
+  if (!isValidUint256(startAmount)) return `Invalid startAmount ${startAmount.toString()}`
+  if (!isValidUint256(endAmount)) return `Invalid endAmount ${endAmount.toString()}`
+  if (endAmount.gt(startAmount)) return 'Invalid endAmount > startAmount'
+  return undefined
+}
+
+const checkV3OutputAmounts: Check<V3DutchOutput> = ({ startAmount, minAmount, curve }) => {
+  if (!isValidUint256(startAmount)) return `Invalid startAmount ${startAmount.toString()}`
+  if (!isValidUint256(minAmount)) return `Invalid minAmount ${minAmount.toString()}`
+  if (minAmount.gt(startAmount)) return 'Invalid minAmount > startAmount'
+  return checkCurve(curve)
+}
+
+// A priority output's amount is reported as its startAmount.
+const checkPriorityOutputAmounts: Check<PriorityOutput> = ({ amount, mpsPerPriorityFeeWei }) => {
+  if (!isValidUint256(amount)) return `Invalid startAmount ${amount.toString()}`
+  return checkMpsPerPriorityFeeWei(mpsPerPriorityFeeWei)
+}
+
+/**
+ * Mirrors V2DutchOrderReactor._updateWithCosignerAmounts, which reverts with
+ * InvalidCosignerOutput on a length mismatch or a non-zero override below startAmount.
+ * V3DutchOrderReactor applies the same rule.
+ */
+function checkOutputOverrides(
+  outputs: readonly { startAmount: BigNumber }[],
+  outputOverrides: BigNumber[]
+): string | undefined {
+  if (outputOverrides.length != outputs.length) {
+    return `Invalid outputOverrides length ${outputOverrides.length}: expected ${outputs.length}`
+  }
+  const belowStart = outputs.some(
+    ({ startAmount }, i) => !outputOverrides[i].isZero() && outputOverrides[i].lt(startAmount)
+  )
+  return belowStart ? 'Invalid outputOverride < startAmount' : undefined
+}
+
+function checkCurve(curve: NonlinearDutchDecay): string | undefined {
+  if (curve.relativeAmounts.length != curve.relativeBlocks.length) {
+    return 'Invalid curve: relativeAmounts.length != relativeBlocks.length'
+  }
+  for (let i = 1; i < curve.relativeBlocks.length; i++) {
+    if (curve.relativeBlocks[i] <= curve.relativeBlocks[i - 1]) {
+      return 'Invalid curve: relativeBlocks must be strictly increasing'
     }
   }
-
-  private validateDeadline(deadline: number): OrderValidationResponse {
-    if (deadline < this.getCurrentTime()) {
-      return {
-        valid: false,
-        errorString: 'Deadline must be in the future',
-      }
-    }
-    if (deadline > this.getCurrentTime() + this.deadlineValidityPeriodSeconds) {
-      return {
-        valid: false,
-        errorString: `Deadline field invalid: Order expiry cannot be larger than ${
-          this.deadlineValidityPeriodSeconds / 60
-        } minutes`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validateDecayStartTime(decayStartTime: number, deadline: number): OrderValidationResponse {
-    if (decayStartTime > deadline) {
-      return {
-        valid: false,
-        errorString: 'Invalid decayStartTime: decayStartTime > deadline',
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validateNonce(nonce: BigNumber): OrderValidationResponse {
-    const error = FieldValidator.isValidNonce().validate(nonce.toString()).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: `Invalid nonce: ${error}`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validateSwapper(swapper: string): OrderValidationResponse {
-    const error = FieldValidator.isValidEthAddress().validate(swapper).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: `Invalid swapper: ${error}`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validateCosigner(cosigner: string): OrderValidationResponse {
-    const error = FieldValidator.isValidCosigner().validate(cosigner).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: `Invalid cosigner: ${error}`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validatePriorityCosigner(cosigner: string): OrderValidationResponse {
-    const error = FieldValidator.isValidPriorityCosigner().validate(cosigner).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: `Invalid priority order cosigner: ${error}`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  // TODO: Once deployed contracts are finalized, we can restrict this
-  // to check against a known set of addresses.
-  private validateReactor(reactor: string): OrderValidationResponse {
-    const error = FieldValidator.isValidEthAddress().validate(reactor).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: `Invalid reactor: ${error}`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validateInputToken(token: string): OrderValidationResponse {
-    const error = FieldValidator.isValidEthAddress().validate(token).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: `Invalid input token: ${error}`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validateInputAmount(amount: BigNumber): OrderValidationResponse {
-    if (!this.isValidUint256(amount)) {
-      return {
-        valid: false,
-        errorString: `Invalid input amount: ${amount.toString()}`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validateDutchOutputs(outputs: DutchOutput[]): OrderValidationResponse {
-    if (outputs.length == 0) {
-      return {
-        valid: false,
-        errorString: `Invalid number of outputs: 0`,
-      }
-    }
-    for (const output of outputs) {
-      const { token, recipient, startAmount, endAmount } = output
-      if (FieldValidator.isValidEthAddress().validate(token).error) {
-        return {
-          valid: false,
-          errorString: `Invalid output token ${token}`,
-        }
-      }
-
-      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
-        return {
-          valid: false,
-          errorString: `Invalid recipient ${recipient}`,
-        }
-      }
-
-      if (!this.isValidUint256(startAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid startAmount ${startAmount.toString()}`,
-        }
-      }
-
-      if (!this.isValidUint256(endAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid endAmount ${endAmount.toString()}`,
-        }
-      }
-
-      if (endAmount.gt(startAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid endAmount > startAmount`,
-        }
-      }
-    }
-    return this.validateOutputTokensMatch(outputs)
-  }
-
-  private validateV3DutchOutputs(outputs: V3DutchOutput[]): OrderValidationResponse {
-    if (outputs.length == 0) {
-      return {
-        valid: false,
-        errorString: `Invalid number of outputs: 0`,
-      }
-    }
-    for (const output of outputs) {
-      const { token, recipient, startAmount, curve, minAmount } = output
-      if (FieldValidator.isValidEthAddress().validate(token).error) {
-        return {
-          valid: false,
-          errorString: `Invalid output token ${token}`,
-        }
-      }
-
-      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
-        return {
-          valid: false,
-          errorString: `Invalid recipient ${recipient}`,
-        }
-      }
-
-      if (!this.isValidUint256(startAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid startAmount ${startAmount.toString()}`,
-        }
-      }
-
-      if (!this.isValidUint256(minAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid minAmount ${minAmount.toString()}`,
-        }
-      }
-
-      if (minAmount.gt(startAmount)) {
-        return {
-          valid: false,
-          errorString: `Invalid minAmount > startAmount`,
-        }
-      }
-
-      const curveValidation = this.validateV3Curve(curve)
-      if (!curveValidation.valid) {
-        return curveValidation
-      }
-    }
-    return this.validateOutputTokensMatch(outputs)
-  }
-
-  private validateMpsPerPriorityFeeWei(mpsPerPriorityFeeWei: BigNumber): OrderValidationResponse {
-    const error = Joi.number().min(0).validate(mpsPerPriorityFeeWei.toString()).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: `Invalid mpsPerPriorityFeeWei: ${error}; must >= 0`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private validatePriorityOutputs(priorityOutputs: PriorityOutput[]): OrderValidationResponse {
-    if (priorityOutputs.length == 0) {
-      return {
-        valid: false,
-        errorString: `Invalid number of outputs: 0`,
-      }
-    }
-    for (const output of priorityOutputs) {
-      const { token, recipient, amount, mpsPerPriorityFeeWei } = output
-      if (FieldValidator.isValidEthAddress().validate(token).error) {
-        return {
-          valid: false,
-          errorString: `Invalid output token ${token}`,
-        }
-      }
-
-      if (FieldValidator.isValidEthAddress().validate(recipient).error) {
-        return {
-          valid: false,
-          errorString: `Invalid recipient ${recipient}`,
-        }
-      }
-
-      if (!this.isValidUint256(amount)) {
-        return {
-          valid: false,
-          errorString: `Invalid startAmount ${amount.toString()}`,
-        }
-      }
-
-      const error = Joi.number().min(0).validate(mpsPerPriorityFeeWei.toString()).error
-      if (error) {
-        return {
-          valid: false,
-          errorString: `Invalid mpsPerPriorityFeeWei: ${error}; must >= 0`,
-        }
-      }
-    }
-    return this.validateOutputTokensMatch(priorityOutputs)
-  }
-
-  private validateHash(orderHash: string): OrderValidationResponse {
-    const error = FieldValidator.isValidOrderHash().validate(orderHash).error
-    if (error) {
-      return {
-        valid: false,
-        errorString: `Invalid orderHash: ${error}`,
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  /**
-   * Every output must pay outputs[0].token. RFQ quotes an order as one tokenOut and a
-   * summed amount, so a mixed-token order would be priced against a total that mixes
-   * assets. Fee outputs share the swapper output's token, so multi-output orders pass.
-   * Call after each output's token address has been validated.
-   */
-  private validateOutputTokensMatch(outputs: { token: string }[]): OrderValidationResponse {
-    const expectedToken = outputs[0].token
-    for (const output of outputs) {
-      if (output.token.toLowerCase() != expectedToken.toLowerCase()) {
-        return {
-          valid: false,
-          errorString: `Invalid output token ${output.token}: all outputs must use ${expectedToken}`,
-        }
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  /**
-   * Mirrors V2DutchOrderReactor._updateWithCosignerAmounts, which reverts with
-   * InvalidCosignerOutput on a length mismatch or a non-zero override below startAmount.
-   * V3DutchOrderReactor applies the same rule.
-   */
-  private validateOutputOverrides(startAmounts: BigNumber[], outputOverrides: BigNumber[]): OrderValidationResponse {
-    if (outputOverrides.length != startAmounts.length) {
-      return {
-        valid: false,
-        errorString: `Invalid outputOverrides length ${outputOverrides.length}: expected ${startAmounts.length}`,
-      }
-    }
-    for (let i = 0; i < startAmounts.length; i++) {
-      if (!outputOverrides[i].isZero() && outputOverrides[i].lt(startAmounts[i])) {
-        return {
-          valid: false,
-          errorString: `Invalid outputOverride < startAmount`,
-        }
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
-
-  private isValidUint256(value: BigNumber) {
-    return value.gte(0) && value.lt(BigNumber.from(1).shl(256))
-  }
-
-  private validateV3Curve(curve: NonlinearDutchDecay): OrderValidationResponse {
-    if (curve.relativeAmounts.length != curve.relativeBlocks.length) {
-      return {
-        valid: false,
-        errorString: 'Invalid curve: relativeAmounts.length != relativeBlocks.length',
-      }
-    }
-    for (let i = 1; i < curve.relativeBlocks.length; i++) {
-      if (curve.relativeBlocks[i] <= curve.relativeBlocks[i - 1]) {
-        return {
-          valid: false,
-          errorString: 'Invalid curve: relativeBlocks must be strictly increasing',
-        }
-      }
-    }
-    return { valid: true }
-  }
-
+  return undefined
 }

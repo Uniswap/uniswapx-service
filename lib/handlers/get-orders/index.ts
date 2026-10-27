@@ -10,6 +10,7 @@ import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
+import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { getMaxOpenOrders } from '../post-order/injector'
@@ -21,7 +22,11 @@ import { getOrdersQueryCache } from './query-cache'
 // throttles -- see shared/dynamo.ts.
 const repo = DutchOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
 const limitRepo = LimitOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
-const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
+const orderValidator = new OffChainUniswapXOrderValidator({
+  getCurrentTime: () => new Date().getTime() / 1000,
+  deadlineValidityPeriodSeconds: ONE_DAY_IN_SECONDS,
+  ...cosignersFromEnv(),
+})
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 const providerMap = new Map()
 

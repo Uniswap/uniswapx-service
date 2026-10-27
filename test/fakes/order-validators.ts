@@ -11,8 +11,9 @@ export class FakeOffChainValidator extends OffChainUniswapXOrderValidator {
   public readonly calls: OffChainValidatedOrder[] = []
   public result: OrderValidationResponse = { valid: true }
 
+  // validate() is overridden, so none of this config is ever read.
   constructor() {
-    super(() => 0)
+    super({ getCurrentTime: () => 0, deadlineValidityPeriodSeconds: 0, cosigner: '', priorityCosigner: '' })
   }
 
   override validate(order: OffChainValidatedOrder): OrderValidationResponse {

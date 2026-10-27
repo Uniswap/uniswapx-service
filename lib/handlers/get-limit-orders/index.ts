@@ -6,6 +6,7 @@ import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
+import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { GetOrdersHandler, GET_LIMIT_ORDERS_HANDLER_OPTIONS } from '../get-orders/handler'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
@@ -18,7 +19,11 @@ import { getLimitOrdersQueryCache } from './query-cache'
 // paths build them without it -- see query-cache.ts. Its DocumentClient fails fast on
 // throttles -- see shared/dynamo.ts.
 const repo = LimitOrdersRepository.create(createReadPathDocumentClient(), getLimitOrdersQueryCache)
-const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
+const orderValidator = new OffChainUniswapXOrderValidator({
+  getCurrentTime: () => new Date().getTime() / 1000,
+  deadlineValidityPeriodSeconds: ONE_DAY_IN_SECONDS,
+  ...cosignersFromEnv(),
+})
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 
 const uniswapXOrderService = new UniswapXOrderService(
