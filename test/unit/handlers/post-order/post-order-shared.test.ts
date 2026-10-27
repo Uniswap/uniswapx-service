@@ -49,10 +49,6 @@ const ROUTES: RouteCase[] = [
         SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, swapper ? { swapper } : {}),
         SIGNATURE,
         ChainId.MAINNET,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
         QUOTE_ID,
         REQUEST_ID
       )

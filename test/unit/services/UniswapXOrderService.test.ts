@@ -16,6 +16,7 @@ import { UniswapXOrderEntity } from '../../../lib/entities'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../lib/handlers/constants'
+import { toPriorityResponse, toV2Response, toV3Response } from '../../../lib/handlers/get-orders/toResponse'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { ProviderMap } from '../../../lib/handlers/shared'
 import * as sfn from '../../../lib/handlers/shared/sfn'
@@ -611,7 +612,7 @@ describe('UniswapXOrderService', () => {
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
     const response = await service.getDutchV2Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map(toV2Response),
       cursor: undefined,
     }
 
@@ -650,7 +651,7 @@ describe('UniswapXOrderService', () => {
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
     const response = await service.getDutchV2Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map(toV2Response),
       cursor: undefined,
     }
 
@@ -721,7 +722,7 @@ describe('UniswapXOrderService', () => {
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
     const response = await service.getDutchV2Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV2Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map(toV2Response),
       cursor: undefined,
     }
 
@@ -765,7 +766,7 @@ describe('UniswapXOrderService', () => {
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
     const response = await service.getPriorityOrders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map(toPriorityResponse),
       cursor: undefined,
     }
 
@@ -804,7 +805,7 @@ describe('UniswapXOrderService', () => {
     const params = new QueryParamsBuilder().withDesc().withSort().withSortKey().withChainId().build()
     const response = await service.getPriorityOrders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => PriorityOrder.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map(toPriorityResponse),
       cursor: undefined,
     }
 
@@ -915,7 +916,7 @@ describe('UniswapXOrderService', () => {
       .build()
     const response = await service.getDutchV3Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map(toV3Response),
       cursor: undefined,
     }
 
@@ -961,7 +962,7 @@ describe('UniswapXOrderService', () => {
       .build()
     const response = await service.getDutchV3Orders(limit, params, undefined)
     const expectedResponse = {
-      orders: mockOrder.map((o) => DutchV3Order.fromEntity(o).toGetResponse()),
+      orders: mockOrder.map(toV3Response),
       cursor: undefined,
     }
 

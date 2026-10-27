@@ -67,7 +67,7 @@ export class PostOrderBodyParser {
       const staleOrderMetricName = `OrderStaleness-chain-${chainId.toString()}`
       metrics.putMetric(staleOrderMetricName, timeDifference)
 
-      return new DutchV2Order(order, signature, chainId, undefined, undefined, undefined, undefined, quoteId, requestId)
+      return new DutchV2Order(order, signature, chainId, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV2 order', {
         err,
@@ -88,7 +88,7 @@ export class PostOrderBodyParser {
   ): DutchV3Order {
     try {
       const order = CosignedV3DutchOrder.parse(encodedOrder, chainId)
-      return new DutchV3Order(order, signature, chainId, undefined, undefined, undefined, undefined, quoteId, requestId)
+      return new DutchV3Order(order, signature, chainId, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse DutchV3 order', {
         err,
@@ -109,7 +109,7 @@ export class PostOrderBodyParser {
   ): PriorityOrder {
     try {
       const order = SDKPriorityOrder.parse(encodedOrder, chainId)
-      return new PriorityOrder(order, signature, chainId, undefined, undefined, undefined, undefined, quoteId, requestId)
+      return new PriorityOrder(order, signature, chainId, quoteId, requestId)
     } catch (err) {
       this.logger.error('Unable to parse Priority order', {
         err,

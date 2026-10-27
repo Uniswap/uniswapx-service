@@ -1,6 +1,6 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
-import { ORDER_STATUS } from '../../../entities'
+import { DutchV3OrderEntity, ORDER_STATUS, SettledAmount, V3OrderInput, V3OrderOutput } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 import { CommonOrderValidationFields } from './Common'
 
@@ -20,72 +20,24 @@ export type GetDutchV3OrderResponse = {
   fillTimestamp: number | undefined
   deadline: number
   /** As signed by swapper. A non-zero `cosignerData.inputOverride` replaces `startAmount` at fill. */
-  input: {
-    token: string
-    startAmount: string
-    curve: {
-      relativeBlocks: number[]
-      relativeAmounts: string[]
-    }
-    maxAmount: string
-    adjustmentPerGweiBaseFee: string
-  }
+  input: Required<V3OrderInput>
   /** As signed by swapper. A non-zero `cosignerData.outputOverrides[i]` replaces `startAmount` at fill. */
-  outputs: {
-    token: string
-    startAmount: string
-    curve: {
-      relativeBlocks: number[]
-      relativeAmounts: string[]
-    }
-    recipient: string
-    minAmount: string
-    adjustmentPerGweiBaseFee: string
-  }[]
+  outputs: V3OrderOutput[]
   /**
    * `input` with the override applied: what the filler receives. `curve` and
    * `adjustmentPerGweiBaseFee` still apply. Always set for Dutch V3; optional for the
    * legacy untyped response.
    */
-  effectiveInput?: {
-    token: string
-    startAmount: string
-    curve: {
-      relativeBlocks: number[]
-      relativeAmounts: string[]
-    }
-    maxAmount: string
-    adjustmentPerGweiBaseFee: string
-  }
+  effectiveInput?: Required<V3OrderInput>
   /**
    * `outputs` with the overrides applied: what the filler pays. `curve` and
    * `adjustmentPerGweiBaseFee` still apply, plus `cosignerData.exclusivityOverrideBps` for
    * a non-exclusive filler. Always set for Dutch V3; optional for the legacy untyped response.
    */
-  effectiveOutputs?: {
-    token: string
-    startAmount: string
-    curve: {
-      relativeBlocks: number[]
-      relativeAmounts: string[]
-    }
-    recipient: string
-    minAmount: string
-    adjustmentPerGweiBaseFee: string
-  }[]
-  settledAmounts: {
-    tokenOut: string
-    amountOut: string
-    tokenIn: string
-    amountIn: string
-  }[] | undefined
+  effectiveOutputs?: V3OrderOutput[]
+  settledAmounts: SettledAmount[] | undefined
   startingBaseFee: string
-  cosignerData: {
-    decayStartBlock: number
-    exclusiveFiller: string
-    inputOverride: string
-    outputOverrides: string[]
-  }
+  cosignerData: DutchV3OrderEntity['cosignerData']
   cosignature: string
   nonce: string
   quoteId: string | undefined

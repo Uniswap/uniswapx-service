@@ -23,6 +23,7 @@ import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV
 import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
 import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
+import { toPriorityResponse, toV2Response, toV3Response } from '../handlers/get-orders/toResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { sendImmediateExclusiveFillerNotification } from '../handlers/order-notification/handler'
 import { ExclusiveFillerWebhookOrder } from '../handlers/order-notification/types'
@@ -354,8 +355,7 @@ export class UniswapXOrderService {
     for (let i = 0; i < queryResults.orders.length; i++) {
       const order = queryResults.orders[i]
       if (order.type === OrderType.Dutch_V2) {
-        const dutchV2Order = DutchV2Order.fromEntity(order)
-        resultList.push(dutchV2Order.toGetResponse())
+        resultList.push(toV2Response(order))
       } else {
         resultList.push(order)
       }
@@ -369,15 +369,7 @@ export class UniswapXOrderService {
     cursor: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V2], cursor)
-
-    const dutchV2OrderResponses: GetDutchV2OrderResponse[] = []
-    for (let i = 0; i < queryResults.orders.length; i++) {
-      const order = queryResults.orders[i]
-      const dutchV2Order = DutchV2Order.fromEntity(order)
-      dutchV2OrderResponses.push(dutchV2Order.toGetResponse())
-    }
-
-    return { orders: dutchV2OrderResponses, cursor: queryResults.cursor }
+    return { orders: queryResults.orders.map(toV2Response), cursor: queryResults.cursor }
   }
 
   public async getDutchV3Orders(
@@ -386,15 +378,7 @@ export class UniswapXOrderService {
     cursor: string | undefined
   ): Promise<GetOrdersResponse<GetDutchV3OrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V3], cursor)
-
-    const dutchV3OrderResponses: GetDutchV3OrderResponse[] = []
-    for (let i = 0; i < queryResults.orders.length; i++) {
-      const order = queryResults.orders[i]
-      const dutchV3Order = DutchV3Order.fromEntity(order)
-      dutchV3OrderResponses.push(dutchV3Order.toGetResponse())
-    }
-
-    return { orders: dutchV3OrderResponses, cursor: queryResults.cursor }
+    return { orders: queryResults.orders.map(toV3Response), cursor: queryResults.cursor }
   }
 
   public async getDutchOrders(
@@ -411,15 +395,7 @@ export class UniswapXOrderService {
     cursor: string | undefined
   ): Promise<GetOrdersResponse<GetPriorityOrderResponse>> {
     const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Priority], cursor)
-
-    const priorityOrderResponses: GetPriorityOrderResponse[] = []
-    for (let i = 0; i < queryResults.orders.length; i++) {
-      const order = queryResults.orders[i]
-      const priorityOrder = PriorityOrder.fromEntity(order)
-      priorityOrderResponses.push(priorityOrder.toGetResponse())
-    }
-
-    return { orders: priorityOrderResponses, cursor: queryResults.cursor }
+    return { orders: queryResults.orders.map(toPriorityResponse), cursor: queryResults.cursor }
   }
 
   public async getLimitOrders(
