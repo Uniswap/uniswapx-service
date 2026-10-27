@@ -1,90 +1,26 @@
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import Logger from 'bunyan'
-import { Entity, Table } from 'dynamodb-toolbox'
 
-import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { UniswapXOrderEntity } from '../entities'
 import { BaseOrdersRepository, MODEL_NAME } from './base'
+import { createOrdersRepository, ORDER_ATTRIBUTES } from './create-orders-repository'
 import { GenericOrdersRepository } from './generic-orders-repository'
-import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
 import { OrdersQueryCache } from './QueryCache'
-import { getTableIndices, TABLE_NAMES } from './util'
+import { TABLE_NAMES } from './util'
 
-export class LimitOrdersRepository extends GenericOrdersRepository<string, string, null, UniswapXOrderEntity> {
-  static create(
-    documentClient: DocumentClient,
-    queryCache?: OrdersQueryCache
-  ): BaseOrdersRepository<UniswapXOrderEntity> {
-    const log = Logger.createLogger({
-      name: 'LimitOrdersRepository',
-      serializers: Logger.stdSerializers,
-    })
-
-    const limitOrdersTable = new Table({
-      name: TABLE_NAMES.LimitOrders,
-      partitionKey: 'orderHash',
-      DocumentClient: documentClient,
-      indexes: getTableIndices(),
-    })
-
-    const limitOrderEntity = new Entity({
-      name: MODEL_NAME.LIMIT,
-      attributes: {
-        orderHash: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
-        encodedOrder: { type: DYNAMODB_TYPES.STRING, required: true },
-        signature: { type: DYNAMODB_TYPES.STRING, required: true },
-        orderStatus: { type: DYNAMODB_TYPES.STRING, required: true },
-        nonce: { type: DYNAMODB_TYPES.STRING, required: true },
-        offerer: { type: DYNAMODB_TYPES.STRING, required: true },
-        filler: { type: DYNAMODB_TYPES.STRING },
-        decayStartTime: { type: DYNAMODB_TYPES.NUMBER },
-        decayEndTime: { type: DYNAMODB_TYPES.NUMBER },
-        deadline: { type: DYNAMODB_TYPES.NUMBER },
-        createdAt: { type: DYNAMODB_TYPES.NUMBER },
-        reactor: { type: DYNAMODB_TYPES.STRING },
-        type: { type: DYNAMODB_TYPES.STRING },
-        chainId: { type: DYNAMODB_TYPES.NUMBER },
-        input: { type: DYNAMODB_TYPES.MAP },
-        outputs: { type: DYNAMODB_TYPES.LIST },
-        offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
-        filler_orderStatus: { type: DYNAMODB_TYPES.STRING },
-        filler_offerer: { type: DYNAMODB_TYPES.STRING },
-        chainId_filler: { type: DYNAMODB_TYPES.STRING },
-        chainId_orderStatus: { type: DYNAMODB_TYPES.STRING },
-        chainId_orderStatus_filler: { type: DYNAMODB_TYPES.STRING },
-        filler_offerer_orderStatus: { type: DYNAMODB_TYPES.STRING },
-        quoteId: { type: DYNAMODB_TYPES.STRING },
-        txHash: { type: DYNAMODB_TYPES.STRING },
-        fillBlock: { type: DYNAMODB_TYPES.NUMBER },
-        fillTimestamp: { type: DYNAMODB_TYPES.NUMBER },
-        settledAmounts: { type: DYNAMODB_TYPES.LIST },
-        pair: { type: DYNAMODB_TYPES.STRING },
+// Callers still name the repository type after the table.
+export type LimitOrdersRepository = GenericOrdersRepository
+export const LimitOrdersRepository = {
+  // Only the shared attributes, not the Orders table's Dutch-only ones: toolbox drops undeclared
+  // fields on write, so this list is exactly what a LimitOrders row can hold.
+  create: (documentClient: DocumentClient, queryCache?: OrdersQueryCache): BaseOrdersRepository<UniswapXOrderEntity> =>
+    createOrdersRepository(
+      {
+        tableName: TABLE_NAMES.LimitOrders,
+        entityName: MODEL_NAME.LIMIT,
+        logName: 'LimitOrdersRepository',
+        attributes: ORDER_ATTRIBUTES,
       },
-      table: limitOrdersTable,
-    } as const)
-
-    const nonceTable = new Table({
-      name: TABLE_NAMES.Nonces,
-      partitionKey: 'offerer',
-      DocumentClient: documentClient,
-    })
-
-    const nonceEntity = new Entity({
-      name: 'Nonce',
-      attributes: {
-        offerer: { partitionKey: true, type: DYNAMODB_TYPES.STRING },
-        nonce: { type: DYNAMODB_TYPES.STRING, required: true },
-      },
-      table: nonceTable,
-    } as const)
-
-    return new LimitOrdersRepository(
-      limitOrdersTable,
-      limitOrderEntity,
-      nonceEntity,
-      log,
-      new OffchainOrderIndexMapper(),
+      documentClient,
       queryCache
-    )
-  }
+    ),
 }

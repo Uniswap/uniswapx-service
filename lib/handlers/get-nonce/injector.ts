@@ -3,9 +3,7 @@ import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
-import { UniswapXOrderEntity } from '../../entities'
-import { BaseOrdersRepository } from '../../repositories/base'
-import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
+import { NonceRepository } from '../../repositories/nonce-repository'
 import { ChainId } from '../../util/chain'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
@@ -42,14 +40,14 @@ export interface RequestInjected extends ApiRInj {
 }
 
 export interface ContainerInjected {
-  dbInterface: BaseOrdersRepository<UniswapXOrderEntity>
+  dbInterface: Pick<NonceRepository, 'getNonceByAddressAndChain'>
   providerMap: ProviderMap
 }
 
 export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInjected, void, GetNonceQueryParams> {
   public async buildContainerInjected(): Promise<ContainerInjected> {
     return {
-      dbInterface: DutchOrdersRepository.create(new DynamoDB.DocumentClient()),
+      dbInterface: NonceRepository.create(new DynamoDB.DocumentClient()),
       providerMap: new RequestTimeProviderMap(),
     }
   }

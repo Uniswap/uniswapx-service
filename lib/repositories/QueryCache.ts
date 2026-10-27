@@ -1,4 +1,4 @@
-import { OrderEntityType } from './base'
+import { UniswapXOrderEntity } from '../entities'
 
 type CacheEntry<T> = {
   expiresAt: number
@@ -119,7 +119,7 @@ export class QueryCache<T> {
 // request. lastEvaluatedKey is DynamoDB's continuation key when the partition held more rows
 // than the page, so a paginated caller can still be handed a cursor.
 export type CachedQueryPage = {
-  orders: OrderEntityType[]
+  orders: UniswapXOrderEntity[]
   lastEvaluatedKey?: Record<string, unknown>
 }
 export type OrdersQueryCache = QueryCache<CachedQueryPage>

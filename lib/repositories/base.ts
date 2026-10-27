@@ -6,14 +6,12 @@ export const MODEL_NAME = {
   LIMIT: 'LimitOrder',
 }
 
-export type QueryResult<T extends OrderEntityType> = {
+export type QueryResult<T extends UniswapXOrderEntity> = {
   orders: T[]
   cursor?: string
 }
 
-export type OrderEntityType = UniswapXOrderEntity
-
-export interface BaseOrdersRepository<T extends OrderEntityType> {
+export interface BaseOrdersRepository<T extends UniswapXOrderEntity> {
   getByHash: (hash: string) => Promise<T | undefined>
   putOrderAndUpdateNonceTransaction: (order: T) => Promise<void>
   countOrdersByOffererAndStatus: (offerer: string, orderStatus: ORDER_STATUS) => Promise<number>

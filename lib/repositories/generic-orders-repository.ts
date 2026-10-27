@@ -3,16 +3,17 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { TABLE_KEY } from '../config/dynamodb'
-import { ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../entities'
-import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../handlers/get-orders/schema'
+import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
+import { GET_QUERY_PARAMS, GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { log } from '../Logging'
 import { checkDefined } from '../preconditions/preconditions'
 import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { metrics } from '../util/metrics'
 import { currentTimestampInSeconds } from '../util/time'
-import { BaseOrdersRepository, OrderEntityType, QueryResult } from './base'
-import { IndexMapper } from './IndexMappers/IndexMapper'
+import { BaseOrdersRepository, QueryResult } from './base'
+import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
+import { NonceRepository } from './nonce-repository'
 import { CachedQueryPage, OrdersQueryCache } from './QueryCache'
 
 export const MAX_ORDERS = 50
@@ -81,42 +82,24 @@ function isConditionalCheckFailed(e: unknown): boolean {
 
 // Shared implementation for Dutch and Limit orders
 // will work for orders with the same GSIs
-export abstract class GenericOrdersRepository<
-  TableName extends string,
-  PartitionKey extends string,
-  SortKey extends string | null,
-  T extends OrderEntityType
-> implements BaseOrdersRepository<T>
-{
+export class GenericOrdersRepository implements BaseOrdersRepository<UniswapXOrderEntity> {
+  private readonly indexMapper = new OffchainOrderIndexMapper()
+
   public constructor(
-    private readonly table: Table<TableName, PartitionKey, SortKey>,
+    private readonly table: Table<string, string, null>,
     private readonly entity: Entity,
-    private readonly nonceEntity: Entity,
+    private readonly nonces: NonceRepository,
     private readonly log: Logger,
-    private readonly indexMapper: IndexMapper<T>,
     private readonly queryCache?: OrdersQueryCache
   ) {}
 
-  public async getByHash(hash: string): Promise<T | undefined> {
+  public async getByHash(hash: string): Promise<UniswapXOrderEntity | undefined> {
     const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
-    return res.Item as T
+    return res.Item as UniswapXOrderEntity
   }
 
-  /**
-   * Returns the last used nonce for the address on the given chain, or undefined
-   * if the address has never posted an order through this service.
-   */
   public async getNonceByAddressAndChain(address: string, chainId: number): Promise<string | undefined> {
-    const res = await this.nonceEntity.query(`${address}-${chainId}`, {
-      limit: 1,
-      reverse: true,
-      consistent: true,
-      execute: true,
-    })
-    if (res.Items && res.Items.length > 0) {
-      return res.Items[0].nonce
-    }
-    return undefined
+    return this.nonces.getNonceByAddressAndChain(address, chainId)
   }
 
   public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
@@ -129,7 +112,7 @@ export abstract class GenericOrdersRepository<
     return res.Count || 0
   }
 
-  public async putOrderAndUpdateNonceTransaction(order: T): Promise<void> {
+  public async putOrderAndUpdateNonceTransaction(order: UniswapXOrderEntity): Promise<void> {
     await this.table.transactWrite(
       [
         this.entity.putTransaction({
@@ -137,10 +120,7 @@ export abstract class GenericOrdersRepository<
           ...this.indexMapper.getIndexFieldsForUpdate(order),
           createdAt: currentTimestampInSeconds(),
         }),
-        this.nonceEntity.updateTransaction({
-          offerer: `${order.offerer}-${order.chainId}`,
-          nonce: order.nonce,
-        }),
+        this.nonces.updateTransaction(order.offerer, order.chainId, order.nonce),
       ],
       {
         capacity: 'total',
@@ -190,7 +170,11 @@ export abstract class GenericOrdersRepository<
     }
   }
 
-  public async getOrders(limit: number, queryFilters: GetOrdersQueryParams, cursor?: string): Promise<QueryResult<T>> {
+  public async getOrders(
+    limit: number,
+    queryFilters: GetOrdersQueryParams,
+    cursor?: string
+  ): Promise<QueryResult<UniswapXOrderEntity>> {
     return this.getOrdersWithFilters(limit, queryFilters, cursor)
   }
 
@@ -199,7 +183,7 @@ export abstract class GenericOrdersRepository<
     queryFilters: GetOrdersQueryParams,
     types: string[],
     cursor?: string
-  ): Promise<QueryResult<T>> {
+  ): Promise<QueryResult<UniswapXOrderEntity>> {
     // https://www.dynamodbtoolbox.com/docs/filters-and-conditions
     // match any type passed in types (e.g. Dutch OR Dutch_V2)
     const filters = types.map((t) => {
@@ -213,7 +197,7 @@ export abstract class GenericOrdersRepository<
     queryFilters: GetOrdersQueryParams,
     cursor?: string,
     filters: { or: boolean; attr: string; eq: string }[] = []
-  ): Promise<QueryResult<T>> {
+  ): Promise<QueryResult<UniswapXOrderEntity>> {
     // If orderStatus is an array, fan out parallel queries (one per status) and merge
     if (Array.isArray(queryFilters.orderStatus)) {
       return this.getOrdersForMultipleStatuses(limit, queryFilters, filters)
@@ -268,7 +252,7 @@ export abstract class GenericOrdersRepository<
     limit: number,
     queryFilters: GetOrdersQueryParams,
     filters: { or: boolean; attr: string; eq: string }[] = []
-  ): Promise<QueryResult<T>> {
+  ): Promise<QueryResult<UniswapXOrderEntity>> {
     const statuses = queryFilters.orderStatus as string[]
     const effectiveLimit = clampLimit(limit)
 
@@ -283,7 +267,7 @@ export abstract class GenericOrdersRepository<
     // statuses. Transitions usually flow away from OPEN (grace polls and insufficient-funds
     // recovery can flip an order back), so keep the non-OPEN copy -- worst case it is one
     // TTL stale for an order that just re-opened.
-    const byHash = new Map<string, T>()
+    const byHash = new Map<string, UniswapXOrderEntity>()
     for (const order of results.flatMap((r) => r.orders)) {
       const existing = byHash.get(order.orderHash)
       if (!existing || existing.orderStatus === ORDER_STATUS.OPEN) {
@@ -309,7 +293,7 @@ export abstract class GenericOrdersRepository<
     sort?: string | undefined, // ex gt(123)
     desc = true,
     filters: QueryFilter[] = []
-  ): Promise<QueryResult<T>> {
+  ): Promise<QueryResult<UniswapXOrderEntity>> {
     const formattedIndex = `${index}-${sortKey ?? TABLE_KEY.CREATED_AT}-all`
     const effectiveLimit = clampLimit(limit)
 
@@ -332,7 +316,7 @@ export abstract class GenericOrdersRepository<
     })
 
     return {
-      orders: queryResult.Items as T[],
+      orders: queryResult.Items as UniswapXOrderEntity[],
       ...(queryResult.LastEvaluatedKey && { cursor: encode(JSON.stringify(queryResult.LastEvaluatedKey)) }),
     }
   }
@@ -358,7 +342,7 @@ export abstract class GenericOrdersRepository<
     limit: number,
     cursor: string | undefined,
     filters: QueryFilter[]
-  ): Promise<QueryResult<T> | undefined> {
+  ): Promise<QueryResult<UniswapXOrderEntity> | undefined> {
     // Gated on `enabled` so the GET_ORDERS_CACHE_TTL_MS=0 kill switch also silences the
     // cache metrics -- a disabled cache reporting a 100% miss rate is indistinguishable
     // from a broken one on a dashboard.
@@ -400,7 +384,7 @@ export abstract class GenericOrdersRepository<
     }
 
     const effectiveLimit = clampLimit(limit)
-    let matching = page.orders as T[]
+    let matching = page.orders
     if (narrowed) {
       // Exactly the rows the target GSI holds under this partition key: every item carries
       // the compound attribute that GSI is keyed on, so compare it the way DynamoDB would.
@@ -457,7 +441,7 @@ export abstract class GenericOrdersRepository<
         reverse: true,
         lt: MAX_CREATED_AT_SECONDS,
       })
-      page = { orders: queryResult.Items as T[], lastEvaluatedKey: queryResult.LastEvaluatedKey }
+      page = { orders: queryResult.Items as UniswapXOrderEntity[], lastEvaluatedKey: queryResult.LastEvaluatedKey }
 
       // Stamped after the round trip, not before it. A throttled partition retries with
       // backoff, so a query can outlast the TTL -- dating the entry from the query start
