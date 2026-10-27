@@ -74,7 +74,7 @@ changing the other and `yarn test` names the exact divergence. See
 There is no local server; the dev cycle runs against a real AWS account: build, deploy,
 exercise, read CloudWatch.
 
-Prerequisites: Node ≥ 20, yarn, Java (DynamoDB Local for tests), AWS credentials.
+Prerequisites: Node ≥ 20, yarn, Java (DynamoDB Local for integration tests), AWS credentials.
 
 ```bash
 yarn && yarn build
@@ -87,14 +87,13 @@ Environment (`.env`):
 | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
 | `RPC_PREFIX_URL`               | Base RPC URL. `getRpcUrl(chainId)` appends `/<chainId>`, so the endpoint must route per-chain on that suffix |
 | `RPC_HEADER_SECRET`            | Sent as `x-internal-service-secret` on every RPC request; omitted when unset                               |
-| `LABS_COSIGNER`                | Any valid EVM address — certain unit tests only                                                            |
 
 ## Tests
 
 | Tier        | Command          | Needs                              |
 | ----------- | ---------------- | ---------------------------------- |
-| Unit        | `yarn test`      | Java (DynamoDB Local)              |
-| Integration | `yarn test:integ`| Java                               |
+| Unit        | `yarn test`      | Nothing (no Java, no `.env`)       |
+| Integration | `yarn test:integ`| Java (starts DynamoDB Local)       |
 | End-to-end  | `yarn test:e2e`  | A deployed stack, `RPC_PREFIX_URL`/`RPC_HEADER_SECRET`, and the e2e variables in `.env.example` |
 
 The e2e lifecycle tests post real dust limit orders on mainnet and track them to expiry; they run

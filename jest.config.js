@@ -1,12 +1,39 @@
-const ts_preset = require('ts-jest/jest-preset')
-const dynamo_preset = require('@shelf/jest-dynamodb/jest-preset')
-
-/** @type {import('ts-jest').JestConfigWithTsJest} */
-module.exports = {
-  ...ts_preset,
-  ...dynamo_preset,
+const project = {
   testEnvironment: 'node',
-  testPathIgnorePatterns: ['bin/', 'dist/', 'cdk.out/'],
+  // Compiled copies (yarn build runs before the tests in CI) would otherwise shadow __mocks__/.
+  modulePathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/cdk.out/'],
+  transform: {
+    // swc rather than ts-jest: the initial compile takes ~1 second instead of 6-12.
+    // https://swc.rs/docs/usage/jest#usage
+    '^.+\\.(t|j)s?$': '@swc/jest',
+  },
+}
+
+/** @type {import('jest').Config} */
+module.exports = {
+  projects: [
+    {
+      ...project,
+      displayName: 'unit',
+      setupFiles: ['<rootDir>/test/setup-env.ts'],
+      testMatch: ['<rootDir>/test/unit/**/*.test.ts', '<rootDir>/test/factories/**/*.test.ts'],
+    },
+    {
+      ...project,
+      displayName: 'integ',
+      setupFiles: ['<rootDir>/test/setup-env.ts'],
+      // Only integ starts DynamoDB Local (and so needs Java); the preset's own test environment is not used.
+      preset: '@shelf/jest-dynamodb',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/test/integ/**/*.test.ts'],
+    },
+    {
+      ...project,
+      displayName: 'e2e',
+      testMatch: ['<rootDir>/test/e2e/**/*.test.ts'],
+    },
+  ],
+  // Global, so CI gates on unit + integ coverage merged.
   coverageThreshold: {
     global: {
       statements: 80,
@@ -15,16 +42,4 @@ module.exports = {
       lines: 80,
     },
   },
-  transform: {
-    // Use swc to speed up ts-jest's sluggish compilation times.
-    // Using this cuts the initial time to compile from 6-12 seconds to
-    // ~1 second consistently.
-    // Inspiration from: https://github.com/kulshekhar/ts-jest/issues/259#issuecomment-1332269911
-    //
-    // https://swc.rs/docs/usage/jest#usage
-    '^.+\\.(t|j)s?$': '@swc/jest',
-  },
-  moduleNameMapper: {
-    '^@uniswap/uniswapx-sdk/dist/cjs/(.*)$': '<rootDir>/node_modules/@uniswap/uniswapx-sdk/dist/cjs/$1'
-  }
 }

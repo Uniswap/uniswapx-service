@@ -8,7 +8,7 @@ TypeScript API service for propagating signed UniswapX orders. Swappers post sig
 
 ```bash
 yarn && yarn build      # Install dependencies and compile
-yarn test               # Run unit tests
+yarn test               # Run unit tests (no Java or .env needed)
 yarn test:integ --runInBand  # Integration tests (requires Java); suites share one DynamoDB Local and race in parallel, so serialize as CI's yarn coverage does
 yarn test:e2e           # Run end-to-end tests (requires deployed API)
 yarn lint               # ESLint check
@@ -50,7 +50,6 @@ Optional:
 
 For tests:
 - e2e (`yarn test:e2e`) - the variables listed under `# e2e suite` in `.env.example`; `RUN_LIFECYCLE_TESTS=true` also posts dust mainnet limit orders and tracks them to expiry (only the beta pipeline gate sets it)
-- `LABS_COSIGNER` - Valid EVM address (unit tests)
 
 ## Analytics Feed (Data Eng)
 

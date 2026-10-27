@@ -15,24 +15,10 @@ import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
 jest.mock('../../../../lib/handlers/shared/sfn', () => ({ kickoffOrderTrackingSfn: jest.fn() }))
 
-// The handler rebuilds ARNs from STATE_MACHINE_NAMES + REGION + ACCOUNT_ID;
-// see lib/util/stateMachineArn.ts.
-const MOCK_ACCOUNT_ID = '123456789012'
-const MOCK_SM_REGION = 'region'
-
 // Cases both post routes share live in post-order-shared.test.ts.
 describe('Testing post limit order handler.', () => {
   let harness: PostOrderHandlerHarness
   const handle = (event: APIGatewayProxyEvent) => harness.handler.handler(event, EVENT_CONTEXT)
-
-  beforeAll(() => {
-    process.env['STATE_MACHINE_NAMES'] = JSON.stringify({
-      1: 'MOCK_SM_1',
-      11155111: 'MOCK_SM_11155111',
-    })
-    process.env['ACCOUNT_ID'] = MOCK_ACCOUNT_ID
-    process.env['REGION'] = MOCK_SM_REGION
-  })
 
   beforeEach(() => {
     freezeClock(100)
