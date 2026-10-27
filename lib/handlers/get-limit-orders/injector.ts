@@ -1,4 +1,3 @@
-import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { default as Logger } from 'bunyan'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
@@ -32,9 +31,8 @@ export class GetLimitOrdersInjector extends ApiInjector<
     requestQueryParams: RawGetOrdersQueryParams,
     _event: APIGatewayProxyEvent,
     context: Context,
-    log: Logger,
-    metrics: MetricsLogger
+    log: Logger
   ): Promise<RequestInjected> {
-    return getSharedRequestInjected({ requestQueryParams, log, metrics, context })
+    return getSharedRequestInjected({ requestQueryParams, log, context })
   }
 }

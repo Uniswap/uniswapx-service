@@ -889,16 +889,16 @@ export const GetOrdersReads = {
       },
     },
   },
-  // no query string at all: the handler reaches the repository with no filter; pinned as is
+  // no query string at all: validated as an empty one, so the schema's filter requirement rejects it.
+  // Changed on purpose: it used to reach the repository with no filter and fail there as a 500.
   noQueryString: {
     query: null,
     expected: {
-      statusCode: 500,
+      statusCode: 400,
       body: {
         detail:
-          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]',
-        errorCode: 'INTERNAL_ERROR',
-        id: 'testRequest',
+          '"value" must contain at least one of [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]',
+        errorCode: 'VALIDATION_ERROR',
       },
     },
   },
@@ -926,16 +926,16 @@ export const GetLimitOrdersReads = {
     query: { orderHash: Orders.readLimit.orderHash },
     expected: { statusCode: 200, body: { orders: [LimitLegacy] } },
   },
-  // no query string at all: the handler reaches the repository with no filter; pinned as is
+  // no query string at all: validated as an empty one, so the schema's filter requirement rejects it.
+  // Changed on purpose: it used to reach the repository with no filter and fail there as a 500.
   noQueryString: {
     query: null,
     expected: {
-      statusCode: 500,
+      statusCode: 400,
       body: {
         detail:
-          'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]',
-        errorCode: 'INTERNAL_ERROR',
-        id: 'testRequest',
+          '"value" must contain at least one of [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]',
+        errorCode: 'VALIDATION_ERROR',
       },
     },
   },
@@ -1000,12 +1000,13 @@ export const GetNonceReads = {
       onchainNonceChecks: [],
     },
   },
-  // no query string at all: the handler reaches the repository with no filter; pinned as is
+  // no query string at all: validated as an empty one, so the schema rejects the missing address.
+  // Changed on purpose: it used to throw a TypeError building the request, a generic 500.
   noQueryString: {
     query: null,
     expected: {
-      statusCode: 500,
-      body: { errorCode: 'INTERNAL_ERROR', detail: 'Unexpected error' },
+      statusCode: 400,
+      body: { detail: '"address" is required', errorCode: 'VALIDATION_ERROR' },
       onchainNonceChecks: [],
     },
   },

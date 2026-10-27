@@ -563,17 +563,17 @@ export const AcceptedWithCaveats = {
   },
 }
 
-// A request rejected before the handler runs (invalid JSON, a Joi 400) records nothing on its own
-// metrics logger: its counters go to the logger the previous request on the instance installed,
-// which has already flushed (none on a cold start). Deliberate, for parity.
+// A request rejected before the handler runs (invalid JSON, a Joi 400) records its counters on its
+// own metrics logger. Changed on purpose: they used to go to the logger the previous request on the
+// instance installed, which had already flushed (none on a cold start), so the alarms undercounted.
 export const PostRejections = {
   invalidJson: {
     route: DUTCH_ROUTE,
     request: '{"encodedOrder":',
     expected: {
       response: { statusCode: 422, body: { detail: 'Invalid JSON body', errorCode: 'VALIDATION_ERROR' } },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(0, '4XX')],
+      metrics: [...requestCounters(0, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   missingEncodedOrder: {
@@ -581,8 +581,8 @@ export const PostRejections = {
     request: { ...body(Orders.dutchV2, 'Dutch_V2'), encodedOrder: undefined },
     expected: {
       response: { statusCode: 400, body: { detail: '"encodedOrder" is required', errorCode: 'VALIDATION_ERROR' } },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(1, '4XX')],
+      metrics: [...requestCounters(1, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   malformedEncodedOrder: {
@@ -597,8 +597,8 @@ export const PostRejections = {
           errorCode: 'VALIDATION_ERROR',
         },
       },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(1, '4XX')],
+      metrics: [...requestCounters(1, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   malformedSignature: {
@@ -613,8 +613,8 @@ export const PostRejections = {
           errorCode: 'VALIDATION_ERROR',
         },
       },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(1, '4XX')],
+      metrics: [...requestCounters(1, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   unsupportedChainIdDutchRoute: {
@@ -629,8 +629,8 @@ export const PostRejections = {
           errorCode: 'VALIDATION_ERROR',
         },
       },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(0, '4XX')],
+      metrics: [...requestCounters(0, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   unsupportedChainIdLimitRoute: {
@@ -645,8 +645,8 @@ export const PostRejections = {
           errorCode: 'VALIDATION_ERROR',
         },
       },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(0, '4XX')],
+      metrics: [...requestCounters(0, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   malformedQuoteId: {
@@ -654,8 +654,8 @@ export const PostRejections = {
     request: { ...body(Orders.dutchV2, 'Dutch_V2'), quoteId: 'not_UUIDV4' },
     expected: {
       response: { statusCode: 400, body: { detail: '"quoteId" must be a valid GUID', errorCode: 'VALIDATION_ERROR' } },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(1, '4XX')],
+      metrics: [...requestCounters(1, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   malformedRequestId: {
@@ -666,8 +666,8 @@ export const PostRejections = {
         statusCode: 400,
         body: { detail: '"requestId" must be a valid GUID', errorCode: 'VALIDATION_ERROR' },
       },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(1, '4XX')],
+      metrics: [...requestCounters(1, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   unknownOrderType: {
@@ -681,8 +681,8 @@ export const PostRejections = {
           errorCode: 'VALIDATION_ERROR',
         },
       },
-      metrics: [],
-      metricsOnPreviousRequestLogger: [...requestCounters(1, '4XX')],
+      metrics: [...requestCounters(1, '4XX')],
+      metricsOnPreviousRequestLogger: [],
     },
   },
   unparseableOrder: {

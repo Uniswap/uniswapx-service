@@ -1,7 +1,5 @@
-import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayEvent, Context } from 'aws-lambda'
 import { default as Logger } from 'bunyan'
-import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base'
 import { DEFAULT_MAX_OPEN_ORDERS, HIGH_MAX_OPEN_ORDERS, HIGH_MAX_OPEN_ORDERS_SWAPPERS } from '../constants'
 import { ContainerInjected as PostContainerInjected } from '../shared/post'
@@ -18,13 +16,8 @@ export class PostOrderInjector extends ApiInjector<PostContainerInjected, ApiRIn
     _requestQueryParams: void,
     _event: APIGatewayEvent,
     context: Context,
-    log: Logger,
-    metrics: MetricsLogger
+    log: Logger
   ): Promise<ApiRInj> {
-    metrics.setNamespace('Uniswap')
-    metrics.setDimensions({ Service: 'UniswapXService' })
-    setGlobalMetrics(metrics)
-
     return {
       requestId: context.awsRequestId,
       log,

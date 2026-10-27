@@ -57,8 +57,8 @@ export type PostOrderHandlerHarness<R extends OrdersRepository = FakeOrdersRepos
 
 export type PostOrderHandlerOverrides<R extends OrdersRepository = FakeOrdersRepository> =
   PostOrderServiceOverrides<R> & {
-    // 'lambda' wires the route's own injector, which installs the request's metrics logger as the
-    // global one and takes the requestId from the Lambda context; 'fixed' (the default) does neither.
+    // 'lambda' wires the route's own injector, which installs the request's logger as the global
+    // one and takes the requestId from the Lambda context; 'fixed' (the default) does neither.
     injector?: 'fixed' | 'lambda'
   }
 

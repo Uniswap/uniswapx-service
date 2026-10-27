@@ -9,7 +9,9 @@ import {
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
+import { setGlobalMetrics } from '../../util/metrics'
 import { ErrorCode } from './ErrorCode'
+import { buildRequestContext, emitRequestMetrics, RequestContext, RequestMetricsConfig } from './request-context'
 export const INTERNAL_ERROR = (id?: string) => {
   return {
     statusCode: 500,
@@ -61,6 +63,7 @@ export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
   requestQueryParams: ReqQueryParams
   containerInjected: CInj
   requestInjected: RInj
+  ctx: RequestContext
 }
 
 export type Response<Res> = {
@@ -100,8 +103,7 @@ export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryP
     requestQueryParams: ReqQueryParams,
     event: APIGatewayProxyEvent,
     context: Context,
-    log: Logger,
-    metrics: MetricsLogger
+    log: Logger
   ): Promise<RInj>
 }
 
@@ -132,7 +134,11 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
 
   protected buildHandler(): APIGatewayProxyHandler {
     return metricScope((metrics: MetricsLogger) => {
-      const handle = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
+      const handle = async (
+        event: APIGatewayProxyEvent,
+        context: Context,
+        ctx: RequestContext
+      ): Promise<APIGatewayProxyResult> => {
         let log: Logger = bunyan.createLogger({
           name: this.handlerName,
           serializers: bunyan.stdSerializers,
@@ -171,8 +177,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
             requestQueryParams,
             event,
             context,
-            log,
-            metrics
+            log
           )
         } catch (err) {
           log.error({ err, event: redactEvent(event) }, 'Unexpected error building request injected.')
@@ -194,6 +199,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
             requestQueryParams,
             containerInjected,
             requestInjected,
+            ctx,
           })
 
           if (this.isError(handleRequestResult)) {
@@ -242,8 +248,18 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
       }
 
       return async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
-        const response = await handle(event, context)
-        this.afterResponseHook(event, context, response)
+        // Built before validation so that a request rejected there still records on its own metrics
+        // logger, under the namespace and dimensions the alarms read.
+        const ctx = buildRequestContext(context.awsRequestId, metrics)
+        // For the readers not yet handed ctx (query cache, order service, nonce handler).
+        setGlobalMetrics(metrics)
+
+        const response = await handle(event, context, ctx)
+
+        const requestMetrics = this.requestMetricsConfig()
+        if (requestMetrics) {
+          emitRequestMetrics(ctx.metrics, requestMetrics, event, response.statusCode)
+        }
 
         return response
       }
@@ -259,17 +275,12 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
   protected abstract responseBodySchema(): Joi.Schema | null
 
   /*
-   * Used for emitting metrics *after* a response has been fully generated.
-   * Note we only have access to the raw input 'event' and 'context', and not any of the injected
-   * or parsed inputs, as it in possible for us to error out during request validation or creation of injected.
+   * The request counters recorded once a response has been generated, whatever produced it
+   * (including validation, which runs before the injector). None by default.
    */
-  /* eslint-disable @typescript-eslint/no-empty-function */
-  protected afterResponseHook(
-    _event: APIGatewayProxyEvent,
-    _context: Context,
-    _response: APIGatewayProxyResult
-  ): void {}
-  /* eslint-enable @typescript-eslint/no-empty-function */
+  protected requestMetricsConfig(): RequestMetricsConfig | null {
+    return null
+  }
 
   private isError(result: Response<Res> | ErrorResponse): result is ErrorResponse {
     return result.statusCode < 200 || result.statusCode > 202
@@ -306,11 +317,12 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
       }
     }
 
-    const queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
+    // No query string at all is validated as an empty one, so the schema rejects what it requires.
+    const queryParamsRaw: APIGatewayProxyEventQueryStringParameters = event.queryStringParameters ?? {}
     const queryParamsSchema = this.requestQueryParamsSchema()
 
     let queryParams: ReqQueryParams | undefined
-    if (queryParamsRaw && queryParamsSchema) {
+    if (queryParamsSchema) {
       const queryParamsValidation = queryParamsSchema.validate(queryParamsRaw, {
         allowUnknown: true, // Makes API schema changes and rollbacks easier.
         stripUnknown: true,
