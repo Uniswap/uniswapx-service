@@ -175,7 +175,7 @@ describe('Testing get orders handler.', () => {
       orders: [MOCK_PRIORITY_ORDER],
     })
 
-    // a request with no query string at all is a 400
+    // pass a query string: an absent one is now rejected with a 400
     const event = { queryStringParameters: queryFiltersMock, body: null }
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
 
@@ -198,7 +198,7 @@ describe('Testing get orders handler.', () => {
       orders: [MOCK_V3_ORDER],
     })
 
-    // a request with no query string at all is a 400
+    // pass a query string: an absent one is now rejected with a 400
     const event = { queryStringParameters: queryFiltersMock, body: null }
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
 
