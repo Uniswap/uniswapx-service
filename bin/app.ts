@@ -14,7 +14,7 @@ import { STAGE } from '../lib/util/stage'
 import { PROD_TABLE_CAPACITY } from './config'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
-import { IndexCapacityConfig, TableCapacityConfig } from './stacks/dynamo-stack'
+import { TableCapacityConfig } from './stacks/dynamo-stack'
 
 dotenv.config()
 
@@ -39,7 +39,6 @@ export class APIStage extends Stage {
       stage: string
       envVars: { [key: string]: string }
       tableCapacityConfig: TableCapacityConfig
-      indexCapacityConfig?: IndexCapacityConfig
     }
   ) {
     super(scope, id, props)
@@ -54,7 +53,6 @@ export class APIStage extends Stage {
       env,
       envVars,
       tableCapacityConfig,
-      indexCapacityConfig,
     } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
@@ -69,7 +67,6 @@ export class APIStage extends Stage {
       stage,
       envVars,
       tableCapacityConfig,
-      indexCapacityConfig,
     })
     this.url = url
   }

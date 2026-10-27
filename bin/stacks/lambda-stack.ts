@@ -16,7 +16,7 @@ import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { AlarmNotifier } from './alerting'
-import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
+import { DynamoStack, TableCapacityConfig } from './dynamo-stack'
 import { logRetentionDays } from './log-retention'
 import { ReaperStack } from './reaper-stack'
 import { StepFunctionStack } from './step-function-stack'
@@ -35,7 +35,6 @@ export interface LambdaStackProps extends cdk.NestedStackProps {
   envVars: { [key: string]: string }
   kmsKey: aws_kms.Key
   tableCapacityConfig: TableCapacityConfig
-  indexCapacityConfig?: IndexCapacityConfig
   chatbotSNSArn?: string
   incidentIoSNSArn?: string
 }
@@ -69,7 +68,6 @@ export class LambdaStack extends cdk.NestedStack {
       getOrdersReservedConcurrency,
       kmsKey,
       tableCapacityConfig,
-      indexCapacityConfig,
       chatbotSNSArn,
       incidentIoSNSArn,
     } = props
@@ -124,7 +122,6 @@ export class LambdaStack extends cdk.NestedStack {
 
     const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {
       tableCapacityConfig,
-      indexCapacityConfig,
       chatbotSNSArn,
       incidentIoSNSArn,
     })

@@ -5,7 +5,7 @@ import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 
 import { Operation } from 'aws-cdk-lib/aws-dynamodb'
 import { Construct } from 'constructs'
-import { TABLE_KEY } from '../../lib/config/dynamodb'
+import { GLOBAL_SECONDARY_INDEXES, gsiName, TABLE_KEY } from '../../lib/config/dynamodb'
 import { SERVICE_NAME } from '../constants'
 import { AlarmNotifier } from './alerting'
 
@@ -18,21 +18,6 @@ type TableCapacityOptions = {
   billingMode: aws_dynamo.BillingMode
 } & CapacityOptions
 
-export type IndexCapacityConfig = {
-  orderStatus?: CapacityOptions
-  offerer?: CapacityOptions
-  filler?: CapacityOptions
-  fillerOrderStatus?: CapacityOptions
-  fillerOfferer?: CapacityOptions
-  fillerOrderStatusOfferer?: CapacityOptions
-  offererOrderStatus?: CapacityOptions
-  chainId?: CapacityOptions
-  chainIdFiller?: CapacityOptions
-  chaindIdOrderStatus?: CapacityOptions
-  chainIdFillerOrderStatus?: CapacityOptions
-  pair?: CapacityOptions
-}
-
 export type TableCapacityConfig = {
   order: TableCapacityOptions
   limitOrder: TableCapacityOptions
@@ -43,7 +28,6 @@ export type DynamoStackProps = {
   chatbotSNSArn?: string
   incidentIoSNSArn?: string
   tableCapacityConfig: TableCapacityConfig
-  indexCapacityConfig?: IndexCapacityConfig
 } & cdk.NestedStackProps
 
 export class DynamoStack extends cdk.NestedStack {
@@ -54,7 +38,7 @@ export class DynamoStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
 
-    const { chatbotSNSArn, incidentIoSNSArn, tableCapacityConfig, indexCapacityConfig } = props
+    const { chatbotSNSArn, incidentIoSNSArn, tableCapacityConfig } = props
     const notifier = new AlarmNotifier(this, { chatbotSNSArn, incidentIoSNSArn })
 
     /* orders table */
@@ -70,7 +54,7 @@ export class DynamoStack extends cdk.NestedStack {
       contributorInsightsEnabled: false,
       ...tableCapacityConfig.order,
     })
-    createCommonIndices(ordersTable, indexCapacityConfig)
+    createCommonIndices(ordersTable)
     this.ordersTable = ordersTable
 
     const limitOrdersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}LimitOrdersTable`, {
@@ -85,7 +69,7 @@ export class DynamoStack extends cdk.NestedStack {
       contributorInsightsEnabled: false,
       ...tableCapacityConfig.limitOrder,
     })
-    createCommonIndices(limitOrdersTable, indexCapacityConfig)
+    createCommonIndices(limitOrdersTable)
     this.limitOrdersTable = limitOrdersTable
 
     /* Nonces Table
@@ -216,10 +200,7 @@ export class DynamoStack extends cdk.NestedStack {
    * in ALARM for hundreds of hours at any threshold that still catches an outage.
    */
   private hotIndexAlarms(table: aws_dynamo.Table, name: string, notifier: AlarmNotifier): void {
-    const hotIndexes = [
-      `${TABLE_KEY.CHAIN_ID_ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-      `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    ]
+    const hotIndexes = [gsiName(TABLE_KEY.CHAIN_ID_ORDER_STATUS), gsiName(TABLE_KEY.ORDER_STATUS)]
     for (const index of hotIndexes) {
       notifier.notify(
         new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-${index}-ReadThrottles`, {
@@ -242,173 +223,19 @@ export class DynamoStack extends cdk.NestedStack {
   }
 }
 
-const createCommonIndices = (table: aws_dynamo.Table, indexCapacityConfig: IndexCapacityConfig | undefined) => {
-  // Create global secondary indexes with createdAt sort key
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.OFFERER,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.offerer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.ORDER_STATUS,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.orderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.FILLER,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.filler,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOfferer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOrderStatusOfferer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.offererOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.CHAIN_ID,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainId,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainIdFiller,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chaindIdOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainIdFillerOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.PAIR}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.PAIR,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.pair,
-  })
+const createCommonIndices = (table: aws_dynamo.Table) => {
+  for (const { indexName, partitionKey, partitionKeyType, sortKey } of GLOBAL_SECONDARY_INDEXES) {
+    table.addGlobalSecondaryIndex({
+      indexName,
+      partitionKey: {
+        name: partitionKey,
+        type: partitionKeyType === 'N' ? aws_dynamo.AttributeType.NUMBER : aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: sortKey,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+    })
+  }
 }
