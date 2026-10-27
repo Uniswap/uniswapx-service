@@ -36,9 +36,6 @@ import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
 jest.mock('../../../../lib/handlers/shared/sfn', () => ({ kickoffOrderTrackingSfn: jest.fn() }))
 
-process.env.KMS_KEY_ID = 'test-key-id'
-process.env.REGION = 'us-east-2'
-
 // The handler rebuilds these from STATE_MACHINE_NAMES + REGION + ACCOUNT_ID
 // (see lib/util/stateMachineArn.ts), so the expected values are full ARNs.
 const MOCK_ACCOUNT_ID = '123456789012'
@@ -61,7 +58,6 @@ describe('Testing post order handler.', () => {
     })
     process.env['ACCOUNT_ID'] = MOCK_ACCOUNT_ID
     process.env['REGION'] = MOCK_SM_REGION
-    process.env['KMS_KEY_ID'] = 'testtest'
     log.setLogLevel('SILENT')
   })
 

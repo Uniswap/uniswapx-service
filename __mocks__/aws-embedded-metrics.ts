@@ -12,5 +12,4 @@ const metricScope = jest.fn((fn) => fn(new MockMetricsLogger()))
 module.exports = {
   ...original,
   metricScope,
-  MockMetricsLogger,
 }

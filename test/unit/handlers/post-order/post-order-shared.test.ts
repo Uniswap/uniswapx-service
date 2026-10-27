@@ -90,9 +90,6 @@ describe.each(ROUTES)('$suite', ({ route, maxOpenOrders, post }) => {
   const handle = (event: APIGatewayProxyEvent) => harness.handler.handler(event, EVENT_CONTEXT)
 
   beforeAll(() => {
-    process.env['STATE_MACHINE_NAMES'] = JSON.stringify({ 1: 'MOCK_SM_1' })
-    process.env['ACCOUNT_ID'] = '123456789012'
-    process.env['REGION'] = 'region'
     log.setLogLevel('SILENT')
   })
 
