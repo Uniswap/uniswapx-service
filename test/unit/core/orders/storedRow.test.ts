@@ -28,10 +28,6 @@ function postedOrder(request: object) {
     CosignedPriorityOrder.parse(PRIORITY_COSIGNED_ENCODED_ORDER, order.chainId),
     order.signature,
     order.chainId,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
     QUOTE_ID,
     REQUEST_ID
   )
@@ -47,13 +43,13 @@ function withoutToolboxMeta(row: Record<string, unknown>) {
 describe('toStoredRow(toOrderEntity(order))', () => {
   it.each(Object.entries(AcceptedPosts))('builds the %s row the contract pins', (_name, { request, expected }) => {
     const row = toStoredRow(toOrderEntity(postedOrder(request)), NOW_SECONDS)
-    expect(row).toEqual(withoutToolboxMeta(expected.storedRow))
+    expect(row).toStrictEqual(withoutToolboxMeta(expected.storedRow))
   })
 
   it('writes the entity analytics and the immediate notice receive, plus index fields and createdAt', () => {
     const entity = toOrderEntity(postedOrder(AcceptedPosts.Dutch_V2.request))
     const row = toStoredRow(entity, NOW_SECONDS)
-    expect(entity.createdAt).toBeUndefined()
+    expect(entity).not.toHaveProperty('createdAt')
     expect(row).toEqual({ ...entity, ...row, createdAt: NOW_SECONDS })
     expect(row.offerer_orderStatus).toEqual(`${entity.offerer}_open`)
   })

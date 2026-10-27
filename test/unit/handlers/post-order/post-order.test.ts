@@ -80,10 +80,6 @@ describe('Testing post order handler.', () => {
       SDKDutchOrderV2Factory.buildDutchV2Order(chainId, overrides),
       SIGNATURE,
       chainId,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
       QUOTE_ID,
       REQUEST_ID
     )
@@ -138,17 +134,7 @@ describe('Testing post order handler.', () => {
     })
 
     it('Testing valid request and response for Dutch_V2', async () => {
-      const order = new DutchV2Order(
-        SDKDutchOrderV2Factory.buildDutchV2Order(),
-        SIGNATURE,
-        1,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        REQUEST_ID
-      )
+      const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), SIGNATURE, 1, undefined, REQUEST_ID)
       const expectedOrderEntity = toOrderEntity(order)
 
       const postOrderResponse = await handle(
@@ -185,17 +171,7 @@ describe('Testing post order handler.', () => {
     })
 
     it('Testing valid request and response for Priority', async () => {
-      const order = new PriorityOrder(
-        SDKPriorityOrderFactory.buildPriorityOrder(),
-        SIGNATURE,
-        1,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        REQUEST_ID
-      )
+      const order = new PriorityOrder(SDKPriorityOrderFactory.buildPriorityOrder(), SIGNATURE, 1, undefined, REQUEST_ID)
 
       const postOrderResponse = await handle(
         PostOrderRequestFactory.request({
@@ -248,10 +224,6 @@ describe('Testing post order handler.', () => {
         SDKPriorityOrderFactory.buildPriorityOrder(),
         SIGNATURE,
         ChainId.MAINNET,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
         undefined,
         REQUEST_ID
       )
@@ -306,9 +278,6 @@ describe('Testing post order handler.', () => {
         SDKDutchOrderV3Factory.buildDutchV3Order(),
         SIGNATURE,
         ChainId.ARBITRUM_ONE,
-        undefined,
-        undefined,
-        undefined,
         undefined,
         REQUEST_ID
       )

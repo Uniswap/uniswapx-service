@@ -1,130 +1,18 @@
 import { CosignedV3DutchOrder as SDKV3DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { Order } from './Order'
-import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
 
 export class DutchV3Order extends Order {
   constructor(
     readonly inner: SDKV3DutchOrder,
     readonly signature: string,
     readonly chainId: number,
-    readonly orderStatus?: ORDER_STATUS,
-    readonly txHash?: string,
-    readonly fillBlock?: number,
-    readonly fillTimestamp?: number,
     readonly quoteId?: string,
-    readonly requestId?: string,
-    readonly createdAt?: number,
-    readonly settledAmounts?: {
-      tokenOut: string
-      amountOut: string
-      tokenIn: string
-      amountIn: string
-    }[]
+    readonly requestId?: string
   ) {
     super()
   }
 
   get orderType(): OrderType {
     return OrderType.Dutch_V3
-  }
-
-  public static fromEntity(entity: UniswapXOrderEntity): DutchV3Order {
-    return new DutchV3Order(
-      SDKV3DutchOrder.parse(entity.encodedOrder, entity.chainId),
-      entity.signature,
-      entity.chainId,
-      entity.orderStatus,
-      entity.txHash,
-      entity.fillBlock,
-      entity.fillTimestamp,
-      entity.quoteId,
-      entity.requestId,
-      entity.createdAt,
-      entity.settledAmounts
-    )
-  }
-
-  public toGetResponse(): GetDutchV3OrderResponse {
-    const { input, outputs, cosignerData } = this.inner.info
-    // Mirrors V3DutchOrderReactor._updateWithCosignerAmounts: a non-zero override replaces
-    // startAmount. The curve and min/max bounds are not overridable.
-    const effectiveInput = {
-      token: input.token,
-      startAmount: (cosignerData.inputOverride.isZero() ? input.startAmount : cosignerData.inputOverride).toString(),
-      curve: {
-        relativeBlocks: input.curve.relativeBlocks,
-        relativeAmounts: input.curve.relativeAmounts.map((a) => a.toString()),
-      },
-      maxAmount: input.maxAmount.toString(),
-      adjustmentPerGweiBaseFee: input.adjustmentPerGweiBaseFee.toString(),
-    }
-    const effectiveOutputs = outputs.map((o, i) => {
-      const override = cosignerData.outputOverrides[i]
-      return {
-        token: o.token,
-        startAmount: (override && !override.isZero() ? override : o.startAmount).toString(),
-        curve: {
-          relativeBlocks: o.curve.relativeBlocks,
-          relativeAmounts: o.curve.relativeAmounts.map((a) => a.toString()),
-        },
-        minAmount: o.minAmount.toString(),
-        recipient: o.recipient,
-        adjustmentPerGweiBaseFee: o.adjustmentPerGweiBaseFee.toString(),
-      }
-    })
-
-    return {
-      type: OrderType.Dutch_V3,
-      orderStatus: this.orderStatus as ORDER_STATUS,
-      signature: this.signature,
-      encodedOrder: this.inner.serialize(),
-      chainId: this.chainId,
-      nonce: this.inner.info.nonce.toString(),
-      txHash: this.txHash,
-      fillBlock: this.fillBlock,
-      fillTimestamp: this.fillTimestamp,
-      orderHash: this.inner.hash(),
-      swapper: this.inner.info.swapper,
-      reactor: this.inner.info.reactor,
-      deadline: this.inner.info.deadline,
-      startingBaseFee: this.inner.info.startingBaseFee.toString(),
-      input: {
-        token: this.inner.info.input.token,
-        startAmount: this.inner.info.input.startAmount.toString(),
-        curve: {
-          relativeBlocks: this.inner.info.input.curve.relativeBlocks,
-          relativeAmounts: this.inner.info.input.curve.relativeAmounts.map((a) => a.toString()),
-        },
-        maxAmount: this.inner.info.input.maxAmount.toString(),
-        adjustmentPerGweiBaseFee: this.inner.info.input.adjustmentPerGweiBaseFee.toString(),
-      },
-      outputs: this.inner.info.outputs.map((o) => {
-        return {
-          token: o.token,
-          startAmount: o.startAmount.toString(),
-          curve: {
-            relativeBlocks: o.curve.relativeBlocks,
-            relativeAmounts: o.curve.relativeAmounts.map((a) => a.toString()),
-          },
-          minAmount: o.minAmount.toString(),
-          recipient: o.recipient,
-          adjustmentPerGweiBaseFee: o.adjustmentPerGweiBaseFee.toString(),
-        }
-      }),
-      effectiveInput,
-      effectiveOutputs,
-      settledAmounts: this.settledAmounts,
-      cosignerData: {
-        decayStartBlock: this.inner.info.cosignerData.decayStartBlock,
-        exclusiveFiller: this.inner.info.cosignerData.exclusiveFiller,
-        inputOverride: this.inner.info.cosignerData.inputOverride.toString(),
-        outputOverrides: this.inner.info.cosignerData.outputOverrides.map((o) => o.toString()),
-      },
-      cosignature: this.inner.info.cosignature,
-      quoteId: this.quoteId,
-      requestId: this.requestId,
-      createdAt: this.createdAt,
-    }
   }
 }

@@ -1,5 +1,6 @@
 import { mock } from 'jest-mock-extended'
 import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
+import { toV2Response, toV3Response } from '../../../lib/handlers/get-orders/toResponse'
 import { DutchV2Order } from '../../../lib/models/DutchV2Order'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
@@ -35,10 +36,12 @@ describe('OrderDispatcher', () => {
 
     test('with orderType Dutch_V2, calls uniswapXService', async () => {
       const uniswapXServiceMock = mock<UniswapXOrderService>()
-      const dutchV2Order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), '', 1)
+      const dutchV2Order = toV2Response(
+        toOrderEntity(new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), '', 1))
+      )
 
       uniswapXServiceMock.getDutchV2Orders.mockResolvedValue({
-        orders: [dutchV2Order.toGetResponse()],
+        orders: [dutchV2Order],
         cursor: '',
       })
 
@@ -51,15 +54,17 @@ describe('OrderDispatcher', () => {
       })
 
       expect(uniswapXServiceMock.getDutchV2Orders).toHaveBeenCalled()
-      expect(response.orders[0]).toEqual(dutchV2Order.toGetResponse())
+      expect(response.orders[0]).toEqual(dutchV2Order)
     })
 
     test('with orderType Dutch_V3, calls uniswapXService', async () => {
       const uniswapXServiceMock = mock<UniswapXOrderService>()
-      const dutchV3Order = new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(), '', ChainId.ARBITRUM_ONE)
+      const dutchV3Order = toV3Response(
+        toOrderEntity(new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(), '', ChainId.ARBITRUM_ONE))
+      )
 
       uniswapXServiceMock.getDutchV3Orders.mockResolvedValue({
-        orders: [dutchV3Order.toGetResponse()],
+        orders: [dutchV3Order],
         cursor: '',
       })
 
@@ -72,7 +77,7 @@ describe('OrderDispatcher', () => {
       })
 
       expect(uniswapXServiceMock.getDutchV3Orders).toHaveBeenCalled()
-      expect(response.orders[0]).toEqual(dutchV3Order.toGetResponse())
+      expect(response.orders[0]).toEqual(dutchV3Order)
     })
 
     test('with orderType [Dutch,Dutch_V2], calls uniswapXService', async () => {

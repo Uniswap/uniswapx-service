@@ -1,6 +1,4 @@
 import { CosignedV2DutchOrder as SDKV2DutchOrder, OrderType } from '@uniswap/uniswapx-sdk'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
-import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { Order } from './Order'
 
 export class DutchV2Order extends Order {
@@ -8,103 +6,13 @@ export class DutchV2Order extends Order {
     readonly inner: SDKV2DutchOrder,
     readonly signature: string,
     readonly chainId: number,
-    readonly orderStatus?: ORDER_STATUS,
-    readonly txHash?: string,
-    readonly fillBlock?: number,
-    readonly fillTimestamp?: number,
     readonly quoteId?: string,
-    readonly requestId?: string,
-    readonly createdAt?: number,
-    readonly settledAmounts?: {
-      tokenOut: string
-      amountOut: string
-      tokenIn: string
-      amountIn: string
-    }[]
+    readonly requestId?: string
   ) {
     super()
   }
 
   get orderType(): OrderType {
     return OrderType.Dutch_V2
-  }
-
-  public static fromEntity(entity: UniswapXOrderEntity): DutchV2Order {
-    return new DutchV2Order(
-      SDKV2DutchOrder.parse(entity.encodedOrder, entity.chainId),
-      entity.signature,
-      entity.chainId,
-      entity.orderStatus,
-      entity.txHash,
-      entity.fillBlock,
-      entity.fillTimestamp,
-      entity.quoteId,
-      entity.requestId,
-      entity.createdAt,
-      entity.settledAmounts
-    )
-  }
-
-  public toGetResponse(): GetDutchV2OrderResponse {
-    const { input, outputs, cosignerData } = this.inner.info
-    // Mirrors V2DutchOrderReactor._updateWithCosignerAmounts: a non-zero override replaces
-    // startAmount. endAmount is not overridable.
-    const effectiveInput = {
-      token: input.token,
-      startAmount: (cosignerData.inputOverride.isZero() ? input.startAmount : cosignerData.inputOverride).toString(),
-      endAmount: input.endAmount.toString(),
-    }
-    const effectiveOutputs = outputs.map((o, i) => {
-      const override = cosignerData.outputOverrides[i]
-      return {
-        token: o.token,
-        startAmount: (override && !override.isZero() ? override : o.startAmount).toString(),
-        endAmount: o.endAmount.toString(),
-        recipient: o.recipient,
-      }
-    })
-
-    return {
-      type: OrderType.Dutch_V2,
-      orderStatus: this.orderStatus as ORDER_STATUS,
-      signature: this.signature,
-      encodedOrder: this.inner.serialize(),
-      chainId: this.chainId,
-      nonce: this.inner.info.nonce.toString(),
-      txHash: this.txHash,
-      fillBlock: this.fillBlock,
-      fillTimestamp: this.fillTimestamp,
-      orderHash: this.inner.hash(),
-      swapper: this.inner.info.swapper,
-      reactor: this.inner.info.reactor,
-      deadline: this.inner.info.deadline,
-      input: {
-        token: this.inner.info.input.token,
-        startAmount: this.inner.info.input.startAmount.toString(),
-        endAmount: this.inner.info.input.endAmount.toString(),
-      },
-      outputs: this.inner.info.outputs.map((o) => {
-        return {
-          token: o.token,
-          startAmount: o.startAmount.toString(),
-          endAmount: o.endAmount.toString(),
-          recipient: o.recipient,
-        }
-      }),
-      effectiveInput,
-      effectiveOutputs,
-      settledAmounts: this.settledAmounts,
-      cosignerData: {
-        decayStartTime: this.inner.info.cosignerData.decayStartTime,
-        decayEndTime: this.inner.info.cosignerData.decayEndTime,
-        exclusiveFiller: this.inner.info.cosignerData.exclusiveFiller,
-        inputOverride: this.inner.info.cosignerData.inputOverride.toString(),
-        outputOverrides: this.inner.info.cosignerData.outputOverrides.map((o) => o.toString()),
-      },
-      cosignature: this.inner.info.cosignature,
-      quoteId: this.quoteId,
-      requestId: this.requestId,
-      createdAt: this.createdAt,
-    }
   }
 }

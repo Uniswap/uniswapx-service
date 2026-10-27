@@ -1,12 +1,10 @@
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
+import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
 import { KmsSigner } from '@uniswap/signer'
 import { CosignedPriorityOrder as SDKPriorityOrder, OrderType } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
-import { AVERAGE_BLOCK_TIME } from '../handlers/check-order-status/util'
-import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
 import { Order } from './Order'
 import { ChainId } from '../util/chain'
 
@@ -15,41 +13,14 @@ export class PriorityOrder extends Order {
     readonly inner: SDKPriorityOrder,
     readonly signature: string,
     readonly chainId: number,
-    readonly orderStatus?: ORDER_STATUS,
-    readonly txHash?: string,
-    readonly fillBlock?: number,
-    readonly fillTimestamp?: number,
     readonly quoteId?: string,
-    readonly requestId?: string,
-    readonly createdAt?: number,
-    readonly settledAmounts?: {
-      tokenOut: string
-      amountOut: string
-      tokenIn: string
-      amountIn: string
-    }[]
+    readonly requestId?: string
   ) {
     super()
   }
 
   get orderType(): OrderType {
     return OrderType.Priority
-  }
-
-  public static fromEntity(entity: UniswapXOrderEntity): PriorityOrder {
-    return new PriorityOrder(
-      SDKPriorityOrder.parse(entity.encodedOrder, entity.chainId),
-      entity.signature,
-      entity.chainId,
-      entity.orderStatus,
-      entity.txHash,
-      entity.fillBlock,
-      entity.fillTimestamp,
-      entity.quoteId,
-      entity.requestId,
-      entity.createdAt,
-      entity.settledAmounts
-    )
   }
 
   public async reparameterizeAndCosign(provider: StaticJsonRpcProvider, cosigner: KmsSigner): Promise<this> {
@@ -62,7 +33,7 @@ export class PriorityOrder extends Order {
     
     // Calculate if we need to add an extra block based on timestamp difference
     // This keeps the time window more consistent for fillers
-    const blockTimeSeconds = AVERAGE_BLOCK_TIME(this.chainId as ChainId)
+    const blockTimeSeconds = getAverageBlockTimeSecs(this.chainId as ChainId)
     const timeDifference = Math.abs(currentTime - block.timestamp)
     
     // If the difference is more than 75% of the block time, add an extra block
@@ -74,46 +45,5 @@ export class PriorityOrder extends Order {
 
     this.inner.info.cosignature = await cosigner.signDigest(this.inner.cosignatureHash(this.inner.info.cosignerData))
     return this
-  }
-
-  public toGetResponse(): GetPriorityOrderResponse {
-    return {
-      type: OrderType.Priority,
-      orderStatus: this.orderStatus as ORDER_STATUS,
-      signature: this.signature,
-      encodedOrder: this.inner.serialize(),
-      chainId: this.chainId,
-      nonce: this.inner.info.nonce.toString(),
-      txHash: this.txHash,
-      fillBlock: this.fillBlock,
-      fillTimestamp: this.fillTimestamp,
-      orderHash: this.inner.hash(),
-      swapper: this.inner.info.swapper,
-      reactor: this.inner.info.reactor,
-      deadline: this.inner.info.deadline,
-      auctionStartBlock: this.inner.info.auctionStartBlock.toNumber(),
-      baselinePriorityFeeWei: this.inner.info.baselinePriorityFeeWei.toString(),
-      input: {
-        token: this.inner.info.input.token,
-        amount: this.inner.info.input.amount.toString(),
-        mpsPerPriorityFeeWei: this.inner.info.input.mpsPerPriorityFeeWei.toString(),
-      },
-      outputs: this.inner.info.outputs.map((o) => {
-        return {
-          token: o.token,
-          amount: this.inner.info.input.amount.toString(),
-          mpsPerPriorityFeeWei: this.inner.info.input.mpsPerPriorityFeeWei.toString(),
-          recipient: o.recipient,
-        }
-      }),
-      settledAmounts: this.settledAmounts,
-      cosignerData: {
-        auctionTargetBlock: this.inner.info.cosignerData.auctionTargetBlock.toNumber(),
-      },
-      cosignature: this.inner.info.cosignature,
-      quoteId: this.quoteId,
-      requestId: this.requestId,
-      createdAt: this.createdAt,
-    }
   }
 }

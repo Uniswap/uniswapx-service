@@ -78,15 +78,10 @@ export function toOrderEntity(order: PostedOrder): UniswapXOrderEntity {
     }
   }
 
-  // Cosigned orders also carry whatever fill state the model holds (none, for a new post).
   const cosigned = {
-    txHash: order.txHash,
-    fillBlock: order.fillBlock,
-    fillTimestamp: order.fillTimestamp,
     cosignature: order.inner.info.cosignature,
     quoteId: order.quoteId,
     requestId: order.requestId,
-    createdAt: order.createdAt,
   }
 
   if (order instanceof DutchV2Order) {

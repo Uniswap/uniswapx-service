@@ -1,8 +1,8 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
-import { ORDER_STATUS } from '../../../entities'
+import { DutchV2OrderEntity, ORDER_STATUS, OrderInput, OrderOutput, SettledAmount } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
-import { CommonOrderValidationFields } from './Common'
+import { CommonOrderValidationFields, OrderOutputJoi } from './Common'
 
 export type GetDutchV2OrderResponse = {
   type: OrderType.Dutch_V2
@@ -20,51 +20,22 @@ export type GetDutchV2OrderResponse = {
   fillTimestamp: number | undefined
   deadline: number
   /** As signed by swapper. A non-zero `cosignerData.inputOverride` replaces `startAmount` at fill. */
-  input: {
-    token: string
-    startAmount: string
-    endAmount: string
-  }
+  input: Required<OrderInput>
   /** As signed by swapper. A non-zero `cosignerData.outputOverrides[i]` replaces `startAmount` at fill. */
-  outputs: {
-    token: string
-    startAmount: string
-    endAmount: string
-    recipient: string
-  }[]
+  outputs: OrderOutput[]
   /**
    * `input` with the override applied: what the filler receives. Still decays to
    * `endAmount`. Always set for Dutch V2; optional for the legacy untyped response.
    */
-  effectiveInput?: {
-    token: string
-    startAmount: string
-    endAmount: string
-  }
+  effectiveInput?: Required<OrderInput>
   /**
    * `outputs` with the overrides applied: what the filler pays. Still decays to
    * `endAmount`, plus `cosignerData.exclusivityOverrideBps` for a non-exclusive filler.
    * Always set for Dutch V2; optional for the legacy untyped response.
    */
-  effectiveOutputs?: {
-    token: string
-    startAmount: string
-    endAmount: string
-    recipient: string
-  }[]
-  settledAmounts: {
-    tokenOut: string
-    amountOut: string
-    tokenIn: string
-    amountIn: string
-  }[] | undefined
-  cosignerData: {
-    decayStartTime: number
-    decayEndTime: number
-    exclusiveFiller: string
-    inputOverride: string
-    outputOverrides: string[]
-  }
+  effectiveOutputs?: OrderOutput[]
+  settledAmounts: SettledAmount[] | undefined
+  cosignerData: DutchV2OrderEntity['cosignerData']
   cosignature: string
   nonce: string
   quoteId: string | undefined
@@ -86,19 +57,12 @@ const InputJoi = Joi.object({
   endAmount: FieldValidator.isValidAmount().required(),
 })
 
-const OutputJoi = Joi.object({
-  token: FieldValidator.isValidEthAddress().required(),
-  startAmount: FieldValidator.isValidAmount().required(),
-  endAmount: FieldValidator.isValidAmount().required(),
-  recipient: FieldValidator.isValidEthAddress().required(),
-})
-
 export const GetDutchV2OrderResponseEntryJoi = Joi.object({
   ...CommonOrderValidationFields,
   type: Joi.string().valid(OrderType.Dutch_V2).required(),
   input: InputJoi,
-  outputs: Joi.array().items(OutputJoi),
+  outputs: Joi.array().items(OrderOutputJoi),
   effectiveInput: InputJoi,
-  effectiveOutputs: Joi.array().items(OutputJoi),
+  effectiveOutputs: Joi.array().items(OrderOutputJoi),
   cosignerData: CosignerDataJoi,
 })

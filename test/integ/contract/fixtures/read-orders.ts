@@ -752,7 +752,7 @@ const PriorityTyped = {
   auctionStartBlock: 105,
   baselinePriorityFeeWei: '0',
   input: { token: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', amount: '1000000', mpsPerPriorityFeeWei: '0' },
-  // every output repeats the input amount and mps (PriorityOrder.toGetResponse); deliberate, for parity
+  // every output repeats the input amount and mps (toPriorityResponse in get-orders/toResponse.ts); deliberate, for parity
   outputs: [
     {
       token: '0x4200000000000000000000000000000000000006',
