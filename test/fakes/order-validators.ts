@@ -1,24 +1,27 @@
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { OrderValidation, OrderValidator, SignedUniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { ChainId } from '../../lib/util/chain'
-import { OffChainUniswapXOrderValidator } from '../../lib/util/OffChainUniswapXOrderValidator'
+import {
+  OffChainOrderValidatorConfig,
+  OffChainUniswapXOrderValidator,
+} from '../../lib/util/OffChainUniswapXOrderValidator'
 import { OrderValidationResponse } from '../../lib/util/OrderValidationResponse'
 
 type OffChainValidatedOrder = Parameters<OffChainUniswapXOrderValidator['validate']>[0]
 
-// Off-chain field checks, answering `result` for every order.
+// Off-chain field checks, answering `result` for every order; given a config, the real checks.
 export class FakeOffChainValidator extends OffChainUniswapXOrderValidator {
   public readonly calls: OffChainValidatedOrder[] = []
   public result: OrderValidationResponse = { valid: true }
 
-  // validate() is overridden, so none of this config is ever read.
-  constructor() {
-    super({ getCurrentTime: () => 0, deadlineValidityPeriodSeconds: 0, cosigner: '', priorityCosigner: '' })
+  // Without a config the real checks never run, so the placeholder one is never read.
+  constructor(private readonly config?: OffChainOrderValidatorConfig) {
+    super(config ?? { getCurrentTime: () => 0, deadlineValidityPeriodSeconds: 0, cosigner: '', priorityCosigner: '' })
   }
 
   override validate(order: OffChainValidatedOrder): OrderValidationResponse {
     this.calls.push(order)
-    return this.result
+    return this.config ? super.validate(order) : this.result
   }
 }
 

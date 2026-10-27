@@ -12,7 +12,7 @@ import {
   PermissionedTokenValidator,
 } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
-import { ethers } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import { toOrderEntity } from '../core/orders/storedRow'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
@@ -47,6 +47,8 @@ import { AnalyticsServiceInterface } from './analytics-service'
 export const MAX_QUERY_RETRY = 10
 // For endpoints that serve exactly one page: never follow a cursor into further reads.
 export const SINGLE_PAGE = 0
+// From a string: BigNumber.from(Number.MAX_SAFE_INTEGER) itself throws overflow.
+const MAX_SAFE_BLOCK = BigNumber.from(Number.MAX_SAFE_INTEGER.toString())
 
 export class UniswapXOrderService {
   constructor(
@@ -81,6 +83,14 @@ export class UniswapXOrderService {
       await this.validateOrder(order.inner, order.signature, order.chainId)
       orderEntity = toOrderEntity(order)
     } else if (order instanceof PriorityOrder) {
+      // None of the off-chain checks read the cosigner data or cosignature (nor does the order
+      // hash), so an order they reject costs no getBlock RPC and no KMS signature.
+      this.validateOffChain(order.inner, order.chainId)
+      // toOrderEntity stores the start block as a JS number.
+      if (order.inner.info.auctionStartBlock.gt(MAX_SAFE_BLOCK)) {
+        throw new OrderValidationFailedError(`Invalid auctionStartBlock: must be at most ${Number.MAX_SAFE_INTEGER}`)
+      }
+
       // following https://github.com/Uniswap/uniswapx-parameterization-api/pull/358
       // recreate KmsSigner every request
       const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
@@ -89,11 +99,12 @@ export class UniswapXOrderService {
       const provider = this.providerMap.get(order.chainId)
 
       const cosignedOrder = await order.reparameterizeAndCosign(provider, cosigner)
-      if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock > cosignedOrder.inner.info.auctionStartBlock) {
+      if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock.gt(cosignedOrder.inner.info.auctionStartBlock)) {
         throw new OrderValidationFailedError('auctionStartBlock too low')
       }
       this.logger.info('cosigned priority order', { order: cosignedOrder })
-      await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
+      // The order quoter checks the cosignature, so this half waits for it.
+      await this.validateOnChain(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
       orderEntity = toOrderEntity(cosignedOrder)
     } else {
       throw new Error('unsupported OrderType')
@@ -157,10 +168,18 @@ export class UniswapXOrderService {
   }
 
   private async validateOrder(
-    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder,
+    order: DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder,
     signature: string,
     chainId: number
   ): Promise<void> {
+    this.validateOffChain(order, chainId)
+    await this.validateOnChain(order, signature, chainId)
+  }
+
+  private validateOffChain(
+    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder,
+    chainId: number
+  ): void {
     const offChainValidationResult = this.orderValidator.validate(order)
     if (!offChainValidationResult.valid) {
       // Otherwise a rule that starts rejecting real traffic only shows up as caller 400s.
@@ -173,6 +192,14 @@ export class UniswapXOrderService {
       })
       throw new OrderValidationFailedError(offChainValidationResult.errorString)
     }
+  }
+
+  // The permissioned-token checks, the order quoter and the zero-address input check.
+  private async validateOnChain(
+    order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder,
+    signature: string,
+    chainId: number
+  ): Promise<void> {
     const token = order.info.input.token
 
     if (PermissionedTokenValidator.isPermissionedToken(token, chainId)) {

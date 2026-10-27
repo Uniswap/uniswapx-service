@@ -1,19 +1,23 @@
 import { Logger } from '@aws-lambda-powertools/logger'
+import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import {
   CosignedV2DutchOrder,
   OrderType,
   OrderValidation,
   OrderValidator,
   PermissionedTokenValidator,
+  CosignedPriorityOrder as SDKPriorityOrder,
 } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
-import { BigNumber } from 'ethers'
+import { BigNumber, constants } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { toOrderEntity } from '../../../lib/core/orders/storedRow'
 import { UniswapXOrderEntity } from '../../../lib/entities'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
+import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
+import { ProviderMap } from '../../../lib/handlers/shared'
 import * as sfn from '../../../lib/handlers/shared/sfn'
 import { DutchV2Order } from '../../../lib/models/DutchV2Order'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
@@ -33,6 +37,7 @@ import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
+import { FakeOffChainValidator } from '../../fakes/order-validators'
 import { SilentServer, silentServerClientOptions } from '../../fakes/silent-server'
 import { makePostOrderService } from '../builders/post-path'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
@@ -200,12 +205,183 @@ describe('UniswapXOrderService', () => {
     baseOrder.info.auctionStartBlock = BigNumber.from(1)
     const priorityOrder = new PriorityOrder(baseOrder, '0x00', ChainId.MAINNET)
 
-    await expect(service.createOrder(priorityOrder)).rejects.toThrow(OrderValidationFailedError)
-    await expect(service.createOrder(priorityOrder)).rejects.toThrow('auctionStartBlock too low')
+    await expect(service.createOrder(priorityOrder)).rejects.toThrow(
+      new OrderValidationFailedError('auctionStartBlock too low')
+    )
 
-    // Verify that validation and persistence were not called
-    expect(orderValidator.calls).toEqual([])
+    // The off-chain checks run before cosigning; persistence never does.
+    expect(orderValidator.calls).toHaveLength(1)
     expect(repository.puts).toEqual([])
+  })
+
+  describe('createOrder with a PriorityOrder: what runs before the block fetch and the cosignature', () => {
+    const MAINNET_TARGET_BLOCK_BUFFER = 3
+
+    // A provider whose latest block is `number`, minted now so no extra target block is added.
+    function chainAt(number: number) {
+      const getBlock = jest.fn(async () => ({ number, timestamp: Math.floor(Date.now() / 1000) }))
+      const providerMap: ProviderMap = { get: () => ({ getBlock } as unknown as StaticJsonRpcProvider) }
+      return { getBlock, providerMap }
+    }
+
+    function priorityOrderStartingAt(auctionStartBlock: BigNumber | number, chainId = ChainId.MAINNET) {
+      const order = SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, {
+        auctionStartBlock: auctionStartBlock.toString(),
+        // the builder wants a target at or before the start; the service replaces it
+        cosignerData: { auctionTargetBlock: '1' },
+      })
+      // As the post handler parses it: the request's chainId, whatever the bytes were built for.
+      return new PriorityOrder(SDKPriorityOrder.parse(order.serialize(), chainId), '0x00', chainId)
+    }
+
+    // The handler answers OrderValidationFailedError with a 400; any other error is a 500.
+    async function expectValidationFailure(createOrder: Promise<string>, message: string) {
+      const error = await createOrder.then(
+        () => undefined,
+        (e: unknown) => e
+      )
+      expect(error).toBeInstanceOf(OrderValidationFailedError)
+      expect((error as Error).message).toBe(message)
+    }
+
+    test('rejects a single-digit start block against a block in the tens of millions', async () => {
+      // As decimal strings, "30000003" > "9" is false.
+      const { getBlock, providerMap } = chainAt(30_000_000)
+      const { service, cosigner, repository } = makePostOrderService({ providerMap })
+
+      await expectValidationFailure(service.createOrder(priorityOrderStartingAt(9)), 'auctionStartBlock too low')
+
+      expect(getBlock).toHaveBeenCalledTimes(1)
+      expect(cosigner.digests).toHaveLength(1)
+      expect(repository.puts).toEqual([])
+    })
+
+    test('accepts a start block with more digits than the target block', async () => {
+      // As decimal strings, "99999993" > "100000000" is true.
+      const { providerMap } = chainAt(99_999_990)
+      const { service, repository } = makePostOrderService({ providerMap })
+
+      await service.createOrder(priorityOrderStartingAt(100_000_000))
+
+      expect(repository.puts).toHaveLength(1)
+      expect(repository.puts[0]).toMatchObject({
+        auctionStartBlock: 100_000_000,
+        cosignerData: { auctionTargetBlock: 99_999_990 + MAINNET_TARGET_BLOCK_BUFFER },
+      })
+    })
+
+    test('accepts the target block itself as the start block', async () => {
+      const { providerMap } = chainAt(1_000)
+      const { service, repository } = makePostOrderService({ providerMap })
+
+      await service.createOrder(priorityOrderStartingAt(1_000 + MAINNET_TARGET_BLOCK_BUFFER))
+
+      expect(repository.puts).toHaveLength(1)
+    })
+
+    test('rejects a start block above Number.MAX_SAFE_INTEGER before fetching a block', async () => {
+      const { getBlock, providerMap } = chainAt(30_000_000)
+      const { service, cosigner, onChainValidator, repository } = makePostOrderService({ providerMap })
+
+      await expectValidationFailure(
+        service.createOrder(priorityOrderStartingAt(BigNumber.from(2).pow(53).add(1))),
+        'Invalid auctionStartBlock: must be at most 9007199254740991'
+      )
+
+      expect(getBlock).not.toHaveBeenCalled()
+      expect(cosigner.digests).toEqual([])
+      expect(onChainValidator.calls).toEqual([])
+      expect(repository.puts).toEqual([])
+    })
+
+    test('accepts a start block of exactly Number.MAX_SAFE_INTEGER', async () => {
+      const { providerMap } = chainAt(30_000_000)
+      const { service, repository } = makePostOrderService({ providerMap })
+
+      await service.createOrder(priorityOrderStartingAt(Number.MAX_SAFE_INTEGER))
+
+      expect(repository.puts).toHaveLength(1)
+      expect(repository.puts[0]).toMatchObject({ auctionStartBlock: Number.MAX_SAFE_INTEGER })
+    })
+
+    test('rejects a chain with no target-block buffer at the reactor check, before fetching a block', async () => {
+      const { getBlock, providerMap } = chainAt(30_000_000)
+      const nowSeconds = Math.floor(Date.now() / 1000)
+      const orderValidator = new FakeOffChainValidator({
+        getCurrentTime: () => nowSeconds,
+        deadlineValidityPeriodSeconds: 60,
+        cosigner: constants.AddressZero,
+        priorityCosigner: constants.AddressZero,
+      })
+      const { service, cosigner } = makePostOrderService({ providerMap, orderValidator })
+      expect(PRIORITY_ORDER_TARGET_BLOCK_BUFFER[ChainId.BNB]).toBeUndefined()
+
+      await expectValidationFailure(
+        service.createOrder(priorityOrderStartingAt(30_000_010, ChainId.BNB)),
+        'Invalid reactor address'
+      )
+
+      expect(getBlock).not.toHaveBeenCalled()
+      expect(cosigner.digests).toEqual([])
+    })
+
+    test('answers 400, not 500, for a chain past the off-chain checks with no target-block buffer', async () => {
+      const { getBlock, providerMap } = chainAt(30_000_000)
+      const { service, cosigner } = makePostOrderService({ providerMap })
+
+      await expectValidationFailure(
+        service.createOrder(priorityOrderStartingAt(30_000_010, ChainId.BNB)),
+        'Priority orders are not supported on chainId 56'
+      )
+
+      expect(getBlock).not.toHaveBeenCalled()
+      expect(cosigner.digests).toEqual([])
+    })
+
+    test('an order the off-chain checks reject costs no block fetch and no cosignature', async () => {
+      const putMetric = jest.spyOn(metrics, 'putMetric')
+      try {
+        const { getBlock, providerMap } = chainAt(30_000_000)
+        const { service, orderValidator, onChainValidator, cosigner } = makePostOrderService({ providerMap })
+        orderValidator.result = { valid: false, errorString: 'Invalid priority order cosigner: nope' }
+
+        // Its start block is also too low; the off-chain answer comes first.
+        await expectValidationFailure(
+          service.createOrder(priorityOrderStartingAt(9)),
+          'Invalid priority order cosigner: nope'
+        )
+
+        expect(getBlock).not.toHaveBeenCalled()
+        expect(cosigner.digests).toEqual([])
+        expect(onChainValidator.calls).toEqual([])
+        expect(putMetric).toHaveBeenCalledWith('OffchainValidationFailure', 1, Unit.Count)
+      } finally {
+        putMetric.mockRestore()
+      }
+    })
+
+    test('an order the order quoter rejects costs exactly one block fetch and one cosignature', async () => {
+      const { getBlock, providerMap } = chainAt(30_000_000)
+      const { service, orderValidator, onChainValidator, cosigner, repository } = makePostOrderService({
+        providerMap,
+      })
+      onChainValidator.result = OrderValidation.ValidationFailed
+
+      await expectValidationFailure(
+        service.createOrder(priorityOrderStartingAt(30_000_010)),
+        'Onchain validation failed: ValidationFailed'
+      )
+
+      expect(getBlock).toHaveBeenCalledTimes(1)
+      expect(cosigner.digests).toHaveLength(1)
+      expect(orderValidator.calls).toHaveLength(1)
+      // The quoter sees the cosigned order.
+      expect(onChainValidator.calls).toHaveLength(1)
+      expect(
+        (onChainValidator.calls[0].order as SDKPriorityOrder).info.cosignerData.auctionTargetBlock.toNumber()
+      ).toBe(30_000_000 + MAINNET_TARGET_BLOCK_BUFFER)
+      expect(repository.puts).toEqual([])
+    })
   })
 
   test('getDutchOrders calls db with DUTCH_LIMIT and Dutch', async () => {

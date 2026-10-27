@@ -889,6 +889,53 @@ export const PostRejections = {
       metricsOnPreviousRequestLogger: [],
     },
   },
+  // The off-chain checks run before cosigning, so they answer first (and are counted).
+  priorityOffchainInvalidWithLowStart: {
+    route: DUTCH_ROUTE,
+    request: body(Orders.priorityLowStart, 'Priority'),
+    expected: {
+      response: {
+        statusCode: 400,
+        body: { detail: 'testing offchain validation', errorCode: 'INVALID_ORDER', id: 'testRequest' },
+      },
+      metrics: [...requestCounters(8453, '4XX'), ['OffchainValidationFailure', 1, 'Count']],
+      metricsOnPreviousRequestLogger: [],
+    },
+  },
+  priorityStartAboveSafeInteger: {
+    route: DUTCH_ROUTE,
+    request: body(Orders.priorityStartAboveSafeInteger, 'Priority'),
+    expected: {
+      response: {
+        statusCode: 400,
+        body: {
+          detail: 'Invalid auctionStartBlock: must be at most 9007199254740991',
+          errorCode: 'INVALID_ORDER',
+          id: 'testRequest',
+        },
+      },
+      metrics: [...requestCounters(8453, '4XX')],
+      metricsOnPreviousRequestLogger: [],
+    },
+  },
+  // BNB has no priority target-block buffer. The real off-chain checks reject it first
+  // ('Invalid reactor address'); this suite's off-chain checks pass everything.
+  priorityChainWithoutBuffer: {
+    route: DUTCH_ROUTE,
+    request: body({ ...Orders.priority, chainId: 56 }, 'Priority'),
+    expected: {
+      response: {
+        statusCode: 400,
+        body: {
+          detail: 'Priority orders are not supported on chainId 56',
+          errorCode: 'INVALID_ORDER',
+          id: 'testRequest',
+        },
+      },
+      metrics: [...requestCounters(56, '4XX')],
+      metricsOnPreviousRequestLogger: [],
+    },
+  },
   zeroTokenIn: {
     route: DUTCH_ROUTE,
     request: body(Orders.zeroTokenIn, 'Dutch_V2'),
