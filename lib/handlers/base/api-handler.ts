@@ -317,11 +317,12 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
       }
     }
 
-    const queryParamsRaw: APIGatewayProxyEventQueryStringParameters | null = event.queryStringParameters
+    // No query string at all is validated as an empty one, so the schema rejects what it requires.
+    const queryParamsRaw: APIGatewayProxyEventQueryStringParameters = event.queryStringParameters ?? {}
     const queryParamsSchema = this.requestQueryParamsSchema()
 
     let queryParams: ReqQueryParams | undefined
-    if (queryParamsRaw && queryParamsSchema) {
+    if (queryParamsSchema) {
       const queryParamsValidation = queryParamsSchema.validate(queryParamsRaw, {
         allowUnknown: true, // Makes API schema changes and rollbacks easier.
         stripUnknown: true,

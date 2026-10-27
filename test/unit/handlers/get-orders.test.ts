@@ -175,7 +175,9 @@ describe('Testing get orders handler.', () => {
       orders: [MOCK_PRIORITY_ORDER],
     })
 
-    const getOrdersResponse = await getOrdersHandler().handler({} as any, {} as any)
+    // a request with no query string at all is a 400
+    const event = { queryStringParameters: queryFiltersMock, body: null }
+    const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
 
     expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
     expect(getOrdersResponse).toMatchObject({
@@ -196,7 +198,9 @@ describe('Testing get orders handler.', () => {
       orders: [MOCK_V3_ORDER],
     })
 
-    const getOrdersResponse = await getOrdersHandler().handler({} as any, {} as any)
+    // a request with no query string at all is a 400
+    const event = { queryStringParameters: queryFiltersMock, body: null }
+    const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
 
     expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
     expect(getOrdersResponse).toMatchObject({

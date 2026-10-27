@@ -593,7 +593,7 @@ export class LambdaStack extends cdk.NestedStack {
     notifier.notify(sev2PostOrder4xxRate, sev3PostOrder4xxRate)
 
     // 5xx error-rate alarms per endpoint. Each endpoint emits a `<Endpoint>Request` counter
-    // and a `<Endpoint>Status5XX` counter via embedded metrics in the handler's afterResponseHook.
+    // and a `<Endpoint>Status5XX` counter via embedded metrics, recorded by the base API handler.
     // Two-tier alarm so we get both a slow-burn and a fast catastrophic signal:
     //   - sustained:    > 10% for 20 min (4 of 4 5-min datapoints) — would have caught the
     //                   noNetwork-from-bad-RPC incident that blocked PostOrder for ~24h silently
