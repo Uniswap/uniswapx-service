@@ -5,6 +5,7 @@ import { LimitOrdersRepository } from '../../repositories/limit-orders-repositor
 import { AnalyticsService } from '../../services/analytics-service'
 import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
+import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { PostOrderHandler } from '../post-order/handler'
@@ -20,8 +21,11 @@ const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
   (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
 )
 
-const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_YEAR_IN_SECONDS, {
-  SkipDecayStartTimeValidation: true,
+const orderValidator = new OffChainUniswapXOrderValidator({
+  getCurrentTime: () => new Date().getTime() / 1000,
+  deadlineValidityPeriodSeconds: ONE_YEAR_IN_SECONDS,
+  ...cosignersFromEnv(),
+  skipDecayStartTimeValidation: true,
 })
 const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
 

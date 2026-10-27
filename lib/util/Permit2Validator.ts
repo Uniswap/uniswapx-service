@@ -13,10 +13,16 @@ import { permit2Address, SignatureProvider, PermitTransferFrom, TokenPermissions
 export class Permit2Validator {
   private provider: ethers.providers.Provider
   private chainId: ChainId
+  private getCurrentTime: () => number
 
-  constructor(provider: ethers.providers.Provider, chainId: ChainId) {
+  constructor(
+    provider: ethers.providers.Provider,
+    chainId: ChainId,
+    getCurrentTime: () => number = () => Math.floor(Date.now() / 1000)
+  ) {
     this.provider = provider
     this.chainId = chainId
+    this.getCurrentTime = getCurrentTime
   }
 
   /**
@@ -56,8 +62,7 @@ export class Permit2Validator {
     }
 
     // Check if order deadline has passed
-    const currentTimestamp = Math.floor(Date.now() / 1000)
-    if (currentTimestamp > order.info.deadline) {
+    if (this.getCurrentTime() > order.info.deadline) {
       return OrderValidation.Expired
     }
 

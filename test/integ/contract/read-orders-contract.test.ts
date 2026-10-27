@@ -49,7 +49,13 @@ const NONCE_KEYS = SeededRows.Nonces.map(({ offerer }) => ({ offerer }))
 // The GET Lambdas as deployed, minus the query cache, reading DynamoDB Local.
 function orderService(repository: OrdersRepository, limitRepository: OrdersRepository, maxQueryRetry?: number) {
   return new UniswapXOrderService(
-    new OffChainUniswapXOrderValidator(() => NOW_SECONDS, ONE_DAY_IN_SECONDS),
+    // The GET path never validates an order, so the cosigners are never compared.
+    new OffChainUniswapXOrderValidator({
+      getCurrentTime: () => NOW_SECONDS,
+      deadlineValidityPeriodSeconds: ONE_DAY_IN_SECONDS,
+      cosigner: '',
+      priorityCosigner: '',
+    }),
     new OnChainValidatorMap<OrderValidator>(),
     repository,
     limitRepository,
