@@ -1,5 +1,4 @@
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
-import { MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
@@ -7,7 +6,6 @@ import { UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { ChainId } from '../../util/chain'
-import { setGlobalMetrics } from '../../util/metrics'
 import { ApiInjector, ApiRInj } from '../base/index'
 import type { ProviderMap } from '../shared'
 import { GetNonceQueryParams } from './schema/index'
@@ -60,14 +58,9 @@ export class GetNonceInjector extends ApiInjector<ContainerInjected, RequestInje
     requestQueryParams: GetNonceQueryParams,
     _event: APIGatewayProxyEvent,
     context: Context,
-    log: Logger,
-    metrics: MetricsLogger
+    log: Logger
   ): Promise<RequestInjected> {
     const requestId = context.awsRequestId
-
-    metrics.setNamespace('Uniswap')
-    metrics.setDimensions({ Service: 'UniswapXService' })
-    setGlobalMetrics(metrics)
 
     log = log.child({
       serializers: bunyan.stdSerializers,

@@ -1,16 +1,14 @@
 import Joi from 'joi'
-import { Unit } from 'aws-embedded-metrics'
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Logger from 'bunyan'
 import { UniswapXOrderEntity } from '../../entities'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { metrics } from '../../util/metrics'
 import {
   APIGLambdaHandler,
   APIHandleRequestParams,
   ApiInjector,
   ErrorCode,
   ErrorResponse,
+  RequestMetricsConfig,
   Response,
 } from '../base/index'
 import { ContainerInjected, RequestInjected } from './injector'
@@ -149,29 +147,8 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     return GetOrdersResponseJoi
   }
 
-  protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
-    const { statusCode } = response
-
-    // Try and extract the chain id from the raw json.
-    let chainId = '0'
-    try {
-      const rawBody = JSON.parse(event.body!)
-      chainId = rawBody.chainId ?? chainId
-    } catch (err) {
-      // no-op. If we can't get chainId still log the metric as chain 0
-    }
-    const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
-
-    const getOrdersByChainMetricName = `GetOrdersChainId${chainId.toString()}Status${statusCodeMod}`
-    metrics.putMetric(getOrdersByChainMetricName, 1, Unit.Count)
-
-    const getOrdersMetricName = `GetOrdersStatus${statusCodeMod}`
-    metrics.putMetric(getOrdersMetricName, 1, Unit.Count)
-
-    const getOrdersRequestMetricName = `GetOrdersRequest`
-    metrics.putMetric(getOrdersRequestMetricName, 1, Unit.Count)
-
-    const getOrdersRequestByChainIdMetricName = `GetOrdersRequestChainId${chainId.toString()}`
-    metrics.putMetric(getOrdersRequestByChainIdMetricName, 1, Unit.Count)
+  // Always counted under chain 0: the counters never read the query's chainId.
+  protected requestMetricsConfig(): RequestMetricsConfig {
+    return { prefix: 'GetOrders', chainIdFrom: 'none' }
   }
 }

@@ -1,5 +1,4 @@
 import { Unit } from 'aws-embedded-metrics'
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Joi from 'joi'
 
 import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
@@ -15,6 +14,7 @@ import {
   ApiRInj,
   ErrorCode,
   ErrorResponse,
+  RequestMetricsConfig,
   Response,
 } from '../base'
 import { ContainerInjected as PostContainerInjected } from '../shared/post'
@@ -120,30 +120,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     return PostOrderResponseJoi
   }
 
-  protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
-    const { statusCode } = response
-
-    // Try and extract the chain id from the raw json.
-    let chainId = '0'
-    try {
-      const rawBody = JSON.parse(event.body!)
-      chainId = rawBody.chainId ?? chainId
-    } catch (err) {
-      // no-op. If we can't get chainId still log the metric as chain 0
-    }
-
-    const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
-
-    const postOrderByChainMetricName = `PostOrderChainId${chainId.toString()}Status${statusCodeMod}`
-    metrics.putMetric(postOrderByChainMetricName, 1, Unit.Count)
-
-    const postOrderMetricName = `PostOrderStatus${statusCodeMod}`
-    metrics.putMetric(postOrderMetricName, 1, Unit.Count)
-
-    const postOrderRequestMetricName = `PostOrderRequest`
-    metrics.putMetric(postOrderRequestMetricName, 1, Unit.Count)
-
-    const postOrderRequestByChainIdMetricName = `PostOrderRequestChainId${chainId.toString()}`
-    metrics.putMetric(postOrderRequestByChainIdMetricName, 1, Unit.Count)
+  protected requestMetricsConfig(): RequestMetricsConfig {
+    return { prefix: 'PostOrder', chainIdFrom: 'body' }
   }
 }

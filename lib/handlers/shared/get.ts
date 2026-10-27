@@ -1,9 +1,7 @@
-import { MetricsLogger } from 'aws-embedded-metrics'
 import { Context } from 'aws-lambda'
 import bunyan, { default as Logger } from 'bunyan'
 import { UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { setGlobalMetrics } from '../../util/metrics'
 import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
 import { GetOrderTypeQueryParamEnum } from '../get-orders/schema/GetOrderTypeQueryParamEnum'
 
@@ -23,14 +21,12 @@ type RequestInjectedParams = {
   requestQueryParams: RawGetOrdersQueryParams
   context: Context
   log: Logger
-  metrics: MetricsLogger
 }
 
 export function getSharedRequestInjected({
   requestQueryParams,
   context,
   log,
-  metrics,
 }: RequestInjectedParams): GetRequestInjected {
   const requestId = context.awsRequestId
 
@@ -38,10 +34,6 @@ export function getSharedRequestInjected({
     serializers: bunyan.stdSerializers,
     requestId,
   })
-
-  metrics.setNamespace('Uniswap')
-  metrics.setDimensions({ Service: 'UniswapXService' })
-  setGlobalMetrics(metrics)
 
   return {
     ...parseGetQueryParams(requestQueryParams),

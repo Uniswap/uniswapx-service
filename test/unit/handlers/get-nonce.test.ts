@@ -1,3 +1,4 @@
+import { metricScope, MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
 import { GetNonceHandler } from '../../../lib/handlers/get-nonce/handler'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
@@ -51,7 +52,13 @@ describe('Testing get nonce handler.', () => {
   const putMetricMock = jest.fn()
 
   beforeAll(async () => {
-    setGlobalMetrics({ putMetric: putMetricMock })
+    // The handler records on the metrics logger metricScope hands the request.
+    jest.mocked(metricScope).mockImplementation(((handler: (metrics: MetricsLogger) => unknown) =>
+      handler({
+        putMetric: putMetricMock,
+        setNamespace: jest.fn(),
+        setDimensions: jest.fn(),
+      } as unknown as MetricsLogger)) as typeof metricScope)
     getNonceByAddressMock.mockReturnValue(MOCK_NONCE)
     providerMapGetMock.mockReturnValue(mockProvider)
     // by default the on-chain check finds the stored nonce still unused and returns it unchanged
@@ -95,7 +102,6 @@ describe('Testing get nonce handler.', () => {
       expect(BigInt(nonce) % BigInt(256)).toEqual(BigInt(0))
       expect(BigInt(nonce) > BigInt(0)).toEqual(true)
     })
-
 
     it('Returns the on-chain adjusted nonce when the stored nonce is stale.', async () => {
       const adjustedNonce = '456'
