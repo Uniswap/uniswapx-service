@@ -1,8 +1,15 @@
-import { CosignedV2DutchOrder, DutchOrder, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
+import {
+  CosignedPriorityOrder,
+  CosignedV2DutchOrder,
+  CosignedV3DutchOrder,
+  DutchOrder,
+  OrderType,
+  REACTOR_ADDRESS_MAPPING,
+} from '@uniswap/uniswapx-sdk'
 import dotenv from 'dotenv'
 import { BigNumber } from 'ethers'
-import { ChainId } from '../../../lib/util/chain'
-import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
+import { ChainId, SUPPORTED_CHAINS } from '../../../lib/util/chain'
+import { ONE_DAY_IN_SECONDS, ONE_YEAR_IN_SECONDS } from '../../../lib/util/constants'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
@@ -11,6 +18,12 @@ import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory
 import { Tokens } from '../fixtures'
 
 dotenv.config()
+
+// The cosigners the validator accepts, fixed here so no case depends on a .env.
+const COSIGNER = '0x0000000000000000000000000000000000001105'
+const PRIORITY_COSIGNER = '0x0000000000000000000000000000000000002205'
+process.env.LABS_COSIGNER = COSIGNER
+process.env.LABS_PRIORITY_COSIGNER = PRIORITY_COSIGNER
 
 const CURRENT_TIME = 10
 const validationProvider = new OffChainUniswapXOrderValidator(() => CURRENT_TIME, ONE_DAY_IN_SECONDS)
@@ -677,10 +690,9 @@ describe('Testing output tokens across order types', () => {
     const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
       outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
     })
-    const validationResp = new OffChainUniswapXOrderValidator(
-      () => Date.now() / 1000,
-      ONE_DAY_IN_SECONDS
-    ).validate(order)
+    const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
+      order
+    )
     expect(validationResp).toEqual({
       valid: false,
       errorString: `Invalid output token ${Tokens.MAINNET.USDC}: all outputs must use ${Tokens.MAINNET.WETH}`,
@@ -692,13 +704,350 @@ describe('Testing output tokens across order types', () => {
       cosigner: process.env.LABS_PRIORITY_COSIGNER,
       outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
     })
-    const validationResp = new OffChainUniswapXOrderValidator(
-      () => Date.now() / 1000,
-      ONE_DAY_IN_SECONDS
-    ).validate(order)
+    const validationResp = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS).validate(
+      order
+    )
     expect(validationResp).toEqual({
       valid: false,
       errorString: `Invalid output token ${Tokens.MAINNET.USDC}: all outputs must use ${Tokens.MAINNET.WETH}`,
+    })
+  })
+})
+
+// The SDK types order fields as readonly; mutating them mimics a parsed, attacker-supplied encodedOrder.
+type Mutable<T> = { -readonly [K in keyof T]: T[K] }
+const mutableDutchOutputs = (order: DutchOrder | CosignedV2DutchOrder) =>
+  order.info.outputs as unknown as Mutable<DutchOrder['info']['outputs'][number]>[]
+const mutableV3Outputs = (order: CosignedV3DutchOrder) =>
+  order.info.outputs as unknown as Mutable<CosignedV3DutchOrder['info']['outputs'][number]>[]
+const mutableInput = <O extends { info: { input: object } }>(order: O) =>
+  order.info.input as Mutable<O['info']['input']>
+const mutablePriorityOutputs = (order: CosignedPriorityOrder) =>
+  order.info.outputs as unknown as Mutable<CosignedPriorityOrder['info']['outputs'][number]>[]
+
+// The SDK refuses to construct an order for a chain without a Permit2 deployment, so set it after.
+const onChain = <T extends { chainId: number }>(order: T, chainId: number): T => Object.assign(order, { chainId })
+
+const UINT256_OVERFLOW = BigNumber.from(1).shl(256)
+const NEGATIVE = BigNumber.from(-1)
+const ADDRESS_ERROR = 'ValidationError: VALIDATION ERROR: Invalid address'
+const MPS_ERROR = 'Invalid mpsPerPriorityFeeWei: ValidationError: "value" must be greater than or equal to 0; must >= 0'
+
+// Every errorString the validator returns, and which one wins when an order is invalid more than one way.
+describe('Every errorString path', () => {
+  const liveValidator = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_DAY_IN_SECONDS)
+  const limitValidator = new OffChainUniswapXOrderValidator(() => Date.now() / 1000, ONE_YEAR_IN_SECONDS, {
+    SkipDecayStartTimeValidation: true,
+  })
+
+  const buildV2 = () => SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, { cosigner: COSIGNER })
+  const buildV3 = () => SDKDutchOrderV3Factory.buildDutchV3Order(ChainId.ARBITRUM_ONE, { cosigner: COSIGNER })
+  const buildPriority = () =>
+    SDKPriorityOrderFactory.buildPriorityOrder(ChainId.MAINNET, { cosigner: PRIORITY_COSIGNER })
+
+  const rejects = (
+    validator: OffChainUniswapXOrderValidator,
+    order: Parameters<OffChainUniswapXOrderValidator['validate']>[0],
+    errorString: string
+  ) => expect(validator.validate(order)).toEqual({ valid: false, errorString })
+
+  it('the factory orders used below are valid', () => {
+    expect(liveValidator.validate(buildV2())).toEqual({ valid: true })
+    expect(liveValidator.validate(buildV3())).toEqual({ valid: true })
+    expect(liveValidator.validate(buildPriority())).toEqual({ valid: true })
+  })
+
+  describe('cosigners', () => {
+    it('V2 with another cosigner', () => {
+      const order = buildV2()
+      order.info.cosigner = '0x0000000000000000000000000000000000000001'
+      rejects(liveValidator, order, `Invalid cosigner: ValidationError: "value" must be [${COSIGNER}]`)
+    })
+
+    it('V3 with the priority cosigner', () => {
+      const order = buildV3()
+      order.info.cosigner = PRIORITY_COSIGNER
+      rejects(liveValidator, order, `Invalid cosigner: ValidationError: "value" must be [${COSIGNER}]`)
+    })
+
+    it('priority with the Dutch cosigner', () => {
+      const order = buildPriority()
+      order.info.cosigner = COSIGNER
+      rejects(
+        liveValidator,
+        order,
+        `Invalid priority order cosigner: ValidationError: "value" must be [${PRIORITY_COSIGNER}]`
+      )
+    })
+
+    it('V1 orders carry no cosigner and are not checked for one', () => {
+      expect(liveValidator.validate(SDKDutchOrderFactory.buildDutchOrder())).toEqual({ valid: true })
+    })
+  })
+
+  it('V2 inputOverride above the input startAmount', () => {
+    const order = buildV2()
+    order.info.cosignerData.inputOverride = order.info.input.startAmount.add(1)
+    rejects(liveValidator, order, 'Invalid inputOverride > startAmount')
+  })
+
+  it('an unsupported chain reports the Joi message, not the error', () => {
+    rejects(validationProvider, onChain(newOrder({}), 999), `"value" must be one of [${SUPPORTED_CHAINS.join(', ')}]`)
+  })
+
+  it('a reactor that matches the mapping but fails the address checksum', () => {
+    const lower = (REACTOR as string).toLowerCase()
+    const firstLetter = lower.slice(2).search(/[a-f]/) + 2
+    const badChecksum = lower.slice(0, firstLetter) + lower[firstLetter].toUpperCase() + lower.slice(firstLetter + 1)
+    rejects(validationProvider, newOrder({ reactor: badChecksum }), `Invalid reactor: ${ADDRESS_ERROR}`)
+  })
+
+  describe('decayStartTime', () => {
+    it('V2 cosigner decayStartTime after the deadline', () => {
+      const order = buildV2()
+      order.info.cosignerData.decayStartTime = order.info.deadline + 1
+      rejects(liveValidator, order, 'Invalid decayStartTime: decayStartTime > deadline')
+    })
+
+    it('the skip flag skips it for V2 too', () => {
+      const order = buildV2()
+      order.info.cosignerData.decayStartTime = order.info.deadline + 1
+      expect(limitValidator.validate(order)).toEqual({ valid: true })
+    })
+  })
+
+  describe('limit orders', () => {
+    it('a limit order passes the limit validator against the Dutch reactor', () => {
+      const order = SDKDutchOrderFactory.buildLimitOrder()
+      expect(order.info.reactor).toEqual(REACTOR_ADDRESS_MAPPING[ChainId.MAINNET][OrderType.Dutch])
+      expect(limitValidator.validate(order)).toEqual({ valid: true })
+    })
+
+    it('a limit order on the V2 reactor is rejected', () => {
+      const order = SDKDutchOrderFactory.buildLimitOrder()
+      order.info.reactor = REACTOR_ADDRESS_MAPPING[ChainId.MAINNET][OrderType.Dutch_V2] as string
+      rejects(limitValidator, order, 'Invalid reactor address')
+    })
+  })
+
+  describe('V1 outputs', () => {
+    it('no outputs', () => {
+      const order = newOrder({})
+      mutableDutchOutputs(order).length = 0
+      rejects(validationProvider, order, 'Invalid number of outputs: 0')
+    })
+  })
+
+  describe('V3 input and outputs', () => {
+    it('negative input startAmount', () => {
+      const order = buildV3()
+      mutableInput(order).startAmount = NEGATIVE
+      rejects(liveValidator, order, 'Invalid input amount: -1')
+    })
+
+    it('input maxAmount past uint256', () => {
+      const order = buildV3()
+      mutableInput(order).maxAmount = UINT256_OVERFLOW
+      rejects(liveValidator, order, `Invalid input amount: ${UINT256_OVERFLOW.toString()}`)
+    })
+
+    it('no outputs', () => {
+      const order = buildV3()
+      mutableV3Outputs(order).length = 0
+      order.info.cosignerData.outputOverrides = []
+      rejects(liveValidator, order, 'Invalid number of outputs: 0')
+    })
+
+    it('bad output token', () => {
+      const order = buildV3()
+      mutableV3Outputs(order)[0].token = '0xfoo'
+      rejects(liveValidator, order, 'Invalid output token 0xfoo')
+    })
+
+    it('bad recipient', () => {
+      const order = buildV3()
+      mutableV3Outputs(order)[0].recipient = '0xfoo'
+      rejects(liveValidator, order, 'Invalid recipient 0xfoo')
+    })
+
+    it('negative output startAmount', () => {
+      const order = buildV3()
+      mutableV3Outputs(order)[0].startAmount = NEGATIVE
+      rejects(liveValidator, order, 'Invalid startAmount -1')
+    })
+
+    it('output minAmount past uint256', () => {
+      const order = buildV3()
+      mutableV3Outputs(order)[0].minAmount = UINT256_OVERFLOW
+      rejects(liveValidator, order, `Invalid minAmount ${UINT256_OVERFLOW.toString()}`)
+    })
+  })
+
+  describe('priority input and outputs', () => {
+    it('input amount past uint256', () => {
+      const order = buildPriority()
+      mutableInput(order).amount = UINT256_OVERFLOW
+      rejects(liveValidator, order, `Invalid input amount: ${UINT256_OVERFLOW.toString()}`)
+    })
+
+    it('negative input mpsPerPriorityFeeWei', () => {
+      const order = buildPriority()
+      mutableInput(order).mpsPerPriorityFeeWei = NEGATIVE
+      rejects(liveValidator, order, MPS_ERROR)
+    })
+
+    it('no outputs', () => {
+      const order = buildPriority()
+      mutablePriorityOutputs(order).length = 0
+      rejects(liveValidator, order, 'Invalid number of outputs: 0')
+    })
+
+    it('bad output token', () => {
+      const order = buildPriority()
+      mutablePriorityOutputs(order)[0].token = '0xfoo'
+      rejects(liveValidator, order, 'Invalid output token 0xfoo')
+    })
+
+    it('bad recipient', () => {
+      const order = buildPriority()
+      mutablePriorityOutputs(order)[0].recipient = '0xfoo'
+      rejects(liveValidator, order, 'Invalid recipient 0xfoo')
+    })
+
+    it('a negative output amount is reported as startAmount', () => {
+      const order = buildPriority()
+      mutablePriorityOutputs(order)[0].amount = NEGATIVE
+      rejects(liveValidator, order, 'Invalid startAmount -1')
+    })
+
+    it('negative output mpsPerPriorityFeeWei', () => {
+      const order = buildPriority()
+      mutablePriorityOutputs(order)[0].mpsPerPriorityFeeWei = NEGATIVE
+      rejects(liveValidator, order, MPS_ERROR)
+    })
+  })
+
+  describe('first error wins', () => {
+    it('V2: the cosigner before the chain', () => {
+      const order = buildV2()
+      order.info.cosigner = '0x0000000000000000000000000000000000000001'
+      rejects(liveValidator, onChain(order, 999), `Invalid cosigner: ValidationError: "value" must be [${COSIGNER}]`)
+    })
+
+    it('V2: the cosigner before the inputOverride', () => {
+      const order = buildV2()
+      order.info.cosigner = '0x0000000000000000000000000000000000000001'
+      order.info.cosignerData.inputOverride = order.info.input.startAmount.add(1)
+      rejects(liveValidator, order, `Invalid cosigner: ValidationError: "value" must be [${COSIGNER}]`)
+    })
+
+    it('V2: the inputOverride before the deadline', () => {
+      const order = buildV2()
+      order.info.cosignerData.inputOverride = order.info.input.startAmount.add(1)
+      order.info.deadline = 1
+      rejects(liveValidator, order, 'Invalid inputOverride > startAmount')
+    })
+
+    it('priority: the cosigner before the deadline', () => {
+      const order = buildPriority()
+      order.info.cosigner = COSIGNER
+      order.info.deadline = 1
+      rejects(
+        liveValidator,
+        order,
+        `Invalid priority order cosigner: ValidationError: "value" must be [${PRIORITY_COSIGNER}]`
+      )
+    })
+
+    it('V1: the chain before the reactor mapping', () => {
+      rejects(
+        validationProvider,
+        onChain(newOrder({ reactor: '0x0000000000000000000000000000000000000000' }), 999),
+        `"value" must be one of [${SUPPORTED_CHAINS.join(', ')}]`
+      )
+    })
+
+    it('V1: the deadline before decayStartTime and the swapper', () => {
+      rejects(
+        validationProvider,
+        newOrder({ deadline: 9, decayStartTime: 15, swapper: '0xbad' }),
+        'Deadline must be in the future'
+      )
+    })
+
+    it('V1: decayStartTime before the nonce', () => {
+      rejects(
+        validationProvider,
+        newOrder({ deadline: 20, decayStartTime: 21, nonce: NEGATIVE }),
+        'Invalid decayStartTime: decayStartTime > deadline'
+      )
+    })
+
+    it('V1: the nonce before the swapper', () => {
+      rejects(
+        validationProvider,
+        newOrder({ nonce: NEGATIVE, swapper: '0xbad' }),
+        'Invalid nonce: ValidationError: "value" with value "-1" fails to match the required pattern: /^[0-9]+$/'
+      )
+    })
+
+    it('V1: the input token before the outputs', () => {
+      rejects(
+        validationProvider,
+        newOrder({
+          input: { token: '0xbad', startAmount: BigNumber.from(1), endAmount: BigNumber.from(1) },
+          output: { ...OUTPUT, token: '0xfoo' },
+        }),
+        `Invalid input token: ${ADDRESS_ERROR}`
+      )
+    })
+
+    it('V1: every output is checked before the outputs are compared for one token', () => {
+      const order = SDKDutchOrderFactory.buildDutchOrder(ChainId.MAINNET, {
+        outputs: [{ token: Tokens.MAINNET.WETH }, { token: Tokens.MAINNET.USDC }],
+      })
+      mutableDutchOutputs(order)[1].endAmount = order.info.outputs[1].startAmount.add(1)
+      rejects(liveValidator, order, 'Invalid endAmount > startAmount')
+    })
+
+    it('V1: the first bad field of an output wins', () => {
+      const order = newOrder({ output: { ...OUTPUT, token: '0xfoo', recipient: '0xbar' } })
+      rejects(validationProvider, order, 'Invalid output token 0xfoo')
+    })
+
+    it('V2: the outputs before the outputOverrides', () => {
+      const order = buildV2()
+      mutableDutchOutputs(order)[0].endAmount = order.info.outputs[0].startAmount.add(1)
+      order.info.cosignerData.outputOverrides = []
+      rejects(liveValidator, order, 'Invalid endAmount > startAmount')
+    })
+
+    it('V3: the input curve before maxAmount', () => {
+      const order = buildV3()
+      order.info.input.curve.relativeBlocks = [1]
+      mutableInput(order).maxAmount = order.info.input.startAmount.sub(1)
+      rejects(liveValidator, order, 'Invalid curve: relativeAmounts.length != relativeBlocks.length')
+    })
+
+    it('V3: the input curve before the maxAmount range check', () => {
+      const order = buildV3()
+      order.info.input.curve.relativeBlocks = [1]
+      mutableInput(order).maxAmount = UINT256_OVERFLOW
+      rejects(liveValidator, order, 'Invalid curve: relativeAmounts.length != relativeBlocks.length')
+    })
+
+    it('V3: maxAmount below startAmount before the outputs', () => {
+      const order = buildV3()
+      mutableInput(order).maxAmount = order.info.input.startAmount.sub(1)
+      mutableV3Outputs(order)[0].token = '0xfoo'
+      rejects(liveValidator, order, 'Invalid maxAmount < startAmount')
+    })
+
+    it('priority: the input mps before the outputs', () => {
+      const order = buildPriority()
+      mutableInput(order).mpsPerPriorityFeeWei = NEGATIVE
+      mutablePriorityOutputs(order)[0].token = '0xfoo'
+      rejects(liveValidator, order, MPS_ERROR)
     })
   })
 })
