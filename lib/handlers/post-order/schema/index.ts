@@ -1,6 +1,7 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
 import FieldValidator from '../../../util/field-validator'
+import { DUTCH_LIMIT } from '../../../util/order'
 
 // TODO(andy.smith): update schemas to accept any one of the below formats. For now, just validate the original request body.
 export const PostOrderRequestBodyJoi = Joi.object({
@@ -16,59 +17,16 @@ export const PostOrderResponseJoi = Joi.object({
   hash: FieldValidator.isValidOrderHash(),
 })
 
-export type LegacyDutchOrderPostRequestBody = {
-  // To maintain backwards compatibility, we assume if an orderType is undefined
-  // on the object, this is a legacy DutchOrderRequest. The parser only accepts it
-  // as a limit order; decaying V1 orders are rejected.
-  orderType: undefined
+// One body for both post routes. Without an orderType it is the legacy V1 encoding, which the parser
+// accepts only as a limit order; Dutch and DutchLimit still pass the schema and are rejected there.
+export type PostOrderRequestBody = {
+  orderType?: OrderType | typeof DUTCH_LIMIT
   chainId: number
   encodedOrder: string
   signature: string
   quoteId?: string
   requestId?: string
 }
-
-export type LimitOrderPostRequestBody = {
-  orderType: OrderType.Limit
-  chainId: number
-  encodedOrder: string
-  signature: string
-  quoteId?: string
-}
-
-export type DutchV2OrderPostRequestBody = {
-  orderType: OrderType.Dutch_V2
-  chainId: number
-  encodedOrder: string
-  signature: string
-  quoteId?: string
-  requestId?: string
-}
-
-export type DutchV3OrderPostRequestBody = {
-  orderType: OrderType.Dutch_V3
-  chainId: number
-  encodedOrder: string
-  signature: string
-  quoteId?: string
-  requestId?: string
-}
-
-export type PriorityOrderPostRequestBody = {
-  orderType: OrderType.Priority
-  chainId: number
-  encodedOrder: string
-  signature: string
-  quoteId?: string
-  requestId?: string
-}
-
-export type PostOrderRequestBody =
-  | LegacyDutchOrderPostRequestBody
-  | DutchV2OrderPostRequestBody
-  | DutchV3OrderPostRequestBody
-  | LimitOrderPostRequestBody
-  | PriorityOrderPostRequestBody
 
 export type PostOrderResponse = {
   hash: string

@@ -46,7 +46,11 @@ export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderReques
 
     try {
       order = this.bodyParser.fromPostRequest(requestBody)
-      log.info({ parsedOrder: order, orderType: order.orderType }, 'parsed order')
+      const { info, chainId } = order.inner
+      log.info(
+        { orderType: order.orderType, orderHash: order.inner.hash(), chainId, swapper: info.swapper },
+        'parsed order'
+      )
     } catch (e: unknown) {
       log.error(e, 'Failed to parse order')
       return {

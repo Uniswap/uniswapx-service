@@ -97,7 +97,10 @@ describe('API request metrics', () => {
 
   describe('POST order', () => {
     const createOrder = jest.fn()
-    const fromPostRequest = jest.fn(() => ({ orderType: OrderType.Dutch_V2 }))
+    const fromPostRequest = jest.fn(() => ({
+      orderType: OrderType.Dutch_V2,
+      inner: { hash: () => `0x${'a'.repeat(64)}`, chainId: 42161, info: { swapper: ADDRESS } },
+    }))
 
     beforeEach(() => fromPostRequest.mockClear())
 
