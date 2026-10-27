@@ -352,9 +352,8 @@ export const SeededRows = {
 
 // How each seeded row comes back, by response shape:
 // - Typed: built from the encoded order (orderType given).
-// - Legacy: the stored row with offerer renamed to swapper, so lowercased (no orderType).
-// - Entity: the stored row as is, so with no swapper at all (orderType Dutch, Dutch_V1_V2 or Limit);
-//   deliberate, for parity.
+// - Legacy: the stored row with offerer renamed to swapper, so lowercased (no orderType, and the
+//   orderType Dutch, Dutch_V1_V2 and Limit paths, which return stored rows).
 const DutchV1Legacy = {
   outputs: [
     {
@@ -782,58 +781,6 @@ const PriorityTyped = {
   requestId: REQUEST_ID,
   createdAt: 4102444804,
 }
-const DutchV1Entity = {
-  outputs: [
-    {
-      recipient: '0x90f79bf6eb2c4f870365e785982e1f101e93b906',
-      startAmount: '2000000000000000000',
-      endAmount: '1900000000000000000',
-      token: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    },
-    {
-      recipient: '0x000000000000000000000000000000000000fee0',
-      startAmount: '99999999999999',
-      endAmount: '99999999999999',
-      token: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    },
-  ],
-  signature: SIGNATURE,
-  orderStatus: 'expired',
-  encodedOrder: Orders.readDutchV1.encodedOrder,
-  type: 'Dutch',
-  createdAt: 4102444805,
-  orderHash: Orders.readDutchV1.orderHash,
-  nonce: '2006',
-  quoteId: QUOTE_ID,
-  input: { endAmount: '1000000', startAmount: '1000000', token: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
-  chainId: 1,
-}
-const LimitEntity = {
-  outputs: [
-    {
-      recipient: '0x90f79bf6eb2c4f870365e785982e1f101e93b906',
-      startAmount: '2000000000000000000',
-      endAmount: '2000000000000000000',
-      token: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    },
-    {
-      recipient: '0x000000000000000000000000000000000000fee0',
-      startAmount: '99999999999999',
-      endAmount: '99999999999999',
-      token: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    },
-  ],
-  signature: SIGNATURE,
-  orderStatus: 'open',
-  encodedOrder: Orders.readLimit.encodedOrder,
-  type: 'Dutch',
-  createdAt: 4102444806,
-  orderHash: Orders.readLimit.orderHash,
-  nonce: '2005',
-  quoteId: QUOTE_ID,
-  input: { endAmount: '1000000', startAmount: '1000000', token: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
-  chainId: 1,
-}
 const LimitLegacy = {
   outputs: [
     {
@@ -886,15 +833,15 @@ export const GetOrdersReads = {
   },
   bySwapperDutch: {
     query: { swapper: reader, orderType: 'Dutch' },
-    expected: { statusCode: 200, body: { orders: [DutchV1Entity] } },
+    expected: { statusCode: 200, body: { orders: [DutchV1Legacy] } },
   },
   bySwapperDutchV1V2: {
     query: { swapper: reader, orderType: 'Dutch_V1_V2' },
-    expected: { statusCode: 200, body: { orders: [DutchV1Entity, V2FilledTyped, V2OpenTyped] } },
+    expected: { statusCode: 200, body: { orders: [DutchV1Legacy, V2FilledTyped, V2OpenTyped] } },
   },
   bySwapperLimit: {
     query: { swapper: reader, orderType: 'Limit' },
-    expected: { statusCode: 200, body: { orders: [LimitEntity] } },
+    expected: { statusCode: 200, body: { orders: [LimitLegacy] } },
   },
   byHash: {
     query: { orderHash: Orders.readV2Open.orderHash },
@@ -961,11 +908,11 @@ export const GetLimitOrdersReads = {
   bySwapper: { query: { swapper: reader }, expected: { statusCode: 200, body: { orders: [LimitLegacy] } } },
   bySwapperLimit: {
     query: { swapper: reader, orderType: 'Limit' },
-    expected: { statusCode: 200, body: { orders: [LimitEntity] } },
+    expected: { statusCode: 200, body: { orders: [LimitLegacy] } },
   },
   bySwapperDutch: {
     query: { swapper: reader, orderType: 'Dutch' },
-    expected: { statusCode: 200, body: { orders: [LimitEntity] } },
+    expected: { statusCode: 200, body: { orders: [LimitLegacy] } },
   },
   bySwapperDutchV2: {
     query: { swapper: reader, orderType: 'Dutch_V2' },
