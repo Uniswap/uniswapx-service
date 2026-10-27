@@ -6,12 +6,14 @@ import {
   OrderValidator,
   PermissionedTokenValidator,
 } from '@uniswap/uniswapx-sdk'
+import { Unit } from 'aws-embedded-metrics'
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
+import * as sfn from '../../../lib/handlers/shared/sfn'
 import { DutchV2Order } from '../../../lib/models/DutchV2Order'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
@@ -20,6 +22,7 @@ import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { MAX_QUERY_RETRY, SINGLE_PAGE, UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
 import { ChainId } from '../../../lib/util/chain'
+import { metrics } from '../../../lib/util/metrics'
 import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
 import { DUTCH_LIMIT, formatOrderEntity } from '../../../lib/util/order'
 import { Permit2Validator } from '../../../lib/util/Permit2Validator'
@@ -28,6 +31,7 @@ import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
+import { SilentServer, silentServerClientOptions } from '../../fakes/silent-server'
 import { makePostOrderService } from '../builders/post-path'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 import { MOCK_PROVIDER_MAP, TestWallets, Tokens, ZERO_SIGNATURE } from '../fixtures'
@@ -101,6 +105,44 @@ describe('UniswapXOrderService', () => {
       'Post-persist processing failed for accepted order',
       expect.objectContaining({ orderHash: response })
     )
+  })
+
+  test('createOrder returns the order hash when the tracking kickoff hangs until the SFN client times out', async () => {
+    // The module is mocked above; run the real kickoff over a real client whose StartExecution
+    // goes to a server that never answers, so the timeout comes from the HTTP handler.
+    const actualSfn = jest.requireActual<typeof sfn>('../../../lib/handlers/shared/sfn')
+    const server = new SilentServer()
+    await server.start()
+    const client = actualSfn.createSfnClient({
+      ...silentServerClientOptions(server),
+      requestTimeoutMs: 200,
+      attempts: 2,
+    })
+    const putMetric = jest.spyOn(metrics, 'putMetric')
+    try {
+      const logger = mock<Logger>()
+      const { service, repository } = makePostOrderService({ logger, getMaxOpenOrders: () => 10 })
+      jest
+        .mocked(sfn.kickoffOrderTrackingSfn)
+        .mockImplementation((input, stateMachineArn) =>
+          actualSfn.kickoffOrderTrackingSfn(input, stateMachineArn, client)
+        )
+
+      const response = await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+      expect(response).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(repository.puts).toHaveLength(1)
+      expect(server.connections).toBe(2)
+      expect(logger.error).toHaveBeenCalledWith('Post-persist processing failed for accepted order', {
+        orderHash: response,
+        err: expect.objectContaining({ name: 'TimeoutError' }),
+      })
+      expect(putMetric).toHaveBeenCalledWith('PostOrderPostPersistFailure', 1, Unit.Count)
+    } finally {
+      putMetric.mockRestore()
+      client.destroy()
+      await server.stop()
+    }
   })
 
   test('createOrder throws TooManyOpenOrdersError and does not persist when open order limit is reached', async () => {
