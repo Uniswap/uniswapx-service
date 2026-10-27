@@ -2,7 +2,7 @@ import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { KmsSigner } from '@uniswap/signer'
 import { CosignedPriorityOrder as SDKPriorityOrder, OrderType } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
-import { ORDER_STATUS, PriorityOrderEntity, UniswapXOrderEntity } from '../entities'
+import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { AVERAGE_BLOCK_TIME } from '../handlers/check-order-status/util'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
@@ -33,48 +33,6 @@ export class PriorityOrder extends Order {
 
   get orderType(): OrderType {
     return OrderType.Priority
-  }
-
-  public toEntity(orderStatus: ORDER_STATUS): PriorityOrderEntity {
-    const { input, outputs } = this.inner.info
-    const decodedOrder = this.inner
-    const order: PriorityOrderEntity = {
-      type: OrderType.Priority,
-      encodedOrder: decodedOrder.serialize(),
-      signature: this.signature,
-      nonce: decodedOrder.info.nonce.toString(),
-      orderHash: decodedOrder.hash().toLowerCase(),
-      chainId: decodedOrder.chainId,
-      orderStatus: orderStatus,
-      offerer: decodedOrder.info.swapper.toLowerCase(),
-      auctionStartBlock: decodedOrder.info.auctionStartBlock.toNumber(),
-      baselinePriorityFeeWei: decodedOrder.info.baselinePriorityFeeWei.toString(),
-      input: {
-        token: input.token,
-        amount: input.amount.toString(),
-        mpsPerPriorityFeeWei: input.mpsPerPriorityFeeWei.toString(),
-      },
-      outputs: outputs.map((output) => ({
-        token: output.token,
-        amount: output.amount.toString(),
-        mpsPerPriorityFeeWei: output.mpsPerPriorityFeeWei.toString(),
-        recipient: output.recipient.toLowerCase(),
-      })),
-      reactor: decodedOrder.info.reactor.toLowerCase(),
-      deadline: decodedOrder.info.deadline,
-      cosignerData: {
-        auctionTargetBlock: decodedOrder.info.cosignerData.auctionTargetBlock.toNumber(),
-      },
-      txHash: this.txHash,
-      fillBlock: this.fillBlock,
-      fillTimestamp: this.fillTimestamp,
-      cosignature: decodedOrder.info.cosignature,
-      quoteId: this.quoteId,
-      requestId: this.requestId,
-      createdAt: this.createdAt,
-    }
-
-    return order
   }
 
   public static fromEntity(entity: UniswapXOrderEntity): PriorityOrder {

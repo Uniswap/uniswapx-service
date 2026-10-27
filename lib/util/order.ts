@@ -1,6 +1,6 @@
-import { DutchOrder, OrderType, UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
+import { UniswapXOrderParser } from '@uniswap/uniswapx-sdk'
 import { DynamoDBRecord } from 'aws-lambda'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
+import { ORDER_STATUS } from '../entities'
 
 export const DUTCH_LIMIT = 'DutchLimit'
 
@@ -43,41 +43,4 @@ export const eventRecordToOrder = (record: DynamoDBRecord): ParsedOrder => {
   } catch (e) {
     throw new Error(`Error parsing new record to order: ${e instanceof Error ? e.message : e}`)
   }
-}
-
-export const formatOrderEntity = (
-  decodedOrder: DutchOrder,
-  signature: string,
-  quoteId?: string
-): UniswapXOrderEntity => {
-  const { input, outputs } = decodedOrder.info
-  const order: UniswapXOrderEntity = {
-    type: OrderType.Dutch,
-    encodedOrder: decodedOrder.serialize(),
-    signature,
-    nonce: decodedOrder.info.nonce.toString(),
-    orderHash: decodedOrder.hash().toLowerCase(),
-    chainId: decodedOrder.chainId,
-    orderStatus: ORDER_STATUS.OPEN,
-    offerer: decodedOrder.info.swapper.toLowerCase(),
-    input: {
-      token: input.token,
-      startAmount: input.startAmount.toString(),
-      endAmount: input.endAmount.toString(),
-    },
-    outputs: outputs.map((output) => ({
-      token: output.token,
-      startAmount: output.startAmount.toString(),
-      endAmount: output.endAmount.toString(),
-      recipient: output.recipient.toLowerCase(),
-    })),
-    reactor: decodedOrder.info.reactor.toLowerCase(),
-    decayStartTime: decodedOrder.info.decayStartTime,
-    decayEndTime: decodedOrder.info.deadline,
-    deadline: decodedOrder.info.deadline,
-    filler: decodedOrder.info?.exclusiveFiller?.toLowerCase(),
-    ...(quoteId && { quoteId: quoteId }),
-  }
-
-  return order
 }

@@ -562,14 +562,12 @@ async function updateOrders(
   
   for (const [orderHash, orderUpdate] of Object.entries(orderUpdates)) {
     log.info(`Updating order ${orderHash} to ${orderUpdate.status}`)
-    await repo.updateOrderStatus(
-      orderHash,
-      orderUpdate.status,
-      orderUpdate.txHash,
-      orderUpdate.fillBlock,
-      orderUpdate.settledAmounts,
-      orderUpdate.fillTimestamp
-    )
+    await repo.updateOrderStatus(orderHash, orderUpdate.status, {
+      txHash: orderUpdate.txHash,
+      fillBlock: orderUpdate.fillBlock,
+      settledAmounts: orderUpdate.settledAmounts,
+      fillTimestamp: orderUpdate.fillTimestamp,
+    })
   }
   
   log.info(`Update complete`)

@@ -493,7 +493,7 @@ export class CheckOrderStatusUtils {
         this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
       }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
-      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, fillBlock, settledAmounts, fillTimestamp)
+      await this.repository.updateOrderStatus(orderHash, orderStatus, { txHash, fillBlock, settledAmounts, fillTimestamp })
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)

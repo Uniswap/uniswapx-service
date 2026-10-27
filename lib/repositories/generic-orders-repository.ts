@@ -3,7 +3,8 @@ import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
 
 import { TABLE_KEY } from '../config/dynamodb'
-import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
+import { StatusUpdateFill, toStatusUpdate, toStoredRow } from '../core/orders/storedRow'
+import { ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
 import { GET_QUERY_PARAMS, GetOrdersQueryParams } from '../handlers/get-orders/schema'
 import { log } from '../Logging'
 import { checkDefined } from '../preconditions/preconditions'
@@ -115,11 +116,8 @@ export class GenericOrdersRepository implements BaseOrdersRepository<UniswapXOrd
   public async putOrderAndUpdateNonceTransaction(order: UniswapXOrderEntity): Promise<void> {
     await this.table.transactWrite(
       [
-        this.entity.putTransaction({
-          ...order,
-          ...this.indexMapper.getIndexFieldsForUpdate(order),
-          createdAt: currentTimestampInSeconds(),
-        }),
+        // currentTimestampInSeconds returns a string; the entity's createdAt was always written as a number.
+        this.entity.putTransaction(toStoredRow(order, Number(currentTimestampInSeconds()))),
         this.nonces.updateTransaction(order.offerer, order.chainId, order.nonce),
       ],
       {
@@ -129,14 +127,7 @@ export class GenericOrdersRepository implements BaseOrdersRepository<UniswapXOrd
     )
   }
 
-  public async updateOrderStatus(
-    orderHash: string,
-    status: ORDER_STATUS,
-    txHash?: string,
-    fillBlock?: number,
-    settledAmounts?: SettledAmount[],
-    fillTimestamp?: number
-  ): Promise<void> {
+  public async updateOrderStatus(orderHash: string, status: ORDER_STATUS, fill?: StatusUpdateFill): Promise<void> {
     try {
       const order = checkDefined(
         await this.getByHash(orderHash),
@@ -148,17 +139,7 @@ export class GenericOrdersRepository implements BaseOrdersRepository<UniswapXOrd
         status === ORDER_STATUS.FILLED
           ? {}
           : { conditions: [{ attr: TABLE_KEY.ORDER_STATUS, ne: ORDER_STATUS.FILLED }] }
-      await this.entity.update(
-        {
-          [TABLE_KEY.ORDER_HASH]: orderHash,
-          ...this.indexMapper.getIndexFieldsForStatusUpdate(order, status),
-          ...(txHash && { txHash }),
-          ...(fillBlock && { fillBlock }),
-          ...(fillTimestamp && { fillTimestamp }),
-          ...(settledAmounts && { settledAmounts }),
-        },
-        conditions
-      )
+      await this.entity.update(toStatusUpdate(order, status, fill), conditions)
     } catch (e) {
       if (isConditionalCheckFailed(e)) {
         // the order was FILLED by another writer since our read; skip the downgrade rather than throw

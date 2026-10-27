@@ -1,12 +1,8 @@
 import { TABLE_KEY } from '../../config/dynamodb'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../../entities'
 import { GET_QUERY_PARAMS, GetOrdersQueryParams } from '../../handlers/get-orders/schema'
 
-export type IndexFieldsForUpdate = {
-  [key: string]: string
-}
-
-export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity> {
+// The GSI a GET's filters select. The index fields rows carry are built in core/orders/storedRow.ts.
+export class OffchainOrderIndexMapper {
   public getRequestedParams(queryFilters: GetOrdersQueryParams) {
     // Fields to disregard when deriving indices
     const SORT_FIELDS = [GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC]
@@ -99,28 +95,5 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity> {
         }
     }
     return undefined
-  }
-
-  getIndexFieldsForUpdate(order: T): IndexFieldsForUpdate {
-    return {
-      offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
-      filler_orderStatus: `${order.filler}_${order.orderStatus}`,
-      filler_offerer: `${order.filler}_${order.offerer}`,
-      chainId_filler: `${order.chainId}_${order.filler}`,
-      chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
-      chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
-      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
-    }
-  }
-
-  getIndexFieldsForStatusUpdate(order: T, newStatus: ORDER_STATUS): IndexFieldsForUpdate {
-    return {
-      orderStatus: newStatus,
-      offerer_orderStatus: `${order.offerer}_${newStatus}`,
-      filler_orderStatus: `${order.filler}_${newStatus}`,
-      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${newStatus}`,
-      chainId_orderStatus: `${order.chainId}_${newStatus}`,
-      chainId_orderStatus_filler: `${order.chainId}_${newStatus}_${order.filler}`,
-    }
   }
 }

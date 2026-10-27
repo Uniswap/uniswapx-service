@@ -5,7 +5,7 @@ import { LIMIT_ORDER_ROUTE } from '../../../../lib/handlers/post-order/routes'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { WebhookProvider } from '../../../../lib/providers/base'
 import { ChainId } from '../../../../lib/util/chain'
-import { formatOrderEntity } from '../../../../lib/util/order'
+import { dutchOrderEntity } from '../../../factories/order-entities'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { freezeClock, restoreClock } from '../../../fakes/clock'
@@ -50,7 +50,7 @@ describe('Testing post limit order handler.', () => {
       const order = SDKDutchOrderFactory.buildLimitOrder()
 
       // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, QUOTE_ID)
+      const expectedOrderEntity = dutchOrderEntity(order, SIGNATURE, QUOTE_ID)
 
       const postOrderResponse = await handle(
         PostOrderRequestFactory.request({
@@ -84,7 +84,7 @@ describe('Testing post limit order handler.', () => {
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.SEPOLIA)
 
       // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, QUOTE_ID)
+      const expectedOrderEntity = dutchOrderEntity(order, SIGNATURE, QUOTE_ID)
 
       const postOrderResponse = await handle(
         PostOrderRequestFactory.request({
