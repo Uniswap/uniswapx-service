@@ -1,6 +1,5 @@
 import { DynamoDBClient, DynamoDBClientConfig } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
-import { NodeHttpHandler } from '@smithy/node-http-handler'
 
 // The order store's calls answer in milliseconds in-region. These bound a stuck call well inside
 // the post Lambda's 29 s: worst case about STORE_ATTEMPTS x STORE_REQUEST_TIMEOUT_MS plus
@@ -36,7 +35,9 @@ export function createStoreClient({
       endpoint,
       credentials,
       maxAttempts: attempts,
-      requestHandler: new NodeHttpHandler({ connectionTimeout: connectionTimeoutMs, requestTimeout: requestTimeoutMs }),
+      // Options, not a handler instance: in Lambda the client is the runtime's SDK (CDK leaves
+      // @aws-sdk/* out of the bundle), so it must build a handler from its own smithy version.
+      requestHandler: { connectionTimeout: connectionTimeoutMs, requestTimeout: requestTimeoutMs },
     }),
     // dynamodb-toolbox never wrote an undefined attribute
     { marshallOptions: { removeUndefinedValues: true } }
