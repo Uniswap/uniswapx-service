@@ -1,6 +1,6 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
+import { DutchV2OrderEntity, ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { GetDutchV2OrderResponse } from '../../../lib/handlers/get-orders/schema/GetDutchV2OrderResponse'
 import { DutchV2Order } from '../../../lib/models/DutchV2Order'
 import { ChainId } from '../../../lib/util/chain'
@@ -10,7 +10,12 @@ import { Tokens } from '../fixtures'
 
 describe('DutchV2 Model', () => {
   test('toEntity', () => {
-    const order = new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(), MOCK_SIGNATURE, ChainId.MAINNET)
+    const decayStartTime = 1_800_000_000
+    const sdkOrder = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, {
+      deadline: decayStartTime + 240,
+      cosignerData: { decayStartTime, decayEndTime: decayStartTime + 60 },
+    })
+    const order = new DutchV2Order(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
     const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
 
     expect(entity.signature).toEqual(MOCK_SIGNATURE)
@@ -18,6 +23,10 @@ describe('DutchV2 Model', () => {
     expect(entity.orderStatus).toEqual(ORDER_STATUS.OPEN)
     expect(entity.orderHash).toEqual(order.inner.hash())
     expect(entity.type).toEqual(OrderType.Dutch_V2)
+    // decay runs over the cosigner's window; the order then sits at its end amounts until the deadline
+    expect((entity as DutchV2OrderEntity).decayStartTime).toEqual(order.inner.info.cosignerData.decayStartTime)
+    expect((entity as DutchV2OrderEntity).decayEndTime).toEqual(order.inner.info.cosignerData.decayEndTime)
+    expect((entity as DutchV2OrderEntity).deadline).toEqual(order.inner.info.deadline)
   })
 
   test('fromEntity', () => {

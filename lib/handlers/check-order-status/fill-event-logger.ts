@@ -65,7 +65,7 @@ export class FillEventLogger {
       }
 
       if (order.type === OrderType.Dutch || order.type === OrderType.Dutch_V2) {
-        const percentDecayed = this.calculatePercentDecayed(order, timestamp)
+        const percentDecayed = fractionDecayed(order, timestamp)
         metrics.putMetric(`OrderSfn-PercentDecayedUntilFill-chain-${chainId}`, percentDecayed, Unit.Percent)
       }
 
@@ -79,10 +79,17 @@ export class FillEventLogger {
       return []
     }
   }
+}
 
-  private calculatePercentDecayed(order: DutchV1OrderEntity | DutchV2OrderEntity, timestamp: number): number {
-    if (order.decayStartTime && order.decayEndTime) {
-      return (timestamp - order.decayStartTime) / (order.decayEndTime - order.decayStartTime)
-    } else return 0
+/**
+ * How far through its decay window an order was when it filled, from 0 (at or before the start)
+ * to 1 (at or after the end). Fills after the decay end but before the deadline are 1, and a
+ * zero-length or missing window is 0 rather than a non-finite value CloudWatch would drop.
+ */
+export function fractionDecayed(order: DutchV1OrderEntity | DutchV2OrderEntity, timestamp: number): number {
+  const { decayStartTime, decayEndTime } = order
+  if (!decayStartTime || !decayEndTime || decayEndTime <= decayStartTime) {
+    return 0
   }
+  return Math.min(1, Math.max(0, (timestamp - decayStartTime) / (decayEndTime - decayStartTime)))
 }
