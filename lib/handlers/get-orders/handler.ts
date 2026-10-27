@@ -1,17 +1,18 @@
 import Joi from 'joi'
 import Logger from 'bunyan'
 import { UniswapXOrderEntity } from '../../entities'
+import { BaseOrdersRepository } from '../../repositories/base'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
 import {
   APIGLambdaHandler,
   APIHandleRequestParams,
-  ApiInjector,
+  ApiRInj,
   ErrorCode,
   ErrorResponse,
   RequestMetricsConfig,
   Response,
 } from '../base/index'
-import { ContainerInjected, RequestInjected } from './injector'
+import { parseGetQueryParams } from './query-params'
 import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
@@ -22,6 +23,7 @@ import {
   RawGetOrdersQueryParams,
 } from './schema/index'
 import { GetDutchV3OrderResponse } from './schema/GetDutchV3OrderResponse'
+import { GetOrderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
 
 export type GetOrdersHandlerOptions = {
   queryParamsSchema: Joi.ObjectSchema
@@ -42,6 +44,14 @@ export const GET_LIMIT_ORDERS_HANDLER_OPTIONS: GetOrdersHandlerOptions = {
   paginated: true,
 }
 
+export interface RequestInjected extends ApiRInj {
+  limit: number
+  queryFilters: GetOrdersQueryParams
+  // Only ever set for GET /limit-orders; GET /orders rejects the parameter.
+  cursor?: string
+  orderType?: GetOrderTypeQueryParamEnum
+}
+
 type GetOrdersBody = GetOrdersResponse<
   | UniswapXOrderEntity
   | GetDutchV2OrderResponse
@@ -51,7 +61,6 @@ type GetOrdersBody = GetOrdersResponse<
 >
 
 export class GetOrdersHandler extends APIGLambdaHandler<
-  ContainerInjected,
   RequestInjected,
   void,
   RawGetOrdersQueryParams,
@@ -59,19 +68,28 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 > {
   constructor(
     handlerName: string,
-    injectorPromise: Promise<ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>>,
+    // The table this endpoint reads when the request names no orderType: the one its order
+    // service reads.
+    private readonly repository: Pick<BaseOrdersRepository<UniswapXOrderEntity>, 'getOrders'>,
     private readonly orderDispatcher: OrderDispatcher,
     private readonly options: GetOrdersHandlerOptions = GET_ORDERS_HANDLER_OPTIONS
   ) {
-    super(handlerName, injectorPromise)
+    super(handlerName)
+  }
+
+  protected buildRequestInjected(
+    base: ApiRInj,
+    _requestBody: void,
+    requestQueryParams: RawGetOrdersQueryParams
+  ): RequestInjected {
+    return { ...parseGetQueryParams(requestQueryParams), ...base }
   }
 
   public async handleRequest(
-    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
+    params: APIHandleRequestParams<RequestInjected, void, RawGetOrdersQueryParams>
   ): Promise<Response<GetOrdersBody> | ErrorResponse> {
     const {
       requestInjected: { limit, queryFilters, orderType, log },
-      containerInjected: { dbInterface },
     } = params
     // The single-page schema already rejects a cursor; this keeps the contract even if the
     // schema and the option ever disagree.
@@ -94,7 +112,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
       }
 
       //without orderType specified, keep legacy implementation
-      const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
+      const getOrdersResult = await this.repository.getOrders(limit, queryFilters, cursor)
 
       return {
         statusCode: 200,

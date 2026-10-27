@@ -62,17 +62,16 @@ async function deleteSuiteRows(): Promise<void> {
   await deleteRawItems(TABLE_NAMES.Nonces, NONCE_KEYS)
 }
 
-// The Lambda serving `route` as deployed, on DynamoDB Local. Only the Dutch route's Lambda is
-// given a webhook provider, so only it sends the immediate exclusive-filler notice.
+// The Lambda serving `route` as deployed, on DynamoDB Local. Both get a webhook provider; only
+// the Dutch route's policy sends the immediate exclusive-filler notice.
 function postLambda(route: string, webhookProvider: RecordingWebhookProvider): Lambda {
   if (route === LIMIT_ORDER_ROUTE.path) {
     return makePostOrderHandler(LIMIT_ORDER_ROUTE, {
-      injector: 'lambda',
       repository: LimitOrdersRepository.create(documentClient),
+      webhookProvider,
     })
   }
   return makePostOrderHandler(DUTCH_AUCTION_ORDER_ROUTE, {
-    injector: 'lambda',
     repository: DutchOrdersRepository.create(documentClient),
     webhookProvider,
   })

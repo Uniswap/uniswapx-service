@@ -122,6 +122,12 @@ describe.each(ROUTES)('$suite', ({ route, maxOpenOrders, post }) => {
         expect(harness.repository.puts).toEqual([])
       })
 
+      it("should accept an order at exactly this route's open-order limit", async () => {
+        harness.repository.openOrderCount = maxOpenOrders
+
+        expect(await handle(post().request)).toMatchObject({ statusCode: HttpStatusCode.Created })
+      })
+
       it('should allow more orders if in the high list', async () => {
         // Above this route's default limit and within the high list's, so only the list lets it through.
         const openOrderCount = maxOpenOrders + 1

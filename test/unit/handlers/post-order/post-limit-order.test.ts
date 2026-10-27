@@ -3,6 +3,7 @@ import { APIGatewayProxyEvent } from 'aws-lambda'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { LIMIT_ORDER_ROUTE } from '../../../../lib/handlers/post-order/routes'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
+import { WebhookProvider } from '../../../../lib/providers/base'
 import { ChainId } from '../../../../lib/util/chain'
 import { formatOrderEntity } from '../../../../lib/util/order'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
@@ -40,6 +41,22 @@ describe('Testing post limit order handler.', () => {
 
   afterEach(() => {
     restoreClock()
+  })
+
+  it('never sends the immediate exclusive-filler notice, even when given a webhook provider', async () => {
+    const getExclusiveFillerEndpoints = jest.fn().mockResolvedValue([])
+    harness = makePostOrderHandler(LIMIT_ORDER_ROUTE, {
+      webhookProvider: { getExclusiveFillerEndpoints } as unknown as WebhookProvider,
+    })
+    const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
+      exclusiveFiller: '0x0000000000000000000000000000000000000044',
+    })
+
+    const response = await handle(PostOrderRequestFactory.request({ encodedOrder: order.serialize() }))
+
+    expect(response.statusCode).toEqual(HttpStatusCode.Created)
+    expect(harness.repository.puts[0].filler).toEqual('0x0000000000000000000000000000000000000044')
+    expect(getExclusiveFillerEndpoints).not.toHaveBeenCalled()
   })
 
   describe('Testing valid request and response', () => {

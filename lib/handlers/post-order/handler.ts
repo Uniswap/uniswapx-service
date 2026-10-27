@@ -10,37 +10,32 @@ import { metrics } from '../../util/metrics'
 import {
   APIGLambdaHandler,
   APIHandleRequestParams,
-  ApiInjector,
   ApiRInj,
   ErrorCode,
   ErrorResponse,
   RequestMetricsConfig,
   Response,
 } from '../base'
-import { ContainerInjected as PostContainerInjected } from '../shared/post'
 import { PostableOrder, PostOrderBodyParser } from './PostOrderBodyParser'
 import { PostOrderRoute, wrongRouteDetail } from './routes'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
-export class PostOrderHandler extends APIGLambdaHandler<
-  PostContainerInjected,
-  ApiRInj,
-  PostOrderRequestBody,
-  void,
-  PostOrderResponse
-> {
+export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderRequestBody, void, PostOrderResponse> {
   constructor(
     handlerName: string,
-    injectorPromise: Promise<ApiInjector<PostContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
     private readonly orderService: Pick<UniswapXOrderService, 'createOrder'>,
     private readonly bodyParser: PostOrderBodyParser,
     private readonly route: PostOrderRoute
   ) {
-    super(handlerName, injectorPromise)
+    super(handlerName)
+  }
+
+  protected buildRequestInjected(base: ApiRInj): ApiRInj {
+    return base
   }
 
   public async handleRequest(
-    params: APIHandleRequestParams<PostContainerInjected, ApiRInj, PostOrderRequestBody, void>
+    params: APIHandleRequestParams<ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody,

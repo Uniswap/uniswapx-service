@@ -1,12 +1,9 @@
 import { OrderValidator } from '@uniswap/uniswapx-sdk'
 import { UniswapXOrderEntity } from '../../../lib/entities'
-import { GetLimitOrdersInjector } from '../../../lib/handlers/get-limit-orders/injector'
 import { GetNonceHandler } from '../../../lib/handlers/get-nonce/handler'
-import { GetNonceInjector } from '../../../lib/handlers/get-nonce/injector'
 import { GET_LIMIT_ORDERS_HANDLER_OPTIONS, GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
-import { GetOrdersInjector } from '../../../lib/handlers/get-orders/injector'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
-import { getMaxOpenOrders } from '../../../lib/handlers/post-order/injector'
+import { getMaxOpenOrders } from '../../../lib/handlers/post-order/policy'
 import { ProviderMap } from '../../../lib/handlers/shared'
 import { log } from '../../../lib/Logging'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
@@ -68,26 +65,6 @@ function orderService(repository: OrdersRepository, limitRepository: OrdersRepos
   )
 }
 
-class LocalGetOrdersInjector extends GetOrdersInjector {
-  constructor(private readonly repository: OrdersRepository) {
-    super('getOrdersInjector')
-  }
-
-  public async buildContainerInjected() {
-    return { dbInterface: this.repository }
-  }
-}
-
-class LocalGetLimitOrdersInjector extends GetLimitOrdersInjector {
-  constructor(private readonly repository: OrdersRepository) {
-    super('getLimitOrdersInjector')
-  }
-
-  public async buildContainerInjected() {
-    return { dbInterface: this.repository }
-  }
-}
-
 // Answers Permit2's nonceBitmap with an empty word, so the stored nonce is still unused onchain.
 class EmptyBitmapProvider {
   readonly _isProvider = true
@@ -96,16 +73,6 @@ class EmptyBitmapProvider {
   async call(tx: { to: string; data: string }): Promise<string> {
     this.calls.push({ to: tx.to, data: tx.data })
     return `0x${'00'.repeat(32)}`
-  }
-}
-
-class LocalGetNonceInjector extends GetNonceInjector {
-  constructor(private readonly repository: OrdersRepository, private readonly providerMap: ProviderMap) {
-    super('getNonceInjector')
-  }
-
-  public async buildContainerInjected() {
-    return { dbInterface: this.repository, providerMap: this.providerMap }
   }
 }
 
@@ -125,19 +92,19 @@ describe('GET order contract', () => {
 
   const getOrders = new GetOrdersHandler(
     'getOrdersHandler',
-    new LocalGetOrdersInjector(ordersRepository).build(),
+    ordersRepository,
     new OrderDispatcher(orderService(ordersRepository, limitOrdersRepository, SINGLE_PAGE))
   )
   const getLimitOrders = new GetOrdersHandler(
     'getLimitOrdersHandler',
-    new LocalGetLimitOrdersInjector(limitOrdersRepository).build(),
+    limitOrdersRepository,
     new OrderDispatcher(orderService(limitOrdersRepository, limitOrdersRepository)),
     GET_LIMIT_ORDERS_HANDLER_OPTIONS
   )
-  const getNonce = new GetNonceHandler(
-    'getNonceHandler',
-    new LocalGetNonceInjector(ordersRepository, { get: () => provider } as unknown as ProviderMap).build()
-  )
+  // An orders repository also reads nonces, so it stands in for the Nonces repository.
+  const getNonce = new GetNonceHandler('getNonceHandler', ordersRepository, {
+    get: () => provider,
+  } as unknown as ProviderMap)
 
   beforeAll(async () => {
     await putRawItems(TABLE_NAMES.Orders, ORDER_ROWS)

@@ -1,9 +1,8 @@
-import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { GET_LIMIT_ORDERS_HANDLER_OPTIONS, GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
-import { parseGetQueryParams } from '../../../lib/handlers/shared/get'
+import { parseGetQueryParams } from '../../../lib/handlers/get-orders/query-params'
 import { GetOrdersQueryParamsJoi } from '../../../lib/handlers/get-orders/schema'
 import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
@@ -116,31 +115,21 @@ describe('Testing get orders handler.', () => {
     ],
   }
 
-  let getOrdersMock: any, queryFiltersMock: any, requestInjectedMock: any, injectorPromiseMock: any
+  const FILLER = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+  // The query string most cases send, and the limit and filters the handler reads it as.
+  const query = { swapper: MOCK_ORDER.swapper, filler: FILLER, orderStatus: ORDER_STATUS.OPEN, limit: '10' }
+  const LIMIT = 10
+  const queryFiltersMock = {
+    orderStatus: ORDER_STATUS.OPEN,
+    offerer: MOCK_ORDER.swapper.toLowerCase(),
+    filler: FILLER.toLowerCase(),
+  }
+
+  let getOrdersMock: any, repositoryMock: { getOrders: jest.Mock }
 
   beforeEach(async () => {
-    // Creating mocks for all the handler dependencies.
     getOrdersMock = jest.fn()
-    queryFiltersMock = {
-      offerer: MOCK_ORDER.swapper,
-      filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-      orderStatus: ORDER_STATUS.OPEN,
-    }
-    requestInjectedMock = {
-      limit: 10,
-      queryFilters: queryFiltersMock,
-      log: mock<Logger>(),
-    }
-    injectorPromiseMock = {
-      getContainerInjected: () => {
-        return {
-          dbInterface: {
-            getOrders: getOrdersMock,
-          },
-        }
-      },
-      getRequestInjected: () => requestInjectedMock,
-    }
+    repositoryMock = { getOrders: getOrdersMock }
     getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER] })
   })
 
@@ -150,15 +139,15 @@ describe('Testing get orders handler.', () => {
 
   it('Testing valid request and response.', async () => {
     const event = {
-      queryStringParameters: queryFiltersMock,
+      queryStringParameters: query,
       body: null,
     }
 
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+    const getOrdersHandler = (repository = repositoryMock) =>
+      new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
 
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
+    expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
     expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({ orders: [MOCK_ORDER] }),
       statusCode: 200,
@@ -169,17 +158,17 @@ describe('Testing get orders handler.', () => {
   })
 
   it('Testing valid request and response, Priority order', async () => {
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+    const getOrdersHandler = (repository = repositoryMock) =>
+      new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
     getOrdersMock.mockReturnValue({
       orders: [MOCK_PRIORITY_ORDER],
     })
 
     // pass a query string: an absent one is now rejected with a 400
-    const event = { queryStringParameters: queryFiltersMock, body: null }
+    const event = { queryStringParameters: query, body: null }
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
 
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
+    expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
     expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({
         orders: [MOCK_PRIORITY_ORDER],
@@ -192,17 +181,17 @@ describe('Testing get orders handler.', () => {
   })
 
   it('Testing valid request and response, DutchV3 order', async () => {
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+    const getOrdersHandler = (repository = repositoryMock) =>
+      new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
     getOrdersMock.mockReturnValue({
       orders: [MOCK_V3_ORDER],
     })
 
     // pass a query string: an absent one is now rejected with a 400
-    const event = { queryStringParameters: queryFiltersMock, body: null }
+    const event = { queryStringParameters: query, body: null }
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
 
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
+    expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
     expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({
         orders: [MOCK_V3_ORDER],
@@ -216,26 +205,23 @@ describe('Testing get orders handler.', () => {
 
   it('Testing valid request and response with chainId.', async () => {
     const event = {
-      queryStringParameters: queryFiltersMock,
+      queryStringParameters: query,
       body: null,
     }
 
-    const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-      new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+    const getOrdersHandler = (repository = repositoryMock) =>
+      new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
 
-    const tempQueryFilters = {
-      chainId: 1,
-      filler: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-      orderStatus: ORDER_STATUS.OPEN,
-    }
-    const getOrdersResponse = await getOrdersHandler({
-      ...injectorPromiseMock,
-      getRequestInjected: () => ({
-        ...requestInjectedMock,
-        queryFilters: tempQueryFilters,
-      }),
-    }).handler({ ...event, queryStringParameters: tempQueryFilters } as any, {} as any)
-    expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, tempQueryFilters, undefined)
+    const chainQuery = { chainId: '1', filler: FILLER, orderStatus: ORDER_STATUS.OPEN, limit: '10' }
+    const getOrdersResponse = await getOrdersHandler().handler(
+      { ...event, queryStringParameters: chainQuery } as any,
+      {} as any
+    )
+    expect(getOrdersMock).toBeCalledWith(
+      LIMIT,
+      { orderStatus: ORDER_STATUS.OPEN, filler: FILLER.toLowerCase(), chainId: 1 },
+      undefined
+    )
     expect(getOrdersResponse).toMatchObject({
       body: JSON.stringify({ orders: [MOCK_ORDER] }),
       statusCode: 200,
@@ -272,12 +258,12 @@ describe('Testing get orders handler.', () => {
       ],
     ])('Throws 400 with invalid query param %p', async (invalidQueryParam, bodyMsg) => {
       const event = {
-        queryStringParameters: queryFiltersMock,
+        queryStringParameters: query,
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+      const getOrdersHandler = (repository = repositoryMock) =>
+        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
 
       const invalidEvent = {
         ...event,
@@ -306,35 +292,35 @@ describe('Testing get orders handler.', () => {
       [{ chainId: 'nope' }],
     ])('Throws 500 with invalid field %p in the response', async (invalidResponseField) => {
       const event = {
-        queryStringParameters: queryFiltersMock,
+        queryStringParameters: query,
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+      const getOrdersHandler = (repository = repositoryMock) =>
+        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
+      expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
       expect(getOrdersResponse.statusCode).toEqual(500)
       expect(getOrdersResponse.body).toEqual(expect.stringContaining('INTERNAL_ERROR'))
     })
 
     it('Throws 500 when db interface errors out.', async () => {
       const event = {
-        queryStringParameters: queryFiltersMock,
+        queryStringParameters: query,
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+      const getOrdersHandler = (repository = repositoryMock) =>
+        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
 
       const error = new Error('Oh no! This is an error.')
       getOrdersMock.mockImplementation(() => {
         throw error
       })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
+      expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
       expect(getOrdersResponse).toMatchObject({
         body: JSON.stringify({ detail: error.message, errorCode: 'INTERNAL_ERROR' }),
         statusCode: 500,
@@ -351,15 +337,15 @@ describe('Testing get orders handler.', () => {
       `Returns 200 with deprecated field %p in the response`,
       async (deprecatedField) => {
         const event = {
-          queryStringParameters: queryFiltersMock,
+          queryStringParameters: query,
           body: null,
         }
 
-        const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-          new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+        const getOrdersHandler = (repository = repositoryMock) =>
+          new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
         getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...deprecatedField }] })
         const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-        expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
+        expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
         expect(getOrdersResponse.statusCode).toEqual(200)
       }
     )
@@ -368,18 +354,18 @@ describe('Testing get orders handler.', () => {
   describe('quoteId and requestId', () => {
     it(`Returns 200 with quoteId and requestId`, async () => {
       const event = {
-        queryStringParameters: queryFiltersMock,
+        queryStringParameters: query,
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+      const getOrdersHandler = (repository = repositoryMock) =>
+        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({
         orders: [{ ...MOCK_ORDER, quoteId: '4385e89a-0553-46fa-9b7e-464c1fa7822f', requestId: REQUEST_ID }],
       })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
+      expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
       expect(getOrdersResponse.statusCode).toEqual(200)
 
       expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).toEqual('4385e89a-0553-46fa-9b7e-464c1fa7822f')
@@ -388,16 +374,16 @@ describe('Testing get orders handler.', () => {
 
     it(`Returns 200 when quoteId is undefined`, async () => {
       const event = {
-        queryStringParameters: queryFiltersMock,
+        queryStringParameters: query,
         body: null,
       }
 
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+      const getOrdersHandler = (repository = repositoryMock) =>
+        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: undefined }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
-      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, requestInjectedMock.queryFilters, undefined)
+      expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
       expect(getOrdersResponse.statusCode).toEqual(200)
       expect(JSON.parse(getOrdersResponse.body).orders[0].quoteId).not.toBeDefined()
     })
@@ -413,11 +399,11 @@ describe('Testing get orders handler.', () => {
 
     it('returns fillBlock and fillTimestamp for a filled order', async () => {
       const event = {
-        queryStringParameters: queryFiltersMock,
+        queryStringParameters: query,
         body: null,
       }
-      const getOrdersHandler = (injectedMock = injectorPromiseMock) =>
-        new GetOrdersHandler('get-orders', injectedMock, mock<OrderDispatcher>())
+      const getOrdersHandler = (repository = repositoryMock) =>
+        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...FILL_FIELDS }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
@@ -502,7 +488,7 @@ describe('Testing get orders handler.', () => {
       // The cached first page reports a cursor whenever the partition holds more rows; a
       // single-page endpoint must not hand out a cursor it would reject on the next request.
       getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
-      const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
 
       const response = await handler.handler({ queryStringParameters: { orderStatus: 'open' } } as any, {} as any)
 
@@ -519,17 +505,7 @@ describe('Testing get orders handler.', () => {
       // They describe exactly the page the endpoint serves, so a client that always sent them
       // keeps working; the repository sees a plain query and the response has no cursor.
       getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
-      const handler = new GetOrdersHandler(
-        'get-orders',
-        {
-          ...injectorPromiseMock,
-          getRequestInjected: (_c: any, _b: any, validatedQueryParams: any) => ({
-            ...requestInjectedMock,
-            ...parseGetQueryParams(validatedQueryParams),
-          }),
-        },
-        mock<OrderDispatcher>()
-      )
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
 
       const response = await handler.handler({ queryStringParameters } as any, {} as any)
 
@@ -546,7 +522,7 @@ describe('Testing get orders handler.', () => {
       [{ orderStatus: 'open', sortKey: 'createdBy' }, 'must be [createdAt]'],
     ])('GET /orders rejects non-default paging or sort params %p with a 400', async (queryStringParameters, message) => {
       // A client that actually relied on paging or another ordering must find out.
-      const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
 
       const response = await handler.handler({ queryStringParameters } as any, {} as any)
 
@@ -564,27 +540,24 @@ describe('Testing get orders handler.', () => {
       expect(value).toEqual({ orderStatus: 'open' })
     })
 
-    it('GET /orders ignores an injected cursor even if one slips past validation', async () => {
+    it('GET /orders ignores a parsed cursor even if one slips past validation', async () => {
       getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER] })
-      const handler = new GetOrdersHandler(
-        'get-orders',
-        { ...injectorPromiseMock, getRequestInjected: () => ({ ...requestInjectedMock, cursor: REQUEST_CURSOR }) },
-        mock<OrderDispatcher>()
-      )
+      class CursorSlipsPastValidation extends GetOrdersHandler {
+        protected buildRequestInjected(...args: Parameters<GetOrdersHandler['buildRequestInjected']>) {
+          return { ...super.buildRequestInjected(...args), cursor: REQUEST_CURSOR }
+        }
+      }
+      const handler = new CursorSlipsPastValidation('get-orders', repositoryMock, mock<OrderDispatcher>())
 
       await handler.handler({ queryStringParameters: { orderStatus: 'open' } } as any, {} as any)
 
-      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, undefined)
+      expect(getOrdersMock).toBeCalledWith(0, { orderStatus: 'open' }, undefined)
     })
 
     it('GET /orders strips the cursor from dispatcher responses too', async () => {
       const dispatcher = mock<OrderDispatcher>()
       dispatcher.getOrder.mockResolvedValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR } as any)
-      const handler = new GetOrdersHandler(
-        'get-orders',
-        { ...injectorPromiseMock, getRequestInjected: () => ({ ...requestInjectedMock, orderType: 'Dutch' }) },
-        dispatcher
-      )
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, dispatcher)
 
       const response = await handler.handler(
         { queryStringParameters: { orderStatus: 'open', orderType: 'Dutch' } } as any,
@@ -599,7 +572,7 @@ describe('Testing get orders handler.', () => {
       getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
       const handler = new GetOrdersHandler(
         'get-limit-orders',
-        { ...injectorPromiseMock, getRequestInjected: () => ({ ...requestInjectedMock, cursor: REQUEST_CURSOR }) },
+        repositoryMock,
         mock<OrderDispatcher>(),
         GET_LIMIT_ORDERS_HANDLER_OPTIONS
       )
@@ -609,7 +582,7 @@ describe('Testing get orders handler.', () => {
         {} as any
       )
 
-      expect(getOrdersMock).toBeCalledWith(requestInjectedMock.limit, queryFiltersMock, REQUEST_CURSOR)
+      expect(getOrdersMock).toBeCalledWith(0, { orderStatus: 'open' }, REQUEST_CURSOR)
       expect(response.statusCode).toEqual(200)
       expect(JSON.parse(response.body)).toEqual({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
     })
@@ -621,7 +594,7 @@ describe('Testing get orders handler.', () => {
     ])('GET /limit-orders still accepts sort parameters %p', async (queryStringParameters) => {
       const handler = new GetOrdersHandler(
         'get-limit-orders',
-        injectorPromiseMock,
+        repositoryMock,
         mock<OrderDispatcher>(),
         GET_LIMIT_ORDERS_HANDLER_OPTIONS
       )
@@ -646,7 +619,7 @@ describe('Testing get orders handler.', () => {
     ])('GET /limit-orders keeps its own validation rules: %p', async (queryStringParameters, message) => {
       const handler = new GetOrdersHandler(
         'get-limit-orders',
-        injectorPromiseMock,
+        repositoryMock,
         mock<OrderDispatcher>(),
         GET_LIMIT_ORDERS_HANDLER_OPTIONS
       )
@@ -672,7 +645,7 @@ describe('Testing get orders handler.', () => {
       [{ chainId: 1, limit: 0.5 }, 'must be an integer'],
       [{ filler: '0x1234' }, 'Invalid address'],
     ])('rejects %p', async (queryStringParameters, message) => {
-      const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
 
       const response = await handler.handler({ queryStringParameters } as any, {} as any)
 
@@ -682,7 +655,7 @@ describe('Testing get orders handler.', () => {
     })
 
     it('accepts a well-formed pair', async () => {
-      const handler = new GetOrdersHandler('get-orders', injectorPromiseMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
 
       const response = await handler.handler(
         {

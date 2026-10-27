@@ -81,6 +81,13 @@ export class SDKDutchOrderFactory {
         endAmount: overrides.input?.endAmount ? BigNumber.from(overrides.input?.endAmount) : BigNumber.from('1000000'),
       })
 
+    if (overrides.exclusiveFiller) {
+      builder = builder.exclusiveFiller(
+        overrides.exclusiveFiller,
+        BigNumber.from(overrides.exclusivityOverrideBps ?? 0)
+      )
+    }
+
     return builder
   }
 }
