@@ -14,9 +14,9 @@ export const DEFAULT_MAX_OPEN_ORDERS = 5
 export const DEFAULT_MAX_OPEN_LIMIT_ORDERS = 100
 export const HIGH_MAX_OPEN_ORDERS = 200
 
-// OffChainUniswapXOrderValidator.validateReactorAddress rejects
-// priority orders for chains not listed here before these buffers
-// are consulted, so callers can safely treat a missing entry as unreachable.
+// The off-chain reactor check ('Invalid reactor address') rejects priority
+// orders on chains without a priority reactor before these buffers are
+// consulted. A chain given a reactor but no entry here gets a 400, not a cosignature.
 export const PRIORITY_ORDER_TARGET_BLOCK_BUFFER: Partial<Record<ChainId, number>> = {
   [ChainId.MAINNET]: 3,
   [ChainId.UNICHAIN]: 4,

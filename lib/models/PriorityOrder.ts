@@ -3,6 +3,7 @@ import { KmsSigner } from '@uniswap/signer'
 import { CosignedPriorityOrder as SDKPriorityOrder, OrderType } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
+import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
 import { AVERAGE_BLOCK_TIME } from '../handlers/check-order-status/util'
 import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
@@ -52,6 +53,10 @@ export class PriorityOrder extends Order {
   }
 
   public async reparameterizeAndCosign(provider: StaticJsonRpcProvider, cosigner: KmsSigner): Promise<this> {
+    const buffer = PRIORITY_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId]
+    if (buffer === undefined) {
+      throw new OrderValidationFailedError(`Priority orders are not supported on chainId ${this.chainId}`)
+    }
     const block = await provider.getBlock("latest")
     const currentTime = Math.floor(Date.now() / 1000) // Current time in seconds
     
@@ -62,11 +67,7 @@ export class PriorityOrder extends Order {
     
     // If the difference is more than 75% of the block time, add an extra block
     const extraBlock = timeDifference > blockTimeSeconds * 0.75 ? 1 : 0
-    
-    const buffer = PRIORITY_ORDER_TARGET_BLOCK_BUFFER[this.chainId as ChainId]
-    if (buffer === undefined) {
-      throw new Error(`PRIORITY_ORDER_TARGET_BLOCK_BUFFER missing for chainId ${this.chainId}`)
-    }
+
     this.inner.info.cosignerData = {
       auctionTargetBlock: BigNumber.from(block.number).add(buffer).add(extraBlock),
     }

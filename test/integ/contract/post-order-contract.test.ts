@@ -199,6 +199,9 @@ describe('POST order contract', () => {
       offchainValidationFailure: (lambda) => {
         lambda.orderValidator.result = { valid: false, errorString: 'testing offchain validation' }
       },
+      priorityOffchainInvalidWithLowStart: (lambda) => {
+        lambda.orderValidator.result = { valid: false, errorString: 'testing offchain validation' }
+      },
       onchainValidationFailure: (lambda) => {
         lambda.onChainValidator.result = OrderValidation.ValidationFailed
       },
