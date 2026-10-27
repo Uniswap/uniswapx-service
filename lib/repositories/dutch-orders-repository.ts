@@ -1,3 +1,4 @@
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 
 import { DYNAMODB_TYPES } from '../config/dynamodb'
@@ -20,18 +21,26 @@ const DUTCH_ONLY_ATTRIBUTES = {
   requestId: { type: DYNAMODB_TYPES.STRING },
 } as const
 
+// Every attribute an Orders row can hold.
+export const DUTCH_ORDER_ATTRIBUTES = { ...ORDER_ATTRIBUTES, ...DUTCH_ONLY_ATTRIBUTES }
+
 // Callers still name the repository type after the table.
 export type DutchOrdersRepository = GenericOrdersRepository
 export const DutchOrdersRepository = {
-  create: (documentClient: DocumentClient, queryCache?: OrdersQueryCache): BaseOrdersRepository<UniswapXOrderEntity> =>
+  create: (
+    documentClient: DocumentClient,
+    queryCache?: OrdersQueryCache,
+    storeClient?: DynamoDBDocumentClient
+  ): BaseOrdersRepository<UniswapXOrderEntity> =>
     createOrdersRepository(
       {
         tableName: TABLE_NAMES.Orders,
         entityName: MODEL_NAME.DUTCH,
         logName: 'DutchOrdersRepository',
-        attributes: { ...ORDER_ATTRIBUTES, ...DUTCH_ONLY_ATTRIBUTES },
+        attributes: DUTCH_ORDER_ATTRIBUTES,
       },
       documentClient,
-      queryCache
+      queryCache,
+      storeClient
     ),
 }

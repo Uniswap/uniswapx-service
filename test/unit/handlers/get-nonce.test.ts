@@ -32,7 +32,7 @@ describe('Testing get nonce handler.', () => {
 
   const getNonceHandler = new GetNonceHandler(
     'get-nonce',
-    { getNonceByAddressAndChain: getNonceByAddressMock },
+    { getNonce: getNonceByAddressMock },
     { get: providerMapGetMock }
   )
   const putMetricMock = jest.fn()
@@ -63,7 +63,7 @@ describe('Testing get nonce handler.', () => {
 
   it('Testing valid request and response.', async () => {
     const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-    expect(getNonceByAddressMock).toBeCalledWith(MOCK_ADDRESS.toLowerCase(), 1)
+    expect(getNonceByAddressMock).toBeCalledWith(expect.anything(), MOCK_ADDRESS.toLowerCase(), 1)
     expect(findUnusedNonceMock).toBeCalledWith(mockProvider, 1, MOCK_ADDRESS, MOCK_NONCE)
     expect(getNonceResponse).toMatchObject({
       body: JSON.stringify({ nonce: MOCK_NONCE }),
@@ -181,7 +181,7 @@ describe('Testing get nonce handler.', () => {
       async (invalidResponseField) => {
         getNonceByAddressMock.mockReturnValue(invalidResponseField)
         const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-        expect(getNonceByAddressMock).toBeCalledWith(MOCK_ADDRESS.toLowerCase(), 1)
+        expect(getNonceByAddressMock).toBeCalledWith(expect.anything(), MOCK_ADDRESS.toLowerCase(), 1)
         expect(getNonceResponse.statusCode).toEqual(500)
         expect(getNonceResponse.body).toEqual(expect.stringContaining('INTERNAL_ERROR'))
       }
@@ -193,7 +193,7 @@ describe('Testing get nonce handler.', () => {
         throw error
       })
       const getNonceResponse = await getNonceHandler.handler(event as any, {} as any)
-      expect(getNonceByAddressMock).toBeCalledWith(MOCK_ADDRESS.toLowerCase(), 1)
+      expect(getNonceByAddressMock).toBeCalledWith(expect.anything(), MOCK_ADDRESS.toLowerCase(), 1)
       expect(getNonceResponse).toMatchObject({
         body: JSON.stringify({ detail: error.message, errorCode: 'INTERNAL_ERROR' }),
         statusCode: 500,

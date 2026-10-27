@@ -1,3 +1,4 @@
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
@@ -6,6 +7,8 @@ import { DYNAMODB_TYPES } from '../config/dynamodb'
 import { GenericOrdersRepository } from './generic-orders-repository'
 import { NonceRepository } from './nonce-repository'
 import { OrdersQueryCache } from './QueryCache'
+import { sharedStoreClient } from './store-client'
+import { AttributeTypes } from './toolbox-compat'
 import { getTableIndices, TABLE_NAMES } from './util'
 
 // The attributes every order table stores. dynamodb-toolbox drops undeclared fields on write, so
@@ -47,13 +50,17 @@ export type OrdersTableConfig = {
   // Stored on every row as `_et`.
   entityName: string
   logName: string
-  attributes: ConstructorParameters<typeof Entity>[0]['attributes']
+  // Declared for toolbox's list reads and the store's writes alike.
+  attributes: AttributeTypes
 }
 
 export function createOrdersRepository(
   { tableName, entityName, logName, attributes }: OrdersTableConfig,
+  // The list queries' client; they still read through toolbox.
   documentClient: DocumentClient,
-  queryCache?: OrdersQueryCache
+  queryCache?: OrdersQueryCache,
+  // The store's client: puts, gets by hash, counts, nonce reads and status writes.
+  storeClient: DynamoDBDocumentClient = sharedStoreClient()
 ): GenericOrdersRepository {
   const log = Logger.createLogger({
     name: logName,
@@ -73,5 +80,12 @@ export function createOrdersRepository(
     table,
   } as const)
 
-  return new GenericOrdersRepository(table, entity, NonceRepository.create(documentClient), log, queryCache)
+  return new GenericOrdersRepository(
+    table,
+    entity,
+    { client: storeClient, tableName, entityName, attributes },
+    NonceRepository.create(storeClient),
+    log,
+    queryCache
+  )
 }

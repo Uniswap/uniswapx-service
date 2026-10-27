@@ -22,6 +22,7 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 import { DYNAMO_LOCAL_CONFIG } from '../dynamo-local'
+import { TEST_STORE_CONTEXT, nowSeconds } from '../../fakes/orders-repository'
 
 // Mock the Permit2Validator
 jest.mock('../../../lib/util/Permit2Validator', () => ({
@@ -154,7 +155,7 @@ describe('Testing check order status handler', () => {
     }
 
     beforeAll(async () => {
-      await DutchOrdersRepository.create(localDocumentClient).putOrderAndUpdateNonceTransaction(MOCK_ORDER_ENTITY)
+      await DutchOrdersRepository.create(localDocumentClient).putOrderAndUpdateNonce(TEST_STORE_CONTEXT, MOCK_ORDER_ENTITY, nowSeconds())
     })
 
     beforeEach(async () => {

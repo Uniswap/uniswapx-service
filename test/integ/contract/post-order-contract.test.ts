@@ -11,6 +11,7 @@ import { setGlobalMetrics } from '../../../lib/util/metrics'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
 import { RecordingAnalytics } from '../../fakes/analytics'
 import { freezeClock, restoreClock } from '../../fakes/clock'
+import { nowSeconds, TEST_STORE_CONTEXT } from '../../fakes/orders-repository'
 import { makePostOrderHandler, PostOrderHandlerHarness } from '../../unit/builders/post-path'
 import { orderRow } from '../repositories/store-fixtures'
 import { NOW_SECONDS, Orders, Swappers } from './fixtures/orders'
@@ -236,7 +237,7 @@ describe('POST order contract', () => {
     beforeEach(async () => {
       const repository = DutchOrdersRepository.create(documentClient)
       for (const order of SEEDED_OPEN_ORDERS) {
-        await repository.putOrderAndUpdateNonceTransaction(order)
+        await repository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order, nowSeconds())
       }
     })
 

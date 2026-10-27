@@ -135,12 +135,17 @@ describe('checkOrderStatusService', () => {
         const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
-        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalledWith(MOCK_ORDER_HASH, ORDER_STATUS.FILLED, {
-          txHash: '0x1244345323',
-          fillBlock: 12321312313,
-          settledAmounts: expect.any(Array),
-          fillTimestamp: 123456,
-        })
+        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalledWith(
+          expect.anything(),
+          MOCK_ORDER_HASH,
+          ORDER_STATUS.FILLED,
+          {
+            txHash: '0x1244345323',
+            fillBlock: 12321312313,
+            settledAmounts: expect.any(Array),
+            fillTimestamp: 123456,
+          }
+        )
         expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()

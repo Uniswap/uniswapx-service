@@ -1,7 +1,13 @@
-import { ORDER_STATUS, UniswapXOrderEntity } from '../../lib/entities'
-import { BaseOrdersRepository, QueryResult } from '../../lib/repositories/base'
+import { UniswapXOrderEntity } from '../../lib/entities'
+import { BaseOrdersRepository, OrderStoreContext, QueryResult } from '../../lib/repositories/base'
 
-export type CountOrdersCall = { offerer: string; orderStatus: ORDER_STATUS }
+export type CountOrdersCall = { offerer: string; max: number }
+
+// A store context for tests: its warnings and errors are dropped.
+export const TEST_STORE_CONTEXT: OrderStoreContext = { logger: { warn: () => undefined, error: () => undefined } }
+
+// createdAt as the post path stamps it: epoch seconds from the (possibly frozen) clock.
+export const nowSeconds = (): number => Math.floor(Date.now() / 1000)
 
 // The orders table as the post path sees it: an open-order count per swapper and a write.
 // Records every call, failed ones included; set the public fields to shape what calls return.
@@ -15,15 +21,16 @@ export class FakeOrdersRepository implements BaseOrdersRepository<UniswapXOrderE
   public countError?: Error
   public putError?: Error
 
-  async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
-    this.countCalls.push({ offerer, orderStatus })
+  // Like the real store, counts no further than max + 1.
+  async countOpenOrders(_ctx: OrderStoreContext, offerer: string, max: number): Promise<number> {
+    this.countCalls.push({ offerer, max })
     if (this.countError) {
       throw this.countError
     }
-    return this.openOrderCount
+    return Math.min(this.openOrderCount, max + 1)
   }
 
-  async putOrderAndUpdateNonceTransaction(order: UniswapXOrderEntity): Promise<void> {
+  async putOrderAndUpdateNonce(_ctx: OrderStoreContext, order: UniswapXOrderEntity): Promise<void> {
     this.puts.push(order)
     if (this.putError) {
       throw this.putError
@@ -31,7 +38,7 @@ export class FakeOrdersRepository implements BaseOrdersRepository<UniswapXOrderE
     this.stored.set(order.orderHash, order)
   }
 
-  async getByHash(hash: string): Promise<UniswapXOrderEntity | undefined> {
+  async getByHash(_ctx: OrderStoreContext, hash: string): Promise<UniswapXOrderEntity | undefined> {
     return this.stored.get(hash)
   }
 
@@ -43,8 +50,8 @@ export class FakeOrdersRepository implements BaseOrdersRepository<UniswapXOrderE
     throw notOnThePostPath('getOrdersFilteredByType')
   }
 
-  async getNonceByAddressAndChain(): Promise<string | undefined> {
-    throw notOnThePostPath('getNonceByAddressAndChain')
+  async getNonce(): Promise<string | undefined> {
+    throw notOnThePostPath('getNonce')
   }
 
   async updateOrderStatus(): Promise<void> {

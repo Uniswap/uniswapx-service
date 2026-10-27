@@ -1,3 +1,10 @@
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  QueryCommand,
+  TransactWriteCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb'
 import { Unit } from 'aws-embedded-metrics'
 import Logger from 'bunyan'
 import { Entity, Table } from 'dynamodb-toolbox'
@@ -6,16 +13,15 @@ import { TABLE_KEY } from '../config/dynamodb'
 import { StatusUpdateFill, toStatusUpdate, toStoredRow } from '../core/orders/storedRow'
 import { ORDER_STATUS, SORT_FIELDS, UniswapXOrderEntity } from '../entities'
 import { GET_QUERY_PARAMS, GetOrdersQueryParams } from '../handlers/get-orders/schema'
-import { log } from '../Logging'
 import { checkDefined } from '../preconditions/preconditions'
 import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { metrics } from '../util/metrics'
-import { currentTimestampInSeconds } from '../util/time'
-import { BaseOrdersRepository, QueryResult } from './base'
+import { BaseOrdersRepository, OrderStoreContext, QueryResult } from './base'
 import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
 import { NonceRepository } from './nonce-repository'
 import { CachedQueryPage, OrdersQueryCache } from './QueryCache'
+import { AttributeTypes, asToolboxRead, putItem, updateExpression } from './toolbox-compat'
 
 export const MAX_ORDERS = 50
 
@@ -76,9 +82,39 @@ function matchesAnyFilter(order: object, filters: QueryFilter[]): boolean {
   return filters.some((filter) => (order as Record<string, unknown>)[filter.attr] === filter.eq)
 }
 
-// aws-sdk v2 (used by dynamodb-toolbox here) sets both code and name to the error code
 function isConditionalCheckFailed(e: unknown): boolean {
-  return (e as { code?: string } | null)?.code === 'ConditionalCheckFailedException'
+  return (e as { name?: string } | null)?.name === 'ConditionalCheckFailedException'
+}
+
+const OPEN_ORDERS_BY_OFFERER_INDEX = 'offerer_orderStatus-createdAt-all'
+
+// The keys the store's callers read off a row. Every other attribute passes through as stored, so
+// legacy rows (2023 DutchLimit orders, millisecond createdAt) still read.
+const REQUIRED_ROW_KEYS: [string, 'string' | 'number'][] = [
+  ['orderHash', 'string'],
+  ['orderStatus', 'string'],
+  ['offerer', 'string'],
+  ['chainId', 'number'],
+  ['encodedOrder', 'string'],
+]
+
+function parseStoredOrder(item: Record<string, unknown>): UniswapXOrderEntity {
+  const row = asToolboxRead(item)
+  for (const [key, type] of REQUIRED_ROW_KEYS) {
+    if (typeof row[key] !== type) {
+      throw new Error(`Malformed order row ${String(row.orderHash)}: ${key} is not a ${type}`)
+    }
+  }
+  return row as UniswapXOrderEntity
+}
+
+// Where the store's reads and writes go: the table, the entity name toolbox stamps on its rows
+// (`_et`), and the attributes it declares.
+export type OrdersTableStore = {
+  client: DynamoDBDocumentClient
+  tableName: string
+  entityName: string
+  attributes: AttributeTypes
 }
 
 // Shared implementation for Dutch and Limit orders
@@ -89,66 +125,99 @@ export class GenericOrdersRepository implements BaseOrdersRepository<UniswapXOrd
   public constructor(
     private readonly table: Table<string, string, null>,
     private readonly entity: Entity,
+    private readonly store: OrdersTableStore,
     private readonly nonces: NonceRepository,
     private readonly log: Logger,
     private readonly queryCache?: OrdersQueryCache
   ) {}
 
-  public async getByHash(hash: string): Promise<UniswapXOrderEntity | undefined> {
-    const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
-    return res.Item as UniswapXOrderEntity
+  public async getByHash(_ctx: OrderStoreContext, hash: string): Promise<UniswapXOrderEntity | undefined> {
+    const { Item } = await this.store.client.send(
+      new GetCommand({ TableName: this.store.tableName, Key: { [TABLE_KEY.ORDER_HASH]: hash } })
+    )
+    return Item ? parseStoredOrder(Item) : undefined
   }
 
-  public async getNonceByAddressAndChain(address: string, chainId: number): Promise<string | undefined> {
-    return this.nonces.getNonceByAddressAndChain(address, chainId)
+  public async getNonce(ctx: OrderStoreContext, address: string, chainId: number): Promise<string | undefined> {
+    return this.nonces.getNonce(ctx, address, chainId)
   }
 
-  public async countOrdersByOffererAndStatus(offerer: string, orderStatus: ORDER_STATUS): Promise<number> {
-    const res = await this.entity.query(`${offerer}_${orderStatus}`, {
-      index: 'offerer_orderStatus-createdAt-all',
-      execute: true,
-      select: 'COUNT',
-    })
-
-    return res.Count || 0
+  /** The offerer's OPEN orders in this table, counted up to max + 1: enough to tell whether it exceeds max. */
+  public async countOpenOrders(_ctx: OrderStoreContext, offerer: string, max: number): Promise<number> {
+    const { Count } = await this.store.client.send(
+      new QueryCommand({
+        TableName: this.store.tableName,
+        IndexName: OPEN_ORDERS_BY_OFFERER_INDEX,
+        KeyConditionExpression: '#key = :key',
+        ExpressionAttributeNames: { '#key': TABLE_KEY.OFFERER_ORDER_STATUS },
+        ExpressionAttributeValues: { ':key': `${offerer}_${ORDER_STATUS.OPEN}` },
+        Select: 'COUNT',
+        Limit: max + 1,
+      })
+    )
+    return Count ?? 0
   }
 
-  public async putOrderAndUpdateNonceTransaction(order: UniswapXOrderEntity): Promise<void> {
-    await this.table.transactWrite(
-      [
-        // currentTimestampInSeconds returns a string; the entity's createdAt was always written as a number.
-        this.entity.putTransaction(toStoredRow(order, Number(currentTimestampInSeconds()))),
-        this.nonces.updateTransaction(order.offerer, order.chainId, order.nonce),
-      ],
-      {
-        capacity: 'total',
-        execute: true,
-      }
+  public async putOrderAndUpdateNonce(
+    _ctx: OrderStoreContext,
+    order: UniswapXOrderEntity,
+    createdAt: number
+  ): Promise<void> {
+    const now = new Date()
+    const { client, tableName, entityName, attributes } = this.store
+    await client.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          { Put: { TableName: tableName, Item: putItem(toStoredRow(order, createdAt), attributes, entityName, now) } },
+          this.nonces.updateTransaction(order.offerer, order.chainId, order.nonce, now),
+        ],
+        ReturnConsumedCapacity: 'TOTAL',
+      })
     )
   }
 
-  public async updateOrderStatus(orderHash: string, status: ORDER_STATUS, fill?: StatusUpdateFill): Promise<void> {
+  public async updateOrderStatus(
+    ctx: OrderStoreContext,
+    orderHash: string,
+    status: ORDER_STATUS,
+    fill?: StatusUpdateFill
+  ): Promise<void> {
+    const { client, tableName, entityName, attributes } = this.store
     try {
       const order = checkDefined(
-        await this.getByHash(orderHash),
+        await this.getByHash(ctx, orderHash),
         `cannot find order by hash when updating order status, hash: ${orderHash}`
       )
 
-      // FILLED is terminal; the DynamoDB condition makes the no-downgrade check atomic with the write
-      const conditions =
-        status === ORDER_STATUS.FILLED
-          ? {}
-          : { conditions: [{ attr: TABLE_KEY.ORDER_STATUS, ne: ORDER_STATUS.FILLED }] }
-      await this.entity.update(toStatusUpdate(order, status, fill), conditions)
+      const update = updateExpression(toStatusUpdate(order, status, fill), attributes, entityName, new Date())
+      // FILLED is terminal; the condition makes the no-downgrade check atomic with the write
+      const notFilled = {
+        ConditionExpression: `#${TABLE_KEY.ORDER_STATUS} <> :filled`,
+        ExpressionAttributeValues: { ...update.ExpressionAttributeValues, ':filled': ORDER_STATUS.FILLED },
+      }
+      await client.send(
+        new UpdateCommand({
+          TableName: tableName,
+          Key: { [TABLE_KEY.ORDER_HASH]: orderHash },
+          ...update,
+          ...(status === ORDER_STATUS.FILLED ? {} : notFilled),
+        })
+      )
     } catch (e) {
       if (isConditionalCheckFailed(e)) {
         // the order was FILLED by another writer since our read; skip the downgrade rather than throw
-        log.warn('skipping updateOrderStatus: order is already in terminal status FILLED', { orderHash, status })
+        ctx.logger.warn('skipping updateOrderStatus: order is already in terminal status FILLED', { orderHash, status })
         return
       }
-      log.error('updateOrderStatus error', { error: e })
+      ctx.logger.error('updateOrderStatus error', { error: e })
       throw e
     }
+  }
+
+  // GET /orders by orderHash still reads through toolbox, as every list query does.
+  private async getByHashForList(hash: string): Promise<UniswapXOrderEntity | undefined> {
+    const res = await this.entity.get({ [TABLE_KEY.ORDER_HASH]: hash }, { execute: true })
+    return res.Item as UniswapXOrderEntity
   }
 
   public async getOrders(
@@ -207,7 +276,7 @@ export class GenericOrdersRepository implements BaseOrdersRepository<UniswapXOrd
 
     switch (true) {
       case requestedParams.includes(GET_QUERY_PARAMS.ORDER_HASH): {
-        const order = await this.getByHash(queryFilters['orderHash'] as string)
+        const order = await this.getByHashForList(queryFilters['orderHash'] as string)
         return { orders: order ? [order] : [] }
       }
 

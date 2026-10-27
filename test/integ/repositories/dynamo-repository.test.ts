@@ -8,6 +8,7 @@ import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-re
 import { QueryCache } from '../../../lib/repositories/QueryCache'
 import { TABLE_NAMES } from '../../../lib/repositories/util'
 import { freezeClock, restoreClock } from '../../fakes/clock'
+import { nowSeconds, TEST_STORE_CONTEXT } from '../../fakes/orders-repository'
 import { QUOTE_ID, REQUEST_ID } from '../../unit/fixtures'
 import { DYNAMO_LOCAL_CONFIG } from '../dynamo-local'
 import { deleteAllRepoEntries, deleteOrdersByHash, findLeftoverRows } from './deleteAllRepoEntries'
@@ -62,11 +63,11 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
 
   beforeAll(async () => {
     setClockToTick(1)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(order1)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order1, nowSeconds())
     setClockToTick(2)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(order2)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order2, nowSeconds())
     setClockToTick(3)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(order3)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order3, nowSeconds())
     setClockToTick(1)
   })
 
@@ -85,9 +86,11 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
         filler: f.fillerA,
       })
       try {
-        await ordersRepository.putOrderAndUpdateNonceTransaction(order)
-        expect(await ordersRepository.getByHash(order.orderHash)).toEqual(storedItem(order, 1, entity))
-        expect(await ordersRepository.getNonceByAddressAndChain(order.offerer, order.chainId)).toEqual('7')
+        await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order, nowSeconds())
+        expect(await ordersRepository.getByHash(TEST_STORE_CONTEXT, order.orderHash)).toEqual(
+          storedItem(order, 1, entity)
+        )
+        expect(await ordersRepository.getNonce(TEST_STORE_CONTEXT, order.offerer, order.chainId)).toEqual('7')
       } finally {
         await deleteOrdersByHash(documentClient, tableName, [order.orderHash])
       }
@@ -290,7 +293,7 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
 
     it('should successfully get orders given an orderType', async () => {
       try {
-        await ordersRepository.putOrderAndUpdateNonceTransaction(order6)
+        await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order6, nowSeconds())
         const orders = await ordersRepository.getOrders(10, {
           chainId: CHAIN_C,
           orderType: GetOrderTypeQueryParamEnum.Dutch,
@@ -303,8 +306,8 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
 
     it('should successfully get orders given chainId, order status, and empty cursor', async () => {
       try {
-        await ordersRepository.putOrderAndUpdateNonceTransaction(order5)
-        await ordersRepository.putOrderAndUpdateNonceTransaction(order6)
+        await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order5, nowSeconds())
+        await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order6, nowSeconds())
         const orders = await ordersRepository.getOrders(
           25,
           {
@@ -351,7 +354,7 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
 
     // Newest first: the repository returns createdAt descending by default.
     it('should successfully page through orders with chainId, orderStatus', async () => {
-      await ordersRepository.putOrderAndUpdateNonceTransaction(order5)
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order5, nowSeconds())
       const first = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN, chainId: CHAIN_A })
       expect(first.orders).toHaveLength(1)
       expect(first.cursor).toBeDefined()
@@ -454,16 +457,16 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
 
   describe('OrdersRepository getByHash test', () => {
     it('should successfully get an item from table', async () => {
-      const storedOrder1 = await ordersRepository.getByHash(order1.orderHash)
+      const storedOrder1 = await ordersRepository.getByHash(TEST_STORE_CONTEXT, order1.orderHash)
       // dynamodb-toolbox auto-generates 'created' and 'modified' fields
       expect(storedOrder1).toEqual(expect.objectContaining(order1))
 
-      const storedOrder2 = await ordersRepository.getByHash(order2.orderHash)
+      const storedOrder2 = await ordersRepository.getByHash(TEST_STORE_CONTEXT, order2.orderHash)
       expect(storedOrder2).toEqual(expect.objectContaining(order2))
     })
 
     it('should return undefined if item does not exist', async () => {
-      const res = await ordersRepository.getByHash(f.missingHash)
+      const res = await ordersRepository.getByHash(TEST_STORE_CONTEXT, f.missingHash)
       expect(res).toBeUndefined()
     })
   })
@@ -473,29 +476,45 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
       f.row(name, { offerer: f.nonceSwapper, nonce, chainId, orderStatus: ORDER_STATUS.OPEN })
 
     it('should successfully get last posted nonce from table', async () => {
-      await ordersRepository.putOrderAndUpdateNonceTransaction(nonceOrder('nonce-1', CHAIN_A, '4'))
-      const nonce = await ordersRepository.getNonceByAddressAndChain(f.nonceSwapper, CHAIN_A)
+      await ordersRepository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        nonceOrder('nonce-1', CHAIN_A, '4'),
+        nowSeconds()
+      )
+      const nonce = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.nonceSwapper, CHAIN_A)
       expect(nonce).toEqual('4')
     })
 
     it('should get last used nonce when there are multiple orders with that nonce value in the DB', async () => {
       // The Nonces row holds the nonce written last, not the highest one.
-      await ordersRepository.putOrderAndUpdateNonceTransaction(nonceOrder('nonce-2', CHAIN_A, '2'))
-      const nonce = await ordersRepository.getNonceByAddressAndChain(f.nonceSwapper, CHAIN_A)
+      await ordersRepository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        nonceOrder('nonce-2', CHAIN_A, '2'),
+        nowSeconds()
+      )
+      const nonce = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.nonceSwapper, CHAIN_A)
       expect(nonce).toEqual('2')
     })
 
     it('should return undefined for new address', async () => {
-      const res = await ordersRepository.getNonceByAddressAndChain(f.unknownSwapper, CHAIN_A)
+      const res = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.unknownSwapper, CHAIN_A)
       expect(res).toBeUndefined()
     })
 
     it('should track nonce for the same address on different chains separately', async () => {
-      await ordersRepository.putOrderAndUpdateNonceTransaction(nonceOrder('nonce-3', CHAIN_B, '10'))
-      await ordersRepository.putOrderAndUpdateNonceTransaction(nonceOrder('nonce-4', CHAIN_A, '20'))
-      const nonce = await ordersRepository.getNonceByAddressAndChain(f.nonceSwapper, CHAIN_B)
+      await ordersRepository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        nonceOrder('nonce-3', CHAIN_B, '10'),
+        nowSeconds()
+      )
+      await ordersRepository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        nonceOrder('nonce-4', CHAIN_A, '20'),
+        nowSeconds()
+      )
+      const nonce = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.nonceSwapper, CHAIN_B)
       expect(nonce).toEqual('10')
-      const nonce2 = await ordersRepository.getNonceByAddressAndChain(f.nonceSwapper, CHAIN_A)
+      const nonce2 = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.nonceSwapper, CHAIN_A)
       expect(nonce2).toEqual('20')
     })
   })
@@ -503,25 +522,25 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
   describe('OrdersRepository get order count by offerer test', () => {
     it('should successfully return order count by existing offerer', async () => {
       setClockToTick(4)
-      await ordersRepository.putOrderAndUpdateNonceTransaction(order4)
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order4, nowSeconds())
       // order1, order5 (put by the pagination tests) and order4
-      expect(await ordersRepository.countOrdersByOffererAndStatus(f.swapperA, ORDER_STATUS.OPEN)).toEqual(3)
+      expect(await ordersRepository.countOpenOrders(TEST_STORE_CONTEXT, f.swapperA, 100)).toEqual(3)
     })
 
     it('should return 0 for nonexistent offerer', async () => {
-      expect(await ordersRepository.countOrdersByOffererAndStatus(f.unknownSwapper, ORDER_STATUS.OPEN)).toEqual(0)
+      expect(await ordersRepository.countOpenOrders(TEST_STORE_CONTEXT, f.unknownSwapper, 100)).toEqual(0)
     })
   })
 
   describe('OrdersRepository update status test', () => {
     it('should successfully update orderStatus of an order identified by orderHash', async () => {
-      await ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.FILLED, {
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.FILLED, {
         txHash: 'txHash',
         fillBlock: 1,
         settledAmounts: [SETTLED_AMOUNT],
         fillTimestamp: 1_700_000_000,
       })
-      await expect(ordersRepository.getByHash(order1.orderHash)).resolves.toMatchObject({
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order1.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
         offerer_orderStatus: `${f.swapperA}_${ORDER_STATUS.FILLED}`,
         filler_orderStatus: `${f.fillerA}_${ORDER_STATUS.FILLED}`,
@@ -536,9 +555,9 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
     })
 
     it('should throw error if order does not exist', async () => {
-      await expect(ordersRepository.updateOrderStatus(f.missingHash, ORDER_STATUS.FILLED)).rejects.toEqual(
-        new Error(`cannot find order by hash when updating order status, hash: ${f.missingHash}`)
-      )
+      await expect(
+        ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, f.missingHash, ORDER_STATUS.FILLED)
+      ).rejects.toEqual(new Error(`cannot find order by hash when updating order status, hash: ${f.missingHash}`))
     })
   })
 })
@@ -554,12 +573,12 @@ describe('Orders-only store cases', () => {
 
   beforeAll(async () => {
     setClockToTick(1)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(order1)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(order5)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order1, nowSeconds())
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order5, nowSeconds())
     setClockToTick(2)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(order2)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order2, nowSeconds())
     setClockToTick(3)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(order3)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order3, nowSeconds())
     setClockToTick(1)
   })
 
@@ -590,11 +609,11 @@ describe('Orders-only store cases', () => {
       })
       const priorityOrder2 = { ...priorityOrder1, chainId: PRIORITY_CHAIN_B, orderHash: `${o.prefix}priority-2` }
 
-      await ordersRepository.putOrderAndUpdateNonceTransaction(priorityOrder1)
-      await ordersRepository.putOrderAndUpdateNonceTransaction(priorityOrder2)
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, priorityOrder1, nowSeconds())
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, priorityOrder2, nowSeconds())
 
       for (const order of [priorityOrder1, priorityOrder2]) {
-        expect(await ordersRepository.getByHash(order.orderHash)).toEqual(
+        expect(await ordersRepository.getByHash(TEST_STORE_CONTEXT, order.orderHash)).toEqual(
           expect.objectContaining({ ...order, createdAt: createdAtTick(1) })
         )
         const byChain = await ordersRepository.getOrders(10, { chainId: order.chainId })
@@ -618,9 +637,9 @@ describe('Orders-only store cases', () => {
         startingBaseFee: '1234',
       })
 
-      await ordersRepository.putOrderAndUpdateNonceTransaction(dutchV3Order)
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, dutchV3Order, nowSeconds())
 
-      expect(await ordersRepository.getByHash(dutchV3Order.orderHash)).toEqual(
+      expect(await ordersRepository.getByHash(TEST_STORE_CONTEXT, dutchV3Order.orderHash)).toEqual(
         expect.objectContaining({ ...dutchV3Order, createdAt: createdAtTick(1) })
       )
       const byChain = await ordersRepository.getOrders(10, { chainId: DUTCH_V3_CHAIN })
@@ -724,11 +743,13 @@ describe('Orders-only store cases', () => {
     it('keeps a legacy ms-createdAt order out of list reads on every path, but reachable by hash', async () => {
       // createdAt 1.6e12: 2020-09 in milliseconds, as 2023 V1 orders were stored
       jest.setSystemTime(1_600_000_000_000 * 1000)
-      await ordersRepository.putOrderAndUpdateNonceTransaction(LEGACY_ORDER)
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, LEGACY_ORDER, nowSeconds())
       setClockToTick(1)
       const cachedRepository = DutchOrdersRepository.create(documentClient, new QueryCache(60_000, 'TestQueryCache'))
       try {
-        expect(await ordersRepository.getByHash(LEGACY_ORDER.orderHash)).toMatchObject({ createdAt: 1_600_000_000_000 })
+        expect(await ordersRepository.getByHash(TEST_STORE_CONTEXT, LEGACY_ORDER.orderHash)).toMatchObject({
+          createdAt: 1_600_000_000_000,
+        })
         const uncached = await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, chainId: CHAIN_A })
         const cached = await cachedRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, chainId: CHAIN_A })
         const byOfferer = await ordersRepository.getOrders(50, { offerer: LEGACY_ORDER.offerer })
@@ -749,7 +770,7 @@ describe('Orders-only store cases', () => {
     it('should not downgrade a FILLED (terminal) order to another status', async () => {
       // Regression (PROTO-1201): a reaper run racing the check-order-status
       // state machine must not clobber a recorded fill with CANCELLED/EXPIRED.
-      await ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.FILLED, {
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.FILLED, {
         txHash: 'txHash',
         fillBlock: 1,
         settledAmounts: [SETTLED_AMOUNT],
@@ -758,11 +779,13 @@ describe('Orders-only store cases', () => {
 
       // The downgrade is skipped (not thrown), so callers don't enter retry loops.
       await expect(
-        ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.CANCELLED)
+        ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.CANCELLED)
       ).resolves.toBeUndefined()
-      await expect(ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.EXPIRED)).resolves.toBeUndefined()
+      await expect(
+        ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.EXPIRED)
+      ).resolves.toBeUndefined()
 
-      await expect(ordersRepository.getByHash(order1.orderHash)).resolves.toMatchObject({
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order1.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
         offerer_orderStatus: `${o.swapperA}_${ORDER_STATUS.FILLED}`,
         chainId_orderStatus: `${CHAIN_A}_${ORDER_STATUS.FILLED}`,
@@ -774,11 +797,11 @@ describe('Orders-only store cases', () => {
     })
 
     it('should allow re-writing FILLED with updated fill details', async () => {
-      await ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.FILLED, {
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.FILLED, {
         txHash: 'txHash2',
         fillBlock: 2,
       })
-      await expect(ordersRepository.getByHash(order1.orderHash)).resolves.toMatchObject({
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order1.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
         txHash: 'txHash2',
         fillBlock: 2,
@@ -788,15 +811,15 @@ describe('Orders-only store cases', () => {
     it('should allow non-terminal transitions and upgrades to FILLED', async () => {
       // e.g. INSUFFICIENT_FUNDS -> FILLED (the insufficient-funds reaper finding
       // a fill) must keep working.
-      await ordersRepository.updateOrderStatus(order2.orderHash, ORDER_STATUS.INSUFFICIENT_FUNDS)
-      await expect(ordersRepository.getByHash(order2.orderHash)).resolves.toMatchObject({
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order2.orderHash, ORDER_STATUS.INSUFFICIENT_FUNDS)
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order2.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
       })
-      await ordersRepository.updateOrderStatus(order2.orderHash, ORDER_STATUS.FILLED, {
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order2.orderHash, ORDER_STATUS.FILLED, {
         txHash: 'txHash',
         fillBlock: 3,
       })
-      await expect(ordersRepository.getByHash(order2.orderHash)).resolves.toMatchObject({
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order2.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
         txHash: 'txHash',
         fillBlock: 3,
