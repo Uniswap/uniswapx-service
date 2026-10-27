@@ -1,6 +1,7 @@
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { APIGatewayProxyEvent } from 'aws-lambda'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
+import { toOrderEntity } from '../../../../lib/core/orders/storedRow'
+import { UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import {
   DEFAULT_MAX_OPEN_LIMIT_ORDERS,
@@ -17,7 +18,7 @@ import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
 import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
-import { formatOrderEntity } from '../../../../lib/util/order'
+import { dutchOrderEntity } from '../../../factories/order-entities'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { freezeClock, restoreClock } from '../../../fakes/clock'
@@ -64,7 +65,7 @@ const ROUTES: RouteCase[] = [
           requestId: REQUEST_ID,
           orderType: OrderType.Dutch_V2,
         }),
-        entity: order.toEntity(ORDER_STATUS.OPEN),
+        entity: toOrderEntity(order),
       }
     },
   },
@@ -77,7 +78,7 @@ const ROUTES: RouteCase[] = [
       return {
         request: PostOrderRequestFactory.request({ encodedOrder: order.serialize() }),
         // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-        entity: formatOrderEntity(order, SIGNATURE, QUOTE_ID),
+        entity: dutchOrderEntity(order, SIGNATURE, QUOTE_ID),
       }
     },
   },

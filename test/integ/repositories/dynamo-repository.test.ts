@@ -515,14 +515,12 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
 
   describe('OrdersRepository update status test', () => {
     it('should successfully update orderStatus of an order identified by orderHash', async () => {
-      await ordersRepository.updateOrderStatus(
-        order1.orderHash,
-        ORDER_STATUS.FILLED,
-        'txHash',
-        1,
-        [SETTLED_AMOUNT],
-        1_700_000_000
-      )
+      await ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.FILLED, {
+        txHash: 'txHash',
+        fillBlock: 1,
+        settledAmounts: [SETTLED_AMOUNT],
+        fillTimestamp: 1_700_000_000,
+      })
       await expect(ordersRepository.getByHash(order1.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
         offerer_orderStatus: `${f.swapperA}_${ORDER_STATUS.FILLED}`,
@@ -751,14 +749,12 @@ describe('Orders-only store cases', () => {
     it('should not downgrade a FILLED (terminal) order to another status', async () => {
       // Regression (PROTO-1201): a reaper run racing the check-order-status
       // state machine must not clobber a recorded fill with CANCELLED/EXPIRED.
-      await ordersRepository.updateOrderStatus(
-        order1.orderHash,
-        ORDER_STATUS.FILLED,
-        'txHash',
-        1,
-        [SETTLED_AMOUNT],
-        1_700_000_000
-      )
+      await ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.FILLED, {
+        txHash: 'txHash',
+        fillBlock: 1,
+        settledAmounts: [SETTLED_AMOUNT],
+        fillTimestamp: 1_700_000_000,
+      })
 
       // The downgrade is skipped (not thrown), so callers don't enter retry loops.
       await expect(
@@ -778,7 +774,10 @@ describe('Orders-only store cases', () => {
     })
 
     it('should allow re-writing FILLED with updated fill details', async () => {
-      await ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.FILLED, 'txHash2', 2)
+      await ordersRepository.updateOrderStatus(order1.orderHash, ORDER_STATUS.FILLED, {
+        txHash: 'txHash2',
+        fillBlock: 2,
+      })
       await expect(ordersRepository.getByHash(order1.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
         txHash: 'txHash2',
@@ -793,7 +792,10 @@ describe('Orders-only store cases', () => {
       await expect(ordersRepository.getByHash(order2.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
       })
-      await ordersRepository.updateOrderStatus(order2.orderHash, ORDER_STATUS.FILLED, 'txHash', 3)
+      await ordersRepository.updateOrderStatus(order2.orderHash, ORDER_STATUS.FILLED, {
+        txHash: 'txHash',
+        fillBlock: 3,
+      })
       await expect(ordersRepository.getByHash(order2.orderHash)).resolves.toMatchObject({
         orderStatus: ORDER_STATUS.FILLED,
         txHash: 'txHash',

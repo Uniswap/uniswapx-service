@@ -1,6 +1,7 @@
 import { CosignedV2DutchOrder, OrderType, OrderValidation, PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { BigNumber } from 'ethers'
+import { toOrderEntity } from '../../../../lib/core/orders/storedRow'
 import { ORDER_STATUS } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { AVERAGE_BLOCK_TIME } from '../../../../lib/handlers/check-order-status/util'
@@ -100,7 +101,7 @@ describe('Testing post order handler.', () => {
   describe('Testing valid request and response', () => {
     it('Testing valid request and response.', async () => {
       const order = buildV2Order()
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+      const expectedOrderEntity = toOrderEntity(order)
 
       const postOrderResponse = await handle(postV2Request(order))
 
@@ -148,7 +149,7 @@ describe('Testing post order handler.', () => {
         undefined,
         REQUEST_ID
       )
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+      const expectedOrderEntity = toOrderEntity(order)
 
       const postOrderResponse = await handle(
         PostOrderRequestFactory.request({
@@ -211,7 +212,7 @@ describe('Testing post order handler.', () => {
           MOCK_LATEST_BLOCK + PRIORITY_ORDER_TARGET_BLOCK_BUFFER[order.chainId as ChainId]!
         ), // No extra block since timestamp difference should be 0
       }
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+      const expectedOrderEntity = toOrderEntity(order)
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
       expect(harness.repository.puts).toEqual([
@@ -311,7 +312,7 @@ describe('Testing post order handler.', () => {
         undefined,
         REQUEST_ID
       )
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+      const expectedOrderEntity = toOrderEntity(order)
 
       const postOrderResponse = await handle(
         PostOrderRequestFactory.request({
@@ -348,7 +349,7 @@ describe('Testing post order handler.', () => {
 
     it('Testing valid request and response on another chain', async () => {
       const order = buildV2Order(ChainId.SEPOLIA)
-      const expectedOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+      const expectedOrderEntity = toOrderEntity(order)
 
       const postOrderResponse = await handle(postV2Request(order))
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)

@@ -6,11 +6,12 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { MOCK_SIGNATURE } from '../../test-data'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { Tokens } from '../fixtures'
+import { toOrderEntity } from '../../../lib/core/orders/storedRow'
 
 describe('DutchV3 Model', () => {
   test('toEntity', () => {
     const order = new DutchV3Order(SDKDutchOrderV3Factory.buildDutchV3Order(), MOCK_SIGNATURE, ChainId.ARBITRUM_ONE)
-    const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+    const entity: UniswapXOrderEntity = toOrderEntity(order)
 
     expect(entity.signature).toEqual(MOCK_SIGNATURE)
     expect(entity.encodedOrder).toEqual(order.inner.serialize())
@@ -32,7 +33,7 @@ describe('DutchV3 Model', () => {
       undefined,
       100
     )
-    const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+    const entity: UniswapXOrderEntity = toOrderEntity(order)
     const fromEntity = DutchV3Order.fromEntity(entity)
 
     expect(order).toEqual(fromEntity)

@@ -13,6 +13,7 @@ import {
 } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { ethers } from 'ethers'
+import { toOrderEntity } from '../core/orders/storedRow'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
@@ -37,7 +38,7 @@ import { BaseOrdersRepository, QueryResult } from '../repositories/base'
 import { hasExclusiveFiller } from '../util/address'
 import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
-import { DUTCH_LIMIT, formatOrderEntity } from '../util/order'
+import { DUTCH_LIMIT } from '../util/order'
 import { OrderSignatureValidator } from '../util/OrderSignatureValidator'
 import { Permit2Validator } from '../util/Permit2Validator'
 import { getStateMachineArn } from '../util/stateMachineArn'
@@ -76,12 +77,9 @@ export class UniswapXOrderService {
     canPlaceNewOrderPromise.catch(() => undefined)
 
     let orderEntity: UniswapXOrderEntity
-    if (order instanceof LimitOrder) {
+    if (order instanceof LimitOrder || order instanceof DutchV2Order || order instanceof DutchV3Order) {
       await this.validateOrder(order.inner, order.signature, order.chainId)
-      orderEntity = formatOrderEntity(order.inner, order.signature, order.quoteId)
-    } else if (order instanceof DutchV2Order || order instanceof DutchV3Order) {
-      await this.validateOrder(order.inner, order.signature, order.chainId)
-      orderEntity = order.toEntity(ORDER_STATUS.OPEN)
+      orderEntity = toOrderEntity(order)
     } else if (order instanceof PriorityOrder) {
       // following https://github.com/Uniswap/uniswapx-parameterization-api/pull/358
       // recreate KmsSigner every request
@@ -96,7 +94,7 @@ export class UniswapXOrderService {
       }
       this.logger.info('cosigned priority order', { order: cosignedOrder })
       await this.validateOrder(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
-      orderEntity = cosignedOrder.toEntity(ORDER_STATUS.OPEN)
+      orderEntity = toOrderEntity(cosignedOrder)
     } else {
       throw new Error('unsupported OrderType')
     }

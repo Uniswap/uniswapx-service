@@ -7,6 +7,7 @@ import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { MOCK_SIGNATURE } from '../../test-data'
 import { Tokens } from '../fixtures'
+import { toOrderEntity } from '../../../lib/core/orders/storedRow'
 
 describe('DutchV2 Model', () => {
   test('toEntity', () => {
@@ -16,7 +17,7 @@ describe('DutchV2 Model', () => {
       cosignerData: { decayStartTime, decayEndTime: decayStartTime + 60 },
     })
     const order = new DutchV2Order(sdkOrder, MOCK_SIGNATURE, ChainId.MAINNET)
-    const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+    const entity: UniswapXOrderEntity = toOrderEntity(order)
 
     expect(entity.signature).toEqual(MOCK_SIGNATURE)
     expect(entity.encodedOrder).toEqual(order.inner.serialize())
@@ -42,7 +43,7 @@ describe('DutchV2 Model', () => {
       undefined,
       100
     )
-    const entity: UniswapXOrderEntity = order.toEntity(ORDER_STATUS.OPEN)
+    const entity: UniswapXOrderEntity = toOrderEntity(order)
     const fromEntity = DutchV2Order.fromEntity(entity)
 
     expect(order).toEqual(fromEntity)

@@ -44,9 +44,10 @@ const mockOrdersRepository = {
     }
   }),
 
-  updateOrderStatus: jest.fn(async (orderHash, status, txHash, fillBlock, settledAmounts, fillTimestamp) => {
+  updateOrderStatus: jest.fn(async (orderHash, status, fill = {}) => {
     const order = mockOrdersRepository.orders.get(orderHash)
     if (order) {
+      const { txHash, fillBlock, fillTimestamp, settledAmounts } = fill
       mockOrdersRepository.orders.set(orderHash, {
         ...order,
         orderStatus: status,
