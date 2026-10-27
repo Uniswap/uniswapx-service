@@ -40,7 +40,6 @@ export interface RequestInjected extends ApiRInj {
 }
 
 export interface ContainerInjected {
-  // Only the nonce read: an orders repository, which reads nonces through a NonceRepository, also fits.
   dbInterface: Pick<NonceRepository, 'getNonceByAddressAndChain'>
   providerMap: ProviderMap
 }
