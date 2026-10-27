@@ -10,7 +10,8 @@ export const REQUEST_ID = '55e2cfca-5521-4a0a-b597-7bfb569032d8'
 export const SIGNATURE =
   '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010'
 
-export const EVENT_CONTEXT = {} as unknown as Context
+// The Lambda context handler tests pass; error bodies report its awsRequestId as their id.
+export const EVENT_CONTEXT = { awsRequestId: 'testRequest' } as unknown as Context
 
 // 65 zero bytes: passes the post schema's signature shape check, recovers nobody.
 export const ZERO_SIGNATURE = `0x${'00'.repeat(65)}`

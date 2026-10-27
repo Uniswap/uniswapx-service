@@ -1,54 +1,7 @@
-import { OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
-import { DynamoDB } from 'aws-sdk'
-import { log } from '../../Logging'
-import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { AnalyticsService } from '../../services/analytics-service'
-import { UniswapXOrderService } from '../../services/UniswapXOrderService'
-import { ONE_YEAR_IN_SECONDS } from '../../util/constants'
-import { cosignersFromEnv } from '../../util/cosigners'
-import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
-import { OnChainValidatorMap } from '../OnChainValidatorMap'
-import { PostOrderHandler } from '../post-order/handler'
-import { PostOrderBodyParser } from '../post-order/PostOrderBodyParser'
-import { LIMIT_ORDER_ROUTE } from '../post-order/routes'
-import { LazyProviderMap } from '../shared'
-import { getMaxLimitOpenOrders, PostLimitOrderInjector } from './injector'
+import { buildPostOrderLambda } from '../post-order/lambda'
+import { LIMIT_POST_POLICY } from '../post-order/policy'
 
-const providerMap = new LazyProviderMap()
-
-const onChainValidatorMap = new OnChainValidatorMap<OnChainOrderValidator>(
-  [],
-  (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
-)
-
-const orderValidator = new OffChainUniswapXOrderValidator({
-  getCurrentTime: () => new Date().getTime() / 1000,
-  deadlineValidityPeriodSeconds: ONE_YEAR_IN_SECONDS,
-  ...cosignersFromEnv(),
-  skipDecayStartTimeValidation: true,
-})
-const repo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
-
-const postLimitOrderInjectorPromise = new PostLimitOrderInjector('postLimitOrderInjector').build()
-
-const uniswapXOrderService = new UniswapXOrderService(
-  orderValidator,
-  onChainValidatorMap,
-  repo,
-  repo, // same repo for limit orders
-  log,
-  getMaxLimitOpenOrders,
-  AnalyticsService.create(),
-  providerMap
-)
-
-const postLimitOrderHandler = new PostOrderHandler(
-  'postLimitOrdersHandler',
-  postLimitOrderInjectorPromise,
-  uniswapXOrderService,
-  new PostOrderBodyParser(log),
-  LIMIT_ORDER_ROUTE
-)
+const postLimitOrderHandler = buildPostOrderLambda(LIMIT_POST_POLICY)
 
 module.exports = {
   postLimitOrderHandler: postLimitOrderHandler.handler,

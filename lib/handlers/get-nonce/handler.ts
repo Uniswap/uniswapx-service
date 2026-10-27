@@ -1,39 +1,58 @@
 import { Unit } from 'aws-embedded-metrics'
 import Logger from 'bunyan'
 import Joi from 'joi'
+import { NonceRepository } from '../../repositories/nonce-repository'
 import { ONCHAIN_NONCE_CHECK_TIMEOUT_MS } from '../../util/constants'
 import { metrics } from '../../util/metrics'
 import { findUnusedNonce, generateRandomNonce } from '../../util/nonce'
 import {
   APIGLambdaHandler,
   APIHandleRequestParams,
+  ApiRInj,
   ErrorCode,
   ErrorResponse,
   RequestMetricsConfig,
   Response,
 } from '../base/index'
 import type { ProviderMap } from '../shared'
-import { ContainerInjected, RequestInjected } from './injector'
 import { GetNonceQueryParams, GetNonceQueryParamsJoi, GetNonceResponse, GetNonceResponseJoi } from './schema/index'
 
-export class GetNonceHandler extends APIGLambdaHandler<
-  ContainerInjected,
-  RequestInjected,
-  void,
-  GetNonceQueryParams,
-  GetNonceResponse
-> {
+export interface RequestInjected extends ApiRInj {
+  address: string
+  chainId: number
+}
+
+export class GetNonceHandler extends APIGLambdaHandler<RequestInjected, void, GetNonceQueryParams, GetNonceResponse> {
+  constructor(
+    handlerName: string,
+    private readonly nonceRepository: Pick<NonceRepository, 'getNonceByAddressAndChain'>,
+    private readonly providerMap: ProviderMap
+  ) {
+    super(handlerName)
+  }
+
+  protected buildRequestInjected(
+    base: ApiRInj,
+    _requestBody: void,
+    requestQueryParams: GetNonceQueryParams
+  ): RequestInjected {
+    return {
+      ...base,
+      address: requestQueryParams.address,
+      chainId: requestQueryParams.chainId ?? 1,
+    }
+  }
+
   public async handleRequest(
-    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, GetNonceQueryParams>
+    params: APIHandleRequestParams<RequestInjected, void, GetNonceQueryParams>
   ): Promise<ErrorResponse | Response<GetNonceResponse>> {
     const {
       requestInjected: { address, chainId, log },
-      containerInjected: { dbInterface, providerMap },
     } = params
 
     try {
       log.info({ address: address }, 'Getting nonce for address')
-      const lastUsedNonce = await dbInterface.getNonceByAddressAndChain(address.toLowerCase(), chainId)
+      const lastUsedNonce = await this.nonceRepository.getNonceByAddressAndChain(address.toLowerCase(), chainId)
       if (lastUsedNonce === undefined) {
         // Never-seen address: a fresh random nonce lands on an untouched 248-bit word, so the
         // chance of an on-chain collision is negligible — skip the RPC check entirely.
@@ -44,7 +63,7 @@ export class GetNonceHandler extends APIGLambdaHandler<
           },
         }
       }
-      const nonce = await this.verifyNonceOnChain(lastUsedNonce, address, chainId, providerMap, log)
+      const nonce = await this.verifyNonceOnChain(lastUsedNonce, address, chainId, this.providerMap, log)
       return {
         statusCode: 200,
         body: {

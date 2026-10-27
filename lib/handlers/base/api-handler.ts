@@ -8,7 +8,6 @@ import {
 
 import { default as bunyan, default as Logger } from 'bunyan'
 import Joi from 'joi'
-import { checkDefined } from '../../preconditions/preconditions'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ErrorCode } from './ErrorCode'
 import { buildRequestContext, emitRequestMetrics, RequestContext, RequestMetricsConfig } from './request-context'
@@ -56,12 +55,11 @@ export type ApiRInj = {
   requestId: string
 }
 
-export type APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams> = {
+export type APIHandleRequestParams<RInj, ReqBody, ReqQueryParams> = {
   context: Context
   event: APIGatewayProxyEvent
   requestBody: ReqBody
   requestQueryParams: ReqQueryParams
-  containerInjected: CInj
   requestInjected: RInj
   ctx: RequestContext
 }
@@ -79,39 +77,13 @@ export type ErrorResponse = {
   detail?: string
 }
 
-export abstract class ApiInjector<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams> {
-  protected containerInjected: CInj | undefined
-
-  public constructor(protected readonly injectorName: string) {
-    checkDefined(injectorName, 'Injector name must be defined')
-  }
-
-  protected abstract buildContainerInjected(): Promise<CInj>
-
-  public async build() {
-    this.containerInjected = await this.buildContainerInjected()
-    return this
-  }
-
-  public getContainerInjected(): CInj {
-    return checkDefined(this.containerInjected, 'Container injected undefined. Must call build() before using.')
-  }
-
-  public abstract getRequestInjected(
-    containerInjected: CInj,
-    requestBody: ReqBody,
-    requestQueryParams: ReqQueryParams,
-    event: APIGatewayProxyEvent,
-    context: Context,
-    log: Logger
-  ): Promise<RInj>
-}
-
-export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, ReqQueryParams, Res> {
-  constructor(
-    protected readonly handlerName: string,
-    private readonly injectorPromise: Promise<ApiInjector<CInj, RInj, ReqBody, ReqQueryParams>>
-  ) {}
+/**
+ * An API Gateway Lambda handler. Its dependencies come through the subclass constructor, built
+ * once per Lambda in its index.ts; per request it validates the event, builds the handler's
+ * request values (buildRequestInjected), handles the request and validates the response.
+ */
+export abstract class APIGLambdaHandler<RInj extends ApiRInj, ReqBody, ReqQueryParams, Res> {
+  constructor(protected readonly handlerName: string) {}
 
   get handler(): APIGatewayProxyHandler {
     return async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
@@ -165,19 +137,12 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
           return INTERNAL_ERROR()
         }
 
-        const injector = await this.injectorPromise
-
-        const containerInjected = injector.getContainerInjected()
-
         let requestInjected: RInj
         try {
-          requestInjected = await injector.getRequestInjected(
-            containerInjected,
+          requestInjected = this.buildRequestInjected(
+            { requestId: context.awsRequestId, log },
             requestBody,
-            requestQueryParams,
-            event,
-            context,
-            log
+            requestQueryParams
           )
         } catch (err) {
           log.error({ err, event: redactEvent(event) }, 'Unexpected error building request injected.')
@@ -197,7 +162,6 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
             event,
             requestBody,
             requestQueryParams,
-            containerInjected,
             requestInjected,
             ctx,
           })
@@ -267,8 +231,18 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
   }
 
   public abstract handleRequest(
-    params: APIHandleRequestParams<CInj, RInj, ReqBody, ReqQueryParams>
+    params: APIHandleRequestParams<RInj, ReqBody, ReqQueryParams>
   ): Promise<Response<Res> | ErrorResponse>
+
+  /*
+   * The handler's own per-request values, from the validated request, on top of the request's id
+   * and logger. Runs after validation; a throw here is a 500.
+   */
+  protected abstract buildRequestInjected(
+    base: ApiRInj,
+    requestBody: ReqBody,
+    requestQueryParams: ReqQueryParams
+  ): RInj
 
   protected abstract requestBodySchema(): Joi.ObjectSchema | null
   protected abstract requestQueryParamsSchema(): Joi.ObjectSchema | null
@@ -276,7 +250,7 @@ export abstract class APIGLambdaHandler<CInj, RInj extends ApiRInj, ReqBody, Req
 
   /*
    * The request counters recorded once a response has been generated, whatever produced it
-   * (including validation, which runs before the injector). None by default.
+   * (including validation, which runs before buildRequestInjected). None by default.
    */
   protected requestMetricsConfig(): RequestMetricsConfig | null {
     return null

@@ -1,8 +1,13 @@
+import { DynamoDB } from 'aws-sdk'
+import { NonceRepository } from '../../repositories/nonce-repository'
 import { GetNonceHandler } from './handler'
-import { GetNonceInjector } from './injector'
+import { RequestTimeProviderMap } from './request-time-provider-map'
 
-const getNonceInjectorPromise = new GetNonceInjector('getNonceInjector').build()
-const getNonceHandler = new GetNonceHandler('getNonceHandler', getNonceInjectorPromise)
+const getNonceHandler = new GetNonceHandler(
+  'getNonceHandler',
+  NonceRepository.create(new DynamoDB.DocumentClient()),
+  new RequestTimeProviderMap()
+)
 
 module.exports = {
   getNonceHandler: getNonceHandler.handler,

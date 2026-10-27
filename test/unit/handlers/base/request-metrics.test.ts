@@ -1,9 +1,7 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { metricScope, MetricsLogger } from 'aws-embedded-metrics'
 import { APIGatewayProxyEvent, Context } from 'aws-lambda'
-import bunyan from 'bunyan'
 import { UniswapXOrderEntity } from '../../../../lib/entities'
-import { ApiInjector, ApiRInj } from '../../../../lib/handlers/base'
 import { GetDocsHandler } from '../../../../lib/handlers/get-docs/GetDocsHandler'
 import { GetNonceHandler } from '../../../../lib/handlers/get-nonce/handler'
 import { GetOrdersHandler } from '../../../../lib/handlers/get-orders/handler'
@@ -15,7 +13,7 @@ import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 
 // The request counters every API handler records once it has answered, on the request's own
 // metrics logger, in the namespace and dimensions the request/4XX/5XX alarms and dashboards read.
-// That includes requests rejected by validation, before any injector has run.
+// That includes requests rejected by validation, before the handler has done any work.
 
 const NAMESPACE = 'Uniswap'
 const DIMENSIONS = { Service: 'UniswapXService' }
@@ -59,26 +57,7 @@ function requestCounters(prefix: string, chainId: number, statusClass: string): 
 }
 
 const CONTEXT = { awsRequestId: 'request-metrics-test' } as unknown as Context
-const QUIET_LOG = bunyan.createLogger({ name: 'request-metrics-test', level: bunyan.FATAL + 1 })
 const ADDRESS = '0x11E4857Bb9993a50c685A79AFad4E6F65D518DDa'
-
-// Hands the handler fixed injected values and counts how many requests reached it.
-class CountingInjector<CInj, RInj extends ApiRInj> extends ApiInjector<CInj, RInj, unknown, unknown> {
-  public requests = 0
-
-  constructor(private readonly container: CInj, private readonly request: Omit<RInj, 'log' | 'requestId'>) {
-    super('counting-injector')
-  }
-
-  protected async buildContainerInjected(): Promise<CInj> {
-    return this.container
-  }
-
-  public async getRequestInjected(): Promise<RInj> {
-    this.requests++
-    return { ...this.request, log: QUIET_LOG, requestId: CONTEXT.awsRequestId } as RInj
-  }
-}
 
 function postEvent(body: unknown): APIGatewayProxyEvent {
   return {
@@ -118,18 +97,18 @@ describe('API request metrics', () => {
 
   describe('POST order', () => {
     const createOrder = jest.fn()
+    const fromPostRequest = jest.fn(() => ({ orderType: OrderType.Dutch_V2 }))
+
+    beforeEach(() => fromPostRequest.mockClear())
 
     function postHandler() {
-      const injector = new CountingInjector<Record<string, never>, ApiRInj>({}, {})
-      const bodyParser = { fromPostRequest: () => ({ orderType: OrderType.Dutch_V2 }) }
       const handler = new PostOrderHandler(
         'post-order',
-        injector.build(),
         { createOrder },
-        bodyParser as unknown as PostOrderBodyParser,
+        { fromPostRequest } as unknown as PostOrderBodyParser,
         DUTCH_AUCTION_ORDER_ROUTE
       )
-      return { handler, injector }
+      return { handler }
     }
 
     it('counts a 2XX under the body chain', async () => {
@@ -148,19 +127,19 @@ describe('API request metrics', () => {
       expect(recordedByRequest()).toEqual(requestCounters('PostOrder', 42161, '5XX'))
     })
 
-    it('counts a Joi 400, rejected before the injector runs, under the body chain', async () => {
-      const { handler, injector } = postHandler()
+    it('counts a Joi 400, rejected before the handler parses the order, under the body chain', async () => {
+      const { handler } = postHandler()
       const response = await handler.handler(postEvent({ ...VALID_POST_BODY, encodedOrder: undefined }), CONTEXT)
       expect(response.statusCode).toEqual(400)
-      expect(injector.requests).toEqual(0)
+      expect(fromPostRequest).not.toHaveBeenCalled()
       expect(recordedByRequest()).toEqual(requestCounters('PostOrder', 42161, '4XX'))
     })
 
-    it('counts an invalid-JSON 422, rejected before the injector runs, under chain 0', async () => {
-      const { handler, injector } = postHandler()
+    it('counts an invalid-JSON 422, rejected before the handler parses the order, under chain 0', async () => {
+      const { handler } = postHandler()
       const response = await handler.handler(postEvent('{"chainId": 1,'), CONTEXT)
       expect(response.statusCode).toEqual(422)
-      expect(injector.requests).toEqual(0)
+      expect(fromPostRequest).not.toHaveBeenCalled()
       expect(recordedByRequest()).toEqual(requestCounters('PostOrder', 0, '4XX'))
     })
 
@@ -179,13 +158,10 @@ describe('API request metrics', () => {
   describe('GET nonce', () => {
     const getNonceByAddressAndChain = jest.fn()
 
+    beforeEach(() => getNonceByAddressAndChain.mockReset())
+
     function nonceHandler() {
-      const injector = new CountingInjector(
-        { dbInterface: { getNonceByAddressAndChain }, providerMap: { get: jest.fn() } },
-        { address: ADDRESS, chainId: 1 }
-      )
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { handler: new GetNonceHandler('get-nonce', injector.build() as any), injector }
+      return { handler: new GetNonceHandler('get-nonce', { getNonceByAddressAndChain }, { get: jest.fn() }) }
     }
 
     it('counts a 2XX under the chainId query param, parsed from its string', async () => {
@@ -202,11 +178,11 @@ describe('API request metrics', () => {
       expect(recordedByRequest()).toEqual(requestCounters('GetNonce', 8453, '5XX'))
     })
 
-    it('counts a Joi 400, rejected before the injector runs, under the chainId query param', async () => {
-      const { handler, injector } = nonceHandler()
+    it('counts a Joi 400, rejected before the nonce is read, under the chainId query param', async () => {
+      const { handler } = nonceHandler()
       const response = await handler.handler(getEvent({ address: '0xbad_address', chainId: '42161' }), CONTEXT)
       expect(response.statusCode).toEqual(400)
-      expect(injector.requests).toEqual(0)
+      expect(getNonceByAddressAndChain).not.toHaveBeenCalled()
       expect(recordedByRequest()).toEqual(requestCounters('GetNonce', 42161, '4XX'))
     })
 
@@ -231,14 +207,11 @@ describe('API request metrics', () => {
   describe('GET orders', () => {
     const getOrders = jest.fn()
 
+    beforeEach(() => getOrders.mockReset())
+
     function ordersHandler() {
-      const injector = new CountingInjector(
-        { dbInterface: { getOrders } as unknown as BaseOrdersRepository<UniswapXOrderEntity> },
-        { limit: 0, queryFilters: { chainId: 1 } }
-      )
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const handler = new GetOrdersHandler('get-orders', injector.build() as any, {} as OrderDispatcher)
-      return { handler, injector }
+      const repository = { getOrders } as unknown as BaseOrdersRepository<UniswapXOrderEntity>
+      return { handler: new GetOrdersHandler('get-orders', repository, {} as OrderDispatcher) }
     }
 
     // The counters never read the query's chainId: every GET /orders request is chain 0.
@@ -256,18 +229,17 @@ describe('API request metrics', () => {
       expect(recordedByRequest()).toEqual(requestCounters('GetOrders', 0, '5XX'))
     })
 
-    it('counts a Joi 400, rejected before the injector runs, under chain 0', async () => {
-      const { handler, injector } = ordersHandler()
+    it('counts a Joi 400, rejected before the orders are read, under chain 0', async () => {
+      const { handler } = ordersHandler()
       const response = await handler.handler(getEvent({ chainId: '1', swapper: ADDRESS }), CONTEXT)
       expect(response.statusCode).toEqual(400)
-      expect(injector.requests).toEqual(0)
+      expect(getOrders).not.toHaveBeenCalled()
       expect(recordedByRequest()).toEqual(requestCounters('GetOrders', 0, '4XX'))
     })
   })
 
   it('records nothing for a handler without request counters (docs)', async () => {
-    const injector = new CountingInjector<Record<string, never>, ApiRInj>({}, {})
-    const response = await new GetDocsHandler('get-docs', injector.build()).handler(getEvent({}), CONTEXT)
+    const response = await new GetDocsHandler('get-docs').handler(getEvent({}), CONTEXT)
     expect(response.statusCode).toEqual(200)
     expect(recordedByRequest()).toEqual([])
   })

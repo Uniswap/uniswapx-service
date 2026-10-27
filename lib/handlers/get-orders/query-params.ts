@@ -1,50 +1,9 @@
-import { Context } from 'aws-lambda'
-import bunyan, { default as Logger } from 'bunyan'
-import { UniswapXOrderEntity } from '../../entities'
-import { BaseOrdersRepository } from '../../repositories/base'
-import { GetOrdersQueryParams, RawGetOrdersQueryParams } from '../get-orders/schema'
-import { GetOrderTypeQueryParamEnum } from '../get-orders/schema/GetOrderTypeQueryParamEnum'
-
-export interface ContainerInjected {
-  dbInterface: BaseOrdersRepository<UniswapXOrderEntity>
-}
-
-export type GetRequestInjected = {
-  limit: number
-  queryFilters: GetOrdersQueryParams
-  requestId: string
-  log: Logger
-  cursor?: string
-}
-
-type RequestInjectedParams = {
-  requestQueryParams: RawGetOrdersQueryParams
-  context: Context
-  log: Logger
-}
-
-export function getSharedRequestInjected({
-  requestQueryParams,
-  context,
-  log,
-}: RequestInjectedParams): GetRequestInjected {
-  const requestId = context.awsRequestId
-
-  log = log.child({
-    serializers: bunyan.stdSerializers,
-    requestId,
-  })
-
-  return {
-    ...parseGetQueryParams(requestQueryParams),
-    requestId,
-    log,
-  }
-}
+import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
+import { GetOrderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
 
 export const parseGetQueryParams = (
   requestQueryParams: RawGetOrdersQueryParams
-): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; orderType?: string } => {
+): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; orderType?: GetOrderTypeQueryParamEnum } => {
   // default to no limit
   const limit = requestQueryParams?.limit ?? 0
   const rawOrderStatus = requestQueryParams?.orderStatus

@@ -1,5 +1,4 @@
 import { GetOrdersHandler } from './handler'
-import { GetOrdersInjector } from './injector'
 
 import { OrderValidator } from '@uniswap/uniswapx-sdk'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
@@ -13,7 +12,7 @@ import { LimitOrdersRepository } from '../../repositories/limit-orders-repositor
 import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
-import { getMaxOpenOrders } from '../post-order/injector'
+import { getMaxOpenOrders } from '../post-order/policy'
 import { createReadPathDocumentClient } from '../shared/dynamo'
 import { getOrdersQueryCache } from './query-cache'
 
@@ -43,12 +42,7 @@ const uniswapXOrderService = new UniswapXOrderService(
   SINGLE_PAGE
 )
 
-const getOrdersInjectorPromise = new GetOrdersInjector('getOrdersInjector').build()
-const getOrdersHandler = new GetOrdersHandler(
-  'getOrdersHandler',
-  getOrdersInjectorPromise,
-  new OrderDispatcher(uniswapXOrderService)
-)
+const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', repo, new OrderDispatcher(uniswapXOrderService))
 
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,
