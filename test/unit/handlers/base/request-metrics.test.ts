@@ -161,7 +161,7 @@ describe('API request metrics', () => {
     beforeEach(() => getNonceByAddressAndChain.mockReset())
 
     function nonceHandler() {
-      return { handler: new GetNonceHandler('get-nonce', { getNonceByAddressAndChain }, { get: jest.fn() }) }
+      return { handler: new GetNonceHandler('get-nonce', { getNonce: getNonceByAddressAndChain }, { get: jest.fn() }) }
     }
 
     it('counts a 2XX under the chainId query param, parsed from its string', async () => {

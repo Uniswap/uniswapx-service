@@ -25,7 +25,7 @@ export interface RequestInjected extends ApiRInj {
 export class GetNonceHandler extends APIGLambdaHandler<RequestInjected, void, GetNonceQueryParams, GetNonceResponse> {
   constructor(
     handlerName: string,
-    private readonly nonceRepository: Pick<NonceRepository, 'getNonceByAddressAndChain'>,
+    private readonly nonceRepository: Pick<NonceRepository, 'getNonce'>,
     private readonly providerMap: ProviderMap
   ) {
     super(handlerName)
@@ -52,7 +52,7 @@ export class GetNonceHandler extends APIGLambdaHandler<RequestInjected, void, Ge
 
     try {
       log.info({ address: address }, 'Getting nonce for address')
-      const lastUsedNonce = await this.nonceRepository.getNonceByAddressAndChain(address.toLowerCase(), chainId)
+      const lastUsedNonce = await this.nonceRepository.getNonce(params.ctx, address.toLowerCase(), chainId)
       if (lastUsedNonce === undefined) {
         // Never-seen address: a fresh random nonce lands on an untouched 248-bit word, so the
         // chance of an on-chain collision is negligible — skip the RPC check entirely.

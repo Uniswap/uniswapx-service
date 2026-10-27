@@ -21,7 +21,7 @@ module.exports = {
     {
       ...project,
       displayName: 'integ',
-      setupFiles: ['<rootDir>/test/setup-env.ts'],
+      setupFiles: ['<rootDir>/test/setup-env.ts', '<rootDir>/test/integ/setup-store-env.ts'],
       // Only integ starts DynamoDB Local (and so needs Java); the preset's own test environment is not used.
       preset: '@shelf/jest-dynamodb',
       testEnvironment: 'node',

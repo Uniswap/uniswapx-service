@@ -1,6 +1,8 @@
+import { Logger } from '@aws-lambda-powertools/logger'
 import { StatusUpdateFill } from '../core/orders/storedRow'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
+import { log } from '../Logging'
 
 export const MODEL_NAME = {
   DUTCH: 'Order',
@@ -12,21 +14,33 @@ export type QueryResult<T extends UniswapXOrderEntity> = {
   cursor?: string
 }
 
+/** What a store needs from the caller's context: an API request's own, or an adapter elsewhere. */
+export type OrderStoreContext = { logger: Pick<Logger, 'warn' | 'error'> }
+
+// For callers with no request context (the tracker, the GS reaper): the store logs where it always did.
+export const SERVICE_STORE_CONTEXT: OrderStoreContext = { logger: log }
+
 /**
  * Reads and status writes on one order table, with the names of the backend's OrderStore
- * (packages/services/uniswapx/src/core/orders/OrderStore.ts) that ports them. The per-request
- * context comes with A9.
+ * (packages/services/uniswapx/src/core/orders/OrderStore.ts) that ports them.
  */
 export interface OrderStore<T extends UniswapXOrderEntity> {
-  getByHash: (hash: string) => Promise<T | undefined>
-  updateOrderStatus: (orderHash: string, status: ORDER_STATUS, fill?: StatusUpdateFill) => Promise<void>
+  getByHash: (ctx: OrderStoreContext, hash: string) => Promise<T | undefined>
+  updateOrderStatus: (
+    ctx: OrderStoreContext,
+    orderHash: string,
+    status: ORDER_STATUS,
+    fill?: StatusUpdateFill
+  ) => Promise<void>
 }
 
 // What only the post path uses.
 export interface PostOrderStore<T extends UniswapXOrderEntity> {
-  putOrderAndUpdateNonceTransaction: (order: T) => Promise<void>
-  countOrdersByOffererAndStatus: (offerer: string, orderStatus: ORDER_STATUS) => Promise<number>
-  getNonceByAddressAndChain: (address: string, chainId: number) => Promise<string | undefined>
+  // createdAt is epoch seconds.
+  putOrderAndUpdateNonce: (ctx: OrderStoreContext, order: T, createdAt: number) => Promise<void>
+  // The offerer's OPEN orders, counted up to max + 1.
+  countOpenOrders: (ctx: OrderStoreContext, offerer: string, max: number) => Promise<number>
+  getNonce: (ctx: OrderStoreContext, address: string, chainId: number) => Promise<string | undefined>
 }
 
 export interface BaseOrdersRepository<T extends UniswapXOrderEntity> extends OrderStore<T>, PostOrderStore<T> {

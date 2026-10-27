@@ -13,7 +13,7 @@ import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities
 import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
-import { BaseOrdersRepository } from '../../repositories/base'
+import { BaseOrdersRepository, SERVICE_STORE_CONTEXT } from '../../repositories/base'
 import { AnalyticsServiceInterface } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
@@ -119,7 +119,7 @@ export class CheckOrderStatusService {
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order: UniswapXOrderEntity = checkDefined(
       await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
-        this.dbInterface.getByHash(orderHash),
+        this.dbInterface.getByHash(SERVICE_STORE_CONTEXT, orderHash),
         CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
       ),
       `cannot find order by hash when updating order status, hash: ${orderHash}`
@@ -493,7 +493,12 @@ export class CheckOrderStatusUtils {
         this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
       }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
-      await this.repository.updateOrderStatus(orderHash, orderStatus, { txHash, fillBlock, settledAmounts, fillTimestamp })
+      await this.repository.updateOrderStatus(SERVICE_STORE_CONTEXT, orderHash, orderStatus, {
+        txHash,
+        fillBlock,
+        settledAmounts,
+        fillTimestamp,
+      })
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)

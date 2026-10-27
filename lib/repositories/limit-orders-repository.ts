@@ -1,3 +1,4 @@
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 
 import { UniswapXOrderEntity } from '../entities'
@@ -12,7 +13,11 @@ export type LimitOrdersRepository = GenericOrdersRepository
 export const LimitOrdersRepository = {
   // Only the shared attributes, not the Orders table's Dutch-only ones: toolbox drops undeclared
   // fields on write, so this list is exactly what a LimitOrders row can hold.
-  create: (documentClient: DocumentClient, queryCache?: OrdersQueryCache): BaseOrdersRepository<UniswapXOrderEntity> =>
+  create: (
+    documentClient: DocumentClient,
+    queryCache?: OrdersQueryCache,
+    storeClient?: DynamoDBDocumentClient
+  ): BaseOrdersRepository<UniswapXOrderEntity> =>
     createOrdersRepository(
       {
         tableName: TABLE_NAMES.LimitOrders,
@@ -21,6 +26,7 @@ export const LimitOrdersRepository = {
         attributes: ORDER_ATTRIBUTES,
       },
       documentClient,
-      queryCache
+      queryCache,
+      storeClient
     ),
 }

@@ -2,7 +2,7 @@ import { createMetricsLogger, Unit } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
-import { BaseOrdersRepository, QueryResult } from '../../repositories/base'
+import { BaseOrdersRepository, QueryResult, SERVICE_STORE_CONTEXT } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { BLOCK_RANGE, REAPER_MAX_ATTEMPTS, DYNAMO_BATCH_WRITE_MAX, OLDEST_BLOCK_BY_CHAIN, REAPER_RANGES_PER_RUN, RPC_HEADERS, BLOCKS_IN_24_HOURS } from '../../util/constants'
 import { ethers } from 'ethers'
@@ -562,7 +562,7 @@ async function updateOrders(
   
   for (const [orderHash, orderUpdate] of Object.entries(orderUpdates)) {
     log.info(`Updating order ${orderHash} to ${orderUpdate.status}`)
-    await repo.updateOrderStatus(orderHash, orderUpdate.status, {
+    await repo.updateOrderStatus(SERVICE_STORE_CONTEXT, orderHash, orderUpdate.status, {
       txHash: orderUpdate.txHash,
       fillBlock: orderUpdate.fillBlock,
       settledAmounts: orderUpdate.settledAmounts,
@@ -645,7 +645,7 @@ type OrderWithSignature =
 }
 
 async function getOrderByHash(repo: BaseOrdersRepository<UniswapXOrderEntity>, orderHash: string): Promise<OrderWithSignature> {
-  const order = await repo.getByHash(orderHash)
+  const order = await repo.getByHash(SERVICE_STORE_CONTEXT, orderHash)
   if (!order) {
     throw new Error(`Order ${orderHash} not found`)
   }

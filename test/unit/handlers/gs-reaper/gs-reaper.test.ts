@@ -26,7 +26,7 @@ const mockOrdersRepository = {
     return mockOrdersRepository.orders.get(orderHash) || null
   }),
 
-  getByHash: jest.fn(async (orderHash) => {
+  getByHash: jest.fn(async (_ctx, orderHash) => {
     return mockOrdersRepository.orders.get(orderHash) || null
   }),
 
@@ -44,7 +44,7 @@ const mockOrdersRepository = {
     }
   }),
 
-  updateOrderStatus: jest.fn(async (orderHash, status, fill = {}) => {
+  updateOrderStatus: jest.fn(async (_ctx, orderHash, status, fill = {}) => {
     const order = mockOrdersRepository.orders.get(orderHash)
     if (order) {
       const { txHash, fillBlock, fillTimestamp, settledAmounts } = fill

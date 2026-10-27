@@ -35,7 +35,7 @@ import { LimitOrder } from '../models/LimitOrder'
 import { PriorityOrder } from '../models/PriorityOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { WebhookProvider } from '../providers/base'
-import { BaseOrdersRepository, QueryResult } from '../repositories/base'
+import { BaseOrdersRepository, OrderStoreContext, QueryResult } from '../repositories/base'
 import { hasExclusiveFiller } from '../util/address'
 import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
@@ -67,6 +67,11 @@ export class UniswapXOrderService {
     // partition, and the handler discards the resulting cursor anyway.
     private readonly maxQueryRetry: number = MAX_QUERY_RETRY
   ) {}
+
+  // The store logs through the service's logger. A10 hands the post path the request's own context.
+  private get storeContext(): OrderStoreContext {
+    return { logger: this.logger }
+  }
 
   async createOrder(
     order: LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order
@@ -260,9 +265,10 @@ export class UniswapXOrderService {
 
   private async userCanPlaceNewOrder(offerer: string): Promise<boolean> {
     try {
-      const orderCount = await this.repository.countOrdersByOffererAndStatus(offerer, ORDER_STATUS.OPEN)
+      const maxOpenOrders = this.getMaxOpenOrders(offerer)
+      const orderCount = await this.repository.countOpenOrders(this.storeContext, offerer, maxOpenOrders)
 
-      if (orderCount > this.getMaxOpenOrders(offerer)) {
+      if (orderCount > maxOpenOrders) {
         this.logger.info(`${offerer} has too many open orders`, {
           orderCount,
         })
@@ -279,7 +285,7 @@ export class UniswapXOrderService {
 
   private async persistOrder(order: UniswapXOrderEntity): Promise<void> {
     try {
-      await this.repository.putOrderAndUpdateNonceTransaction(order)
+      await this.repository.putOrderAndUpdateNonce(this.storeContext, order, Math.floor(Date.now() / 1000))
       this.logger.info(`Successfully inserted Order ${order.orderHash} into DB`)
     } catch (e: unknown) {
       this.logger.error(`Failed to insert order ${order.orderHash} into DB`, {

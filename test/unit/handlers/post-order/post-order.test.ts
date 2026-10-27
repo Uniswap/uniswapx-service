@@ -2,10 +2,9 @@ import { CosignedV2DutchOrder, OrderType, OrderValidation, PermissionedTokenVali
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import { BigNumber } from 'ethers'
 import { toOrderEntity } from '../../../../lib/core/orders/storedRow'
-import { ORDER_STATUS } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { AVERAGE_BLOCK_TIME } from '../../../../lib/handlers/check-order-status/util'
-import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../../lib/handlers/constants'
+import { DEFAULT_MAX_OPEN_ORDERS, PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../../lib/handlers/constants'
 import { DUTCH_AUCTION_ORDER_ROUTE } from '../../../../lib/handlers/post-order/routes'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
 import { log } from '../../../../lib/Logging'
@@ -508,7 +507,7 @@ describe('Testing post order handler.', () => {
       })
       expect(harness.repository.puts).toEqual([])
       expect(harness.repository.countCalls).toEqual([
-        { offerer: victim.address.toLowerCase(), orderStatus: ORDER_STATUS.OPEN },
+        { offerer: victim.address.toLowerCase(), max: DEFAULT_MAX_OPEN_ORDERS },
       ])
     })
   })
