@@ -1,12 +1,14 @@
-import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
 import { UniswapXOrderEntity } from '../../entities'
+import { PriorityCosigner } from '../../models/PriorityOrder'
 import { WebhookProvider } from '../../providers/base'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { AnalyticsServiceInterface } from '../../services/analytics-service'
-import { OrderPoster } from '../../services/OrderPoster'
+import { ExclusiveFillerNotifier, OrderPoster } from '../../services/OrderPoster'
+import { StartTracking } from '../../services/start-tracking'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
+import { sendImmediateExclusiveFillerNotification } from '../order-notification/handler'
 import type { ProviderMap } from '../shared'
 import { PostOrderHandler } from './handler'
 import { PostRoutePolicy } from './policy'
@@ -18,24 +20,24 @@ export type PostOrderDeps = {
   orderValidator: OffChainUniswapXOrderValidator
   onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>
   repository: BaseOrdersRepository<UniswapXOrderEntity>
-  logger: Logger
   analytics: AnalyticsServiceInterface
   providerMap: ProviderMap
+  startTracking: StartTracking
+  createPriorityCosigner: () => PriorityCosigner
+  // Epoch milliseconds.
+  now: () => number
   // Only used where the policy notifies the exclusive filler.
   webhookProvider?: WebhookProvider
 }
 
 export function buildPostOrderService(policy: PostRoutePolicy, deps: PostOrderDeps): OrderPoster {
-  return new OrderPoster(
-    deps.orderValidator,
-    deps.onChainValidatorMap,
-    deps.repository,
-    deps.logger,
-    policy.getMaxOpenOrders,
-    deps.analytics,
-    deps.providerMap,
-    policy.notifyExclusiveFiller ? deps.webhookProvider : undefined
-  )
+  const { webhookProvider, ...posterDeps } = deps
+  return new OrderPoster({
+    ...posterDeps,
+    getMaxOpenOrders: policy.getMaxOpenOrders,
+    notifyExclusiveFiller:
+      policy.notifyExclusiveFiller && webhookProvider ? exclusiveFillerNotifier(webhookProvider) : undefined,
+  })
 }
 
 export function buildPostOrderHandler(policy: PostRoutePolicy, deps: PostOrderDeps): PostOrderHandler {
@@ -45,4 +47,9 @@ export function buildPostOrderHandler(policy: PostRoutePolicy, deps: PostOrderDe
     new PostOrderBodyParser(),
     policy.route
   )
+}
+
+function exclusiveFillerNotifier(webhookProvider: WebhookProvider): ExclusiveFillerNotifier {
+  return (order, orderType, logger) =>
+    sendImmediateExclusiveFillerNotification(order, orderType, webhookProvider, logger)
 }

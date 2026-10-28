@@ -215,7 +215,7 @@ export abstract class APIGLambdaHandler<RInj extends ApiRInj, ReqBody, ReqQueryP
         // Built before validation so that a request rejected there still records on its own metrics
         // logger, under the namespace and dimensions the alarms read.
         const ctx = buildRequestContext(context.awsRequestId, metrics)
-        // For the readers not yet handed ctx (query cache, order service, nonce handler).
+        // For code not yet handed ctx (query cache, nonce handler, the immediate exclusive-filler notice).
         setGlobalMetrics(metrics)
 
         const response = await handle(event, context, ctx)

@@ -13,8 +13,6 @@ import { makePostOrderHandler, PostOrderHandlerHarness } from '../../builders/po
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
-jest.mock('../../../../lib/handlers/shared/sfn', () => ({ kickoffOrderTrackingSfn: jest.fn() }))
-
 // Cases both post routes share live in post-order-shared.test.ts.
 describe('Testing post limit order handler.', () => {
   let harness: PostOrderHandlerHarness

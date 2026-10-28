@@ -26,8 +26,6 @@ import { makePostOrderHandler, PostOrderHandlerHarness } from '../../builders/po
 import { EVENT_CONTEXT, QUOTE_ID, REQUEST_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
-jest.mock('../../../../lib/handlers/shared/sfn', () => ({ kickoffOrderTrackingSfn: jest.fn() }))
-
 // A post of an order the route accepts, and the entity the route should write for it.
 type RoutePost = { request: APIGatewayProxyEvent; entity: UniswapXOrderEntity }
 

@@ -75,6 +75,11 @@ function sharedSfnClient(): SFNClient {
   return sfnClient
 }
 
+// The shared client, built on first use rather than at import, for callers that take a client.
+export const sharedStartExecutionClient: StartExecutionClient = {
+  send: (command) => sharedSfnClient().send(command),
+}
+
 export async function kickoffOrderTrackingSfn(
   sfnInput: OrderTrackingSfnInput,
   stateMachineArn: string,

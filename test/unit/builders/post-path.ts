@@ -8,11 +8,15 @@ import { PostOrderHandler } from '../../../lib/handlers/post-order/handler'
 import { DUTCH_POST_POLICY, LIMIT_POST_POLICY, PostRoutePolicy } from '../../../lib/handlers/post-order/policy'
 import { LIMIT_ORDER_ROUTE, PostOrderRoute } from '../../../lib/handlers/post-order/routes'
 import { ProviderMap } from '../../../lib/handlers/shared'
+import { StartExecutionClient } from '../../../lib/handlers/shared/sfn'
 import { WebhookProvider } from '../../../lib/providers/base'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
-import { OrderPoster } from '../../../lib/services/OrderPoster'
+import { OrderPoster, PostContext } from '../../../lib/services/OrderPoster'
+import { SfnStartTracking } from '../../../lib/services/start-tracking'
+import { getStateMachineArn } from '../../../lib/util/stateMachineArn'
 import { RecordingAnalytics } from '../../fakes/analytics'
 import { FakeCosigner } from '../../fakes/cosigner'
+import { RecordingMetrics } from '../../fakes/metrics'
 import { FakeOffChainValidator, FakeOnChainValidator } from '../../fakes/order-validators'
 import { FakeOrdersRepository } from '../../fakes/orders-repository'
 import { RecordingStartTracking } from '../../fakes/start-tracking'
@@ -30,27 +34,33 @@ export type PostOrderServiceOverrides<R extends OrdersRepository = FakeOrdersRep
   getMaxOpenOrders?: (offerer: string) => number
   providerMap?: ProviderMap
   webhookProvider?: WebhookProvider
+  // A real Step Functions client in place of the recording one.
+  startExecutionClient?: StartExecutionClient
 }
 
-export type PostOrderServiceHarness<R extends OrdersRepository = FakeOrdersRepository> = {
-  service: OrderPoster
+type PostPathFakesHarness<R extends OrdersRepository> = {
   orderValidator: FakeOffChainValidator
   onChainValidator: FakeOnChainValidator
   repository: R
   analytics: RecordingAnalytics
-  logger: Logger
   cosigner: FakeCosigner
   tracking: RecordingStartTracking
 }
 
-export type PostOrderHandlerHarness<R extends OrdersRepository = FakeOrdersRepository> = Omit<
-  PostOrderServiceHarness<R>,
-  'service'
-> & {
+export type PostOrderServiceHarness<R extends OrdersRepository = FakeOrdersRepository> = PostPathFakesHarness<R> & {
+  // The service with `ctx` bound, so each call is one request.
+  service: { createOrder: (order: Parameters<OrderPoster['createOrder']>[1]) => Promise<string> }
+  ctx: PostContext
+  logger: Logger
+  metrics: RecordingMetrics
+}
+
+// The handler builds each request's own logger and metrics, as in the Lambda.
+export type PostOrderHandlerHarness<R extends OrdersRepository = FakeOrdersRepository> = PostPathFakesHarness<R> & {
   handler: PostOrderHandler
 }
 
-type PostPathFakes<R extends OrdersRepository> = Omit<PostOrderServiceHarness<R>, 'service'> & {
+type PostPathFakes<R extends OrdersRepository> = PostPathFakesHarness<R> & {
   policy: PostRoutePolicy
   deps: PostOrderDeps
 }
@@ -66,7 +76,8 @@ function postPathFakes<R extends OrdersRepository>(
   // R defaults to FakeOrdersRepository, so the fallback is an R whenever none is passed
   const repository = overrides.repository ?? (new FakeOrdersRepository() as OrdersRepository as R)
   const analytics = overrides.analytics ?? new RecordingAnalytics()
-  const logger = overrides.logger ?? mock<Logger>()
+  const cosigner = new FakeCosigner()
+  const tracking = new RecordingStartTracking()
 
   return {
     policy: { ...policy, getMaxOpenOrders: overrides.getMaxOpenOrders ?? policy.getMaxOpenOrders },
@@ -74,30 +85,34 @@ function postPathFakes<R extends OrdersRepository>(
       orderValidator,
       onChainValidatorMap: new OnChainValidatorMap<OrderValidator>([], () => onChainValidator),
       repository,
-      logger,
       analytics,
       providerMap: overrides.providerMap ?? MOCK_PROVIDER_MAP,
+      // The real start-tracking code over a recording Step Functions client; ARNs from setup-env.
+      startTracking: new SfnStartTracking(overrides.startExecutionClient ?? tracking, getStateMachineArn),
+      createPriorityCosigner: () => cosigner,
+      // Follows a frozen clock (fakes/clock.ts).
+      now: () => Date.now(),
       webhookProvider: overrides.webhookProvider,
     },
     orderValidator,
     onChainValidator,
     repository,
     analytics,
-    logger,
-    cosigner: new FakeCosigner(),
-    tracking: new RecordingStartTracking(),
+    cosigner,
+    tracking,
   }
 }
 
-/**
- * The order service as the Dutch post Lambda builds it, every dependency a fake. The test
- * file must jest.mock lib/handlers/shared/sfn (see RecordingStartTracking).
- */
+/** The order service as the Dutch post Lambda builds it, every dependency a fake. */
 export function makePostOrderService<R extends OrdersRepository = FakeOrdersRepository>(
   overrides: PostOrderServiceOverrides<R> = {}
 ): PostOrderServiceHarness<R> {
   const { policy, deps, ...harness } = postPathFakes(DUTCH_POST_POLICY, overrides)
-  return { ...harness, service: buildPostOrderService(policy, deps) }
+  const poster = buildPostOrderService(policy, deps)
+  const logger = overrides.logger ?? mock<Logger>()
+  const metrics = new RecordingMetrics()
+  const ctx: PostContext = { logger, metrics }
+  return { ...harness, ctx, logger, metrics, service: { createOrder: (order) => poster.createOrder(ctx, order) } }
 }
 
 /** The post handler for `route`, built by the same builder as that route's Lambda, over fakes. */
