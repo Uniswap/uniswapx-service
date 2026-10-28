@@ -1,7 +1,5 @@
-import { Logger } from '@aws-lambda-powertools/logger'
 import { CosignedPriorityOrder } from '@uniswap/uniswapx-sdk'
 import { Entity, Table } from 'dynamodb-toolbox'
-import { mock } from 'jest-mock-extended'
 import { DYNAMODB_TYPES, TABLE_KEY } from '../../../lib/config/dynamodb'
 import { StatusUpdateFill, toOrderEntity, toStatusUpdate, toStoredRow } from '../../../lib/core/orders/storedRow'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
@@ -29,9 +27,7 @@ const PREFIX = '0xparity-'
 
 // A real posted order of each type, moved onto this suite's keys.
 function postedEntity(name: keyof typeof AcceptedPosts): UniswapXOrderEntity {
-  const parsed = new PostOrderBodyParser(mock<Logger>()).fromPostRequest(
-    AcceptedPosts[name].request as PostOrderRequestBody
-  )
+  const parsed = new PostOrderBodyParser().fromPostRequest(AcceptedPosts[name].request as PostOrderRequestBody)
   const order =
     parsed instanceof PriorityOrder
       ? new PriorityOrder(

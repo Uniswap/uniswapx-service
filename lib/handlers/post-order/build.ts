@@ -44,7 +44,7 @@ export function buildPostOrderHandler(policy: PostRoutePolicy, deps: PostOrderDe
   return new PostOrderHandler(
     policy.handlerName,
     buildPostOrderService(policy, deps),
-    new PostOrderBodyParser(deps.logger),
+    new PostOrderBodyParser(),
     policy.route
   )
 }

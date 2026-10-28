@@ -108,7 +108,10 @@ export class UniswapXOrderService {
       if (cosignedOrder.inner.info.cosignerData.auctionTargetBlock.gt(cosignedOrder.inner.info.auctionStartBlock)) {
         throw new OrderValidationFailedError('auctionStartBlock too low')
       }
-      this.logger.info('cosigned priority order', { order: cosignedOrder })
+      this.logger.info('cosigned priority order', {
+        orderHash: cosignedOrder.inner.hash(),
+        auctionTargetBlock: cosignedOrder.inner.info.cosignerData.auctionTargetBlock.toString(),
+      })
       // The order quoter checks the cosignature, so this half waits for it.
       await this.validateOnChain(cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
       orderEntity = toOrderEntity(cosignedOrder)
