@@ -38,6 +38,7 @@ import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
+import { RecordingAnalytics } from '../../fakes/analytics'
 import { FakeOffChainValidator } from '../../fakes/order-validators'
 import { SilentServer, silentServerClientOptions } from '../../fakes/silent-server'
 import { makePostOrderService } from '../builders/post-path'
@@ -112,6 +113,28 @@ describe('UniswapXOrderService', () => {
     expect(logger.error).toHaveBeenCalledWith(
       'Post-persist processing failed for accepted order',
       expect.objectContaining({ orderHash: response })
+    )
+  })
+
+  test('createOrder still starts tracking when the OrderPosted analytics log throws', async () => {
+    const logger = mock<Logger>()
+    const analytics = new RecordingAnalytics()
+    jest.spyOn(analytics, 'logOrderPosted').mockImplementation(() => {
+      throw new Error('bad amount')
+    })
+    const { service, repository, tracking } = makePostOrderService({ logger, analytics, getMaxOpenOrders: () => 10 })
+
+    const response = await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+    expect(repository.puts).toHaveLength(1)
+    expect(tracking.calls).toHaveLength(1)
+    expect(logger.error).toHaveBeenCalledWith('Failed to log OrderPosted', {
+      orderHash: response,
+      err: expect.objectContaining({ message: 'bad amount' }),
+    })
+    expect(logger.error).not.toHaveBeenCalledWith(
+      'Post-persist processing failed for accepted order',
+      expect.anything()
     )
   })
 

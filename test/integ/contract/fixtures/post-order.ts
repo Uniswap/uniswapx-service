@@ -157,9 +157,9 @@ export const AcceptedPosts = {
               endTime: 4102444884,
               inputStartAmount: '1000000',
               inputEndAmount: '1000000',
-              // the string comparison picks the fee output ('99999...' > '2000...'); deliberate, for parity
-              outputStartAmount: '99999999999999',
-              outputEndAmount: '95000000000000',
+              // the swapper's output, the largest by amount (not the fee output)
+              outputStartAmount: '2000000000000000000',
+              outputEndAmount: '1900000000000000000',
             },
           },
         ],
@@ -293,9 +293,9 @@ export const AcceptedPosts = {
               startBlock: 1000,
               inputStartAmount: '1000000',
               inputCurve: '{"relativeBlocks":[],"relativeAmounts":[]}',
-              // the string comparison picks the fee output ('99999...' > '2000...'); deliberate, for parity
-              outputStartAmount: '99999999999999',
-              outputCurve: '{"relativeBlocks":[10],"relativeAmounts":["4999999999999"]}',
+              // the swapper's output, the largest by amount (not the fee output)
+              outputStartAmount: '2000000000000000000',
+              outputCurve: '{"relativeBlocks":[10],"relativeAmounts":["100000000000000000"]}',
               startingBaseFee: '0',
             },
           },
@@ -418,9 +418,9 @@ export const AcceptedPosts = {
               inputStartAmount: '1000000',
               inputEndAmount: '1000000',
               inputMpsPerPriorityFeeWei: '0',
-              // the string comparison picks the fee output ('99999...' > '2000...'); deliberate, for parity
-              outputStartAmount: '99999999999999',
-              outputEndAmount: '99999999999999',
+              // the swapper's output, the largest by amount (not the fee output)
+              outputStartAmount: '2000000000000000000',
+              outputEndAmount: '2000000000000000000',
               outputMpsPerPriorityFeeWei: '1',
             },
           },
@@ -521,9 +521,9 @@ export const AcceptedPosts = {
               endTime: 4102448400,
               inputStartAmount: '1000000',
               inputEndAmount: '1000000',
-              // the string comparison picks the fee output ('99999...' > '2000...'); deliberate, for parity
-              outputStartAmount: '99999999999999',
-              outputEndAmount: '99999999999999',
+              // the swapper's output, the largest by amount (not the fee output)
+              outputStartAmount: '2000000000000000000',
+              outputEndAmount: '2000000000000000000',
             },
           },
         ],

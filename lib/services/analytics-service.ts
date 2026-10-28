@@ -46,7 +46,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
     }
 
     if (isPriorityOrderEntity(order)) {
-      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.amount > cur.amount ? prev : cur))
+      const userOutput = largestOutput(order.outputs, (output) => output.amount)
       this.logger.info('Analytics Message', {
         eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
@@ -62,7 +62,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         }),
       })
     } else if (isDutchV3OrderEntity(order)) {
-      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
+      const userOutput = largestOutput(order.outputs, (output) => output.startAmount)
       this.logger.info('Analytics Message', {
         eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
@@ -75,7 +75,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         }),
       })
     } else {
-      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
+      const userOutput = largestOutput(order.outputs, (output) => output.startAmount)
       this.logger.info('Analytics Message', {
         eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
@@ -153,4 +153,13 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       },
     })
   }
+}
+
+/**
+ * The swapper's output: the largest, as an amount. Fee outputs pay the same token and are smaller.
+ * Compared as numbers, not strings, so a fee of 99... does not beat 2000... . On a tie the later
+ * output wins, as it always has.
+ */
+function largestOutput<T>(outputs: readonly T[], amount: (output: T) => string): T {
+  return outputs.reduce((largest, output) => (BigInt(amount(largest)) > BigInt(amount(output)) ? largest : output))
 }

@@ -128,7 +128,7 @@ export class UniswapXOrderService {
     // (SWAP-2839). Log and alarm instead of throwing.
     try {
       const realOrderType = order.orderType
-      await this.logOrderCreatedEvent(orderEntity, realOrderType)
+      this.logOrderCreatedEvent(orderEntity, realOrderType)
 
       // Send immediate notification to exclusive filler if present
       if (this.webhookProvider && hasExclusiveFiller(orderEntity.filler)) {
@@ -295,10 +295,15 @@ export class UniswapXOrderService {
     }
   }
 
-  private async logOrderCreatedEvent(order: UniswapXOrderEntity, orderType: OrderType) {
-    // Log used for cw dashboard and redshift metrics, do not modify
-    // skip fee output logging
-    this.analyticsService.logOrderPosted(order, orderType)
+  // Analytics only: a failure here must not skip the filler notice or the tracker.
+  private logOrderCreatedEvent(order: UniswapXOrderEntity, orderType: OrderType) {
+    try {
+      // Log used for cw dashboard and redshift metrics, do not modify
+      // skip fee output logging
+      this.analyticsService.logOrderPosted(order, orderType)
+    } catch (err) {
+      this.logger.error('Failed to log OrderPosted', { orderHash: order.orderHash, err })
+    }
   }
 
   private async startOrderTracker(
