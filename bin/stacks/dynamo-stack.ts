@@ -91,6 +91,7 @@ export class DynamoStack extends cdk.NestedStack {
 
     this.alarmsPerTable(this.nonceTable, 'Nonces', tableCapacityConfig.nonce, notifier)
     this.alarmsPerTable(this.ordersTable, 'Orders', tableCapacityConfig.order, notifier)
+    this.alarmsPerTable(this.limitOrdersTable, 'LimitOrders', tableCapacityConfig.limitOrder, notifier)
     this.hotIndexAlarms(this.ordersTable, 'Orders', notifier)
 
     // Dynamos built-in PointInTimeRecovery retention is max 35 days.
@@ -102,6 +103,7 @@ export class DynamoStack extends cdk.NestedStack {
       resources: [
         aws_backup.BackupResource.fromDynamoDbTable(nonceTable),
         aws_backup.BackupResource.fromDynamoDbTable(ordersTable),
+        aws_backup.BackupResource.fromDynamoDbTable(limitOrdersTable),
       ],
     })
   }

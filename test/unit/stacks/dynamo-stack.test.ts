@@ -104,9 +104,13 @@ describe('DynamoStack alarms', () => {
     }
   })
 
-  it('creates exactly the table and hot-GSI alarms it did before', () => {
+  it('creates exactly the table and hot-GSI alarms, with the same table alarms on all three tables', () => {
     const { alarms } = build()
     expect(alarms.map((a) => a.Properties.AlarmName).sort()).toEqual([
+      'GoudaService-SEV3-LimitOrders-ReadThrottlesAlarm',
+      'GoudaService-SEV3-LimitOrders-SystemErrorsAlarm',
+      'GoudaService-SEV3-LimitOrders-UserErrorsAlarm',
+      'GoudaService-SEV3-LimitOrders-WriteThrottlesAlarm',
       'GoudaService-SEV3-Nonces-ReadThrottlesAlarm',
       'GoudaService-SEV3-Nonces-SystemErrorsAlarm',
       'GoudaService-SEV3-Nonces-UserErrorsAlarm',
@@ -199,5 +203,20 @@ describe('DynamoStack alarms', () => {
     expect(ops('Orders-WriteThrottlesAlarm')).toEqual(
       ['PutItem', 'UpdateItem', 'DeleteItem', 'BatchWriteItem'].map((op) => `"Value":"${op}"`)
     )
+  })
+})
+
+describe('DynamoStack backups', () => {
+  it('backs up all three tables, not just Orders and Nonces', () => {
+    const app = new cdk.App()
+    const parent = new cdk.Stack(app, 'TestParent', { env: { account: '111111111111', region: 'us-east-2' } })
+    const stack = new DynamoStack(parent, 'TestDynamo', { tableCapacityConfig: onDemand })
+    const selections = Object.values(Template.fromStack(stack).findResources('AWS::Backup::BackupSelection'))
+    expect(selections).toHaveLength(1)
+    const resources = JSON.stringify(selections[0].Properties.BackupSelection.Resources)
+    for (const table of ['NoncesTable', 'OrdersTable', 'LimitOrdersTable']) {
+      expect(resources).toContain(table)
+    }
+    expect(selections[0].Properties.BackupSelection.Resources).toHaveLength(3)
   })
 })
