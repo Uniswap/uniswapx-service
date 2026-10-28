@@ -29,6 +29,8 @@ export interface RequestInjected {
   orderQuoter: OrderValidator
   orderType: OrderType
   stateMachineArn: string
+  // Set only by repair runs started by hand; never carried to later polls or executions.
+  skipNotify: boolean
 }
 
 export interface ContainerInjected {
@@ -81,6 +83,7 @@ export class CheckOrderStatusInjector extends SfnInjector<ContainerInjected, Req
       orderQuoter: quoter,
       orderType: orderType,
       stateMachineArn: event.stateMachineArn as string,
+      skipNotify: (event.skipNotify as unknown) === true,
     }
   }
 }

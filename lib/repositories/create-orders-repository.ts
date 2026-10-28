@@ -43,6 +43,8 @@ export const ORDER_ATTRIBUTES = {
   fillTimestamp: { type: DYNAMODB_TYPES.NUMBER },
   settledAmounts: { type: DYNAMODB_TYPES.LIST },
   pair: { type: DYNAMODB_TYPES.STRING },
+  // Set by repairs that back-fill a status (e.g. a fill stored as cancelled); the notifier skips such rows.
+  skipNotify: { type: DYNAMODB_TYPES.BOOLEAN },
 } as const
 
 export type OrdersTableConfig = {

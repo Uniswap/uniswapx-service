@@ -169,5 +169,32 @@ describe('CheckOrderStatusUtils', () => {
       expect(response.retryWaitSeconds).toEqual(30)
       expect(response).not.toHaveProperty('createdAt')
     })
+
+    test("passes a repair run's skipNotify to the status write and does not carry it on", async () => {
+      const repository = mock<DutchOrdersRepository>()
+      const service = buildService({ repository })
+
+      const response = await service.updateStatusAndReturn({
+        orderHash: '0xhash',
+        quoteId: 'quoteId',
+        retryCount: 0,
+        startingBlockNumber: 100,
+        chainId: ChainId.MAINNET,
+        lastStatus: ORDER_STATUS.CANCELLED,
+        orderStatus: ORDER_STATUS.FILLED,
+        validation: OrderValidation.NonceUsed,
+        txHash: '0xtx',
+        fillBlock: 101,
+        skipNotify: true,
+      })
+
+      expect(repository.updateOrderStatus).toHaveBeenCalledWith(
+        expect.anything(),
+        '0xhash',
+        ORDER_STATUS.FILLED,
+        expect.objectContaining({ txHash: '0xtx', skipNotify: true })
+      )
+      expect(response).not.toHaveProperty('skipNotify')
+    })
   })
 })

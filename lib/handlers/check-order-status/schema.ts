@@ -5,4 +5,5 @@ export const CheckOrderStatusInputJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash().required(),
   orderStatus: FieldValidator.isValidOrderStatus().required(),
   chainId: FieldValidator.isValidChainId().required(),
+  skipNotify: Joi.boolean(),
 })

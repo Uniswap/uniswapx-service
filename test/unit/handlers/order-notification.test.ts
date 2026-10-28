@@ -110,6 +110,19 @@ describe('Testing new order Notification handler.', () => {
     expect(response).toMatchObject({ batchItemFailures: [] })
   })
 
+  it('sends no webhook for a row a repair marked skipNotify', async () => {
+    const response = await orderNotificationHandler({
+      ...MOCK_ORDER,
+      orderStatus: { S: 'filled' },
+      skipNotify: { BOOL: true },
+    })
+
+    expect(getEndpointsMock).not.toHaveBeenCalled()
+    expect(mockedAxios.post).not.toHaveBeenCalled()
+    expect(logInfoMock).toBeCalledWith({ orderHash: MOCK_ORDER.orderHash.S }, 'Skipping webhooks for a repaired order.')
+    expect(response).toMatchObject({ batchItemFailures: [] })
+  })
+
   it('logs webhook URLs but never their auth headers', async () => {
     const secret = 'test-webhook-secret'
     const endpoints = [{ url: 'webhook.com/1', headers: { 'x-api-key': secret } }]

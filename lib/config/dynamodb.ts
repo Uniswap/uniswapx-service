@@ -5,6 +5,7 @@ export enum DYNAMODB_TYPES {
   NUMBER = 'number',
   MAP = 'map',
   LIST = 'list',
+  BOOLEAN = 'boolean',
 }
 
 // getStartKey (generic-orders-repository.ts) checks pagination cursors against Object.values(TABLE_KEY)

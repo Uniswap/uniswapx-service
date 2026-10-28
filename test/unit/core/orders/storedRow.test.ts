@@ -7,6 +7,8 @@ import { DutchV2Order } from '../../../../lib/models/DutchV2Order'
 import { DutchV3Order } from '../../../../lib/models/DutchV3Order'
 import { LimitOrder } from '../../../../lib/models/LimitOrder'
 import { PriorityOrder } from '../../../../lib/models/PriorityOrder'
+import { DUTCH_ORDER_ATTRIBUTES } from '../../../../lib/repositories/dutch-orders-repository'
+import { updateExpression } from '../../../../lib/repositories/toolbox-compat'
 import { ChainId } from '../../../../lib/util/chain'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
@@ -97,6 +99,16 @@ describe('toStatusUpdate', () => {
     expect(update).not.toHaveProperty('fillBlock')
     expect(update).not.toHaveProperty('fillTimestamp')
     expect(update).not.toHaveProperty('settledAmounts')
+  })
+
+  it('marks the row skipNotify only when a repair asks, and the store writes it', () => {
+    expect(toStatusUpdate(ROW, ORDER_STATUS.FILLED, { txHash: '0xabc' })).not.toHaveProperty('skipNotify')
+
+    const update = toStatusUpdate(ROW, ORDER_STATUS.FILLED, { txHash: '0xabc', skipNotify: true })
+    expect(update).toEqual(expect.objectContaining({ skipNotify: true }))
+    const expression = updateExpression(update, DUTCH_ORDER_ATTRIBUTES, 'Order', new Date(0))
+    expect(expression.UpdateExpression).toContain('#skipNotify = :skipNotify')
+    expect(expression.ExpressionAttributeValues[':skipNotify']).toBe(true)
   })
 })
 

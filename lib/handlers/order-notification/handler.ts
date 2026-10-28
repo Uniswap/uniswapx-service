@@ -26,6 +26,12 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
     const failedRecords = []
     for (const record of event.Records) {
       try {
+        // A repair that back-fills a status (e.g. a fill stored as cancelled) marks the row: not news to subscribers.
+        if (record.dynamodb?.NewImage?.skipNotify?.BOOL) {
+          log.info({ orderHash: record.dynamodb.NewImage.orderHash?.S }, 'Skipping webhooks for a repaired order.')
+          metrics.putMetric('OrderNotificationSkippedRepair', 1)
+          continue
+        }
         const newOrder = eventRecordToOrder(record)
 
         this.recordOrderTimingMetrics(newOrder, record)
