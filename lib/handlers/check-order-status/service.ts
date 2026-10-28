@@ -85,6 +85,7 @@ export type CheckOrderStatusRequest = {
   quoteId: string //only used for logging
   orderType: OrderType
   runIndex?: number
+  skipNotify?: boolean
 }
 
 export type ExtraUpdateInfo = {
@@ -116,6 +117,7 @@ export class CheckOrderStatusService {
     orderWatcher,
     orderStatus,
     runIndex,
+    skipNotify,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order: UniswapXOrderEntity = checkDefined(
       await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
@@ -194,6 +196,7 @@ export class CheckOrderStatusService {
       // executions for orders long past their deadline.
       deadline: order.deadline,
       createdAt: order.createdAt,
+      skipNotify,
     }
 
     let extraUpdateInfo = undefined
@@ -464,6 +467,7 @@ export class CheckOrderStatusUtils {
     runIndex?: number
     deadline?: number
     createdAt?: number
+    skipNotify?: boolean
   }): Promise<SfnStateInputOutput> {
     const {
       orderHash,
@@ -482,6 +486,7 @@ export class CheckOrderStatusUtils {
       runIndex,
       deadline,
       createdAt,
+      skipNotify,
     } = params
 
     // Avoid updating the order if the status is unchanged.
@@ -498,6 +503,7 @@ export class CheckOrderStatusUtils {
         fillBlock,
         settledAmounts,
         fillTimestamp,
+        skipNotify,
       })
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)

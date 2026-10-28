@@ -35,6 +35,8 @@ export type StatusUpdateFill = {
   /** Seconds. */
   fillTimestamp?: number
   settledAmounts?: SettledAmount[]
+  /** Repairs only: marks the row so the order notifier sends no webhook for this write. */
+  skipNotify?: boolean
 }
 
 /**
@@ -200,7 +202,7 @@ export function toStoredRow(entity: UniswapXOrderEntity, nowSeconds: number): St
  */
 export function toStatusUpdate(row: UniswapXOrderEntity, status: ORDER_STATUS, fill: StatusUpdateFill = {}) {
   const { offerer, filler, chainId } = row
-  const { txHash, fillBlock, fillTimestamp, settledAmounts } = fill
+  const { txHash, fillBlock, fillTimestamp, settledAmounts, skipNotify } = fill
   return {
     [TABLE_KEY.ORDER_HASH]: row.orderHash,
     orderStatus: status,
@@ -213,5 +215,6 @@ export function toStatusUpdate(row: UniswapXOrderEntity, status: ORDER_STATUS, f
     ...(fillBlock && { fillBlock }),
     ...(fillTimestamp && { fillTimestamp }),
     ...(settledAmounts && { settledAmounts }),
+    ...(skipNotify && { skipNotify }),
   }
 }
