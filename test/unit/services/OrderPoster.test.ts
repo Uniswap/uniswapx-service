@@ -15,13 +15,12 @@ import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationF
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../lib/handlers/constants'
 import { ProviderMap } from '../../../lib/handlers/shared'
-import * as sfn from '../../../lib/handlers/shared/sfn'
+import { createSfnClient } from '../../../lib/handlers/shared/sfn'
 import { DutchV2Order } from '../../../lib/models/DutchV2Order'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { PriorityOrder } from '../../../lib/models/PriorityOrder'
 import { ChainId } from '../../../lib/util/chain'
-import { metrics } from '../../../lib/util/metrics'
 import { Permit2Validator } from '../../../lib/util/Permit2Validator'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
@@ -34,18 +33,8 @@ import { SilentServer, silentServerClientOptions } from '../../fakes/silent-serv
 import { makePostOrderService } from '../builders/post-path'
 import { TestWallets, Tokens, ZERO_SIGNATURE } from '../fixtures'
 
-jest.mock('../../../lib/handlers/shared/sfn', () => {
-  return { kickoffOrderTrackingSfn: jest.fn() }
-})
-
-jest.mock('../../../lib/preconditions/preconditions', () => {
-  return { checkDefined: jest.fn().mockImplementation((value) => value) }
-})
-
-// The service rebuilds the state machine ARN from these (see
-// lib/util/stateMachineArn.ts). checkDefined is mocked to a pass-through
-// above, so an unset STATE_MACHINE_NAMES would surface as a JSON.parse
-// failure swallowed by createOrder's catch rather than a clear error.
+// Start tracking rebuilds the state machine ARN from the env set below (see
+// lib/util/stateMachineArn.ts).
 const MOCK_SM_ARN_1 = 'arn:aws:states:region:123456789012:stateMachine:MOCK_SM_1'
 
 describe('OrderPoster', () => {
@@ -84,6 +73,8 @@ describe('OrderPoster', () => {
         stateMachineArn: MOCK_SM_ARN_1,
       },
     ])
+    // Named after the order, so a re-post can't start a second tracker.
+    expect(tracking.executionNames).toEqual([`${response}_0`])
   })
 
   test('createOrder returns the order hash when post-persist tracking kickoff fails', async () => {
@@ -106,41 +97,31 @@ describe('OrderPoster', () => {
   })
 
   test('createOrder counts a started tracker', async () => {
-    const putMetric = jest.spyOn(metrics, 'putMetric')
-    try {
-      const { service, tracking } = makePostOrderService({ getMaxOpenOrders: () => 10 })
+    const { service, tracking, metrics } = makePostOrderService({ getMaxOpenOrders: () => 10 })
 
-      await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+    await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
 
-      expect(tracking.calls).toHaveLength(1)
-      expect(putMetric).toHaveBeenCalledWith('OrderTrackerStarted', 1, Unit.Count)
-      expect(putMetric).not.toHaveBeenCalledWith('PostOrderPostPersistFailure', 1, Unit.Count)
-    } finally {
-      putMetric.mockRestore()
-    }
+    expect(tracking.calls).toHaveLength(1)
+    expect(metrics.calls).toContainEqual(['OrderTrackerStarted', 1, Unit.Count])
+    expect(metrics.calls).not.toContainEqual(['PostOrderPostPersistFailure', 1, Unit.Count])
   })
 
   test('createOrder counts a tracker that already exists as a re-post, not a post-persist failure', async () => {
-    const putMetric = jest.spyOn(metrics, 'putMetric')
-    try {
-      const logger = mock<Logger>()
-      const { service, repository, tracking } = makePostOrderService({ logger, getMaxOpenOrders: () => 10 })
-      tracking.failNextWith(new ExecutionAlreadyExists({ message: 'Execution Already Exists', $metadata: {} }))
+    const logger = mock<Logger>()
+    const { service, repository, tracking, metrics } = makePostOrderService({ logger, getMaxOpenOrders: () => 10 })
+    tracking.failNextWith(new ExecutionAlreadyExists({ message: 'Execution Already Exists', $metadata: {} }))
 
-      const response = await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+    const response = await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
 
-      expect(response).toMatch(/^0x[0-9a-f]{64}$/)
-      expect(repository.puts).toHaveLength(1)
-      expect(logger.warn).toHaveBeenCalledWith('Order tracker already exists for re-posted order', {
-        orderHash: response,
-      })
-      expect(logger.error).not.toHaveBeenCalled()
-      expect(putMetric).toHaveBeenCalledWith('PostOrderTrackerAlreadyExists', 1, Unit.Count)
-      expect(putMetric).not.toHaveBeenCalledWith('PostOrderPostPersistFailure', 1, Unit.Count)
-      expect(putMetric).not.toHaveBeenCalledWith('OrderTrackerStarted', 1, Unit.Count)
-    } finally {
-      putMetric.mockRestore()
-    }
+    expect(response).toMatch(/^0x[0-9a-f]{64}$/)
+    expect(repository.puts).toHaveLength(1)
+    expect(logger.warn).toHaveBeenCalledWith('Order tracker already exists for re-posted order', {
+      orderHash: response,
+    })
+    expect(logger.error).not.toHaveBeenCalled()
+    expect(metrics.calls).toContainEqual(['PostOrderTrackerAlreadyExists', 1, Unit.Count])
+    expect(metrics.calls).not.toContainEqual(['PostOrderPostPersistFailure', 1, Unit.Count])
+    expect(metrics.calls).not.toContainEqual(['OrderTrackerStarted', 1, Unit.Count])
   })
 
   test('createOrder still starts tracking when the OrderPosted analytics log throws', async () => {
@@ -166,25 +147,22 @@ describe('OrderPoster', () => {
   })
 
   test('createOrder returns the order hash when the tracking kickoff hangs until the SFN client times out', async () => {
-    // The module is mocked above; run the real kickoff over a real client whose StartExecution
-    // goes to a server that never answers, so the timeout comes from the HTTP handler.
-    const actualSfn = jest.requireActual<typeof sfn>('../../../lib/handlers/shared/sfn')
+    // A real client whose StartExecution goes to a server that never answers, so the timeout
+    // comes from the HTTP handler.
     const server = new SilentServer()
     await server.start()
-    const client = actualSfn.createSfnClient({
+    const client = createSfnClient({
       ...silentServerClientOptions(server),
       requestTimeoutMs: 200,
       attempts: 2,
     })
-    const putMetric = jest.spyOn(metrics, 'putMetric')
     try {
       const logger = mock<Logger>()
-      const { service, repository } = makePostOrderService({ logger, getMaxOpenOrders: () => 10 })
-      jest
-        .mocked(sfn.kickoffOrderTrackingSfn)
-        .mockImplementation((input, stateMachineArn) =>
-          actualSfn.kickoffOrderTrackingSfn(input, stateMachineArn, client)
-        )
+      const { service, repository, metrics } = makePostOrderService({
+        logger,
+        getMaxOpenOrders: () => 10,
+        startExecutionClient: client,
+      })
 
       const response = await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
 
@@ -195,9 +173,8 @@ describe('OrderPoster', () => {
         orderHash: response,
         err: expect.objectContaining({ name: 'TimeoutError' }),
       })
-      expect(putMetric).toHaveBeenCalledWith('PostOrderPostPersistFailure', 1, Unit.Count)
+      expect(metrics.calls).toContainEqual(['PostOrderPostPersistFailure', 1, Unit.Count])
     } finally {
-      putMetric.mockRestore()
       client.destroy()
       await server.stop()
     }
@@ -390,25 +367,20 @@ describe('OrderPoster', () => {
     })
 
     test('an order the off-chain checks reject costs no block fetch and no cosignature', async () => {
-      const putMetric = jest.spyOn(metrics, 'putMetric')
-      try {
-        const { getBlock, providerMap } = chainAt(30_000_000)
-        const { service, orderValidator, onChainValidator, cosigner } = makePostOrderService({ providerMap })
-        orderValidator.result = { valid: false, errorString: 'Invalid priority order cosigner: nope' }
+      const { getBlock, providerMap } = chainAt(30_000_000)
+      const { service, orderValidator, onChainValidator, cosigner, metrics } = makePostOrderService({ providerMap })
+      orderValidator.result = { valid: false, errorString: 'Invalid priority order cosigner: nope' }
 
-        // Its start block is also too low; the off-chain answer comes first.
-        await expectValidationFailure(
-          service.createOrder(priorityOrderStartingAt(9)),
-          'Invalid priority order cosigner: nope'
-        )
+      // Its start block is also too low; the off-chain answer comes first.
+      await expectValidationFailure(
+        service.createOrder(priorityOrderStartingAt(9)),
+        'Invalid priority order cosigner: nope'
+      )
 
-        expect(getBlock).not.toHaveBeenCalled()
-        expect(cosigner.digests).toEqual([])
-        expect(onChainValidator.calls).toEqual([])
-        expect(putMetric).toHaveBeenCalledWith('OffchainValidationFailure', 1, Unit.Count)
-      } finally {
-        putMetric.mockRestore()
-      }
+      expect(getBlock).not.toHaveBeenCalled()
+      expect(cosigner.digests).toEqual([])
+      expect(onChainValidator.calls).toEqual([])
+      expect(metrics.calls).toContainEqual(['OffchainValidationFailure', 1, Unit.Count])
     })
 
     test('an order the order quoter rejects costs exactly one block fetch and one cosignature', async () => {

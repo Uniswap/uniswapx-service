@@ -40,6 +40,7 @@ export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderReques
     const {
       requestBody,
       requestInjected: { log },
+      ctx,
     } = params
 
     let order: PostableOrder
@@ -74,7 +75,7 @@ export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderReques
     }
 
     try {
-      const orderHash = await this.orderService.createOrder(order)
+      const orderHash = await this.orderService.createOrder(ctx, order)
       return {
         statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },

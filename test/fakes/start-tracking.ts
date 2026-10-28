@@ -1,30 +1,26 @@
-import { kickoffOrderTrackingSfn, OrderTrackingSfnInput } from '../../lib/handlers/shared/sfn'
+import { StartExecutionCommand } from '@aws-sdk/client-sfn'
+import { OrderTrackingSfnInput, StartExecutionClient } from '../../lib/handlers/shared/sfn'
 
 export type StartTrackingCall = { input: OrderTrackingSfnInput; stateMachineArn: string }
 
-// The service calls kickoffOrderTrackingSfn directly, so there is nothing to inject yet. Each test
-// file using this declares, once:
-//   jest.mock('<path to>/lib/handlers/shared/sfn', () => ({ kickoffOrderTrackingSfn: jest.fn() }))
-// and this records through that mock. The most recently created instance is the one that records.
-export class RecordingStartTracking {
+// Stands in for the Step Functions client: records each execution the post path starts.
+export class RecordingStartTracking implements StartExecutionClient {
   public readonly calls: StartTrackingCall[] = []
+  public readonly executionNames: string[] = []
   private nextError?: Error
 
-  constructor() {
-    if (!jest.isMockFunction(kickoffOrderTrackingSfn)) {
-      throw new Error('RecordingStartTracking needs jest.mock of lib/handlers/shared/sfn in the test file')
+  async send(command: StartExecutionCommand): Promise<void> {
+    const { input, stateMachineArn, name } = command.input
+    this.calls.push({ input: JSON.parse(input ?? 'null'), stateMachineArn: stateMachineArn ?? '' })
+    this.executionNames.push(name ?? '')
+    const error = this.nextError
+    this.nextError = undefined
+    if (error) {
+      throw error
     }
-    jest.mocked(kickoffOrderTrackingSfn).mockImplementation(async (input, stateMachineArn) => {
-      this.calls.push({ input, stateMachineArn })
-      const error = this.nextError
-      this.nextError = undefined
-      if (error) {
-        throw error
-      }
-    })
   }
 
-  // The next kickoff rejects with `error`; later ones succeed again.
+  // The next start rejects with `error`; later ones succeed again.
   failNextWith(error: Error): void {
     this.nextError = error
   }

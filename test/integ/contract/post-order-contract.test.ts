@@ -37,8 +37,6 @@ import {
   settle,
 } from './harness'
 
-jest.mock('../../../lib/handlers/shared/sfn', () => ({ kickoffOrderTrackingSfn: jest.fn() }))
-
 type Lambda = PostOrderHandlerHarness<ReturnType<typeof DutchOrdersRepository.create>>
 
 // DEFAULT_MAX_OPEN_ORDERS (5) open orders of the swapper the open-order limit cases post for.

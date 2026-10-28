@@ -35,8 +35,6 @@ import {
 } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
 
-jest.mock('../../../../lib/handlers/shared/sfn', () => ({ kickoffOrderTrackingSfn: jest.fn() }))
-
 // The handler rebuilds these from STATE_MACHINE_NAMES + REGION + ACCOUNT_ID
 // (see lib/util/stateMachineArn.ts), so the expected values are full ARNs.
 const MOCK_ACCOUNT_ID = '123456789012'

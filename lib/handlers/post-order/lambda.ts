@@ -1,15 +1,19 @@
+import { KMSClient } from '@aws-sdk/client-kms'
+import { KmsSigner } from '@uniswap/signer'
 import { OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
-import { log } from '../../Logging'
 import { checkDefined } from '../../preconditions/preconditions'
 import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
 import { AnalyticsService } from '../../services/analytics-service'
+import { SfnStartTracking } from '../../services/start-tracking'
 import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
 import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { STAGE } from '../../util/stage'
+import { getStateMachineArn } from '../../util/stateMachineArn'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { LazyProviderMap } from '../shared'
+import { sharedStartExecutionClient } from '../shared/sfn'
 import { buildPostOrderHandler } from './build'
 import { PostOrderHandler } from './handler'
 import { PostRoutePolicy } from './policy'
@@ -17,9 +21,10 @@ import { PostRoutePolicy } from './policy'
 // A post Lambda as deployed: its dependencies built once, at cold start, from the environment.
 export function buildPostOrderLambda(policy: PostRoutePolicy): PostOrderHandler {
   const providerMap = new LazyProviderMap()
+  const now = () => Date.now()
   return buildPostOrderHandler(policy, {
     orderValidator: new OffChainUniswapXOrderValidator({
-      getCurrentTime: () => new Date().getTime() / 1000,
+      getCurrentTime: () => now() / 1000,
       deadlineValidityPeriodSeconds: policy.deadlineValidityPeriodSeconds,
       ...cosignersFromEnv(),
       skipDecayStartTimeValidation: policy.skipDecayStartTimeValidation,
@@ -29,11 +34,20 @@ export function buildPostOrderLambda(policy: PostRoutePolicy): PostOrderHandler 
       (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
     ),
     repository: policy.createRepository(new DynamoDB.DocumentClient()),
-    logger: log,
     analytics: AnalyticsService.create(),
     providerMap,
+    startTracking: new SfnStartTracking(sharedStartExecutionClient, getStateMachineArn),
+    createPriorityCosigner,
+    now,
     webhookProvider: policy.notifyExclusiveFiller ? webhookProviderForStage() : undefined,
   })
+}
+
+// Read per priority order, not at cold start, so a missing key fails only priority posts.
+function createPriorityCosigner(): KmsSigner {
+  const kmsKeyId = checkDefined(process.env.KMS_KEY_ID, 'KMS_KEY_ID is not defined')
+  const awsRegion = checkDefined(process.env.REGION, 'REGION is not defined')
+  return new KmsSigner(new KMSClient({ region: awsRegion }), kmsKeyId)
 }
 
 function webhookProviderForStage(): S3WebhookConfigurationProvider {
