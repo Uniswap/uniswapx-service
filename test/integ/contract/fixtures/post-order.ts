@@ -36,6 +36,9 @@ const MAINNET_V2_STALENESS: MetricCall[] = [
   ['StaleOrder-chain-1', 1, 'Count'],
 ]
 
+// Recorded once the order's status-tracking step function has started.
+const TRACKER_STARTED: MetricCall[] = [['OrderTrackerStarted', 1, 'Count']]
+
 // The immediate exclusive-filler notice, delivered to the filler's one webhook.
 function noticeMetrics(chainId: number): MetricCall[] {
   return [
@@ -185,7 +188,7 @@ export const AcceptedPosts = {
         ],
       ],
       cosignedDigests: [],
-      metrics: [...requestCounters(1, '2XX'), ...MAINNET_V2_STALENESS, ...noticeMetrics(1)],
+      metrics: [...requestCounters(1, '2XX'), ...MAINNET_V2_STALENESS, ...noticeMetrics(1), ...TRACKER_STARTED],
     },
   },
   Dutch_V3: {
@@ -322,7 +325,7 @@ export const AcceptedPosts = {
         ],
       ],
       cosignedDigests: [],
-      metrics: [...requestCounters(42161, '2XX'), ...noticeMetrics(42161)],
+      metrics: [...requestCounters(42161, '2XX'), ...noticeMetrics(42161), ...TRACKER_STARTED],
     },
   },
   Priority: {
@@ -428,7 +431,7 @@ export const AcceptedPosts = {
       ],
       exclusiveFillerNotices: [],
       cosignedDigests: ['0xe9d6675fe9be59e3e31f7dc250b05a1f89e7b0a22fbf112ece297997834a532d'],
-      metrics: [...requestCounters(8453, '2XX')],
+      metrics: [...requestCounters(8453, '2XX'), ...TRACKER_STARTED],
     },
   },
   Limit: {
@@ -530,7 +533,7 @@ export const AcceptedPosts = {
       ],
       exclusiveFillerNotices: [],
       cosignedDigests: [],
-      metrics: [...requestCounters(1, '2XX')],
+      metrics: [...requestCounters(1, '2XX'), ...TRACKER_STARTED],
     },
   },
 }
@@ -543,7 +546,7 @@ export const AcceptedWithCaveats = {
     expected: {
       response: { statusCode: 201, body: { hash: Orders.priority.orderHash } },
       stored: true,
-      metrics: [...requestCounters(8453, '2XX')],
+      metrics: [...requestCounters(8453, '2XX'), ...TRACKER_STARTED],
     },
   },
   trackerStartFails: {
@@ -951,7 +954,7 @@ export const OpenOrderLimit = {
   request: body(Orders.openOrderLimit, 'Dutch_V2'),
   atLimit: {
     response: { statusCode: 201, body: { hash: Orders.openOrderLimit.orderHash } },
-    metrics: [...requestCounters(1, '2XX'), ...MAINNET_V2_STALENESS, ...noticeMetrics(1)],
+    metrics: [...requestCounters(1, '2XX'), ...MAINNET_V2_STALENESS, ...noticeMetrics(1), ...TRACKER_STARTED],
   },
   overLimit: {
     response: { statusCode: 403, body: { errorCode: 'TOO_MANY_OPEN_ORDERS', id: 'testRequest' } },

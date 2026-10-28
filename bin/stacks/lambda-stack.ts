@@ -589,6 +589,64 @@ export class LambdaStack extends cdk.NestedStack {
     // ~150 times in the two months to Oct 26, so it is not a paging signal.
     notifier.notify(sev2PostOrder4xxRate, sev3PostOrder4xxRate)
 
+    // Post-persist failures: the order was accepted and stored, but the follow-on work threw.
+    // UniswapXOrderService swallows that on purpose so an accepted order is never reported as
+    // rejected, so the request still returns 201 and no 4xx/5xx alarm moves. A tracker that
+    // already exists for the order (a duplicate post) is counted separately, as
+    // PostOrderTrackerAlreadyExists, and does not count here.
+    const sev3PostOrderPostPersistFailure = new Alarm(this, `${SERVICE_NAME}-SEV3-PostOrderPostPersistFailure`, {
+      alarmName: `${SERVICE_NAME}-SEV3-PostOrderPostPersistFailure`,
+      alarmDescription:
+        'Orders are being accepted but their post-persist processing is failing, most likely because status-tracking step functions are not starting. Requests still succeed, so no error-rate alarm fires for this.',
+      metric: new Metric({
+        namespace: 'Uniswap',
+        metricName: 'PostOrderPostPersistFailure',
+        dimensionsMap: { Service: 'UniswapXService' },
+        unit: cdk.aws_cloudwatch.Unit.COUNT,
+        statistic: 'sum',
+        period: Duration.minutes(5),
+      }),
+      threshold: 5,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      // No datapoints means no failures. Tracking stopping entirely is the heartbeat's job.
+      treatMissingData: TreatMissingData.IGNORE,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    })
+    notifier.notify(sev3PostOrderPostPersistFailure)
+
+    // Heartbeat: no order tracker has started on any chain for an hour. The step function alarms
+    // are failure-rate alarms with missing data ignored, so they stay OK when nothing starts at all,
+    // which is what a broken state machine ARN or a bad deploy looks like. This alarms on our own
+    // aggregate counter because AWS/States ExecutionsStarted is per state machine, and summing one
+    // per chain exceeds CloudWatch's 10-metric limit for math-expression alarms.
+    //
+    // Prod only: beta has no steady order flow. In prod the quietest hour of the 14 days to Oct 28
+    // still had 68 successful posts. The counter only covers trackers this service's post path
+    // starts, so it has to go once posting moves to uniswapx chain by chain.
+    if (props.stage === STAGE.PROD) {
+      const sev2NoOrderTrackersStarted = new Alarm(this, `${SERVICE_NAME}-SEV2-NoOrderTrackersStarted`, {
+        alarmName: `${SERVICE_NAME}-SEV2-NoOrderTrackersStarted`,
+        alarmDescription:
+          'No order-status-tracking step function has started on any chain for an hour. Order statuses only resolve through the slower reaper, and step-function fill analytics are not emitted.',
+        metric: new Metric({
+          namespace: 'Uniswap',
+          metricName: 'OrderTrackerStarted',
+          dimensionsMap: { Service: 'UniswapXService' },
+          unit: cdk.aws_cloudwatch.Unit.COUNT,
+          statistic: 'sum',
+          period: Duration.hours(1),
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        datapointsToAlarm: 1,
+        // Missing data is the failure being detected.
+        treatMissingData: TreatMissingData.BREACHING,
+        comparisonOperator: ComparisonOperator.LESS_THAN_THRESHOLD,
+      })
+      notifier.page(sev2NoOrderTrackersStarted)
+    }
+
     // 5xx error-rate alarms per endpoint. Each endpoint emits a `<Endpoint>Request` counter
     // and a `<Endpoint>Status5XX` counter via embedded metrics, recorded by the base API handler.
     // Two-tier alarm so we get both a slow-burn and a fast catastrophic signal:
