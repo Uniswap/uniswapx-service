@@ -2,7 +2,6 @@ import Joi from 'joi'
 import Logger from 'bunyan'
 import { UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { OrderDispatcher } from '../../services/OrderDispatcher'
 import {
   APIGLambdaHandler,
   APIHandleRequestParams,
@@ -12,6 +11,7 @@ import {
   RequestMetricsConfig,
   Response,
 } from '../base/index'
+import { OrderReader } from './order-reader'
 import { parseGetQueryParams } from './query-params'
 import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
@@ -68,10 +68,9 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 > {
   constructor(
     handlerName: string,
-    // The table this endpoint reads when the request names no orderType: the one its order
-    // service reads.
+    // The table this endpoint reads when the request names no orderType.
     private readonly repository: Pick<BaseOrdersRepository<UniswapXOrderEntity>, 'getOrders'>,
-    private readonly orderDispatcher: OrderDispatcher,
+    private readonly orderReader: Pick<OrderReader, 'getOrders'>,
     private readonly options: GetOrdersHandlerOptions = GET_ORDERS_HANDLER_OPTIONS
   ) {
     super(handlerName)
@@ -99,7 +98,7 @@ export class GetOrdersHandler extends APIGLambdaHandler<
 
     try {
       if (orderType) {
-        const getOrdersResult = await this.orderDispatcher.getOrder(orderType, {
+        const getOrdersResult = await this.orderReader.getOrders(orderType, {
           limit,
           params: queryFilters,
           cursor,

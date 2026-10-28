@@ -4,7 +4,7 @@ import { UniswapXOrderEntity } from '../../entities'
 import { WebhookProvider } from '../../providers/base'
 import { BaseOrdersRepository } from '../../repositories/base'
 import { AnalyticsServiceInterface } from '../../services/analytics-service'
-import { UniswapXOrderService } from '../../services/UniswapXOrderService'
+import { OrderPoster } from '../../services/OrderPoster'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import type { ProviderMap } from '../shared'
@@ -25,12 +25,10 @@ export type PostOrderDeps = {
   webhookProvider?: WebhookProvider
 }
 
-export function buildPostOrderService(policy: PostRoutePolicy, deps: PostOrderDeps): UniswapXOrderService {
-  return new UniswapXOrderService(
+export function buildPostOrderService(policy: PostRoutePolicy, deps: PostOrderDeps): OrderPoster {
+  return new OrderPoster(
     deps.orderValidator,
     deps.onChainValidatorMap,
-    deps.repository,
-    // the limit repository is read only by GET /limit-orders
     deps.repository,
     deps.logger,
     policy.getMaxOpenOrders,

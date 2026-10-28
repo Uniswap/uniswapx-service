@@ -1,16 +1,6 @@
-import { OrderValidator } from '@uniswap/uniswapx-sdk'
-import { AnalyticsService } from '../../services/analytics-service'
-import { UniswapXOrderService } from '../../services/UniswapXOrderService'
-import { ONE_DAY_IN_SECONDS } from '../../util/constants'
-
-import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { cosignersFromEnv } from '../../util/cosigners'
-import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
-import { GetOrdersHandler, GET_LIMIT_ORDERS_HANDLER_OPTIONS } from '../get-orders/handler'
-import { OnChainValidatorMap } from '../OnChainValidatorMap'
-import { getMaxOpenOrders } from '../post-order/policy'
+import { GET_LIMIT_ORDERS_HANDLER_OPTIONS, GetOrdersHandler } from '../get-orders/handler'
+import { OrderReader } from '../get-orders/order-reader'
 import { createReadPathDocumentClient } from '../shared/dynamo'
 import { getLimitOrdersQueryCache } from './query-cache'
 
@@ -18,28 +8,12 @@ import { getLimitOrdersQueryCache } from './query-cache'
 // paths build them without it -- see query-cache.ts. Its DocumentClient fails fast on
 // throttles -- see shared/dynamo.ts.
 const repo = LimitOrdersRepository.create(createReadPathDocumentClient(), getLimitOrdersQueryCache)
-const orderValidator = new OffChainUniswapXOrderValidator({
-  getCurrentTime: () => new Date().getTime() / 1000,
-  deadlineValidityPeriodSeconds: ONE_DAY_IN_SECONDS,
-  ...cosignersFromEnv(),
-})
-const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
-
-const uniswapXOrderService = new UniswapXOrderService(
-  orderValidator,
-  onChainValidatorMap,
-  repo,
-  repo, //same as normal repo for limit orders
-  log,
-  getMaxOpenOrders,
-  AnalyticsService.create(),
-  new Map()
-)
 
 const getLimitOrdersHandler = new GetOrdersHandler(
   'getLimitOrdersHandler',
   repo,
-  new OrderDispatcher(uniswapXOrderService),
+  // Every orderType reads the limit-orders table here.
+  new OrderReader(repo, repo),
   GET_LIMIT_ORDERS_HANDLER_OPTIONS
 )
 

@@ -590,7 +590,7 @@ export class LambdaStack extends cdk.NestedStack {
     notifier.notify(sev2PostOrder4xxRate, sev3PostOrder4xxRate)
 
     // Post-persist failures: the order was accepted and stored, but the follow-on work threw.
-    // UniswapXOrderService swallows that on purpose so an accepted order is never reported as
+    // OrderPoster swallows that on purpose so an accepted order is never reported as
     // rejected, so the request still returns 201 and no 4xx/5xx alarm moves. A tracker that
     // already exists for the order (a duplicate post) is counted separately, as
     // PostOrderTrackerAlreadyExists, and does not count here.

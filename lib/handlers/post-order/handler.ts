@@ -5,7 +5,7 @@ import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
-import { UniswapXOrderService } from '../../services/UniswapXOrderService'
+import { OrderPoster } from '../../services/OrderPoster'
 import { metrics } from '../../util/metrics'
 import {
   APIGLambdaHandler,
@@ -23,7 +23,7 @@ import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostO
 export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderRequestBody, void, PostOrderResponse> {
   constructor(
     handlerName: string,
-    private readonly orderService: Pick<UniswapXOrderService, 'createOrder'>,
+    private readonly orderService: Pick<OrderPoster, 'createOrder'>,
     private readonly bodyParser: PostOrderBodyParser,
     private readonly route: PostOrderRoute
   ) {

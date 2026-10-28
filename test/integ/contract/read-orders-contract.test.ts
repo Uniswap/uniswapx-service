@@ -1,21 +1,10 @@
-import { OrderValidator } from '@uniswap/uniswapx-sdk'
-import { UniswapXOrderEntity } from '../../../lib/entities'
 import { GetNonceHandler } from '../../../lib/handlers/get-nonce/handler'
 import { GET_LIMIT_ORDERS_HANDLER_OPTIONS, GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
-import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
-import { getMaxOpenOrders } from '../../../lib/handlers/post-order/policy'
+import { OrderReader, SINGLE_PAGE } from '../../../lib/handlers/get-orders/order-reader'
 import { ProviderMap } from '../../../lib/handlers/shared'
-import { log } from '../../../lib/Logging'
-import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { TABLE_NAMES } from '../../../lib/repositories/util'
-import { AnalyticsService } from '../../../lib/services/analytics-service'
-import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
-import { SINGLE_PAGE, UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
-import { ONE_DAY_IN_SECONDS } from '../../../lib/util/constants'
-import { OffChainUniswapXOrderValidator } from '../../../lib/util/OffChainUniswapXOrderValidator'
-import { NOW_SECONDS } from './fixtures/orders'
 import {
   GetLimitOrdersReads,
   GetNonceReads,
@@ -36,34 +25,10 @@ import {
   recordMetricScopes,
 } from './harness'
 
-type OrdersRepository = BaseOrdersRepository<UniswapXOrderEntity>
-
 const ORDER_ROWS = Object.values(SeededRows.Orders)
 const LIMIT_ORDER_ROWS = Object.values(SeededRows.LimitOrders)
 const orderKeys = (rows: { orderHash: string }[]) => rows.map(({ orderHash }) => ({ orderHash }))
 const NONCE_KEYS = SeededRows.Nonces.map(({ offerer }) => ({ offerer }))
-
-// The GET Lambdas as deployed, minus the query cache, reading DynamoDB Local.
-function orderService(repository: OrdersRepository, limitRepository: OrdersRepository, maxQueryRetry?: number) {
-  return new UniswapXOrderService(
-    // The GET path never validates an order, so the cosigners are never compared.
-    new OffChainUniswapXOrderValidator({
-      getCurrentTime: () => NOW_SECONDS,
-      deadlineValidityPeriodSeconds: ONE_DAY_IN_SECONDS,
-      cosigner: '',
-      priorityCosigner: '',
-    }),
-    new OnChainValidatorMap<OrderValidator>(),
-    repository,
-    limitRepository,
-    log,
-    getMaxOpenOrders,
-    AnalyticsService.create(),
-    new Map(),
-    undefined,
-    maxQueryRetry
-  )
-}
 
 // Answers Permit2's nonceBitmap with an empty word, so the stored nonce is still unused onchain.
 class EmptyBitmapProvider {
@@ -93,12 +58,12 @@ describe('GET order contract', () => {
   const getOrders = new GetOrdersHandler(
     'getOrdersHandler',
     ordersRepository,
-    new OrderDispatcher(orderService(ordersRepository, limitOrdersRepository, SINGLE_PAGE))
+    new OrderReader(ordersRepository, limitOrdersRepository, SINGLE_PAGE)
   )
   const getLimitOrders = new GetOrdersHandler(
     'getLimitOrdersHandler',
     limitOrdersRepository,
-    new OrderDispatcher(orderService(limitOrdersRepository, limitOrdersRepository)),
+    new OrderReader(limitOrdersRepository, limitOrdersRepository),
     GET_LIMIT_ORDERS_HANDLER_OPTIONS
   )
   // An orders repository also reads nonces, so it stands in for the Nonces repository.

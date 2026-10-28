@@ -1,19 +1,9 @@
 import { GetOrdersHandler } from './handler'
 
-import { OrderValidator } from '@uniswap/uniswapx-sdk'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
-import { AnalyticsService } from '../../services/analytics-service'
-import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { SINGLE_PAGE, UniswapXOrderService } from '../../services/UniswapXOrderService'
-import { ONE_DAY_IN_SECONDS } from '../../util/constants'
-
-import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { cosignersFromEnv } from '../../util/cosigners'
-import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
-import { OnChainValidatorMap } from '../OnChainValidatorMap'
-import { getMaxOpenOrders } from '../post-order/policy'
 import { createReadPathDocumentClient } from '../shared/dynamo'
+import { OrderReader, SINGLE_PAGE } from './order-reader'
 import { getOrdersQueryCache } from './query-cache'
 
 // This Lambda only reads, so its repositories share the sub-second query cache. Write
@@ -21,28 +11,8 @@ import { getOrdersQueryCache } from './query-cache'
 // throttles -- see shared/dynamo.ts.
 const repo = DutchOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
 const limitRepo = LimitOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
-const orderValidator = new OffChainUniswapXOrderValidator({
-  getCurrentTime: () => new Date().getTime() / 1000,
-  deadlineValidityPeriodSeconds: ONE_DAY_IN_SECONDS,
-  ...cosignersFromEnv(),
-})
-const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
-const providerMap = new Map()
 
-const uniswapXOrderService = new UniswapXOrderService(
-  orderValidator,
-  onChainValidatorMap,
-  repo,
-  limitRepo,
-  log,
-  getMaxOpenOrders,
-  AnalyticsService.create(),
-  providerMap,
-  undefined,
-  SINGLE_PAGE
-)
-
-const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', repo, new OrderDispatcher(uniswapXOrderService))
+const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', repo, new OrderReader(repo, limitRepo, SINGLE_PAGE))
 
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,

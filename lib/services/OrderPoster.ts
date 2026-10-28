@@ -19,12 +19,6 @@ import { ORDER_STATUS, UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
-import { GetOrdersQueryParams } from '../handlers/get-orders/schema'
-import { GetDutchV2OrderResponse } from '../handlers/get-orders/schema/GetDutchV2OrderResponse'
-import { GetDutchV3OrderResponse } from '../handlers/get-orders/schema/GetDutchV3OrderResponse'
-import { GetOrdersResponse } from '../handlers/get-orders/schema/GetOrdersResponse'
-import { GetPriorityOrderResponse } from '../handlers/get-orders/schema/GetPriorityOrderResponse'
-import { toPriorityResponse, toV2Response, toV3Response } from '../handlers/get-orders/toResponse'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
 import { sendImmediateExclusiveFillerNotification } from '../handlers/order-notification/handler'
 import { ExclusiveFillerWebhookOrder } from '../handlers/order-notification/types'
@@ -36,37 +30,29 @@ import { LimitOrder } from '../models/LimitOrder'
 import { PriorityOrder } from '../models/PriorityOrder'
 import { checkDefined } from '../preconditions/preconditions'
 import { WebhookProvider } from '../providers/base'
-import { BaseOrdersRepository, OrderStoreContext, QueryResult } from '../repositories/base'
+import { BaseOrdersRepository, OrderStoreContext } from '../repositories/base'
 import { hasExclusiveFiller } from '../util/address'
 import { metrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
-import { DUTCH_LIMIT } from '../util/order'
 import { OrderSignatureValidator } from '../util/OrderSignatureValidator'
 import { Permit2Validator } from '../util/Permit2Validator'
 import { getStateMachineArn } from '../util/stateMachineArn'
 import { AnalyticsServiceInterface } from './analytics-service'
 
-export const MAX_QUERY_RETRY = 10
-// For endpoints that serve exactly one page: never follow a cursor into further reads.
-export const SINGLE_PAGE = 0
 // From a string: BigNumber.from(Number.MAX_SAFE_INTEGER) itself throws overflow.
 const MAX_SAFE_BLOCK = BigNumber.from(Number.MAX_SAFE_INTEGER.toString())
 
-export class UniswapXOrderService {
+// Validates, stores and starts tracking a posted order. GET reads live in get-orders/order-reader.ts.
+export class OrderPoster {
   constructor(
     private readonly orderValidator: OffChainUniswapXOrderValidator,
     private readonly onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>,
     private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
-    private readonly limitRepository: BaseOrdersRepository<UniswapXOrderEntity>,
     private logger: Logger,
     private readonly getMaxOpenOrders: (offerer: string) => number,
     private analyticsService: AnalyticsServiceInterface,
     private readonly providerMap: ProviderMap,
-    private readonly webhookProvider?: WebhookProvider,
-    // How many extra pages fetchOrderPages may read to fill a type-filtered request. GET
-    // /orders passes SINGLE_PAGE: every follow-up is an uncached read against the same hot
-    // partition, and the handler discards the resulting cursor anyway.
-    private readonly maxQueryRetry: number = MAX_QUERY_RETRY
+    private readonly webhookProvider?: WebhookProvider
   ) {}
 
   // The store logs through the service's logger. A10 hands the post path the request's own context.
@@ -344,98 +330,6 @@ export class UniswapXOrderService {
     // The post-persist catch in createOrder swallows a failed start, so request metrics look the
     // same whether tracking started or not. lambda-stack alarms when this counter stops.
     metrics.putMetric('OrderTrackerStarted', 1, Unit.Count)
-  }
-
-  /**
-   * orderType is a filter, not a key condition, so one page can match fewer rows than the
-   * limit. Follow the cursor until the limit fills, the pages run out, or the retry budget
-   * is spent -- a caller that still wants more follows the returned cursor.
-   */
-  private async fetchOrderPages(
-    limit: number,
-    params: GetOrdersQueryParams,
-    types: string[],
-    cursor: string | undefined
-  ): Promise<QueryResult<UniswapXOrderEntity>> {
-    let queryResults = await this.repository.getOrdersFilteredByType(limit, params, types, cursor)
-    const orders = [...queryResults.orders]
-
-    let retryCount = 0
-    while (orders.length < limit && queryResults.cursor && retryCount < this.maxQueryRetry) {
-      queryResults = await this.repository.getOrdersFilteredByType(limit, params, types, queryResults.cursor)
-      orders.push(...queryResults.orders)
-      retryCount++
-    }
-
-    return { orders, cursor: queryResults.cursor }
-  }
-
-  public async getDutchV2AndDutchOrders(
-    limit: number,
-    params: GetOrdersQueryParams,
-    cursor: string | undefined
-  ): Promise<GetOrdersResponse<GetDutchV2OrderResponse | UniswapXOrderEntity>> {
-    const queryResults = await this.repository.getOrdersFilteredByType(
-      limit,
-      params,
-      [OrderType.Dutch, DUTCH_LIMIT, OrderType.Dutch_V2],
-      cursor
-    )
-    const resultList: (GetDutchV2OrderResponse | UniswapXOrderEntity)[] = []
-    for (let i = 0; i < queryResults.orders.length; i++) {
-      const order = queryResults.orders[i]
-      if (order.type === OrderType.Dutch_V2) {
-        resultList.push(toV2Response(order))
-      } else {
-        resultList.push(order)
-      }
-    }
-    return { orders: resultList, cursor: queryResults.cursor }
-  }
-
-  public async getDutchV2Orders(
-    limit: number,
-    params: GetOrdersQueryParams,
-    cursor: string | undefined
-  ): Promise<GetOrdersResponse<GetDutchV2OrderResponse>> {
-    const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V2], cursor)
-    return { orders: queryResults.orders.map(toV2Response), cursor: queryResults.cursor }
-  }
-
-  public async getDutchV3Orders(
-    limit: number,
-    params: GetOrdersQueryParams,
-    cursor: string | undefined
-  ): Promise<GetOrdersResponse<GetDutchV3OrderResponse>> {
-    const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Dutch_V3], cursor)
-    return { orders: queryResults.orders.map(toV3Response), cursor: queryResults.cursor }
-  }
-
-  public async getDutchOrders(
-    limit: number,
-    params: GetOrdersQueryParams,
-    cursor: string | undefined
-  ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
-    return this.fetchOrderPages(limit, params, [OrderType.Dutch, DUTCH_LIMIT], cursor)
-  }
-
-  public async getPriorityOrders(
-    limit: number,
-    params: GetOrdersQueryParams,
-    cursor: string | undefined
-  ): Promise<GetOrdersResponse<GetPriorityOrderResponse>> {
-    const queryResults = await this.fetchOrderPages(limit, params, [OrderType.Priority], cursor)
-    return { orders: queryResults.orders.map(toPriorityResponse), cursor: queryResults.cursor }
-  }
-
-  public async getLimitOrders(
-    limit: number,
-    params: GetOrdersQueryParams,
-    cursor: string | undefined
-  ): Promise<GetOrdersResponse<UniswapXOrderEntity>> {
-    // TODO: DAT-313: Fix order type for Limit Orders
-    const queryResults = await this.limitRepository.getOrdersFilteredByType(limit, params, [OrderType.Dutch], cursor)
-    return queryResults
   }
 
   private isExactInput(order: DutchOrder | CosignedV2DutchOrder): boolean {

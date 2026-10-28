@@ -241,7 +241,7 @@ describe('POST order contract', () => {
       }
     })
 
-    // `orderCount > max` (UniswapXOrderService): exactly max open orders still admits one more,
+    // `orderCount > max` (OrderPoster): exactly max open orders still admits one more,
     // so a swapper can hold max + 1. Deliberate, for parity.
     it('admits a post at exactly the limit and rejects the next one', async () => {
       const lambda = postLambda(DUTCH_AUCTION_ORDER_ROUTE.path, webhookProvider)
