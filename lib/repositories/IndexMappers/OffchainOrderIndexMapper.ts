@@ -1,9 +1,8 @@
 import { TABLE_KEY } from '../../config/dynamodb'
-import { ORDER_STATUS, RelayOrderEntity, UniswapXOrderEntity } from '../../entities'
-import { GetOrdersQueryParams, GET_QUERY_PARAMS } from '../../handlers/get-orders/schema'
-import { IndexFieldsForUpdate, IndexMapper } from './IndexMapper'
+import { GET_QUERY_PARAMS, GetOrdersQueryParams } from '../../handlers/get-orders/schema'
 
-export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrderEntity> implements IndexMapper<T> {
+// The GSI a GET's filters select. The index fields rows carry are built in core/orders/storedRow.ts.
+export class OffchainOrderIndexMapper {
   public getRequestedParams(queryFilters: GetOrdersQueryParams) {
     // Fields to disregard when deriving indices
     const SORT_FIELDS = [GET_QUERY_PARAMS.SORT_KEY, GET_QUERY_PARAMS.SORT, GET_QUERY_PARAMS.DESC]
@@ -96,31 +95,5 @@ export class OffchainOrderIndexMapper<T extends UniswapXOrderEntity | RelayOrder
         }
     }
     return undefined
-  }
-
-  getIndexFieldsForUpdate(order: UniswapXOrderEntity | RelayOrderEntity): IndexFieldsForUpdate {
-    return {
-      offerer_orderStatus: `${order.offerer}_${order.orderStatus}`,
-      filler_orderStatus: `${order.filler}_${order.orderStatus}`,
-      filler_offerer: `${order.filler}_${order.offerer}`,
-      chainId_filler: `${order.chainId}_${order.filler}`,
-      chainId_orderStatus: `${order.chainId}_${order.orderStatus}`,
-      chainId_orderStatus_filler: `${order.chainId}_${order.orderStatus}_${order.filler}`,
-      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${order.orderStatus}`,
-    }
-  }
-
-  getIndexFieldsForStatusUpdate(
-    order: UniswapXOrderEntity | RelayOrderEntity,
-    newStatus: ORDER_STATUS
-  ): IndexFieldsForUpdate {
-    return {
-      orderStatus: newStatus,
-      offerer_orderStatus: `${order.offerer}_${newStatus}`,
-      filler_orderStatus: `${order.filler}_${newStatus}`,
-      filler_offerer_orderStatus: `${order.filler}_${order.offerer}_${newStatus}`,
-      chainId_orderStatus: `${order.chainId}_${newStatus}`,
-      chainId_orderStatus_filler: `${order.chainId}_${newStatus}_${order.filler}`,
-    }
   }
 }

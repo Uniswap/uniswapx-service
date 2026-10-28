@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib'
 import { CfnOutput, Stack, StackProps, Stage, StageProps } from 'aws-cdk-lib'
 import * as chatbot from 'aws-cdk-lib/aws-chatbot'
-import { BuildEnvironmentVariableType, BuildSpec, ComputeType } from 'aws-cdk-lib/aws-codebuild'
+import { BuildEnvironmentVariableType, ComputeType } from 'aws-cdk-lib/aws-codebuild'
 import * as sm from 'aws-cdk-lib/aws-secretsmanager'
 
 import { PipelineNotificationEvents } from 'aws-cdk-lib/aws-codepipeline'
@@ -14,9 +14,14 @@ import { STAGE } from '../lib/util/stage'
 import { PROD_TABLE_CAPACITY } from './config'
 import { SERVICE_NAME } from './constants'
 import { APIStack } from './stacks/api-stack'
-import { IndexCapacityConfig, TableCapacityConfig } from './stacks/dynamo-stack'
+import { TableCapacityConfig } from './stacks/dynamo-stack'
 
 dotenv.config()
+
+// Complete ARN of the Secrets Manager secret holding incident.io's CloudWatch alert-source URL
+// (create it next to the other pipeline secrets, then fill this in). Kept out of the secret
+// value itself so rotating the URL never touches this file.
+const INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN = ''
 
 export class APIStage extends Stage {
   public readonly url: CfnOutput
@@ -26,36 +31,42 @@ export class APIStage extends Stage {
     id: string,
     props: StageProps & {
       provisionedConcurrency: number
+      getOrdersReservedConcurrency?: number
+      getOrdersThrottlePerFiveMins?: number
       chatbotSNSArn?: string
+      incidentIoCloudWatchEndpoint?: string
       internalApiKey?: string
       stage: string
       envVars: { [key: string]: string }
       tableCapacityConfig: TableCapacityConfig
-      indexCapacityConfig?: IndexCapacityConfig
     }
   ) {
     super(scope, id, props)
     const {
       provisionedConcurrency,
+      getOrdersReservedConcurrency,
+      getOrdersThrottlePerFiveMins,
       chatbotSNSArn,
+      incidentIoCloudWatchEndpoint,
       internalApiKey,
       stage,
       env,
       envVars,
       tableCapacityConfig,
-      indexCapacityConfig,
     } = props
 
     const { url } = new APIStack(this, `${SERVICE_NAME}API`, {
       throttlingOverride: envVars.THROTTLE_PER_FIVE_MINS,
       env,
       provisionedConcurrency,
+      getOrdersReservedConcurrency,
+      getOrdersThrottlePerFiveMins,
       internalApiKey,
       chatbotSNSArn,
+      incidentIoCloudWatchEndpoint,
       stage,
       envVars,
       tableCapacityConfig,
-      indexCapacityConfig,
     })
     this.url = url
   }
@@ -73,7 +84,6 @@ export class APIPipeline extends Stack {
     const synthStep = new CodeBuildStep('Synth', {
       input: code,
       buildEnvironment: {
-        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
         environmentVariables: {
           NPM_TOKEN: {
             value: 'npm-private-repo-access-token',
@@ -93,21 +103,10 @@ export class APIPipeline extends Stack {
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        'yarn install --network-concurrency 1 --skip-integrity-check --check-cache',
+        'yarn install --frozen-lockfile',
         'yarn build',
         'npx cdk synth',
       ],
-      partialBuildSpec: BuildSpec.fromObject({
-        // v0.2 runs all commands in the same context
-        version: '0.2',
-        phases: {
-          install: {
-            'runtime-versions': {
-              nodejs: '20',
-            },
-          },
-        },
-      }),
     })
 
     const pipeline = new CodePipeline(this, `${SERVICE_NAME}Pipeline`, {
@@ -116,20 +115,14 @@ export class APIPipeline extends Stack {
       crossAccountKeys: true,
       synth: synthStep,
       selfMutation: true,
-      selfMutationCodeBuildDefaults: {
+      useChangeSets: false,
+      publishAssetsInParallel: false,
+      codeBuildDefaults: {
         buildEnvironment: {
-          buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
+          // Node 24 is this image's default. Selecting a version through buildspec
+          // runtime-versions instead reinstalls Node with `n`, which costs ~55s per build.
+          buildImage: cdk.aws_codebuild.LinuxBuildImage.fromCodeBuildImageId('aws/codebuild/standard:8.0'),
         },
-        partialBuildSpec: BuildSpec.fromObject({
-          version: '0.2',
-          phases: {
-            install: {
-              'runtime-versions': {
-                nodejs: '20',
-              },
-            },
-          },
-        }),
       },
     })
 
@@ -137,14 +130,6 @@ export class APIPipeline extends Stack {
     // have been granted permissions to access secrets via resource policies.
     const jsonRpcProvidersSecret = sm.Secret.fromSecretAttributes(this, 'RPCProviderUrls', {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-service-rpc-urls-2-9spgjc',
-    })
-
-    const tenderlySecrets = sm.Secret.fromSecretAttributes(this, 'rpcTenderly', {
-      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-api-rpc-tenderly-Jh1BNl',
-    })
-
-    const resourceArnSecret = sm.Secret.fromSecretAttributes(this, 'firehoseArn', {
-      secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:gouda-resource-arns-wF51FW',
     })
 
     const internalApiKey = sm.Secret.fromSecretAttributes(this, 'internal-api-key', {
@@ -158,6 +143,18 @@ export class APIPipeline extends Stack {
     const labsCosignerProd = sm.Secret.fromSecretAttributes(this, 'labs-cosigner-prod', {
       secretCompleteArn: 'arn:aws:secretsmanager:us-east-2:644039819003:secret:param-api/prod/cosignerAddress-tgNwAd',
     })
+
+    // incident.io's CloudWatch alert-source URL. The alert-source id in the path is the
+    // credential: anyone holding the URL can raise or resolve alerts, so it lives in Secrets
+    // Manager (JSON key `endpoint`, including the ?team=&service= routing params) and never in
+    // this public repo. Empty ARN => no incident.io topic is created and alarms stay Slack-only.
+    const incidentIoCloudWatchEndpoint = INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN
+      ? sm.Secret.fromSecretAttributes(this, 'incident-io-cloudwatch-endpoint', {
+          secretCompleteArn: INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN,
+        })
+          .secretValueFromJson('endpoint')
+          .toString()
+      : undefined
 
     const labsPriorityCosignerBeta = sm.Secret.fromSecretAttributes(this, 'labs-priority-cosigner-beta', {
       secretCompleteArn:
@@ -187,23 +184,16 @@ export class APIPipeline extends Stack {
     const betaUsEast2Stage = new APIStage(this, 'beta-us-east-2', {
       env: { account: '321377678687', region: 'us-east-2' },
       provisionedConcurrency: 2,
+      getOrdersReservedConcurrency: 100,
+      getOrdersThrottlePerFiveMins: 1200,
       internalApiKey: internalApiKey.secretValue.toString(),
       stage: STAGE.BETA,
       envVars: {
         ...jsonRpcUrls,
         RPC_HEADER_SECRET: rpcHeaderSecret,
-        QUOTER_TENDERLY: tenderlySecrets.secretValueFromJson('QUOTER_TENDERLY').toString(),
-        DL_REACTOR_TENDERLY: tenderlySecrets.secretValueFromJson('DL_REACTOR_TENDERLY').toString(),
-        PERMIT2_TENDERLY: tenderlySecrets.secretValueFromJson('PERMIT2_TENDERLY').toString(),
-        FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_BETA').toString(),
-        ACTIVE_ORDER_EVENT_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_BETA')
-          .toString(),
-        POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_BETA').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_BETA').toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_BETA').toString(),
-        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret.secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_BETA').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
+        // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
+        GET_ORDERS_CACHE_TTL_MS: '500',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerBeta.secretValue.toString(),
         LABS_PRIORITY_COSIGNER: labsPriorityCosignerBeta.secretValue.toString(),
@@ -211,10 +201,7 @@ export class APIPipeline extends Stack {
       tableCapacityConfig: {
         order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
         nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-        unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
       },
     })
 
@@ -226,21 +213,26 @@ export class APIPipeline extends Stack {
     const prodUsEast2Stage = new APIStage(this, 'prod-us-east-2', {
       env: { account: '316116520258', region: 'us-east-2' },
       provisionedConcurrency: 5,
+      // Fences Get Orders off from the rest of the account's 10k concurrency. When the hot
+      // GSI partition throttles, Get Orders latency and concurrency climb together until the
+      // account limit is hit and post-order / status tracking are throttled with it. The Get
+      // Orders function alone runs ~2.5k concurrent when healthy; this cap leaves ~20%
+      // headroom above that and stops the climb well short of the account limit. It also
+      // bounds the per-partition read rate at roughly reserved / (GET_ORDERS_CACHE_TTL_MS / 1000).
+      getOrdersReservedConcurrency: 3000,
+      // 4 req/s per IP over WAF's 5-minute window; a page is cached for 500ms, so anything
+      // faster than 2 req/s per query returns identical data.
+      getOrdersThrottlePerFiveMins: 1200,
       internalApiKey: internalApiKey.secretValue.toString(),
       chatbotSNSArn: 'arn:aws:sns:us-east-2:644039819003:SlackChatbotTopic',
+      incidentIoCloudWatchEndpoint,
       stage: STAGE.PROD,
       envVars: {
         ...jsonRpcUrls,
         RPC_HEADER_SECRET: rpcHeaderSecret,
-        FILL_EVENT_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('FILL_EVENT_DESTINATION_ARN_PROD').toString(),
-        ACTIVE_ORDER_EVENT_DESTINATION_ARN: resourceArnSecret
-          .secretValueFromJson('ACTIVE_ORDER_EVENT_DESTINATION_ARN_PROD')
-          .toString(),
-        POSTED_ORDER_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('POSTED_ORDER_DESTINATION_PROD').toString(),
-        UNIMIND_RESPONSE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_RESPONSE_DESTINATION_ARN_PROD').toString(),
-        UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN: resourceArnSecret.secretValueFromJson('UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN_PROD').toString(),
-        CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN: resourceArnSecret.secretValueFromJson('CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN_PROD').toString(),
         THROTTLE_PER_FIVE_MINS: '3000',
+        // Get Orders query cache TTL. Set to '0' and deploy to disable the cache.
+        GET_ORDERS_CACHE_TTL_MS: '500',
         REGION: 'us-east-2', //needed in checkOrderStatusHandler to kick off step function retries
         LABS_COSIGNER: labsCosignerProd.secretValue.toString(),
         LABS_PRIORITY_COSIGNER: labsPriorityCosignerProd.secretValue.toString(),
@@ -285,11 +277,7 @@ export class APIPipeline extends Stack {
           resources: ['arn:aws:kms:us-east-2:644039819003:key/2df28f63-7535-49e9-892a-8ea0471366bf'],
         }),
       ],
-      envFromCfnOutputs: {
-        UNISWAP_API: apiStage.url,
-      },
       buildEnvironment: {
-        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_7_0,
         computeType: ComputeType.MEDIUM,
         environmentVariables: {
           NPM_TOKEN: {
@@ -324,12 +312,16 @@ export class APIPipeline extends Stack {
             value: 'all/gouda-service/integ-test/rpc',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          TEST_WALLET_PK: {
-            value: 'all/gouda-service/integ-test/test-wallet-pk',
+          // The integ-test RPC gateway authenticates via the same
+          // x-internal-service-secret header the service itself sends (see
+          // RPC_HEADERS in lib/util/constants.ts, which picks this up from
+          // the environment when set).
+          RPC_HEADER_SECRET: {
+            value: 'gouda-service-rpc-urls-2:RPC_HEADER_SECRET',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
-          TEST_FILLER_PK: {
-            value: 'all/gouda-service/integ-test/test-filler-pk',
+          TEST_WALLET_PK: {
+            value: 'all/gouda-service/integ-test/test-wallet-pk',
             type: BuildEnvironmentVariableType.SECRETS_MANAGER,
           },
         },
@@ -337,27 +329,23 @@ export class APIPipeline extends Stack {
       commands: [
         'git config --global url."https://${GH_TOKEN}@github.com/".insteadOf ssh://git@github.com/',
         'echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc',
-        'echo "UNISWAP_API=${UNISWAP_API}" > .env',
+        // Lifecycle (order expiry) e2e tests post real dust orders on mainnet.
+        // They run only against the beta gate: a beta failure already blocks
+        // prod promotion, and running them against prod would skew prod's
+        // per-chain expiry rate (a ratio; deploy-time dust expiries can be a
+        // large share of a quiet 15-minute window on chain 1).
+        `echo "RUN_LIFECYCLE_TESTS=${stage === STAGE.BETA ? 'true' : 'false'}" > .env`,
         'echo "TAPI_QUOTE_URL=${TAPI_QUOTE_URL}" >> .env',
         'echo "TAPI_API_KEY=${TAPI_API_KEY}" >> .env',
         'echo "GPA_SERVICE_URL=${GPA_SERVICE_URL}" >> .env',
         'echo "COSIGNER_ADDRESS=${COSIGNER_ADDRESS}" >> .env',
         'echo "RPC_PREFIX_URL=${RPC_PREFIX_URL}" >> .env',
+        'echo "RPC_HEADER_SECRET=${RPC_HEADER_SECRET}" >> .env',
         'echo "TEST_WALLET_PK=${TEST_WALLET_PK}" >> .env',
-        'echo "TEST_FILLER_PK=${TEST_FILLER_PK}" >> .env',
-        'yarn install --network-concurrency 1 --skip-integrity-check',
+        'yarn install --frozen-lockfile',
         'yarn build',
         'yarn run test:e2e',
       ],
-      partialBuildSpec: BuildSpec.fromObject({
-        phases: {
-          install: {
-            'runtime-versions': {
-              nodejs: '20',
-            },
-          },
-        },
-      }),
     })
 
     applicationStage.addPost(testAction)
@@ -373,18 +361,9 @@ const envVars: { [key: string]: string } = {}
 envVars['RPC_PREFIX_URL'] = process.env['RPC_PREFIX_URL'] || ''
 envVars['RPC_HEADER_SECRET'] = process.env['RPC_HEADER_SECRET'] || ''
 
-envVars['RPC_TENDERLY'] = process.env[`RPC_TENDERLY`] || ''
-envVars['DL_REACTOR_TENDERLY'] = process.env[`DL_REACTOR_TENDERLY`] || ''
-envVars['QUOTER_TENDERLY'] = process.env[`QUOTER_TENDERLY`] || ''
-envVars['PERMIT2_TENDERLY'] = process.env[`PERMIT2_TENDERLY`] || ''
-
-envVars['FILL_EVENT_DESTINATION_ARN'] = process.env['FILL_EVENT_DESTINATION_ARN'] || ''
-envVars['POSTED_ORDER_DESTINATION_ARN'] = process.env['POSTED_ORDER_DESTINATION'] || ''
-envVars['UNIMIND_RESPONSE_DESTINATION_ARN'] = process.env['UNIMIND_RESPONSE_DESTINATION_ARN'] || ''
-envVars['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] = process.env['UNIMIND_PARAMETER_UPDATE_DESTINATION_ARN'] || ''
-envVars['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] = process.env['CLOUDWATCH_LOGS_FIREHOSE_ROLE_ARN'] || ''
 envVars['LABS_COSIGNER'] = process.env['LABS_COSIGNER'] || ''
 envVars['LABS_PRIORITY_COSIGNER'] = process.env['LABS_PRIORITY_COSIGNER'] || ''
+envVars['GET_ORDERS_CACHE_TTL_MS'] = process.env['GET_ORDERS_CACHE_TTL_MS'] || ''
 
 new APIStack(app, `${SERVICE_NAME}Stack`, {
   provisionedConcurrency: process.env.PROVISION_CONCURRENCY ? parseInt(process.env.PROVISION_CONCURRENCY) : 0,
@@ -396,10 +375,7 @@ new APIStack(app, `${SERVICE_NAME}Stack`, {
   tableCapacityConfig: {
     order: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     limitOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    relayOrder: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
     nonce: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    quoteMetadata: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
-    unimindParameters: { billingMode: cdk.aws_dynamodb.BillingMode.PAY_PER_REQUEST },
   },
 })
 

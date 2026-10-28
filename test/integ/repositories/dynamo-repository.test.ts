@@ -1,793 +1,829 @@
+import { OrderType } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import { ORDER_STATUS, SettledAmount, SORT_FIELDS, UniswapXOrderEntity } from '../../../lib/entities/Order'
+import { ORDER_STATUS, SettledAmount, SORT_FIELDS } from '../../../lib/entities/Order'
 import { GetOrderTypeQueryParamEnum } from '../../../lib/handlers/get-orders/schema/GetOrderTypeQueryParamEnum'
+import { MODEL_NAME } from '../../../lib/repositories/base'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
-import { generateRandomNonce } from '../../../lib/util/nonce'
-import { currentTimestampInSeconds } from '../../../lib/util/time'
+import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
+import { QueryCache } from '../../../lib/repositories/QueryCache'
+import { TABLE_NAMES } from '../../../lib/repositories/util'
+import { freezeClock, restoreClock } from '../../fakes/clock'
+import { nowSeconds, TEST_STORE_CONTEXT } from '../../fakes/orders-repository'
 import { QUOTE_ID, REQUEST_ID } from '../../unit/fixtures'
-import { deleteAllRepoEntries } from './deleteAllRepoEntries'
+import { DYNAMO_LOCAL_CONFIG } from '../dynamo-local'
+import { deleteAllRepoEntries, deleteOrdersByHash, findLeftoverRows } from './deleteAllRepoEntries'
+import {
+  CHAIN_A,
+  CHAIN_B,
+  CHAIN_C,
+  createdAtTick,
+  hashes,
+  readAllPages,
+  setClockToTick,
+  storedItem,
+  storeFixtures,
+  tickMs,
+} from './store-fixtures'
 
-jest.mock('../../../lib/util/time')
+const SETTLED_AMOUNT: SettledAmount = { tokenOut: '0xtoken-out', amountOut: '1', tokenIn: '0xtoken-in', amountIn: '2' }
 
-jest.mock('../../../lib/util/nonce', () => {
-  const originalModule = jest.requireActual('../../../lib/util/nonce')
+const documentClient = new DocumentClient(DYNAMO_LOCAL_CONFIG)
 
-  return {
-    ...originalModule,
-    generateRandomNonce: jest.fn(originalModule.generateRandomNonce),
-  }
-})
-
-const dynamoConfig = {
-  convertEmptyValues: true,
-  endpoint: 'localhost:8000',
-  region: 'local-env',
-  sslEnabled: false,
-  credentials: {
-    accessKeyId: 'fakeMyKeyId',
-    secretAccessKey: 'fakeSecretAccessKey',
+// The store cases every order table must pass. LimitOrders maps no requestId, so only the
+// Orders rows carry one.
+const TABLES = [
+  {
+    tableName: TABLE_NAMES.Orders,
+    create: DutchOrdersRepository.create,
+    entity: MODEL_NAME.DUTCH,
+    scope: 'orders',
+    rowExtras: { quoteId: QUOTE_ID, requestId: REQUEST_ID },
   },
-}
-
-const MOCK_ORDER_1 = {
-  orderHash: '0x1',
-  offerer: 'hayden.eth',
-  encodedOrder: 'order1',
-  signature: 'sig1',
-  nonce: '1',
-  chainId: 1,
-  orderStatus: ORDER_STATUS.OPEN,
-  quoteId: QUOTE_ID,
-  requestId: REQUEST_ID,
-}
-
-const MOCK_ORDER_2 = {
-  orderHash: '0x2',
-  offerer: 'riley.eth',
-  encodedOrder: 'order2',
-  signature: 'sig2',
-  nonce: '1',
-  chainId: 137,
-  orderStatus: ORDER_STATUS.OPEN,
-  quoteId: QUOTE_ID,
-  requestId: REQUEST_ID,
-}
-
-const MOCK_ORDER_3 = {
-  orderHash: '0x3',
-  offerer: 'riley.eth',
-  encodedOrder: 'order3',
-  signature: 'sig3',
-  nonce: '2',
-  chainId: 137,
-  orderStatus: ORDER_STATUS.FILLED,
-  quoteId: QUOTE_ID,
-  requestId: REQUEST_ID,
-}
-
-const MOCK_ORDER_4 = {
-  orderHash: '0x4',
-  offerer: 'hayden.eth',
-  encodedOrder: 'order4',
-  signature: 'sig4',
-  nonce: '4',
-  chainId: 1,
-  orderStatus: ORDER_STATUS.OPEN,
-  quoteId: QUOTE_ID,
-  requestId: REQUEST_ID,
-}
-
-const MOCK_ORDER_5 = {
-  orderHash: '0x5',
-  offerer: 'hayden.eth',
-  encodedOrder: 'order1',
-  signature: 'sig1',
-  nonce: '1',
-  chainId: 1,
-  orderStatus: ORDER_STATUS.OPEN,
-  quoteId: QUOTE_ID,
-  requestId: REQUEST_ID,
-}
-
-const MOCK_ORDER_6 = {
-  orderHash: '0x6',
-  offerer: 'hayden.eth',
-  encodedOrder: 'order1',
-  signature: 'sig1',
-  nonce: '1',
-  chainId: 5,
-  orderStatus: ORDER_STATUS.OPEN,
-  type: 'Dutch',
-  quoteId: QUOTE_ID,
-  requestId: REQUEST_ID,
-}
-
-const ADDITIONAL_FIELDS_ORDER_1 = {
-  ...MOCK_ORDER_1,
-  filler: '0x1',
-}
-
-const ADDITIONAL_FIELDS_ORDER_2 = {
-  ...MOCK_ORDER_2,
-  filler: '0x1',
-}
-
-const ADDITIONAL_FIELDS_ORDER_3 = {
-  ...MOCK_ORDER_3,
-  filler: '0x3',
-}
-
-const ADDITIONAL_FIELDS_ORDER_4 = {
-  ...MOCK_ORDER_4,
-  filler: '0x4',
-}
-
-const ADDITIONAL_FIELDS_ORDER_5 = {
-  ...MOCK_ORDER_5,
-  filler: '0x1',
-}
-
-const PRIORITY_ORDER_1 = {
-  ...MOCK_ORDER_1,
-  chainId: 8453,
-  filler: '0xsearcher',
-  offerer: '0xmevtax',
-  orderHash: '0x11',
-  type: 'Priority',
-  auctionStartBlock: 100,
-  baselinePriorityFeeWei: '0',
-  cosignerData: {
-    auctionTargetBlock: 95,
+  {
+    tableName: TABLE_NAMES.LimitOrders,
+    create: LimitOrdersRepository.create,
+    entity: MODEL_NAME.LIMIT,
+    scope: 'limit',
+    rowExtras: {},
   },
-  cosigner: '0xsigner',
-}
+]
 
-const PRIORITY_ORDER_2 = {
-  ...PRIORITY_ORDER_1,
-  chainId: 130,
-  orderHash: '0x12',
-}
-
-const DUTCHV3_1 = {
-  orderHash: '0x42161',
-  offerer: '0xmaker',
-  encodedOrder: 'order1',
-  signature: 'sig1',
-  nonce: '1',
-  chainId: 42161,
-  orderStatus: ORDER_STATUS.OPEN,
-  quoteId: QUOTE_ID,
-  requestId: REQUEST_ID,
-  cosignerData: {
-    decayStartBlock: 280615094,
-    exclusiveFiller: "0x0000000000000000000000000000000000000000",
-    exclusivityOverrideBps: 0,
-    inputOverride: 0,
-    outputOverrides:["0"]
-  },
-  startingBaseFee: "1234",
-}
-
-const mockedGetCurrentTime = jest.mocked(currentTimestampInSeconds)
-const mockTime = (time: number) => {
-  mockedGetCurrentTime.mockImplementation(() => time.toString())
-}
-
-const documentClient = new DocumentClient(dynamoConfig)
-const ordersRepository = DutchOrdersRepository.create(documentClient)
-
-beforeAll(async () => {
-  mockTime(1)
-  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1 as UniswapXOrderEntity)
-  mockTime(2)
-  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_2 as UniswapXOrderEntity)
-  mockTime(3)
-  await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_3 as UniswapXOrderEntity)
+beforeAll(() => {
+  freezeClock(tickMs(0))
 })
 
-afterAll(async () => {
-  await deleteAllRepoEntries(ordersRepository)
+afterAll(() => {
+  restoreClock()
 })
 
-describe('OrdersRepository put item test', () => {
-  it('should successfully put an item in table', async () => {
-    expect(() => {
-      mockTime(1)
-      ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_1 as UniswapXOrderEntity)
-    }).not.toThrow()
+describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, rowExtras }) => {
+  const ordersRepository = create(documentClient)
+  const f = storeFixtures(scope, rowExtras)
+  const { order1, order2, order3, order4, order5, order6 } = f
+
+  beforeAll(async () => {
+    setClockToTick(1)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order1, nowSeconds())
+    setClockToTick(2)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order2, nowSeconds())
+    setClockToTick(3)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order3, nowSeconds())
+    setClockToTick(1)
   })
 
-  it('should succesfully put a priority order in table', async () => {
-    expect(() => {
-      mockTime(1)
-      ordersRepository.putOrderAndUpdateNonceTransaction(PRIORITY_ORDER_1 as unknown as UniswapXOrderEntity)
-      ordersRepository.putOrderAndUpdateNonceTransaction(PRIORITY_ORDER_2 as unknown as UniswapXOrderEntity)
-    }).not.toThrow()
+  afterAll(async () => {
+    await deleteAllRepoEntries(ordersRepository, documentClient, tableName, f.chainIds, f.offerers)
+    expect(await findLeftoverRows(documentClient, tableName, f.prefix)).toEqual([])
   })
 
-  it('should successfully put a DutchV3 order in table', async () => {
-    expect(() => {
-      mockTime(1)
-      ordersRepository.putOrderAndUpdateNonceTransaction(DUTCHV3_1 as unknown as UniswapXOrderEntity)
-    }).not.toThrow()
-  })
-})
-
-describe('OrdersRepository getOrders test', () => {
-  it('should successfully get orders given an orderHash', async () => {
-    const orders = await ordersRepository.getOrders(10, { orderHash: MOCK_ORDER_2.orderHash })
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
-
-  it('should return no orders for orderHash', async () => {
-    const orders = await ordersRepository.getOrders(10, { orderHash: '0x6' })
-    expect(orders.orders).toEqual([])
-  })
-
-  it('should successfully get orders given orderHashes', async () => {
-    const orders = await ordersRepository.getOrders(10, {
-      orderHashes: [MOCK_ORDER_2.orderHash, MOCK_ORDER_3.orderHash],
-    })
-    expect(orders.orders).toHaveLength(2)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-    expect(orders.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
-
-  it('should return no orders for orderHashes', async () => {
-    const orders = await ordersRepository.getOrders(10, {
-      orderHashes: ['0x6', '0x7'],
-    })
-    expect(orders.orders).toEqual([])
-  })
-
-  it('should successfully get orders given an offerer', async () => {
-    const queryResult = await ordersRepository.getOrders(10, { offerer: MOCK_ORDER_2.offerer })
-    expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-  })
-
-  it('should return no orders for offerer', async () => {
-    const orders = await ordersRepository.getOrders(10, { offerer: 'zach.eth' })
-    expect(orders.orders).toEqual([])
-  })
-
-  it('should successfully get orders given an orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, { orderStatus: ORDER_STATUS.OPEN })
-    expect(queryResult.orders).toHaveLength(5)
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
-  })
-
-  it('should return no orders for orderStatus', async () => {
-    const orders = await ordersRepository.getOrders(10, { orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS })
-    expect(orders.orders).toEqual([])
-  })
-
-  it('should successfully get orders given an chainId', async () => {
-    const queryResult = await ordersRepository.getOrders(10, { chainId: 137 })
-    expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-  })
-
-  it('should return no orders for chainId', async () => {
-    const orders = await ordersRepository.getOrders(10, { chainId: 5 })
-    expect(orders.orders).toEqual([])
-  })
-
-  it('should successfully get orders given an chainId and filler', async () => {
-    const queryResult = await ordersRepository.getOrders(10, { chainId: 137, filler: '0x1' })
-    expect(queryResult.orders).toHaveLength(1)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
-
-  it('should return no orders for chainId and filler', async () => {
-    const orders = await ordersRepository.getOrders(10, { chainId: 137, filler: '0x5' })
-    expect(orders.orders).toEqual([])
-  })
-
-  it('should successfully get orders given an chainId and orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, { chainId: 1, orderStatus: ORDER_STATUS.OPEN })
-    expect(queryResult.orders).toHaveLength(1)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-  })
-
-  it('should return no orders for chainId and orderStatus', async () => {
-    const orders = await ordersRepository.getOrders(10, { chainId: 1, orderStatus: ORDER_STATUS.EXPIRED })
-    expect(orders.orders).toEqual([])
-  })
-
-  it('should successfully get orders given an chainId, orderStatus, and filler', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      chainId: 137,
-      orderStatus: ORDER_STATUS.FILLED,
-      filler: '0x3',
-    })
-    expect(queryResult.orders).toHaveLength(1)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-  })
-
-  it('should return no orders for chainId and orderStatus', async () => {
-    const orders = await ordersRepository.getOrders(10, { chainId: 137, orderStatus: ORDER_STATUS.OPEN, filler: '0x3' })
-    expect(orders.orders).toEqual([])
-  })
-
-  it('should successfully get orders given a filler', async () => {
-    const queryResult = await ordersRepository.getOrders(10, { filler: ADDITIONAL_FIELDS_ORDER_1.filler })
-    expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
-
-  it('should return no orders for filler', async () => {
-    const queryResult = await ordersRepository.getOrders(10, { filler: 'corn' })
-    expect(queryResult.orders).toEqual([])
-  })
-
-  it('should successfully get orders given a filler and orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      filler: ADDITIONAL_FIELDS_ORDER_1.filler,
-      orderStatus: ORDER_STATUS.OPEN,
-    })
-    expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
-
-  it('should return no orders for filler and orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      filler: ADDITIONAL_FIELDS_ORDER_1.filler,
-      orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
-    })
-    expect(queryResult.orders).toEqual([])
-  })
-
-  it('should successfully get orders given a filler and offerer', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
-      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
-    })
-    expect(queryResult.orders).toHaveLength(1)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-  })
-
-  it('should return no orders for filler and offerer', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      filler: ADDITIONAL_FIELDS_ORDER_4.filler,
-      offerer: MOCK_ORDER_2.offerer,
-    })
-    expect(queryResult.orders).toEqual([])
-  })
-
-  it('should successfully get orders given a filler, offerer, orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
-      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
-      orderStatus: ADDITIONAL_FIELDS_ORDER_3.orderStatus,
-    })
-    expect(queryResult.orders).toHaveLength(1)
-    expect(queryResult.orders[0].orderHash).toEqual(MOCK_ORDER_3.orderHash)
-    expect((queryResult.orders[0] as any).filler_offerer_orderStatus).toEqual(
-      `${ADDITIONAL_FIELDS_ORDER_3.filler}_${MOCK_ORDER_3.offerer}_${MOCK_ORDER_3.orderStatus}`
-    )
-  })
-
-  it('should return no orders for filler, offerer, orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      filler: ADDITIONAL_FIELDS_ORDER_3.filler,
-      offerer: ADDITIONAL_FIELDS_ORDER_3.offerer,
-      orderStatus: ADDITIONAL_FIELDS_ORDER_1.orderStatus,
-    })
-    expect(queryResult.orders).toEqual([])
-  })
-
-  it('should successfully get orders given an offerer and orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      orderStatus: ORDER_STATUS.OPEN,
-      offerer: MOCK_ORDER_2.offerer,
-    })
-    expect(queryResult.orders).toHaveLength(1)
-    expect(queryResult.orders[0]).toEqual(
-      expect.objectContaining({
-        ...MOCK_ORDER_2,
-        offerer_orderStatus: `${MOCK_ORDER_2.offerer}_${MOCK_ORDER_2.orderStatus}`,
+  describe('OrdersRepository put item test', () => {
+    it('should successfully put an item in table', async () => {
+      const order = f.row('put', {
+        offerer: f.swapperA,
+        nonce: '7',
+        chainId: CHAIN_A,
+        orderStatus: ORDER_STATUS.OPEN,
+        filler: f.fillerA,
       })
-    )
-  })
-
-  it('should return no orders for offerer and orderStatus', async () => {
-    const orders = await ordersRepository.getOrders(10, {
-      orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
-      offerer: MOCK_ORDER_1.offerer,
+      try {
+        await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order, nowSeconds())
+        expect(await ordersRepository.getByHash(TEST_STORE_CONTEXT, order.orderHash)).toEqual(
+          storedItem(order, 1, entity)
+        )
+        expect(await ordersRepository.getNonce(TEST_STORE_CONTEXT, order.offerer, order.chainId)).toEqual('7')
+      } finally {
+        await deleteOrdersByHash(documentClient, tableName, [order.orderHash])
+      }
     })
-    expect(orders.orders).toEqual([])
   })
 
-  it('should return orders for limit', async () => {
-    await expect(ordersRepository.getOrders(2, {})).rejects.toThrow(
-      'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]'
-    )
-  })
-
-  it('should successfully get orders given an orderType', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_6 as UniswapXOrderEntity)
-
-    const orders = await ordersRepository.getOrders(10, {
-      chainId: 5,
-      orderType: GetOrderTypeQueryParamEnum.Dutch,
+  describe('OrdersRepository getOrders test', () => {
+    it('should successfully get orders given an orderHash', async () => {
+      const orders = await ordersRepository.getOrders(10, { orderHash: order2.orderHash })
+      expect(orders.orders).toEqual([expect.objectContaining(order2)])
     })
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_6))
-    await ordersRepository.deleteOrders([MOCK_ORDER_6.orderHash])
-  })
 
-  it('should successfully get orders given multiple orderStatuses', async () => {
-    const queryResult = await ordersRepository.getOrders(50, { orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED] })
-    // Should return both OPEN and FILLED orders
-    expect(queryResult.orders.length).toBeGreaterThanOrEqual(2)
-    const statuses = new Set(queryResult.orders.map((o) => o.orderStatus))
-    expect(statuses).toContain(ORDER_STATUS.OPEN)
-    expect(statuses).toContain(ORDER_STATUS.FILLED)
-  })
-
-  it('should return no orders for multiple orderStatuses that have no matches', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      orderStatus: [ORDER_STATUS.INSUFFICIENT_FUNDS, ORDER_STATUS.CANCELLED],
+    it('should return no orders for orderHash', async () => {
+      const orders = await ordersRepository.getOrders(10, { orderHash: f.missingHash })
+      expect(orders.orders).toEqual([])
     })
-    expect(queryResult.orders).toEqual([])
-  })
 
-  it('should respect limit when querying multiple orderStatuses', async () => {
-    const queryResult = await ordersRepository.getOrders(2, { orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED] })
-    expect(queryResult.orders.length).toBeLessThanOrEqual(2)
-  })
-
-  it('should return results sorted by createdAt descending for multiple statuses', async () => {
-    const queryResult = await ordersRepository.getOrders(50, { orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED] })
-    for (let i = 0; i < queryResult.orders.length - 1; i++) {
-      expect(queryResult.orders[i].createdAt).toBeGreaterThanOrEqual(queryResult.orders[i + 1].createdAt!)
-    }
-  })
-
-  it('should successfully get orders given chainId and multiple orderStatuses', async () => {
-    const queryResult = await ordersRepository.getOrders(50, {
-      chainId: 137,
-      orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED],
-    })
-    expect(queryResult.orders).toHaveLength(2)
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_3))
-  })
-
-  it('should successfully get orders given chainId, order status, and empty cursor', async () => {
-    try {
-      await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_5 as UniswapXOrderEntity)
-      await ordersRepository.putOrderAndUpdateNonceTransaction(MOCK_ORDER_6 as UniswapXOrderEntity)
-      const orders = await ordersRepository.getOrders(
-        25,
-        {
-          chainId: 5,
-          orderStatus: ORDER_STATUS.OPEN,
-        },
-        undefined
+    it('should successfully get orders given orderHashes', async () => {
+      const orders = await ordersRepository.getOrders(10, {
+        orderHashes: [order2.orderHash, order3.orderHash],
+      })
+      // BatchGetItem returns items in no particular order.
+      expect(orders.orders).toHaveLength(2)
+      expect(orders.orders).toEqual(
+        expect.arrayContaining([expect.objectContaining(order2), expect.objectContaining(order3)])
       )
-      expect(orders.orders).toHaveLength(1)
-      expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_6))
-    } finally {
-      await ordersRepository.deleteOrders([MOCK_ORDER_6.orderHash])
-      await ordersRepository.deleteOrders([MOCK_ORDER_5.orderHash])
-    }
+    })
+
+    it('should return no orders for orderHashes', async () => {
+      const orders = await ordersRepository.getOrders(10, {
+        orderHashes: [f.missingHash, f.otherMissingHash],
+      })
+      expect(orders.orders).toEqual([])
+    })
+
+    // Newest first: the repository returns createdAt descending by default.
+    it('should successfully get orders given an offerer', async () => {
+      const queryResult = await ordersRepository.getOrders(10, { offerer: f.swapperB })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order3), expect.objectContaining(order2)])
+    })
+
+    it('should return no orders for offerer', async () => {
+      const orders = await ordersRepository.getOrders(10, { offerer: f.unknownSwapper })
+      expect(orders.orders).toEqual([])
+    })
+
+    // Newest first: the repository returns createdAt descending by default.
+    it('should successfully get orders given an orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, { orderStatus: ORDER_STATUS.OPEN })
+      expect(f.own(queryResult.orders)).toEqual([expect.objectContaining(order2), expect.objectContaining(order1)])
+    })
+
+    it('should return no orders for orderStatus', async () => {
+      const orders = await ordersRepository.getOrders(10, { orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS })
+      expect(f.own(orders.orders)).toEqual([])
+    })
+
+    // Newest first: the repository returns createdAt descending by default.
+    it('should successfully get orders given an chainId', async () => {
+      const queryResult = await ordersRepository.getOrders(10, { chainId: CHAIN_B })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order3), expect.objectContaining(order2)])
+    })
+
+    it('should return no orders for chainId', async () => {
+      const orders = await ordersRepository.getOrders(10, { chainId: CHAIN_C })
+      expect(orders.orders).toEqual([])
+    })
+
+    it('should successfully get orders given an chainId and filler', async () => {
+      const queryResult = await ordersRepository.getOrders(10, { chainId: CHAIN_B, filler: f.fillerA })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order2)])
+    })
+
+    it('should return no orders for chainId and filler', async () => {
+      const orders = await ordersRepository.getOrders(10, { chainId: CHAIN_B, filler: f.unknownFiller })
+      expect(orders.orders).toEqual([])
+    })
+
+    it('should successfully get orders given an chainId and orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, { chainId: CHAIN_A, orderStatus: ORDER_STATUS.OPEN })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order1)])
+    })
+
+    it('should return no orders for chainId and orderStatus', async () => {
+      const orders = await ordersRepository.getOrders(10, { chainId: CHAIN_A, orderStatus: ORDER_STATUS.EXPIRED })
+      expect(orders.orders).toEqual([])
+    })
+
+    it('should successfully get orders given an chainId, orderStatus, and filler', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        chainId: CHAIN_B,
+        orderStatus: ORDER_STATUS.FILLED,
+        filler: f.fillerB,
+      })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order3)])
+    })
+
+    it('should return no orders for chainId and orderStatus', async () => {
+      const orders = await ordersRepository.getOrders(10, {
+        chainId: CHAIN_B,
+        orderStatus: ORDER_STATUS.OPEN,
+        filler: f.fillerB,
+      })
+      expect(orders.orders).toEqual([])
+    })
+
+    // Newest first: the repository returns createdAt descending by default.
+    it('should successfully get orders given a filler', async () => {
+      const queryResult = await ordersRepository.getOrders(10, { filler: f.fillerA })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order2), expect.objectContaining(order1)])
+    })
+
+    it('should return no orders for filler', async () => {
+      const queryResult = await ordersRepository.getOrders(10, { filler: f.unknownFiller })
+      expect(queryResult.orders).toEqual([])
+    })
+
+    // Newest first: the repository returns createdAt descending by default.
+    it('should successfully get orders given a filler and orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        filler: f.fillerA,
+        orderStatus: ORDER_STATUS.OPEN,
+      })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order2), expect.objectContaining(order1)])
+    })
+
+    it('should return no orders for filler and orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        filler: f.fillerA,
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+      })
+      expect(queryResult.orders).toEqual([])
+    })
+
+    it('should successfully get orders given a filler and offerer', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        filler: f.fillerB,
+        offerer: f.swapperB,
+      })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order3)])
+    })
+
+    it('should return no orders for filler and offerer', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        filler: f.fillerC,
+        offerer: f.swapperB,
+      })
+      expect(queryResult.orders).toEqual([])
+    })
+
+    it('should successfully get orders given a filler, offerer, orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        filler: f.fillerB,
+        offerer: f.swapperB,
+        orderStatus: ORDER_STATUS.FILLED,
+      })
+      expect(queryResult.orders).toEqual([
+        expect.objectContaining({
+          orderHash: order3.orderHash,
+          filler_offerer_orderStatus: `${f.fillerB}_${f.swapperB}_${ORDER_STATUS.FILLED}`,
+        }),
+      ])
+    })
+
+    it('should return no orders for filler, offerer, orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        filler: f.fillerB,
+        offerer: f.swapperB,
+        orderStatus: ORDER_STATUS.OPEN,
+      })
+      expect(queryResult.orders).toEqual([])
+    })
+
+    it('should successfully get orders given an offerer and orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        orderStatus: ORDER_STATUS.OPEN,
+        offerer: f.swapperB,
+      })
+      expect(queryResult.orders).toEqual([
+        expect.objectContaining({
+          ...order2,
+          offerer_orderStatus: `${f.swapperB}_${ORDER_STATUS.OPEN}`,
+        }),
+      ])
+    })
+
+    it('should return no orders for offerer and orderStatus', async () => {
+      const orders = await ordersRepository.getOrders(10, {
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+        offerer: f.swapperA,
+      })
+      expect(orders.orders).toEqual([])
+    })
+
+    it('should return orders for limit', async () => {
+      await expect(ordersRepository.getOrders(2, {})).rejects.toThrow(
+        'Invalid query, must query with one of the following params: [orderHash, orderHashes, chainId, orderStatus, swapper, filler, pair]'
+      )
+    })
+
+    it('should successfully get orders given an orderType', async () => {
+      try {
+        await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order6, nowSeconds())
+        const orders = await ordersRepository.getOrders(10, {
+          chainId: CHAIN_C,
+          orderType: GetOrderTypeQueryParamEnum.Dutch,
+        })
+        expect(orders.orders).toEqual([expect.objectContaining(order6)])
+      } finally {
+        await deleteOrdersByHash(documentClient, tableName, [order6.orderHash])
+      }
+    })
+
+    it('should successfully get orders given chainId, order status, and empty cursor', async () => {
+      try {
+        await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order5, nowSeconds())
+        await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order6, nowSeconds())
+        const orders = await ordersRepository.getOrders(
+          25,
+          {
+            chainId: CHAIN_C,
+            orderStatus: ORDER_STATUS.OPEN,
+          },
+          undefined
+        )
+        expect(orders.orders).toEqual([expect.objectContaining(order6)])
+      } finally {
+        await deleteOrdersByHash(documentClient, tableName, [order6.orderHash, order5.orderHash])
+      }
+    })
+  })
+
+  describe('OrdersRepository getOrders test with pagination', () => {
+    // Newest first: the repository returns createdAt descending by default.
+    it('should successfully page through orders with offerer', async () => {
+      let orders = await ordersRepository.getOrders(1, { offerer: f.swapperB })
+      expect(orders.orders).toEqual([expect.objectContaining(order3)])
+      orders = await ordersRepository.getOrders(2, { offerer: f.swapperB }, orders.cursor)
+      expect(orders.orders).toEqual([expect.objectContaining(order2)])
+      expect(orders.cursor).toEqual(undefined)
+    })
+
+    // Newest first: the repository returns createdAt descending by default. This suite's rows
+    // are the newest in the shared status partition, so they fill the first page.
+    it('should successfully page through orders with orderStatus', async () => {
+      const first = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN })
+      expect(first.orders).toEqual([expect.objectContaining(order2)])
+      expect(first.cursor).toBeDefined()
+      const rest = await readAllPages(ordersRepository, 2, { orderStatus: ORDER_STATUS.OPEN }, first.cursor)
+      expect(f.own(rest)).toEqual([expect.objectContaining(order1)])
+    })
+
+    // Newest first: the repository returns createdAt descending by default.
+    it('should successfully page through orders with chainId', async () => {
+      let orders = await ordersRepository.getOrders(1, { chainId: CHAIN_B })
+      expect(orders.orders).toEqual([expect.objectContaining(order3)])
+      orders = await ordersRepository.getOrders(2, { chainId: CHAIN_B }, orders.cursor)
+      expect(orders.orders).toEqual([expect.objectContaining(order2)])
+      expect(orders.cursor).toEqual(undefined)
+    })
+
+    // Newest first: the repository returns createdAt descending by default.
+    it('should successfully page through orders with chainId, orderStatus', async () => {
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order5, nowSeconds())
+      const first = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN, chainId: CHAIN_A })
+      expect(first.orders).toHaveLength(1)
+      expect(first.cursor).toBeDefined()
+      const second = await ordersRepository.getOrders(
+        2,
+        { orderStatus: ORDER_STATUS.OPEN, chainId: CHAIN_A },
+        first.cursor
+      )
+      expect(second.orders).toHaveLength(1)
+      expect(second.cursor).toEqual(undefined)
+      // The two rows share a createdAt, so the split between pages is not fixed; together they
+      // must cover the partition exactly once.
+      const paged = [...first.orders, ...second.orders]
+      expect(paged).toContainEqual(expect.objectContaining(order5))
+      expect(paged).toContainEqual(expect.objectContaining(order1))
+    })
+
+    it('should throw an Error for cursor with the wrong index', async () => {
+      const orders = await ordersRepository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN })
+      expect(orders.orders).toHaveLength(2)
+      expect(orders.cursor).toBeDefined()
+      await expect(() => ordersRepository.getOrders(0, { offerer: f.swapperB }, orders.cursor)).rejects.toThrow(
+        Error('Invalid cursor.')
+      )
+    })
+
+    it('should throw an Error for cursor with the wrong cursor', async () => {
+      await expect(() => ordersRepository.getOrders(0, { offerer: f.swapperB }, 'wrong_cursor')).rejects.toThrow(
+        Error('Invalid cursor.')
+      )
+    })
+  })
+
+  describe('OrdersRepository getOrders test with sorting', () => {
+    it('should successfully get order given an offerer and createdAt sort', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        offerer: f.swapperB,
+        sortKey: SORT_FIELDS.CREATED_AT,
+        sort: `lte(${createdAtTick(2)})`,
+      })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order2)])
+    })
+
+    it('should return no order given an offerer and createdAt sort', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        offerer: f.swapperB,
+        sortKey: SORT_FIELDS.CREATED_AT,
+        sort: `lt(${createdAtTick(2)})`,
+      })
+      expect(queryResult.orders).toEqual([])
+    })
+
+    it('should successfully get orders given an orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        orderStatus: ORDER_STATUS.OPEN,
+        sortKey: SORT_FIELDS.CREATED_AT,
+        sort: `gte(${createdAtTick(2)})`,
+      })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order2)])
+    })
+
+    it('should return no orders for orderStatus', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+        sortKey: SORT_FIELDS.CREATED_AT,
+        sort: `gt(${createdAtTick(2)})`,
+      })
+      expect(queryResult.orders).toEqual([])
+    })
+
+    // order1 and order5 share a createdAt, and DynamoDB does not order ties.
+    it('should return all orders for OPEN status and between 1,3 time', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        orderStatus: ORDER_STATUS.OPEN,
+        sortKey: SORT_FIELDS.CREATED_AT,
+        sort: `between(${createdAtTick(1)},${createdAtTick(3)})`,
+        desc: true,
+      })
+      expect(queryResult.orders).toHaveLength(3)
+      expect(queryResult.orders[0]).toEqual(expect.objectContaining(order2))
+      expect(queryResult.orders.slice(1)).toEqual(
+        expect.arrayContaining([expect.objectContaining(order1), expect.objectContaining(order5)])
+      )
+    })
+
+    it('should return all orders for OPEN status and between 1,3 time ascending order', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        orderStatus: ORDER_STATUS.OPEN,
+        sortKey: SORT_FIELDS.CREATED_AT,
+        sort: `between(${createdAtTick(1)},${createdAtTick(3)})`,
+        desc: false,
+      })
+      expect(queryResult.orders).toHaveLength(3)
+      expect(queryResult.orders.slice(0, 2)).toEqual(
+        expect.arrayContaining([expect.objectContaining(order1), expect.objectContaining(order5)])
+      )
+      expect(queryResult.orders[2]).toEqual(expect.objectContaining(order2))
+    })
+  })
+
+  describe('OrdersRepository getByHash test', () => {
+    it('should successfully get an item from table', async () => {
+      const storedOrder1 = await ordersRepository.getByHash(TEST_STORE_CONTEXT, order1.orderHash)
+      // dynamodb-toolbox auto-generates 'created' and 'modified' fields
+      expect(storedOrder1).toEqual(expect.objectContaining(order1))
+
+      const storedOrder2 = await ordersRepository.getByHash(TEST_STORE_CONTEXT, order2.orderHash)
+      expect(storedOrder2).toEqual(expect.objectContaining(order2))
+    })
+
+    it('should return undefined if item does not exist', async () => {
+      const res = await ordersRepository.getByHash(TEST_STORE_CONTEXT, f.missingHash)
+      expect(res).toBeUndefined()
+    })
+  })
+
+  describe('OrdersRepository get nonce test', () => {
+    const nonceOrder = (name: string, chainId: number, nonce: string) =>
+      f.row(name, { offerer: f.nonceSwapper, nonce, chainId, orderStatus: ORDER_STATUS.OPEN })
+
+    it('should successfully get last posted nonce from table', async () => {
+      await ordersRepository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        nonceOrder('nonce-1', CHAIN_A, '4'),
+        nowSeconds()
+      )
+      const nonce = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.nonceSwapper, CHAIN_A)
+      expect(nonce).toEqual('4')
+    })
+
+    it('should get last used nonce when there are multiple orders with that nonce value in the DB', async () => {
+      // The Nonces row holds the nonce written last, not the highest one.
+      await ordersRepository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        nonceOrder('nonce-2', CHAIN_A, '2'),
+        nowSeconds()
+      )
+      const nonce = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.nonceSwapper, CHAIN_A)
+      expect(nonce).toEqual('2')
+    })
+
+    it('should return undefined for new address', async () => {
+      const res = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.unknownSwapper, CHAIN_A)
+      expect(res).toBeUndefined()
+    })
+
+    it('should track nonce for the same address on different chains separately', async () => {
+      await ordersRepository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        nonceOrder('nonce-3', CHAIN_B, '10'),
+        nowSeconds()
+      )
+      await ordersRepository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        nonceOrder('nonce-4', CHAIN_A, '20'),
+        nowSeconds()
+      )
+      const nonce = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.nonceSwapper, CHAIN_B)
+      expect(nonce).toEqual('10')
+      const nonce2 = await ordersRepository.getNonce(TEST_STORE_CONTEXT, f.nonceSwapper, CHAIN_A)
+      expect(nonce2).toEqual('20')
+    })
+  })
+
+  describe('OrdersRepository get order count by offerer test', () => {
+    it('should successfully return order count by existing offerer', async () => {
+      setClockToTick(4)
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order4, nowSeconds())
+      // order1, order5 (put by the pagination tests) and order4
+      expect(await ordersRepository.countOpenOrders(TEST_STORE_CONTEXT, f.swapperA, 100)).toEqual(3)
+    })
+
+    it('should return 0 for nonexistent offerer', async () => {
+      expect(await ordersRepository.countOpenOrders(TEST_STORE_CONTEXT, f.unknownSwapper, 100)).toEqual(0)
+    })
+  })
+
+  describe('OrdersRepository update status test', () => {
+    it('should successfully update orderStatus of an order identified by orderHash', async () => {
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.FILLED, {
+        txHash: 'txHash',
+        fillBlock: 1,
+        settledAmounts: [SETTLED_AMOUNT],
+        fillTimestamp: 1_700_000_000,
+      })
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order1.orderHash)).resolves.toMatchObject({
+        orderStatus: ORDER_STATUS.FILLED,
+        offerer_orderStatus: `${f.swapperA}_${ORDER_STATUS.FILLED}`,
+        filler_orderStatus: `${f.fillerA}_${ORDER_STATUS.FILLED}`,
+        filler_offerer_orderStatus: `${f.fillerA}_${f.swapperA}_${ORDER_STATUS.FILLED}`,
+        chainId_orderStatus: `${CHAIN_A}_${ORDER_STATUS.FILLED}`,
+        chainId_orderStatus_filler: `${CHAIN_A}_${ORDER_STATUS.FILLED}_${f.fillerA}`,
+        txHash: 'txHash',
+        fillBlock: 1,
+        fillTimestamp: 1_700_000_000,
+        settledAmounts: [SETTLED_AMOUNT],
+      })
+    })
+
+    it('should throw error if order does not exist', async () => {
+      await expect(
+        ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, f.missingHash, ORDER_STATUS.FILLED)
+      ).rejects.toEqual(new Error(`cannot find order by hash when updating order status, hash: ${f.missingHash}`))
+    })
   })
 })
 
-describe('OrdersRepository getOrders test with pagination', () => {
-  it('should successfully page through orders with offerer', async () => {
-    let orders = await ordersRepository.getOrders(1, { offerer: 'riley.eth' })
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    orders = await ordersRepository.getOrders(2, { offerer: 'riley.eth' }, orders.cursor)
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-    expect(orders.cursor).toEqual(undefined)
+// Cases that only apply to the Orders table, with rows of their own.
+describe('Orders-only store cases', () => {
+  const o = storeFixtures('dutch-only', { quoteId: QUOTE_ID, requestId: REQUEST_ID })
+  const { order1, order2, order3, order5 } = o
+  const PRIORITY_CHAIN_A = 8453
+  const PRIORITY_CHAIN_B = 130
+  const DUTCH_V3_CHAIN = 42161
+  const ordersRepository = DutchOrdersRepository.create(documentClient)
+
+  beforeAll(async () => {
+    setClockToTick(1)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order1, nowSeconds())
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order5, nowSeconds())
+    setClockToTick(2)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order2, nowSeconds())
+    setClockToTick(3)
+    await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, order3, nowSeconds())
+    setClockToTick(1)
   })
 
-  it('should successfully page through orders with orderStatus', async () => {
-    let allOrders: UniswapXOrderEntity[] = []
-    let orders = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN })
-    expect(orders.orders).toHaveLength(1)
-    allOrders = allOrders.concat(orders.orders)
-    orders = await ordersRepository.getOrders(5, { orderStatus: ORDER_STATUS.OPEN }, orders.cursor)
-    expect(orders.orders).toHaveLength(4)
-    allOrders = allOrders.concat(orders.orders)
-    expect(allOrders).toHaveLength(5)
-    expect(allOrders).toContainEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(allOrders).toContainEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(allOrders).toContainEqual(expect.objectContaining(DUTCHV3_1))
-    expect(allOrders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(orders.cursor).toEqual(undefined)
-  })
-
-  it('should successfully page through orders with chainId', async () => {
-    let orders = await ordersRepository.getOrders(1, { chainId: 137 })
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-    orders = await ordersRepository.getOrders(2, { chainId: 137 }, orders.cursor)
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_3))
-    expect(orders.cursor).toEqual(undefined)
-  })
-
-  it('should successfully page through orders with chainId, orderStatus', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_5 as UniswapXOrderEntity)
-    let orders = await ordersRepository.getOrders(1, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 })
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_5))
-    orders = await ordersRepository.getOrders(2, { orderStatus: ORDER_STATUS.OPEN, chainId: 1 }, orders.cursor)
-    expect(orders.orders).toHaveLength(1)
-    expect(orders.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(orders.cursor).toEqual(undefined)
-  })
-
-  it('should throw an Error for cursor with the wrong index', async () => {
-    const orders = await ordersRepository.getOrders(4, { orderStatus: ORDER_STATUS.OPEN })
-    expect(orders.orders).toHaveLength(4)
-    expect(orders.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(orders.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
-    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
-    await expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, orders.cursor)).rejects.toThrow(
-      Error('Invalid cursor.')
+  afterAll(async () => {
+    await deleteAllRepoEntries(
+      ordersRepository,
+      documentClient,
+      TABLE_NAMES.Orders,
+      [...o.chainIds, PRIORITY_CHAIN_A, PRIORITY_CHAIN_B, DUTCH_V3_CHAIN],
+      o.offerers
     )
+    expect(await findLeftoverRows(documentClient, TABLE_NAMES.Orders, o.prefix)).toEqual([])
   })
 
-  it('should throw an Error for cursor with the wrong cursor', async () => {
-    const orders = await ordersRepository.getOrders(4, { orderStatus: ORDER_STATUS.OPEN })
-    expect(orders.orders).toHaveLength(4)
-    expect(orders.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(orders.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
-    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(orders.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
-    await expect(() => ordersRepository.getOrders(0, { offerer: 'riley.eth' }, 'wrong_cursor')).rejects.toThrow(
-      Error('Invalid cursor.')
-    )
-  })
-})
+  describe('OrdersRepository put item test', () => {
+    it('should succesfully put a priority order in table', async () => {
+      const priorityOrder1 = o.row('priority-1', {
+        offerer: o.swapperA,
+        nonce: '1',
+        chainId: PRIORITY_CHAIN_A,
+        orderStatus: ORDER_STATUS.OPEN,
+        filler: o.fillerC,
+        type: OrderType.Priority,
+        auctionStartBlock: 100,
+        baselinePriorityFeeWei: '0',
+        cosignerData: { auctionTargetBlock: 95 },
+        cosigner: '0xcosigner',
+      })
+      const priorityOrder2 = { ...priorityOrder1, chainId: PRIORITY_CHAIN_B, orderHash: `${o.prefix}priority-2` }
 
-describe('OrdersRepository getOrders test with sorting', () => {
-  it('should successfully get order given an offerer and createdAt sort', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      offerer: MOCK_ORDER_2.offerer,
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: 'lte(2)',
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, priorityOrder1, nowSeconds())
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, priorityOrder2, nowSeconds())
+
+      for (const order of [priorityOrder1, priorityOrder2]) {
+        expect(await ordersRepository.getByHash(TEST_STORE_CONTEXT, order.orderHash)).toEqual(
+          expect.objectContaining({ ...order, createdAt: createdAtTick(1) })
+        )
+        const byChain = await ordersRepository.getOrders(10, { chainId: order.chainId })
+        expect(byChain.orders).toEqual([expect.objectContaining(order)])
+      }
     })
-    expect(queryResult.orders).toHaveLength(1)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
 
-  it('should return no order given an offerer and createdAt sort', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      offerer: MOCK_ORDER_2.offerer,
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: 'lt(2)',
+    it('should successfully put a DutchV3 order in table', async () => {
+      const dutchV3Order = o.row('dutch-v3', {
+        offerer: o.swapperA,
+        nonce: '1',
+        chainId: DUTCH_V3_CHAIN,
+        orderStatus: ORDER_STATUS.OPEN,
+        type: OrderType.Dutch_V3,
+        cosignerData: {
+          decayStartBlock: 280615094,
+          exclusiveFiller: '0x0000000000000000000000000000000000000000',
+          inputOverride: '0',
+          outputOverrides: ['0'],
+        },
+        startingBaseFee: '1234',
+      })
+
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, dutchV3Order, nowSeconds())
+
+      expect(await ordersRepository.getByHash(TEST_STORE_CONTEXT, dutchV3Order.orderHash)).toEqual(
+        expect.objectContaining({ ...dutchV3Order, createdAt: createdAtTick(1) })
+      )
+      const byChain = await ordersRepository.getOrders(10, { chainId: DUTCH_V3_CHAIN })
+      expect(byChain.orders).toEqual([expect.objectContaining(dutchV3Order)])
     })
-    expect(queryResult.orders).toEqual([])
   })
 
-  it('should successfully get orders given an orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
+  describe('OrdersRepository getOrders test', () => {
+    it('should successfully get orders given multiple orderStatuses', async () => {
+      const queryResult = await ordersRepository.getOrders(50, {
+        orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED],
+      })
+      // Should return both OPEN and FILLED orders
+      const own = o.own(queryResult.orders)
+      expect(own).toEqual(expect.arrayContaining([expect.objectContaining(order2), expect.objectContaining(order3)]))
+      const statuses = new Set(own.map((order) => order.orderStatus))
+      expect(statuses).toEqual(new Set([ORDER_STATUS.OPEN, ORDER_STATUS.FILLED]))
+    })
+
+    it('should return no orders for multiple orderStatuses that have no matches', async () => {
+      const queryResult = await ordersRepository.getOrders(10, {
+        orderStatus: [ORDER_STATUS.INSUFFICIENT_FUNDS, ORDER_STATUS.CANCELLED],
+      })
+      expect(o.own(queryResult.orders)).toEqual([])
+    })
+
+    it('should respect limit when querying multiple orderStatuses', async () => {
+      const queryResult = await ordersRepository.getOrders(2, { orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED] })
+      expect(queryResult.orders).toHaveLength(2)
+    })
+
+    it('should return results sorted by createdAt descending for multiple statuses', async () => {
+      const queryResult = await ordersRepository.getOrders(50, {
+        orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED],
+      })
+      expect(queryResult.orders.length).toBeGreaterThan(1)
+      for (let i = 0; i < queryResult.orders.length - 1; i++) {
+        expect(queryResult.orders[i].createdAt).toBeGreaterThanOrEqual(queryResult.orders[i + 1].createdAt!)
+      }
+    })
+
+    it('should successfully get orders given chainId and multiple orderStatuses', async () => {
+      const queryResult = await ordersRepository.getOrders(50, {
+        chainId: CHAIN_B,
+        orderStatus: [ORDER_STATUS.OPEN, ORDER_STATUS.FILLED],
+      })
+      expect(queryResult.orders).toEqual([expect.objectContaining(order3), expect.objectContaining(order2)])
+    })
+  })
+
+  describe('OrdersRepository query cache with caller filters', () => {
+    // filler/swapper filters on open orders are answered from the cached `open` page by
+    // filtering in memory; the result must match what the caller's own GSI returns.
+    const cachedRepository = DutchOrdersRepository.create(documentClient, new QueryCache(60_000, 'TestQueryCache'))
+
+    it('matches the filler GSI for open orders', async () => {
+      const expected = await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, filler: o.fillerA })
+      expect(expected.orders).toHaveLength(3)
+
+      const fromCache = await cachedRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, filler: o.fillerA })
+
+      expect(hashes(fromCache.orders)).toEqual(hashes(expected.orders))
+    })
+
+    it('pages through a filler query from the cached page with a cursor DynamoDB accepts', async () => {
+      const expected = await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, filler: o.fillerA })
+
+      const paged = await readAllPages(cachedRepository, 1, { orderStatus: ORDER_STATUS.OPEN, filler: o.fillerA })
+
+      expect(hashes(paged)).toEqual(hashes(expected.orders))
+    })
+  })
+
+  describe('OrdersRepository query cache pagination', () => {
+    it('pages through a partition from a cached first page with the synthetic cursor', async () => {
+      // The cached path builds the cursor from the last row it handed back rather than from
+      // DynamoDB's LastEvaluatedKey; this proves DynamoDB accepts it as ExclusiveStartKey and
+      // that following it covers the partition exactly once.
+      const cachedRepository = DutchOrdersRepository.create(documentClient, new QueryCache(60_000, 'TestQueryCache'))
+      const expected = o.own((await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN })).orders)
+      expect(expected.length).toBeGreaterThanOrEqual(2)
+
+      // DynamoDB hands back a continuation key when the limit lands exactly on the last row,
+      // so the final page can legitimately be empty (the uncached path behaves the same).
+      const paged = o.own(await readAllPages(cachedRepository, 1, { orderStatus: ORDER_STATUS.OPEN }))
+
+      expect(hashes(paged).sort()).toEqual(hashes(expected).sort())
+      // Newest first on both paths.
+      expect(hashes(paged)).toEqual(hashes(expected))
+    })
+  })
+
+  describe('OrdersRepository legacy millisecond timestamps', () => {
+    const LEGACY_ORDER = o.row('legacy-ms', {
+      offerer: o.swapperA,
+      nonce: '99',
+      chainId: CHAIN_A,
       orderStatus: ORDER_STATUS.OPEN,
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: 'gte(2)',
     })
-    expect(queryResult.orders).toHaveLength(1)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
 
-  it('should return no orders for orderStatus', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: 'gt(2)',
-    })
-    expect(queryResult.orders).toEqual([])
-  })
+    it('keeps a legacy ms-createdAt order out of list reads on every path, but reachable by hash', async () => {
+      // createdAt 1.6e12: 2020-09 in milliseconds, as 2023 V1 orders were stored
+      jest.setSystemTime(1_600_000_000_000 * 1000)
+      await ordersRepository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, LEGACY_ORDER, nowSeconds())
+      setClockToTick(1)
+      const cachedRepository = DutchOrdersRepository.create(documentClient, new QueryCache(60_000, 'TestQueryCache'))
+      try {
+        expect(await ordersRepository.getByHash(TEST_STORE_CONTEXT, LEGACY_ORDER.orderHash)).toMatchObject({
+          createdAt: 1_600_000_000_000,
+        })
+        const uncached = await ordersRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, chainId: CHAIN_A })
+        const cached = await cachedRepository.getOrders(50, { orderStatus: ORDER_STATUS.OPEN, chainId: CHAIN_A })
+        const byOfferer = await ordersRepository.getOrders(50, { offerer: LEGACY_ORDER.offerer })
+        const byHash = await ordersRepository.getOrders(50, { orderHash: LEGACY_ORDER.orderHash })
 
-  it('should return all orders for OPEN status and between 1,3 time', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      orderStatus: ORDER_STATUS.OPEN,
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: 'between(1,3)',
-      desc: true,
-    })
-    expect(queryResult.orders).toHaveLength(6)
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_2))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(PRIORITY_ORDER_2))
-    expect(queryResult.orders).toContainEqual(expect.objectContaining(DUTCHV3_1))
-  })
-
-  it('should return all orders for OPEN status and between 1,3 time ascending order', async () => {
-    const queryResult = await ordersRepository.getOrders(10, {
-      orderStatus: ORDER_STATUS.OPEN,
-      sortKey: SORT_FIELDS.CREATED_AT,
-      sort: 'between(1,3)',
-      desc: false,
-    })
-    expect(queryResult.orders).toHaveLength(6)
-    expect(queryResult.orders[0]).toEqual(expect.objectContaining(PRIORITY_ORDER_2))
-    expect(queryResult.orders[1]).toEqual(expect.objectContaining(MOCK_ORDER_5))
-    expect(queryResult.orders[2]).toEqual(expect.objectContaining(PRIORITY_ORDER_1))
-    expect(queryResult.orders[3]).toEqual(expect.objectContaining(DUTCHV3_1))
-    expect(queryResult.orders[4]).toEqual(expect.objectContaining(MOCK_ORDER_1))
-    expect(queryResult.orders[5]).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
-})
-
-describe('OrdersRepository getByHash test', () => {
-  it('should successfully get an item from table', async () => {
-    const order1 = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
-    // dynamodb-toolbox auto-generates 'created' and 'modified' fields
-    expect(order1).toEqual(expect.objectContaining(MOCK_ORDER_1))
-
-    const order2 = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
-    expect(order2).toEqual(expect.objectContaining(MOCK_ORDER_2))
-  })
-
-  it('should return undefined if item does not exist', async () => {
-    const res = await ordersRepository.getByHash('0x4')
-    expect(res).toBeUndefined()
-  })
-})
-
-describe('OrdersRepository get nonce test', () => {
-  it('should successfully get last posted nonce from table', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_1,
-      nonce: '4',
-    } as UniswapXOrderEntity)
-    const nonce = await ordersRepository.getNonceByAddressAndChain('hayden.eth', MOCK_ORDER_1.chainId)
-    expect(nonce).toEqual('4')
-  })
-
-  it('should get last used nonce when there are multiple orders with that nonce value in the DB', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_1,
-      nonce: '2',
-      orderHash: '0x4',
-    } as UniswapXOrderEntity)
-    // at this point, there are three orders in the DB, two with nonce 2
-    const nonce = await ordersRepository.getNonceByAddressAndChain('hayden.eth', MOCK_ORDER_1.chainId)
-    expect(nonce).toEqual('2')
-  })
-
-  it('should generate random nonce for new address', async () => {
-    const res = await ordersRepository.getNonceByAddressAndChain('random.eth', 1)
-    expect(res).not.toBeUndefined()
-    expect(generateRandomNonce).toHaveBeenCalled()
-  })
-
-  it('should track nonce for the same address on different chains separately', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_2,
-      nonce: '10',
-    } as UniswapXOrderEntity)
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_2,
-      chainId: 1,
-      nonce: '20',
-    } as UniswapXOrderEntity)
-    const nonce = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.offerer, MOCK_ORDER_2.chainId)
-    expect(nonce).toEqual('10')
-    const nonce2 = await ordersRepository.getNonceByAddressAndChain(MOCK_ORDER_2.offerer, 1)
-    expect(nonce2).toEqual('20')
-  })
-})
-
-describe('OrdersRepository get order count by offerer test', () => {
-  it('should successfully return order count by existing offerer', async () => {
-    mockTime(4)
-    await ordersRepository.putOrderAndUpdateNonceTransaction(ADDITIONAL_FIELDS_ORDER_4 as UniswapXOrderEntity)
-    expect(await ordersRepository.countOrdersByOffererAndStatus(MOCK_ORDER_4.offerer, ORDER_STATUS.OPEN)).toEqual(3)
-  })
-
-  it('should return 0 for nonexistent offerer', async () => {
-    expect(await ordersRepository.countOrdersByOffererAndStatus('nonexistent', ORDER_STATUS.OPEN)).toEqual(0)
-  })
-})
-
-describe('OrdersRepository update status test', () => {
-  it('should successfully update orderStatus of an order identified by orderHash', async () => {
-    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash', 1, [
-      { tokenOut: '0x1', amountOut: '1' } as SettledAmount,
-    ])
-    await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
-      orderStatus: ORDER_STATUS.FILLED,
-      offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
-      chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
-      chainId_orderStatus_filler: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}_undefined`,
-      txHash: 'txHash',
-      fillBlock: 1,
-      settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
+        for (const result of [uncached, cached, byOfferer]) {
+          expect(result.orders.length).toBeGreaterThan(0)
+          expect(hashes(result.orders)).not.toContain(LEGACY_ORDER.orderHash)
+        }
+        expect(hashes(byHash.orders)).toEqual([LEGACY_ORDER.orderHash])
+      } finally {
+        await deleteOrdersByHash(documentClient, TABLE_NAMES.Orders, [LEGACY_ORDER.orderHash])
+      }
     })
   })
 
-  it('should throw error if order does not exist', async () => {
-    await expect(ordersRepository.updateOrderStatus('nonexistent', ORDER_STATUS.FILLED)).rejects.toEqual(
-      new Error('cannot find order by hash when updating order status, hash: nonexistent')
-    )
-  })
+  describe('OrdersRepository update status test', () => {
+    it('should not downgrade a FILLED (terminal) order to another status', async () => {
+      // Regression (PROTO-1201): a reaper run racing the check-order-status
+      // state machine must not clobber a recorded fill with CANCELLED/EXPIRED.
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.FILLED, {
+        txHash: 'txHash',
+        fillBlock: 1,
+        settledAmounts: [SETTLED_AMOUNT],
+        fillTimestamp: 1_700_000_000,
+      })
 
-  it('should not downgrade a FILLED (terminal) order to another status', async () => {
-    // Regression (PROTO-1201): a reaper run racing the check-order-status
-    // state machine must not clobber a recorded fill with CANCELLED/EXPIRED.
-    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash', 1, [
-      { tokenOut: '0x1', amountOut: '1' } as SettledAmount,
-    ])
+      // The downgrade is skipped (not thrown), so callers don't enter retry loops.
+      await expect(
+        ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.CANCELLED)
+      ).resolves.toBeUndefined()
+      await expect(
+        ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.EXPIRED)
+      ).resolves.toBeUndefined()
 
-    // The downgrade is skipped (not thrown), so callers don't enter retry loops.
-    await expect(ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.CANCELLED)).resolves.toBeUndefined()
-    await expect(ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.EXPIRED)).resolves.toBeUndefined()
-
-    await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
-      orderStatus: ORDER_STATUS.FILLED,
-      offerer_orderStatus: `${MOCK_ORDER_1.offerer}_${ORDER_STATUS.FILLED}`,
-      chainId_orderStatus: `${MOCK_ORDER_1.chainId}_${ORDER_STATUS.FILLED}`,
-      txHash: 'txHash',
-      fillBlock: 1,
-      settledAmounts: [{ tokenOut: '0x1', amountOut: '1' }],
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order1.orderHash)).resolves.toMatchObject({
+        orderStatus: ORDER_STATUS.FILLED,
+        offerer_orderStatus: `${o.swapperA}_${ORDER_STATUS.FILLED}`,
+        chainId_orderStatus: `${CHAIN_A}_${ORDER_STATUS.FILLED}`,
+        txHash: 'txHash',
+        fillBlock: 1,
+        fillTimestamp: 1_700_000_000,
+        settledAmounts: [SETTLED_AMOUNT],
+      })
     })
-  })
 
-  it('should allow re-writing FILLED with updated fill details', async () => {
-    await ordersRepository.updateOrderStatus('0x1', ORDER_STATUS.FILLED, 'txHash2', 2)
-    await expect(ordersRepository.getByHash('0x1')).resolves.toMatchObject({
-      orderStatus: ORDER_STATUS.FILLED,
-      txHash: 'txHash2',
-      fillBlock: 2,
+    it('should allow re-writing FILLED with updated fill details', async () => {
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order1.orderHash, ORDER_STATUS.FILLED, {
+        txHash: 'txHash2',
+        fillBlock: 2,
+      })
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order1.orderHash)).resolves.toMatchObject({
+        orderStatus: ORDER_STATUS.FILLED,
+        txHash: 'txHash2',
+        fillBlock: 2,
+      })
     })
-  })
 
-  it('should allow non-terminal transitions and upgrades to FILLED', async () => {
-    // e.g. INSUFFICIENT_FUNDS -> FILLED (the insufficient-funds reaper finding
-    // a fill) must keep working.
-    await ordersRepository.updateOrderStatus('0x2', ORDER_STATUS.INSUFFICIENT_FUNDS)
-    await expect(ordersRepository.getByHash('0x2')).resolves.toMatchObject({
-      orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+    it('should allow non-terminal transitions and upgrades to FILLED', async () => {
+      // e.g. INSUFFICIENT_FUNDS -> FILLED (the insufficient-funds reaper finding
+      // a fill) must keep working.
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order2.orderHash, ORDER_STATUS.INSUFFICIENT_FUNDS)
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order2.orderHash)).resolves.toMatchObject({
+        orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS,
+      })
+      await ordersRepository.updateOrderStatus(TEST_STORE_CONTEXT, order2.orderHash, ORDER_STATUS.FILLED, {
+        txHash: 'txHash',
+        fillBlock: 3,
+      })
+      await expect(ordersRepository.getByHash(TEST_STORE_CONTEXT, order2.orderHash)).resolves.toMatchObject({
+        orderStatus: ORDER_STATUS.FILLED,
+        txHash: 'txHash',
+        fillBlock: 3,
+      })
     })
-    await ordersRepository.updateOrderStatus('0x2', ORDER_STATUS.FILLED, 'txHash', 3)
-    await expect(ordersRepository.getByHash('0x2')).resolves.toMatchObject({
-      orderStatus: ORDER_STATUS.FILLED,
-      txHash: 'txHash',
-      fillBlock: 3,
-    })
-  })
-})
-
-describe('OrdersRepository delete test', () => {
-  it('should delete orders by list of orderHashes', async () => {
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_1,
-      nonce: '1',
-    } as UniswapXOrderEntity)
-    await ordersRepository.putOrderAndUpdateNonceTransaction({
-      ...MOCK_ORDER_2,
-      nonce: '2',
-    } as UniswapXOrderEntity)
-    let order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
-    expect(order).toBeDefined()
-    order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
-    expect(order).toBeDefined()
-    await ordersRepository.deleteOrders([MOCK_ORDER_1.orderHash, MOCK_ORDER_2.orderHash])
-    order = await ordersRepository.getByHash(MOCK_ORDER_1.orderHash)
-    expect(order).not.toBeDefined()
-    order = await ordersRepository.getByHash(MOCK_ORDER_2.orderHash)
-    expect(order).not.toBeDefined()
   })
 })

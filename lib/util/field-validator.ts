@@ -1,22 +1,22 @@
-// import { OrderType } from '@uniswap/uniswapx-sdk'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import dotenv from 'dotenv'
 import { BigNumber, ethers } from 'ethers'
 import Joi, { CustomHelpers, NumberSchema, StringSchema } from 'joi'
 import { ORDER_STATUS, SORT_FIELDS } from '../entities'
-import { checkDefined } from '../preconditions/preconditions'
 import { SUPPORTED_CHAINS } from './chain'
 import { DUTCH_LIMIT } from './order'
-
-dotenv.config()
 
 export const SORT_REGEX = /(\w+)\(([0-9]+)(?:,([0-9]+))?\)/
 const UINT256_MAX = BigNumber.from(1).shl(256).sub(1)
 
-// Lazy load environment variables
-function getEnvVar(name: string): string {
-  return checkDefined(process.env[name], `${name} is not defined`)
-}
+// In this order: it is the order Joi lists them in a 400's detail.
+const ORDER_STATUSES: string[] = [
+  ORDER_STATUS.OPEN,
+  ORDER_STATUS.FILLED,
+  ORDER_STATUS.CANCELLED,
+  ORDER_STATUS.EXPIRED,
+  ORDER_STATUS.ERROR,
+  ORDER_STATUS.INSUFFICIENT_FUNDS,
+]
 
 export default class FieldValidator {
   private static readonly ENCODED_ORDER_JOI = Joi.string().regex(this.getHexiDecimalRegex(4000, true))
@@ -35,7 +35,7 @@ export default class FieldValidator {
     .min(1)
     .max(78) // 2^256 - 1 in base 10 is 78 digits long
     .regex(/^[0-9]+$/)
-    .custom((value: string, helpers: CustomHelpers<any>) => {
+    .custom((value: string, helpers: CustomHelpers) => {
       if (!BigNumber.from(value).lt(UINT256_MAX)) {
         return helpers.error('VALIDATION ERROR: Nonce is larger than max uint256 integer')
       }
@@ -45,7 +45,7 @@ export default class FieldValidator {
     .min(1)
     .max(78) // Same max length as BigNumber
     .regex(/^-?[0-9]+$/) // Allow negative sign followed by digits
-    .custom((value: string, helpers: CustomHelpers<any>) => {
+    .custom((value: string, helpers: CustomHelpers) => {
       try {
         // Verify it can be parsed as a BigInt
         BigInt(value);
@@ -55,39 +55,37 @@ export default class FieldValidator {
       }
     })
   private static readonly NUMBER_JOI = Joi.number()
+  // 0 means "default page size"; the repository caps the value at MAX_ORDERS.
+  private static readonly LIMIT_JOI = Joi.number().integer().min(0)
   private static readonly BASE_64_STRING = Joi.string().max(500).base64()
   private static readonly CHAIN_ID_JOI = Joi.number().valid(...SUPPORTED_CHAINS)
-  private static readonly ORDER_STATUS_JOI = Joi.string().valid(
-    ORDER_STATUS.OPEN,
-    ORDER_STATUS.FILLED,
-    ORDER_STATUS.CANCELLED,
-    ORDER_STATUS.EXPIRED,
-    ORDER_STATUS.ERROR,
-    ORDER_STATUS.INSUFFICIENT_FUNDS
-  )
+  private static readonly ORDER_STATUS_JOI = Joi.string().valid(...ORDER_STATUSES)
 
-  private static readonly VALID_ORDER_STATUSES = new Set([
-    ORDER_STATUS.OPEN,
-    ORDER_STATUS.FILLED,
-    ORDER_STATUS.CANCELLED,
-    ORDER_STATUS.EXPIRED,
-    ORDER_STATUS.ERROR,
-    ORDER_STATUS.INSUFFICIENT_FUNDS,
-  ])
+  private static readonly VALID_ORDER_STATUSES = new Set(ORDER_STATUSES)
 
   private static readonly ORDER_STATUSES_JOI = Joi.string().custom(
-    (value: string, helpers: CustomHelpers<any>) => {
+    (value: string, helpers: CustomHelpers) => {
       const statuses = value.split(',')
       for (const status of statuses) {
-        if (!FieldValidator.VALID_ORDER_STATUSES.has(status as ORDER_STATUS)) {
+        if (!FieldValidator.VALID_ORDER_STATUSES.has(status)) {
           return helpers.error('any.invalid')
         }
+      }
+      // Each status fans out into its own query, so a repeated status is a free read
+      // multiplier: `filled,filled,...` hundreds of times fits in one URL.
+      if (new Set(statuses).size !== statuses.length) {
+        return helpers.message({ custom: '"orderStatus" must not repeat a status' })
       }
       return value
     }
   )
   private static readonly SORT_KEY_JOI = Joi.string().valid(SORT_FIELDS.CREATED_AT)
   private static readonly SORT_JOI = Joi.string().regex(SORT_REGEX)
+  // Usually `${tokenIn}-${tokenOut}-${chainId}`, but the value is copied from free-form quote
+  // metadata, so only its size and character set are bounded, not its exact shape.
+  private static readonly PAIR_JOI = Joi.string()
+    .max(128)
+    .regex(/^[0-9a-zA-Z._:-]+$/)
 
   // TODO: DutchLimit type is deprecated but we allow it in the response to remain backwards compatible.
   // Remove this field from Joi once we have purge job to delete all DutchLimit orders from the database.
@@ -97,9 +95,7 @@ export default class FieldValidator {
     OrderType.Dutch_V2,
     OrderType.Dutch_V3,
     OrderType.Limit,
-    OrderType.Relay,
-    OrderType.Priority,
-    OrderType.Hybrid
+    OrderType.Priority
   )
 
   private static readonly GET_ORDER_TYPE_JOI = Joi.string().valid(
@@ -107,13 +103,11 @@ export default class FieldValidator {
     OrderType.Dutch_V2,
     OrderType.Dutch_V3,
     OrderType.Limit,
-    OrderType.Relay,
     'Dutch_V1_V2',
-    OrderType.Priority,
-    OrderType.Hybrid
+    OrderType.Priority
   )
 
-  private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers<any>) => {
+  private static readonly ETH_ADDRESS_JOI = Joi.string().custom((value: string, helpers: CustomHelpers) => {
     if (!ethers.utils.isAddress(value)) {
       return helpers.message({ custom: 'VALIDATION ERROR: Invalid address' })
     }
@@ -145,7 +139,7 @@ export default class FieldValidator {
   }
 
   public static isValidLimit(): NumberSchema {
-    return this.NUMBER_JOI
+    return this.LIMIT_JOI
   }
 
   public static isValidCreatedAt(): NumberSchema {
@@ -162,6 +156,10 @@ export default class FieldValidator {
 
   public static isValidCursor(): StringSchema {
     return this.BASE_64_STRING
+  }
+
+  public static isValidPair(): StringSchema {
+    return this.PAIR_JOI
   }
 
   public static isValidChainId(): NumberSchema {
@@ -206,41 +204,6 @@ export default class FieldValidator {
 
   public static isValidOrderHashes(): StringSchema {
     return this.ORDER_HASHES_JOI
-  }
-
-  public static isValidCosigner(): StringSchema {
-    const cosigner = getEnvVar('LABS_COSIGNER')
-    return Joi.string().valid(cosigner)
-  }
-
-  public static isValidPriorityCosigner(): StringSchema {
-    const priorityCosigner = getEnvVar('LABS_PRIORITY_COSIGNER')
-    return Joi.string().valid(priorityCosigner)
-  }
-
-  public static isValidHardQuote(): Joi.ObjectSchema {
-    return Joi.object({
-      quoteId: Joi.string().required(),
-      requestId: Joi.string().required(),
-      tokenInChainId: Joi.number().required(),
-      tokenOutChainId: Joi.number().required(),
-      tokenIn: Joi.string().required(),
-      input: Joi.object({
-        token: Joi.string().required(),
-        amount: Joi.string().required(),
-      }).required(),
-      tokenOut: Joi.string().required(),
-      outputs: Joi.array().items(Joi.object({
-        token: Joi.string().required(),
-        amount: Joi.string().required(),
-        recipient: Joi.string().required(),
-      })).required(),
-      swapper: Joi.string().required(),
-      filler: Joi.string().required(),
-      orderHash: Joi.string().required(),
-      createdAt: Joi.number().required(),
-      createdAtMs: Joi.string().required(),
-    })
   }
 
   private static getHexiDecimalRegex(length?: number, maxLength = false): RegExp {

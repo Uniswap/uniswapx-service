@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { BigNumber } from 'ethers'
 import { mock } from 'jest-mock-extended'
-import { FillEventLogger } from '../../../lib/handlers/check-order-status/fill-event-logger'
+import { FillEventLogger, fractionDecayed } from '../../../lib/handlers/check-order-status/fill-event-logger'
 import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../../../lib/handlers/check-order-status/util'
 import { log } from '../../../lib/Logging'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
@@ -104,7 +104,7 @@ describe('processFillEvent', () => {
       } as any,
       timestamp: 1,
     })
-    
+
     expect(analyticsService.logFillInfo).toHaveBeenCalledWith(
       MOCK_FILL_EVENT,
       order,
@@ -115,7 +115,30 @@ describe('processFillEvent', () => {
       '100',
       '0',
       -1,
-      settledAmounts  // Expect settleAmounts since it matches the output token
+      settledAmounts // Expect settleAmounts since it matches the output token
     )
+  })
+})
+
+describe('fractionDecayed', () => {
+  const window = { ...MOCK_ORDER_ENTITY, decayStartTime: 1000, decayEndTime: 1060 }
+
+  it.each([
+    ['before the decay starts', 990, 0],
+    ['at the decay start', 1000, 0],
+    ['midway through the decay', 1030, 0.5],
+    ['at the decay end', 1060, 1],
+    ['after the decay end, before the deadline', 1200, 1],
+  ])('is clamped to [0, 1]: %s', (_case, timestamp, expected) => {
+    expect(fractionDecayed(window as any, timestamp)).toEqual(expected)
+  })
+
+  it('is 0 for a zero-length or inverted decay window', () => {
+    expect(fractionDecayed({ ...window, decayEndTime: 1000 } as any, 1030)).toEqual(0)
+    expect(fractionDecayed({ ...window, decayEndTime: 990 } as any, 1030)).toEqual(0)
+  })
+
+  it('is 0 when the order has no decay window', () => {
+    expect(fractionDecayed({ ...window, decayStartTime: undefined } as any, 1030)).toEqual(0)
   })
 })

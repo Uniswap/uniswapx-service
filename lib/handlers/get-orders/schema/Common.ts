@@ -1,27 +1,19 @@
 import Joi from "joi";
 import FieldValidator from "../../../util/field-validator";
 
-export const SettledAmountsValidation = Joi.array().items(
-    Joi.object({
-        tokenOut: FieldValidator.isValidEthAddress(),
-        amountOut: FieldValidator.isValidAmount(),
-        tokenIn: FieldValidator.isValidEthAddress(),
-        amountIn: FieldValidator.isValidAmount(),
-    })
-);
+export const SettledAmountJoi = Joi.object({
+    tokenOut: FieldValidator.isValidEthAddress(),
+    amountOut: FieldValidator.isValidAmount(),
+    tokenIn: FieldValidator.isValidEthAddress(),
+    amountIn: FieldValidator.isValidAmount(),
+});
 
-export const RouteValidation = Joi.object({
-    quote: FieldValidator.isValidAmount(),
-    quoteGasAdjusted: FieldValidator.isValidAmount(),
-    gasPriceWei: FieldValidator.isValidAmount(),
-    gasUseEstimateQuote: FieldValidator.isValidAmount(),
-    gasUseEstimate: FieldValidator.isValidAmount(),
-    methodParameters: Joi.object({
-        calldata: Joi.string(),
-        value: Joi.string(),
-        to: FieldValidator.isValidEthAddress(),
-    }),
-})
+export const OrderOutputJoi = Joi.object({
+    token: FieldValidator.isValidEthAddress().required(),
+    startAmount: FieldValidator.isValidAmount().required(),
+    endAmount: FieldValidator.isValidAmount().required(),
+    recipient: FieldValidator.isValidEthAddress().required(),
+});
 
 export const CommonOrderValidationFields = {
     encodedOrder: FieldValidator.isValidEncodedOrder().required(),
@@ -31,13 +23,14 @@ export const CommonOrderValidationFields = {
     chainId: FieldValidator.isValidChainId().required(),
     swapper: FieldValidator.isValidEthAddress().required(),
     txHash: FieldValidator.isValidTxHash(),
+    fillBlock: FieldValidator.isValidNumber(),
+    fillTimestamp: FieldValidator.isValidNumber(),
     quoteId: FieldValidator.isValidQuoteId(),
     requestId: FieldValidator.isValidRequestId(),
     nonce: FieldValidator.isValidNonce(),
     cosignature: Joi.string(),
     createdAt: Joi.number(),
-    settledAmounts: SettledAmountsValidation,
-    route: RouteValidation,
+    settledAmounts: Joi.array().items(SettledAmountJoi),
 }
 
 

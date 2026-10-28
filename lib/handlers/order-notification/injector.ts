@@ -5,7 +5,6 @@ import { checkDefined } from '../../preconditions/preconditions'
 import { WebhookProvider } from '../../providers/base'
 import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
 import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
-import { setGlobalLogger } from '../../util/log'
 import { setGlobalMetrics } from '../../util/metrics'
 import { STAGE } from '../../util/stage'
 import { DynamoStreamInjector } from '../base/dynamo-stream-handler'
@@ -28,19 +27,17 @@ export class OrderNotificationInjector extends DynamoStreamInjector<ContainerInj
   }
 
   public async getRequestInjected(
-    containerInjected: ContainerInjected,
+    _containerInjected: ContainerInjected,
     event: DynamoDBStreamEvent,
     log: Logger,
     metrics: MetricsLogger
   ): Promise<RequestInjected> {
     log = log.child({
       serializers: bunyan.stdSerializers,
-      containerInjected: containerInjected,
     })
     metrics.setNamespace('Uniswap')
     metrics.setDimensions({ Service: 'UniswapXService' })
     setGlobalMetrics(metrics)
-    setGlobalLogger(log)
 
     return {
       log,

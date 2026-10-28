@@ -1,0 +1,14 @@
+[
+  { "partitionKey": "offerer", "partitionKeyType": "S" },
+  { "partitionKey": "orderStatus", "partitionKeyType": "S" },
+  { "partitionKey": "filler", "partitionKeyType": "S" },
+  { "partitionKey": "filler_orderStatus", "partitionKeyType": "S" },
+  { "partitionKey": "filler_offerer", "partitionKeyType": "S" },
+  { "partitionKey": "filler_offerer_orderStatus", "partitionKeyType": "S" },
+  { "partitionKey": "offerer_orderStatus", "partitionKeyType": "S" },
+  { "partitionKey": "chainId", "partitionKeyType": "N" },
+  { "partitionKey": "chainId_filler", "partitionKeyType": "S" },
+  { "partitionKey": "chainId_orderStatus", "partitionKeyType": "S" },
+  { "partitionKey": "chainId_orderStatus_filler", "partitionKeyType": "S" },
+  { "partitionKey": "pair", "partitionKeyType": "S" }
+]

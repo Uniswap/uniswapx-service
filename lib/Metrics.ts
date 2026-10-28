@@ -3,21 +3,11 @@ import { SERVICE_NAME } from '../bin/constants'
 
 export const powertoolsMetric = new Metrics({ namespace: 'Uniswap', serviceName: SERVICE_NAME })
 
-const OnChainStatusCheckerPrefix = 'OnChainStatusChecker-'
-export const OnChainStatusCheckerMetricNames = {
-  TotalProcessedOpenOrders: OnChainStatusCheckerPrefix + 'TotalProcessedOpenOrders',
-  TotalOrderProcessingErrors: OnChainStatusCheckerPrefix + 'TotalOrderProcessingErrors',
-  TotalLoopProcessingTime: OnChainStatusCheckerPrefix + 'TotalLoopProcessingTime',
-  LoopError: OnChainStatusCheckerPrefix + 'LoopError',
-  LoopCompleted: OnChainStatusCheckerPrefix + 'LoopCompleted',
-  LoopEnded: OnChainStatusCheckerPrefix + 'LoopEnded',
-}
-
 const CheckOrderStatusHandlerPrefix = 'CheckOrderStatusHandler-'
 export const CheckOrderStatusHandlerMetricNames = {
   StepFunctionKickedOffCount: CheckOrderStatusHandlerPrefix + 'StepFunctionKickedOffCount',
   OrderTrackingAbandonedCount: CheckOrderStatusHandlerPrefix + 'OrderTrackingAbandonedCount',
-  // Abandons where no reaper backstop exists (deadline-less state, i.e. Relay):
+  // Abandons where no reaper backstop exists (deadline-less state):
   // the order stays non-terminal unless handled manually, so this deserves its
   // own alarm, separate from grace-period abandons the reaper will resolve.
   OrderTrackingAbandonedNoBackstopCount: CheckOrderStatusHandlerPrefix + 'OrderTrackingAbandonedNoBackstopCount',

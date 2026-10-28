@@ -114,6 +114,22 @@ describe('Permit2Validator', () => {
       expect(result).toBe(OrderValidation.Expired)
     })
 
+    it('should compare the deadline against the injected clock', async () => {
+      testOrder.info.deadline = 1_000
+      mockSignatureProvider.validatePermit.mockResolvedValue({
+        isUsed: false,
+        isExpired: false,
+        isValid: true
+      })
+
+      expect(await new Permit2Validator(undefined as any, ChainId.MAINNET, () => 1_000).validate(testOrder)).toBe(
+        OrderValidation.OK
+      )
+      expect(await new Permit2Validator(undefined as any, ChainId.MAINNET, () => 1_001).validate(testOrder)).toBe(
+        OrderValidation.Expired
+      )
+    })
+
     it('should return OK when permit is valid', async () => {
       mockSignatureProvider.validatePermit.mockResolvedValue({
         isUsed: false,

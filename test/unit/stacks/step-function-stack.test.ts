@@ -6,7 +6,7 @@ import { STAGE } from '../../../lib/util/stage'
 describe('StepFunctionStack', () => {
   const buildStack = (): StepFunctionStack => {
     const app = new cdk.App()
-    const parent = new cdk.Stack(app, 'TestParent', { env: { account: '123456789012', region: 'us-east-2' } })
+    const parent = new cdk.Stack(app, 'TestParent')
     const lambdaRole = new cdk.aws_iam.Role(parent, 'TestLambdaRole', {
       assumedBy: new cdk.aws_iam.ServicePrincipal('lambda.amazonaws.com'),
     })
@@ -17,22 +17,27 @@ describe('StepFunctionStack', () => {
     })
   }
 
-  it('publishes a state machine name for every supported chain', () => {
+  it('publishes a status-tracking state machine name for every supported chain', () => {
     const stack = buildStack()
     for (const chainId of SUPPORTED_CHAINS) {
-      // A missing entry interpolates into lambda-stack's STATE_MACHINE_NAMES
-      // env var as the literal string "undefined", producing an ARN ending in
-      // :stateMachine:undefined. StartExecution then fails, and the post-persist
-      // catch swallows it, so order tracking stops silently.
-      expect(stack.chainIdToStatusTrackingStateMachineName[chainId]).toBeDefined()
+      const name = stack.chainIdToStatusTrackingStateMachineName[chainId]
+      expect(name).toBeDefined()
+      // A missing map entry interpolated into lambda-stack's STATE_MACHINE_NAMES
+      // env var becomes the literal string "undefined", which silently breaks
+      // order tracking at runtime.
+      expect(name).not.toContain('undefined')
     }
   })
 
-  it('keeps the name map key-aligned with the ARN map', () => {
+  it('adds no subscription filter of its own', () => {
+    // The analytics stack owns the check-order-status log group's one feed filter; CloudWatch allows two.
+    cdk.assertions.Template.fromStack(buildStack()).resourceCountIs('AWS::Logs::SubscriptionFilter', 0)
+  })
+
+  it('keeps the name map aligned with the ARN map', () => {
     const stack = buildStack()
     expect(Object.keys(stack.chainIdToStatusTrackingStateMachineName).sort()).toEqual(
       Object.keys(stack.chainIdToStatusTrackingStateMachineArn).sort()
     )
   })
-
 })

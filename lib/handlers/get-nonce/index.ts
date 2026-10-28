@@ -1,8 +1,13 @@
+import { NonceRepository } from '../../repositories/nonce-repository'
+import { sharedStoreClient } from '../../repositories/store-client'
 import { GetNonceHandler } from './handler'
-import { GetNonceInjector } from './injector'
+import { RequestTimeProviderMap } from './request-time-provider-map'
 
-const getNonceInjectorPromise = new GetNonceInjector('getNonceInjector').build()
-const getNonceHandler = new GetNonceHandler('getNonceHandler', getNonceInjectorPromise)
+const getNonceHandler = new GetNonceHandler(
+  'getNonceHandler',
+  NonceRepository.create(sharedStoreClient()),
+  new RequestTimeProviderMap()
+)
 
 module.exports = {
   getNonceHandler: getNonceHandler.handler,

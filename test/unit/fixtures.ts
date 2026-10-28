@@ -1,48 +1,35 @@
-import { DutchOrderInfo, OrderType, REACTOR_ADDRESS_MAPPING } from '@uniswap/uniswapx-sdk'
 import { Context } from 'aws-lambda'
-import { BigNumber } from 'ethers'
+import { Wallet } from 'ethers'
 import { ChainId } from '../../lib/util/chain'
 
 export const COSIGNATURE =
   '0xf2e1e1aa8584396c5536afbd10f065b13beedbeea678dd0be884bd110a7b4c4425eb5fe7c28ebd2b97b69fb7ebc582f1ea2340961460b0a4ba2b3e71d94006b41c'
-
-export const ORDER_INFO: DutchOrderInfo = {
-  deadline: 10,
-  swapper: '0x0000000000000000000000000000000000000001',
-  reactor: REACTOR_ADDRESS_MAPPING[1][OrderType.Dutch]!.toLowerCase(),
-  decayStartTime: 20,
-  decayEndTime: 25,
-  input: {
-    token: '0x0000000000000000000000000000000000000003',
-    endAmount: BigNumber.from(30),
-    startAmount: BigNumber.from(30),
-  },
-  nonce: BigNumber.from('40'),
-  outputs: [
-    {
-      endAmount: BigNumber.from(50),
-      startAmount: BigNumber.from(60),
-      recipient: '0x0000000000000000000000000000000000000004',
-      token: '0x0000000000000000000000000000000000000005',
-    },
-  ],
-  exclusiveFiller: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-  exclusivityOverrideBps: BigNumber.from(5),
-  additionalValidationContract: '0x0000000000000000000000000000000000000000',
-  additionalValidationData: '0x',
-}
 
 export const QUOTE_ID = '55e2cfca-5521-4a0a-b597-7bfb569032d7'
 export const REQUEST_ID = '55e2cfca-5521-4a0a-b597-7bfb569032d8'
 export const SIGNATURE =
   '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010'
 
-export const EVENT_CONTEXT = {} as unknown as Context
+// The Lambda context handler tests pass; error bodies report its awsRequestId as their id.
+export const EVENT_CONTEXT = { awsRequestId: 'testRequest' } as unknown as Context
+
+// 65 zero bytes: passes the post schema's signature shape check, recovers nobody.
+export const ZERO_SIGNATURE = `0x${'00'.repeat(65)}`
+
+// Anvil/Hardhat default dev accounts #0-#2: publicly known throwaway keys, so signed orders are
+// the same on every run. Never use them outside tests.
+export const TestWallets = {
+  swapper: new Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'),
+  cosigner: new Wallet('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'),
+  stranger: new Wallet('0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a'),
+}
 
 export const Tokens = {
   MAINNET: {
     USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    // In the SDK's PERMISSIONED_TOKENS list: orders with it as input skip the order quoter.
+    BUIDL: '0x7712c34205737192402172409a8F7ccef8aA2AEc',
   },
   ARBITRUM_ONE: {
     USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
@@ -58,6 +45,8 @@ const providerGetBlockMock = jest.fn().mockImplementation(() => {
     timestamp: Math.floor(Date.now() / 1000), // Current timestamp at execution time
   })
 })
+// Every address is an EOA: the swapper signature check ecrecovers instead of calling ERC-1271.
+const providerGetCodeMock = jest.fn().mockResolvedValue('0x')
 
 export const MOCK_PROVIDER_MAP = new Map([
   [
@@ -65,6 +54,7 @@ export const MOCK_PROVIDER_MAP = new Map([
     {
       getBlockNumber: providerGetLatestBlockMock,
       getBlock: providerGetBlockMock,
+      getCode: providerGetCodeMock,
     },
   ],
   [
@@ -72,6 +62,7 @@ export const MOCK_PROVIDER_MAP = new Map([
     {
       getBlockNumber: providerGetLatestBlockMock,
       getBlock: providerGetBlockMock,
+      getCode: providerGetCodeMock,
     },
   ],
   [
@@ -79,6 +70,7 @@ export const MOCK_PROVIDER_MAP = new Map([
     {
       getBlockNumber: providerGetLatestBlockMock,
       getBlock: providerGetBlockMock,
+      getCode: providerGetCodeMock,
     },
   ],
   [
@@ -86,6 +78,7 @@ export const MOCK_PROVIDER_MAP = new Map([
     {
       getBlockNumber: providerGetLatestBlockMock,
       getBlock: providerGetBlockMock,
+      getCode: providerGetCodeMock,
     },
   ],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

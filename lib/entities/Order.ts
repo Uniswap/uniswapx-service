@@ -1,5 +1,4 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { Route } from '../repositories/quote-metadata-repository'
 
 export enum ORDER_STATUS {
   OPEN = 'open',
@@ -84,14 +83,11 @@ export type SharedXOrderEntity = {
   // TxHash field is defined when the order has been filled and there is a txHash associated with the fill.
   txHash?: string
   fillBlock?: number
+  // Timestamp (seconds) of the block that filled the order.
+  fillTimestamp?: number
   // SettledAmount field is defined when the order has been filled and the fill amounts have been recorded.
   settledAmounts?: SettledAmount[]
-  referencePrice?: string
-  priceImpact?: number
-  blockNumber?: number
-  route?: Route
   pair?: string
-  usedUnimind?: boolean
 }
 
 export type DutchV1OrderEntity = SharedXOrderEntity & {
@@ -144,36 +140,9 @@ export type PriorityOrderEntity = SharedXOrderEntity & {
   cosignature: string
 }
 
-export type HybridOrderInput = {
-  token: string
-  maxAmount: string
-}
-
-export type HybridOrderOutput = {
-  token: string
-  minAmount: string
-  recipient: string
-}
-
-export type HybridOrderEntity = SharedXOrderEntity & {
-  type: OrderType.Hybrid
-  auctionStartBlock: number
-  baselinePriorityFeeWei: string
-  scalingFactor: string
-  input: HybridOrderInput
-  outputs: HybridOrderOutput[]
-  priceCurve: string[]
-  cosigner: string
-  cosignerData: {
-    auctionTargetBlock: number
-    supplementalPriceCurve: string[]
-  }
-  cosignature: string
-}
-
-// Db representation of Dutch V1, Dutch V2, Dutch V3, Priority, Hybrid, or Limit Order
+// Db representation of Dutch V1, Dutch V2, Dutch V3, Priority, or Limit Order
 // indexes are returned at runtime but not represented on this type. Ideally we will include a mapping at repo layer boundary
-export type UniswapXOrderEntity = DutchV1OrderEntity | DutchV2OrderEntity | PriorityOrderEntity | DutchV3OrderEntity | HybridOrderEntity
+export type UniswapXOrderEntity = DutchV1OrderEntity | DutchV2OrderEntity | PriorityOrderEntity | DutchV3OrderEntity
 
 export enum SORT_FIELDS {
   CREATED_AT = 'createdAt',
@@ -185,16 +154,4 @@ export function isPriorityOrderEntity(order: UniswapXOrderEntity): order is Prio
 
 export function isDutchV3OrderEntity(order: UniswapXOrderEntity): order is DutchV3OrderEntity {
   return order.type === OrderType.Dutch_V3
-}
-
-export function isDutchV2OrderEntity(order: UniswapXOrderEntity): order is DutchV2OrderEntity {
-  return order.type === OrderType.Dutch_V2
-}
-
-export function isDutchV1OrderEntity(order: UniswapXOrderEntity): order is DutchV1OrderEntity {
-  return order.type === OrderType.Dutch || order.type === OrderType.Limit
-}
-
-export function isHybridOrderEntity(order: UniswapXOrderEntity): order is HybridOrderEntity {
-  return order.type === OrderType.Hybrid
 }

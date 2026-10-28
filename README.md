@@ -16,7 +16,7 @@ filled, cancelled, expired — and most of the machinery here exists to keep tha
 1. **Posted.** `POST /dutch-auction/order` (or `/limit/order`) receives
    `{ encodedOrder, signature, chainId, orderType, ... }`. The body is schema-validated,
    decoded with `@uniswap/uniswapx-sdk`, checked offchain (deadlines, decay windows, cosigner)
-   and onchain, then written to DynamoDB. Priority and Hybrid orders are cosigned here with a
+   and onchain, then written to DynamoDB. Priority orders are cosigned here with a
    KMS secp256k1 key that never leaves AWS.
 2. **Tracked.** Persisting an order starts a Step Functions execution (`check-order-status`)
    that polls chain state until the order reaches a terminal status:
@@ -34,7 +34,6 @@ filled, cancelled, expired — and most of the machinery here exists to keep tha
 | `POST /limit/order`        | fronted by the Trading API    | Submit a signed limit order        |
 | `GET /limit/orders`        | `GET /limit-orders`           | Limit order feed                   |
 | `GET /dutch-auction/nonce` | not exposed                   | Next Permit2 nonce for an address  |
-| `GET /unimind`             | not exposed                   | Unimind parameters (internal)      |
 | `GET /docs.json`, `/api-docs` | `GET /uniswapx/docs`       | OpenAPI spec and Swagger UI        |
 
 Query semantics worth knowing before you file a bug:
@@ -42,8 +41,16 @@ Query semantics worth knowing before you file a bug:
 - `GET /orders` requires at least one filter (`orderHash`, `orderHashes`, `chainId`,
   `orderStatus`, `swapper`, `filler`, `pair`). A bare `?limit=10` is a 400 by design —
   there are no unbounded scans.
-- `swapper` cannot be combined with `chainId`; `orderHashes` cannot be combined with
-  `sortKey`; `sortKey` is required whenever `sort` or `desc` is present.
+- `swapper` cannot be combined with `chainId`.
+- `GET /orders` returns a single page of the newest orders (`createdAt` descending, at most 50).
+  `sortKey=createdAt`, `sort=gt(0)` and `desc=true` are accepted (they describe that page) and
+  dropped; any other value, or any `cursor`, is a 400. Every distinct page or ordering used to
+  be its own read against the hot `chainId_orderStatus` partitions.
+- Open-order queries that add a `filler` or `swapper` are answered from the cached
+  chain/status page, filtered in memory. Terminal statuses read their own index.
+- `GET /limit-orders` still pages with `cursor` and accepts `sortKey`/`sort`/`desc`:
+  `orderHashes` cannot be combined with `sortKey`, and `sortKey` is required whenever `sort`
+  or `desc` is present. Use it, not `GET /orders?orderType=Limit`, to enumerate limit orders.
 
 The full contract lives in [swagger.json](./swagger.json), served at
 <https://api.uniswap.org/v2/uniswapx/docs>. It is pinned to the joi validators by
@@ -55,19 +62,19 @@ changing the other and `yarn test` names the exact divergence. See
 
 | Path                | Contents                                                                                                                                   |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `bin/`              | CDK app: `api-stack` (API Gateway + WAF), `lambda-stack`, `dynamo-stack`, `step-function-stack` / `status-stack`, `cron-stack`, `reaper-stack` (ECS), `dashboard-stack`, `kms-stack` |
-| `lib/handlers/`     | Lambda entry points: `post-order`, `get-orders`, `get-limit-orders`, `get-nonce`, `get-unimind`, `check-order-status`, `order-notification`, `get-docs` |
-| `lib/models/`       | Order types: Dutch V1/V2/V3, Priority, Hybrid, Relay, Limit                                                                                 |
-| `lib/services/`     | `OrderDispatcher` routes by order type into the order services                                                                              |
+| `bin/`              | CDK app: `api-stack` (API Gateway + WAF), `lambda-stack`, `dynamo-stack`, `step-function-stack`, `reaper-stack` (ECS), `dashboard-stack`, `kms-stack`               |
+| `lib/handlers/`     | Lambda entry points: `post-order`, `get-orders`, `get-limit-orders`, `get-nonce`, `check-order-status`, `order-notification`, `get-docs`                |
+| `lib/models/`       | Order types: Dutch V1/V2/V3, Priority, Limit                                                                                                |
+| `lib/services/`     | `UniswapXOrderService` holds the order logic; `OrderDispatcher` routes GET reads by order type                                              |
 | `lib/repositories/` | DynamoDB access, one repository per order family, plus index mappers                                                                        |
-| `lib/crons/`        | `unimind-algorithm` (parameter updates), `gs-reaper` (status hygiene)                                                                       |
+| `lib/crons/`        | `gs-reaper` (status hygiene)                                                                                                                |
 
 ## Development
 
 There is no local server; the dev cycle runs against a real AWS account: build, deploy,
 exercise, read CloudWatch.
 
-Prerequisites: Node ≥ 20, yarn, Java (DynamoDB Local for tests), AWS credentials.
+Prerequisites: Node ≥ 20, yarn, Java (DynamoDB Local for integration tests), AWS credentials.
 
 ```bash
 yarn && yarn build
@@ -80,19 +87,33 @@ Environment (`.env`):
 | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
 | `RPC_PREFIX_URL`               | Base RPC URL. `getRpcUrl(chainId)` appends `/<chainId>`, so the endpoint must route per-chain on that suffix |
 | `RPC_HEADER_SECRET`            | Sent as `x-internal-service-secret` on every RPC request; omitted when unset                               |
-| `FAILED_EVENT_DESTINATION_ARN` | SNS destination for failed lambda events                                                                   |
-| `UNISWAP_API`                  | Deployed API url — e2e tests only                                                                          |
-| `LABS_COSIGNER`                | Any valid EVM address — certain unit tests only                                                            |
 
 ## Tests
 
 | Tier        | Command          | Needs                              |
 | ----------- | ---------------- | ---------------------------------- |
-| Unit        | `yarn test`      | Java (DynamoDB Local)              |
-| Integration | `yarn test:integ`| Java                               |
-| End-to-end  | `yarn test:e2e`  | A deployed stack + `UNISWAP_API`   |
+| Unit        | `yarn test`      | Nothing (no Java, no `.env`)       |
+| Integration | `yarn test:integ`| Java (starts DynamoDB Local)       |
+| End-to-end  | `yarn test:e2e`  | A deployed stack, `RPC_PREFIX_URL`/`RPC_HEADER_SECRET`, and the e2e variables in `.env.example` |
 
-CI runs lint, unit tests, and `rdme openapi:validate` against the swagger.
+The e2e lifecycle tests post real dust limit orders on mainnet and track them to expiry; they run
+only when `RUN_LIFECYCLE_TESTS=true`, which the beta pipeline gate sets.
+
+CI runs lint, build, `rdme openapi:validate` against the swagger, and the factory, unit and
+integration suites via `yarn coverage`.
+
+## Alerting
+
+CloudWatch alarms live in `api-stack` (API Gateway 5xx/4xx/latency), `lambda-stack` (per-endpoint
+5xx rates, Get Orders Lambda throttle ratio, notification error rates), `dynamo-stack` (table
+throttles/errors and read throttles on the hot Orders status GSIs) and `step-function-stack`.
+`bin/stacks/alerting.ts` wires them: `page()` for SEV2 alarms (except the client-driven PostOrder 4xx rate) sends Slack on ALARM and the incident.io
+CloudWatch connector on ALARM **and** OK; `notify()` for SEV3 alarms sends Slack only. incident.io
+only resolves an alert on OK and folds later ALARMs into an unresolved one, so an alarm without an
+OK action pages exactly once, ever. The step-function alarms have no actions: the per-chain expiry
+rate alarms transition ~2,000 times a month and need retuning first. The connector endpoint is a
+credential (the alert-source id in the URL authorizes the caller) and is read from Secrets Manager
+via `INCIDENT_IO_CLOUDWATCH_ENDPOINT_SECRET_ARN` in `bin/app.ts`; it must never be committed.
 
 ## Sharp edges
 

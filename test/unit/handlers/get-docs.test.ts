@@ -3,22 +3,12 @@ import schema from '../../../swagger.json'
 import { HeaderExpectation } from '../../HeaderExpectation'
 
 describe('Testing get api docs json handler.', () => {
-  // Creating mocks for all the handler dependencies.
-  const requestInjectedMock = {
-    log: { info: () => jest.fn(), error: () => jest.fn(), debug: () => jest.fn() },
-  }
-  const injectorPromiseMock: any = {
-    getContainerInjected: () => {
-      return {}
-    },
-    getRequestInjected: () => requestInjectedMock,
-  }
   const event = {
     queryStringParameters: {},
     body: null,
   }
 
-  const getDocsHandler = new GetDocsHandler('get-api-docs', injectorPromiseMock)
+  const getDocsHandler = new GetDocsHandler('get-api-docs')
 
   it('Testing valid request and response.', async () => {
     const getApiDocsJsonResponse = await getDocsHandler.handler(event as any, {} as any)

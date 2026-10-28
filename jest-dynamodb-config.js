@@ -1,315 +1,42 @@
+// Plain node, so the GSIs come from the JSON list CDK and the repositories also read
+// (lib/config/dynamodb.ts derives the same `${partitionKey}-createdAt-all` names).
+const GSI_PARTITION_KEYS = require('./lib/config/global-secondary-indexes.json')
+
+const THROUGHPUT = { ReadCapacityUnits: 5, WriteCapacityUnits: 5 }
+
+const ordersTable = (TableName) => ({
+  TableName,
+  KeySchema: [{ AttributeName: 'orderHash', KeyType: 'HASH' }],
+  AttributeDefinitions: [
+    { AttributeName: 'orderHash', AttributeType: 'S' },
+    ...GSI_PARTITION_KEYS.map(({ partitionKey, partitionKeyType }) => ({
+      AttributeName: partitionKey,
+      AttributeType: partitionKeyType,
+    })),
+    { AttributeName: 'createdAt', AttributeType: 'N' },
+  ],
+  GlobalSecondaryIndexes: GSI_PARTITION_KEYS.map(({ partitionKey }) => ({
+    IndexName: `${partitionKey}-createdAt-all`,
+    KeySchema: [
+      { AttributeName: partitionKey, KeyType: 'HASH' },
+      { AttributeName: 'createdAt', KeyType: 'RANGE' },
+    ],
+    Projection: { ProjectionType: 'ALL' },
+    ProvisionedThroughput: THROUGHPUT,
+  })),
+  ProvisionedThroughput: THROUGHPUT,
+})
+
 module.exports = {
   tables: [
-    {
-      TableName: `Orders`,
-      KeySchema: [{ AttributeName: 'orderHash', KeyType: 'HASH' }],
-      AttributeDefinitions: [
-        { AttributeName: 'orderHash', AttributeType: 'S' },
-        { AttributeName: 'offerer', AttributeType: 'S' },
-        { AttributeName: 'filler', AttributeType: 'S' },
-        { AttributeName: 'orderStatus', AttributeType: 'S' },
-        { AttributeName: 'chainId', AttributeType: 'N' },
-        { AttributeName: 'chainId_filler', AttributeType: 'S' },
-        { AttributeName: 'chainId_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'offerer_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'filler_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'filler_offerer', AttributeType: 'S' },
-        { AttributeName: 'filler_offerer_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'chainId_orderStatus_filler', AttributeType: 'S' },
-        { AttributeName: 'pair', AttributeType: 'S' },
-        { AttributeName: 'createdAt', AttributeType: 'N' },
-      ],
-      GlobalSecondaryIndexes: [
-        {
-          IndexName: 'offerer-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'offerer', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'filler-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'filler', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'chainId-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'chainId', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'chainId_filler-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'chainId_filler', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'chainId_orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'chainId_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'chainId_orderStatus_filler-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'chainId_orderStatus_filler', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'offerer_orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'filler_orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'filler_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'filler_offerer-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'filler_offerer', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'filler_offerer_orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'filler_offerer_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'pair-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'pair', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: { ProjectionType: 'ALL' },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-      ],
-      ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-    },
-    {
-      TableName: `LimitOrders`,
-      KeySchema: [{ AttributeName: 'orderHash', KeyType: 'HASH' }],
-      AttributeDefinitions: [
-        { AttributeName: 'orderHash', AttributeType: 'S' },
-        { AttributeName: 'offerer', AttributeType: 'S' },
-        { AttributeName: 'filler', AttributeType: 'S' },
-        { AttributeName: 'orderStatus', AttributeType: 'S' },
-        { AttributeName: 'chainId', AttributeType: 'N' },
-        { AttributeName: 'chainId_filler', AttributeType: 'S' },
-        { AttributeName: 'chainId_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'offerer_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'filler_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'filler_offerer', AttributeType: 'S' },
-        { AttributeName: 'filler_offerer_orderStatus', AttributeType: 'S' },
-        { AttributeName: 'chainId_orderStatus_filler', AttributeType: 'S' },
-        { AttributeName: 'createdAt', AttributeType: 'N' },
-      ],
-      GlobalSecondaryIndexes: [
-        {
-          IndexName: 'offerer-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'offerer', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'filler-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'filler', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'chainId-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'chainId', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'chainId_filler-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'chainId_filler', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'chainId_orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'chainId_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'chainId_orderStatus_filler-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'chainId_orderStatus_filler', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'offerer_orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'offerer_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'filler_orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'filler_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'filler_offerer-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'filler_offerer', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-        {
-          IndexName: 'filler_offerer_orderStatus-createdAt-all',
-          KeySchema: [
-            { AttributeName: 'filler_offerer_orderStatus', KeyType: 'HASH' },
-            { AttributeName: 'createdAt', KeyType: 'RANGE' },
-          ],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-          ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-        },
-      ],
-      ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-    },
+    ordersTable('Orders'),
+    ordersTable('LimitOrders'),
     {
       TableName: `Nonces`,
       KeySchema: [{ AttributeName: 'offerer', KeyType: 'HASH' }],
       AttributeDefinitions: [{ AttributeName: 'offerer', AttributeType: 'S' }],
-      ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
+      ProvisionedThroughput: THROUGHPUT,
     },
-    {
-      TableName: 'UnimindParameters',
-      KeySchema: [{ AttributeName: 'pair', KeyType: 'HASH' }],
-      AttributeDefinitions: [
-        { AttributeName: 'pair', AttributeType: 'S' }
-      ],
-      ProvisionedThroughput: { ReadCapacityUnits: 1, WriteCapacityUnits: 1 }
-    }
   ],
   port: 8000,
 }

@@ -7,21 +7,26 @@ import {
   OrderType,
   OrderValidation,
   OrderValidator,
-  UniswapXEventWatcher,
-  CosignedHybridOrder,
 } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
-import { ORDER_STATUS, RelayOrderEntity, SettledAmount, UniswapXOrderEntity } from '../../entities'
+import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { log } from '../../Logging'
 import { CheckOrderStatusHandlerMetricNames, wrapWithTimerMetric } from '../../Metrics'
 import { checkDefined } from '../../preconditions/preconditions'
-import { BaseOrdersRepository } from '../../repositories/base'
+import { BaseOrdersRepository, SERVICE_STORE_CONTEXT } from '../../repositories/base'
 import { AnalyticsServiceInterface } from '../../services/analytics-service'
 import { ChainId } from '../../util/chain'
 import { metrics } from '../../util/metrics'
 import { SfnStateInputOutput } from '../base'
 import { FillEventLogger } from './fill-event-logger'
-import { AVERAGE_BLOCK_TIME, getSettledAmounts, IS_TERMINAL_STATE, timestampToBlockNumber } from './util'
+import {
+  AVERAGE_BLOCK_TIME,
+  getSettledAmounts,
+  IS_TERMINAL_STATE,
+  OrderFillWatcher,
+  RetryWaitContext,
+  timestampToBlockNumber,
+} from './util'
 import { parseOrder } from '../OrderParser'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../constants'
 import { PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
@@ -41,20 +46,12 @@ const FILL_CHECK_OVERLAP_SECONDS = 240
 const FILL_SEARCH_SLACK_BLOCKS = 500
 
 export function getFillCheckOverlapBlocks(chainId: number): number {
-  try {
-    return Math.max(FILL_CHECK_OVERLAP_BLOCK, Math.ceil(FILL_CHECK_OVERLAP_SECONDS / AVERAGE_BLOCK_TIME(chainId)))
-  } catch {
-    // Chains without a registered cadence (testnets) keep the legacy pad.
-    return FILL_CHECK_OVERLAP_BLOCK
-  }
+  return Math.max(FILL_CHECK_OVERLAP_BLOCK, Math.ceil(FILL_CHECK_OVERLAP_SECONDS / AVERAGE_BLOCK_TIME(chainId)))
 }
-
-// Type for legacy orders that have input at the info level
-type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
 
 /**
  * The block at which the order's auction/decay starts, for order types that
- * encode it as a block number (Dutch V3, Hybrid, Priority). Returns undefined
+ * encode it as a block number (Dutch V3, Priority). Returns undefined
  * for timestamp-based order types and for missing or non-positive values -- a
  * zero here is an absent field's default, not a real block, and anchoring a
  * search to block zero turns it into an unbounded getLogs.
@@ -64,9 +61,6 @@ export function getAuctionStartBlock(order: UniswapXOrderEntity, chainId: number
   switch (order.type) {
     case OrderType.Dutch_V3:
       block = order.cosignerData?.decayStartBlock
-      break
-    case OrderType.Hybrid:
-      block = order.cosignerData?.auctionTargetBlock
       break
     case OrderType.Priority:
       block =
@@ -86,16 +80,18 @@ export type CheckOrderStatusRequest = {
   getFillLogAttempts: number
   retryCount: number
   provider: ethers.providers.StaticJsonRpcProvider
-  orderWatcher: UniswapXEventWatcher
+  orderWatcher: OrderFillWatcher
   orderQuoter: OrderValidator
   quoteId: string //only used for logging
   orderType: OrderType
+  runIndex?: number
 }
 
 export type ExtraUpdateInfo = {
   orderStatus: ORDER_STATUS
   txHash?: string
   fillBlock?: number
+  fillTimestamp?: number
   settledAmounts?: SettledAmount[]
   getFillLogAttempts?: number
 }
@@ -119,10 +115,11 @@ export class CheckOrderStatusService {
     orderQuoter,
     orderWatcher,
     orderStatus,
+    runIndex,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order: UniswapXOrderEntity = checkDefined(
       await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
-        this.dbInterface.getByHash(orderHash),
+        this.dbInterface.getByHash(SERVICE_STORE_CONTEXT, orderHash),
         CheckOrderStatusHandlerMetricNames.GetFromDynamoTime
       ),
       `cannot find order by hash when updating order status, hash: ${orderHash}`
@@ -131,11 +128,7 @@ export class CheckOrderStatusService {
     const parsedOrder = parseOrder(order, chainId)
     // We only check for nonce used and expired for permissioned tokens
     // since the order quoter can't move input tokens
-    // For v4 orders like Hybrid, input is at a different level. Get input token safely.
-    const inputToken = parsedOrder instanceof CosignedHybridOrder 
-      ? parsedOrder.info.input.token 
-      : (parsedOrder as LegacyUniswapXOrder).info.input.token
-    const isPermissionedToken = PermissionedTokenValidator.isPermissionedToken(inputToken, chainId)
+    const isPermissionedToken = PermissionedTokenValidator.isPermissionedToken(parsedOrder.info.input.token, chainId)
     const validationPromise = isPermissionedToken
       ? new Permit2Validator(provider, chainId).validate(parsedOrder)
       : orderQuoter.validate({
@@ -174,7 +167,20 @@ export class CheckOrderStatusService {
       throw error
     }
 
-    const fromBlock = !startingBlockNumber ? curBlockNumber - this.fillEventBlockLookback(chainId) : startingBlockNumber
+    const rollingStartBlock = curBlockNumber - this.fillEventBlockLookback(chainId)
+    const fromBlock = startingBlockNumber
+      ? startingBlockNumber
+      : this.getRunStartBlock(order, chainId, runIndex, curBlockNumber, Math.floor(Date.now() / 1000))
+    if (!startingBlockNumber && fromBlock < rollingStartBlock) {
+      // Shows how often a first poll still runs long after the order was posted.
+      log.info('first tracking poll delayed; fill search reaches back to order creation', {
+        orderHash,
+        chainId,
+        extraBlocks: rollingStartBlock - fromBlock,
+      })
+      metrics.putMetric(`OrderSfn-FirstRunWindowExtended`, 1)
+      metrics.putMetric(`OrderSfn-FirstRunWindowExtended-chain-${chainId}`, 1)
+    }
 
     const commonUpdateInfo = {
       orderHash,
@@ -187,6 +193,7 @@ export class CheckOrderStatusService {
       // Echoed into the SFN state so the handler can stop respawning
       // executions for orders long past their deadline.
       deadline: order.deadline,
+      createdAt: order.createdAt,
     }
 
     let extraUpdateInfo = undefined
@@ -249,7 +256,6 @@ export class CheckOrderStatusService {
               break;
             case OrderType.Dutch_V3: // Exact
             case OrderType.Priority: // Approximation
-            case OrderType.Hybrid: // Exact
               if (auctionStartBlock !== undefined) {
                 fillTimeBlocks = fillBlock - auctionStartBlock;
               }
@@ -284,6 +290,7 @@ export class CheckOrderStatusService {
             orderStatus: ORDER_STATUS.FILLED,
             txHash: fillEvent.txHash,
             fillBlock: fillEvent.blockNumber,
+            fillTimestamp: block.timestamp,
             settledAmounts,
           }
         } catch (e) {
@@ -316,8 +323,40 @@ export class CheckOrderStatusService {
   }
 
   /**
+   * Where a run's fill-search window starts when it carries none. A restart starts
+   * from its first poll (see the handler). The first run starts no later than the
+   * order's creation: its first poll can be delayed (Step Functions throttling has
+   * held it back by hours), and a window anchored at that poll misses a fill that
+   * landed in the meantime, so the used nonce is recorded as a cancellation. Dutch V3
+   * and Priority orders skip this: their fill search already anchors to the exact
+   * auction start block (getFillSearchFromBlock).
+   */
+  private getRunStartBlock(
+    order: UniswapXOrderEntity,
+    chainId: number,
+    runIndex: number | undefined,
+    curBlockNumber: number,
+    nowSeconds: number
+  ): number {
+    const rollingStart = curBlockNumber - this.fillEventBlockLookback(chainId)
+    if (
+      runIndex ||
+      !order.createdAt ||
+      order.createdAt >= nowSeconds ||
+      getAuctionStartBlock(order, chainId) !== undefined
+    ) {
+      return rollingStart
+    }
+    const averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
+    // Twice the elapsed blocks at the average cadence, so a chain running faster
+    // than its registered block time cannot push the estimate past creation.
+    const blocksSinceCreation = Math.floor((2 * (nowSeconds - order.createdAt)) / averageBlockTime)
+    return Math.max(0, Math.min(rollingStart, curBlockNumber - blocksSinceCreation - this.fillEventBlockLookback(chainId)))
+  }
+
+  /**
    * Lower bound (inclusive) for the fill-event search. When the order's
-   * decay/auction start block is known exactly (Dutch V3, Hybrid, Priority) we
+   * decay/auction start block is known exactly (Dutch V3, Priority) we
    * anchor to it so fills that land at or just before it are always in range,
    * regardless of when polling first ran. For timestamp-based order types
    * (Dutch, Dutch V2) we keep the rolling lookback window. The pad below the
@@ -354,19 +393,13 @@ export class CheckOrderStatusService {
     order: UniswapXOrderEntity,
     chainId: number,
     searchFromBlock: number,
-    curBlockNumber: number
+    curBlockNumber: number,
+    nowSeconds: number = Math.floor(Date.now() / 1000)
   ): number {
     if (!order.createdAt || !order.deadline || order.deadline <= order.createdAt) {
       return curBlockNumber
     }
-    // getAverageBlockTimeSecs throws for chains it doesn't know (testnets);
-    // fall back to the uncapped window rather than failing the poll.
-    let averageBlockTime: number
-    try {
-      averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
-    } catch {
-      return curBlockNumber
-    }
+    const averageBlockTime = AVERAGE_BLOCK_TIME(chainId)
     // 3x, not a snug bound: the registry is a hand-maintained constant, and a
     // chain speeding up past it shrinks this window in real blocks -- the
     // multiplier is headroom against that drift. The overlap pad is added
@@ -375,9 +408,17 @@ export class CheckOrderStatusService {
     // the order's fill range and re-create the misclassification the pad
     // exists to prevent.
     const lifespanBlocks = Math.ceil((order.deadline - order.createdAt) / averageBlockTime)
+    // A first run whose first poll was delayed searches from well before creation
+    // (getRunStartBlock), so measure the lifetime from the estimated creation block
+    // when that is later than the lower bound. Use the latest plausible creation
+    // block (half the elapsed blocks at the average cadence), mirroring the 2x on
+    // the lower bound, so a chain running slower than its registered block time
+    // cannot pull the cap below the fill.
+    const creationBlock = curBlockNumber - Math.floor((nowSeconds - order.createdAt) / (2 * averageBlockTime))
+    const lifetimeStart = Math.max(searchFromBlock, creationBlock)
     return Math.min(
       curBlockNumber,
-      searchFromBlock + getFillCheckOverlapBlocks(chainId) + 3 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS
+      lifetimeStart + getFillCheckOverlapBlocks(chainId) + 3 * lifespanBlocks + FILL_SEARCH_SLACK_BLOCKS
     )
   }
 
@@ -385,10 +426,10 @@ export class CheckOrderStatusService {
     orderHash: string,
     fromBlock: number,
     toBlock: number,
-    orderWatcher: UniswapXEventWatcher
+    orderWatcher: OrderFillWatcher
   ): Promise<FillInfo | undefined> {
     const fillEvents = await wrapWithTimerMetric(
-      orderWatcher.getFillInfo(fromBlock, toBlock),
+      orderWatcher.getFillInfoForOrder(orderHash, fromBlock, toBlock),
       CheckOrderStatusHandlerMetricNames.GetFillEventsTime
     )
 
@@ -402,8 +443,8 @@ export class CheckOrderStatusUtils {
   constructor(
     private readonly serviceOrderType: OrderType,
     private readonly analyticsService: AnalyticsServiceInterface,
-    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity> | BaseOrdersRepository<RelayOrderEntity>,
-    private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number) => number
+    private readonly repository: BaseOrdersRepository<UniswapXOrderEntity>,
+    private calculateRetryWaitSeconds: (chainId: ChainId, retryCount: number, context: RetryWaitContext) => number
   ) {}
 
   public async updateStatusAndReturn(params: {
@@ -417,10 +458,12 @@ export class CheckOrderStatusUtils {
     quoteId: string
     txHash?: string
     fillBlock?: number
+    fillTimestamp?: number
     settledAmounts?: SettledAmount[]
     getFillLogAttempts?: number
     runIndex?: number
     deadline?: number
+    createdAt?: number
   }): Promise<SfnStateInputOutput> {
     const {
       orderHash,
@@ -432,11 +475,13 @@ export class CheckOrderStatusUtils {
       orderStatus,
       txHash,
       fillBlock,
+      fillTimestamp,
       settledAmounts,
       getFillLogAttempts,
       validation,
       runIndex,
       deadline,
+      createdAt,
     } = params
 
     // Avoid updating the order if the status is unchanged.
@@ -448,7 +493,12 @@ export class CheckOrderStatusUtils {
         this.analyticsService.logCancelled(orderHash, this.serviceOrderType, quoteId)
       }
       log.info('calling updateOrderStatus', { orderHash, orderStatus, lastStatus })
-      await this.repository.updateOrderStatus(orderHash, orderStatus, txHash, fillBlock, settledAmounts)
+      await this.repository.updateOrderStatus(SERVICE_STORE_CONTEXT, orderHash, orderStatus, {
+        txHash,
+        fillBlock,
+        settledAmounts,
+        fillTimestamp,
+      })
       if (IS_TERMINAL_STATE(orderStatus)) {
         metrics.putMetric(`OrderSfn-${orderStatus}`, 1)
         metrics.putMetric(`OrderSfn-${orderStatus}-chain-${chainId}`, 1)
@@ -476,13 +526,19 @@ export class CheckOrderStatusUtils {
       orderStatus: orderStatus,
       retryCount: (retryCount || 0) + 1,
       quoteId: quoteId,
-      retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount),
+      retryWaitSeconds: this.calculateRetryWaitSeconds(chainId, retryCount, {
+        orderStatus,
+        getFillLogAttempts,
+        createdAt,
+        nowSeconds: Math.floor(Date.now() / 1000),
+      }),
       startingBlockNumber: startingBlockNumber,
       chainId: chainId,
       runIndex: runIndex || 0,
       ...(settledAmounts && { settledAmounts }),
       ...(txHash && { txHash }),
       ...(fillBlock && { fillBlock }),
+      ...(fillTimestamp && { fillTimestamp }),
       ...(getFillLogAttempts && { getFillLogAttempts }),
       ...(deadline && { deadline }),
     }

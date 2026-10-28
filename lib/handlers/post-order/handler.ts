@@ -1,59 +1,55 @@
 import { Unit } from 'aws-embedded-metrics'
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
 import Joi from 'joi'
 
 import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
-import { NoHandlerConfiguredError } from '../../errors/NoHandlerConfiguredError'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
-import { Order } from '../../models/Order'
-import { OrderDispatcher } from '../../services/OrderDispatcher'
+import { UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { metrics } from '../../util/metrics'
 import {
   APIGLambdaHandler,
   APIHandleRequestParams,
-  ApiInjector,
   ApiRInj,
   ErrorCode,
   ErrorResponse,
+  RequestMetricsConfig,
   Response,
 } from '../base'
-import { ContainerInjected as PostContainerInjected } from '../shared/post'
-import { PostOrderBodyParser } from './PostOrderBodyParser'
+import { PostableOrder, PostOrderBodyParser } from './PostOrderBodyParser'
+import { PostOrderRoute, wrongRouteDetail } from './routes'
 import { PostOrderRequestBody, PostOrderRequestBodyJoi, PostOrderResponse, PostOrderResponseJoi } from './schema'
 
-export class PostOrderHandler extends APIGLambdaHandler<
-  PostContainerInjected,
-  ApiRInj,
-  PostOrderRequestBody,
-  void,
-  PostOrderResponse
-> {
+export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderRequestBody, void, PostOrderResponse> {
   constructor(
     handlerName: string,
-    injectorPromise: Promise<ApiInjector<PostContainerInjected, ApiRInj, PostOrderRequestBody, void>>,
-    private readonly orderDispatcher: OrderDispatcher,
-    private readonly bodyParser: PostOrderBodyParser
+    private readonly orderService: Pick<UniswapXOrderService, 'createOrder'>,
+    private readonly bodyParser: PostOrderBodyParser,
+    private readonly route: PostOrderRoute
   ) {
-    super(handlerName, injectorPromise)
+    super(handlerName)
+  }
+
+  protected buildRequestInjected(base: ApiRInj): ApiRInj {
+    return base
   }
 
   public async handleRequest(
-    params: APIHandleRequestParams<PostContainerInjected, ApiRInj, PostOrderRequestBody, void>
+    params: APIHandleRequestParams<ApiRInj, PostOrderRequestBody, void>
   ): Promise<Response<PostOrderResponse> | ErrorResponse> {
     const {
       requestBody,
       requestInjected: { log },
     } = params
 
-    let order: Order
+    let order: PostableOrder
 
     try {
       order = this.bodyParser.fromPostRequest(requestBody)
-      log.info({ parsedOrder: order, orderType: order.orderType }, 'parsed order')
     } catch (e: unknown) {
-      log.error(e, 'Failed to parse order')
+      // The one log for a failed parse: the encoded order, never the signature.
+      const { orderType, chainId, encodedOrder } = requestBody
+      log.error({ err: e, orderType, chainId, encodedOrder }, 'Failed to parse order')
       return {
         statusCode: HttpStatusCode.BadRequest,
         errorCode: ErrorCode.OrderParseFail,
@@ -61,8 +57,24 @@ export class PostOrderHandler extends APIGLambdaHandler<
       }
     }
 
+    const { info, chainId } = order.inner
+    log.info(
+      { orderType: order.orderType, orderHash: order.inner.hash(), chainId, swapper: info.swapper },
+      'parsed order'
+    )
+
+    if (!this.route.accepts(order.orderType)) {
+      log.warn({ orderType: order.orderType, route: this.route.path }, 'Rejected order posted to the wrong route')
+      metrics.putMetric('PostOrderWrongRoute', 1, Unit.Count)
+      return {
+        statusCode: HttpStatusCode.BadRequest,
+        errorCode: ErrorCode.InvalidOrder,
+        detail: wrongRouteDetail(order.orderType),
+      }
+    }
+
     try {
-      const orderHash = await this.orderDispatcher.createOrder(order)
+      const orderHash = await this.orderService.createOrder(order)
       return {
         statusCode: HttpStatusCode.Created,
         body: { hash: orderHash },
@@ -90,12 +102,6 @@ export class PostOrderHandler extends APIGLambdaHandler<
         }
       }
 
-      if (err instanceof NoHandlerConfiguredError) {
-        return {
-          statusCode: HttpStatusCode.InternalServerError,
-        }
-      }
-
       return {
         statusCode: HttpStatusCode.InternalServerError,
         errorCode: ErrorCode.InternalError,
@@ -116,30 +122,7 @@ export class PostOrderHandler extends APIGLambdaHandler<
     return PostOrderResponseJoi
   }
 
-  protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
-    const { statusCode } = response
-
-    // Try and extract the chain id from the raw json.
-    let chainId = '0'
-    try {
-      const rawBody = JSON.parse(event.body!)
-      chainId = rawBody.chainId ?? chainId
-    } catch (err) {
-      // no-op. If we can't get chainId still log the metric as chain 0
-    }
-
-    const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
-
-    const postOrderByChainMetricName = `PostOrderChainId${chainId.toString()}Status${statusCodeMod}`
-    metrics.putMetric(postOrderByChainMetricName, 1, Unit.Count)
-
-    const postOrderMetricName = `PostOrderStatus${statusCodeMod}`
-    metrics.putMetric(postOrderMetricName, 1, Unit.Count)
-
-    const postOrderRequestMetricName = `PostOrderRequest`
-    metrics.putMetric(postOrderRequestMetricName, 1, Unit.Count)
-
-    const postOrderRequestByChainIdMetricName = `PostOrderRequestChainId${chainId.toString()}`
-    metrics.putMetric(postOrderRequestByChainIdMetricName, 1, Unit.Count)
+  protected requestMetricsConfig(): RequestMetricsConfig {
+    return { prefix: 'PostOrder', chainIdFrom: 'body' }
   }
 }

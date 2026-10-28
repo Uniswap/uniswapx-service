@@ -4,63 +4,21 @@ import { AddressZero } from '@ethersproject/constants'
 import { FillInfo, OrderType } from '@uniswap/uniswapx-sdk'
 import {
   isDutchV3OrderEntity,
-  isHybridOrderEntity,
   isPriorityOrderEntity,
   ORDER_STATUS,
-  RelayOrderEntity,
   SettledAmount,
   UniswapXOrderEntity,
 } from '../entities'
 import { log } from '../Logging'
 import { ANALYTICS_EVENTS } from '../util/analytics-events'
-import { UnimindUpdateType } from '../util/constants'
 import { currentTimestampInSeconds } from '../util/time'
 
 export interface AnalyticsServiceInterface {
   logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType): void
   logCancelled(orderHash: string, orderType: OrderType, quoteId?: string): void
   logInsufficientFunds(orderHash: string, orderType: OrderType, quoteId?: string): void
-  logUnimindResponse(params: UnimindResponseParams): void
-  logUnimindParameterUpdate(params: UnimindParameterUpdateParams): void
 }
 
-// Parameters for Unimind response analytics
-export interface UnimindResponseParams {
-  pi: number
-  tau: number
-  batchNumber: number
-  algorithmVersion: number
-  quoteId: string
-  pair: string
-  swapper?: string
-  priceImpact: number
-  referencePrice: string
-  route?: any
-  amountIn?: string
-  amountOut?: string
-  chainId?: number
-  tradeType?: string
-  onUnimindTokenList?: boolean
-}
-
-// Parameters for Unimind parameter update analytics
-export interface UnimindParameterUpdateParams {
-  pair: string
-  updateType: UnimindUpdateType
-  previousIntrinsicValues?: string
-  newIntrinsicValues: string
-  orderCount: number
-  totalCount?: number
-  batchNumber: number
-  algorithmVersion: number
-  updateThreshold?: number
-  // Statistics from batch - only provided for THRESHOLD_REACHED updates (JSON stringified)
-  statistics?: string
-  // Batch metrics - only provided for THRESHOLD_REACHED updates
-  meanWaitTime?: number
-  medianWaitTime?: number
-  fillRate?: number
-}
 // used to log data used for analytics
 export class AnalyticsService implements AnalyticsServiceInterface {
   constructor(
@@ -85,15 +43,10 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       tokenIn: order.input?.token,
       tokenOut: order.outputs[0].token,
       orderType: orderType,
-      blockNumber: order?.blockNumber,
-      route: JSON.stringify(order?.route),
-      usedUnimind: order?.usedUnimind ?? false,
-      priceImpact: order?.priceImpact,
-      referencePrice: order?.referencePrice,
     }
 
     if (isPriorityOrderEntity(order)) {
-      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.amount > cur.amount ? prev : cur))
+      const userOutput = largestOutput(order.outputs, (output) => output.amount)
       this.logger.info('Analytics Message', {
         eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
@@ -109,7 +62,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         }),
       })
     } else if (isDutchV3OrderEntity(order)) {
-      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
+      const userOutput = largestOutput(order.outputs, (output) => output.startAmount)
       this.logger.info('Analytics Message', {
         eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
@@ -121,22 +74,8 @@ export class AnalyticsService implements AnalyticsServiceInterface {
           startingBaseFee: order.startingBaseFee,
         }),
       })
-    } else if (isHybridOrderEntity(order)) {
-      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.minAmount > cur.minAmount ? prev : cur))
-      this.logger.info('Analytics Message', {
-        eventType: ANALYTICS_EVENTS.ORDER_POSTED,
-        body: Object.assign(sharedFields, {
-          auctionStartBlock: order.auctionStartBlock,
-          auctionTargetBlock: order.cosignerData.auctionTargetBlock,
-          baselinePriorityFeeWei: order.baselinePriorityFeeWei,
-          scalingFactor: order.scalingFactor,
-          inputMaxAmount: order.input?.maxAmount,
-          outputMinAmount: userOutput.minAmount,
-          priceCurve: JSON.stringify(order.priceCurve),
-        }),
-      })
     } else {
-      const userOutput = order.outputs.reduce((prev, cur) => (prev && prev.startAmount > cur.startAmount ? prev : cur))
+      const userOutput = largestOutput(order.outputs, (output) => output.startAmount)
       this.logger.info('Analytics Message', {
         eventType: ANALYTICS_EVENTS.ORDER_POSTED,
         body: Object.assign(sharedFields, {
@@ -175,7 +114,7 @@ export class AnalyticsService implements AnalyticsServiceInterface {
 
   public logFillInfo(
     fill: FillInfo,
-    order: UniswapXOrderEntity | RelayOrderEntity,
+    order: UniswapXOrderEntity,
     quoteId: string | undefined,
     timestamp: number,
     gasCostInETH: string,
@@ -214,31 +153,13 @@ export class AnalyticsService implements AnalyticsServiceInterface {
       },
     })
   }
+}
 
-  public logUnimindResponse(params: UnimindResponseParams): void {
-    this.logger.info('Analytics Message', {
-      eventType: ANALYTICS_EVENTS.UNIMIND_RESPONSE,
-      body: {
-        createdAt: this.createdAtTimestampInSeconds(),
-        createdAtMs: Date.now().toString(),
-        ...params,
-        // Ensure route is stringified if it exists
-        route: params.route ? JSON.stringify(params.route) : undefined,
-        // Format the swapper address consistently with other analytics
-        swapper: this.getFillerAddress(params.swapper ?? AddressZero),
-        tradeType: params.tradeType,
-      },
-    })
-  }
-
-  public logUnimindParameterUpdate(params: UnimindParameterUpdateParams): void {
-    this.logger.info('Analytics Message', {
-      eventType: ANALYTICS_EVENTS.UNIMIND_PARAMETER_UPDATE,
-      body: {
-        createdAt: this.createdAtTimestampInSeconds(),
-        createdAtMs: Date.now().toString(),
-        ...params,
-      },
-    })
-  }
+/**
+ * The swapper's output: the largest, as an amount. Fee outputs pay the same token and are smaller.
+ * Compared as numbers, not strings, so a fee of 99... does not beat 2000... . On a tie the later
+ * output wins, as it always has.
+ */
+function largestOutput<T>(outputs: readonly T[], amount: (output: T) => string): T {
+  return outputs.reduce((largest, output) => (BigInt(amount(largest)) > BigInt(amount(output)) ? largest : output))
 }

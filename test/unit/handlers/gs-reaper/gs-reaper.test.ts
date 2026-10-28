@@ -26,7 +26,7 @@ const mockOrdersRepository = {
     return mockOrdersRepository.orders.get(orderHash) || null
   }),
 
-  getByHash: jest.fn(async (orderHash) => {
+  getByHash: jest.fn(async (_ctx, orderHash) => {
     return mockOrdersRepository.orders.get(orderHash) || null
   }),
 
@@ -44,14 +44,16 @@ const mockOrdersRepository = {
     }
   }),
 
-  updateOrderStatus: jest.fn(async (orderHash, status, txHash, fillBlock, settledAmounts) => {
+  updateOrderStatus: jest.fn(async (_ctx, orderHash, status, fill = {}) => {
     const order = mockOrdersRepository.orders.get(orderHash)
     if (order) {
+      const { txHash, fillBlock, fillTimestamp, settledAmounts } = fill
       mockOrdersRepository.orders.set(orderHash, {
         ...order,
         orderStatus: status,
         txHash,
         fillBlock,
+        fillTimestamp,
         settledAmounts
       })
     }
@@ -98,6 +100,17 @@ jest.mock('ethers', () => ({
 
 // Setup mock watcher
 const mockFillBlockNumber = OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE/2
+const mockFills = [{
+  orderHash: MOCK_ORDER_ENTITY.orderHash,
+  txHash: '0xmocktxhash',
+  blockNumber: mockFillBlockNumber,
+},
+{
+  orderHash: MOCK_V2_ORDER_ENTITY.orderHash,
+  txHash: '0xmocktxhash2',
+  blockNumber: mockFillBlockNumber,
+}]
+const getMockFillsForOrder = async (orderHash) => mockFills.filter((f) => f.orderHash === orderHash)
 const mockWatcher = {
   getFillEvents: jest.fn().mockImplementation(async (chainId, fromBlock, toBlock) => {
     // Only return events if the block range matches expected range
@@ -109,16 +122,9 @@ const mockWatcher = {
     }
     return []
   }),
-  getFillInfo: jest.fn().mockResolvedValue([{
-    orderHash: MOCK_ORDER_ENTITY.orderHash,
-    txHash: '0xmocktxhash',
-    blockNumber: mockFillBlockNumber,
-  },
-  {
-    orderHash: MOCK_V2_ORDER_ENTITY.orderHash,
-    txHash: '0xmocktxhash2',
-    blockNumber: mockFillBlockNumber,
-  }]),
+  getFillInfoForOrder: jest.fn().mockImplementation(getMockFillsForOrder),
+  // The SDK's range-wide lookup; the reaper must never call it.
+  getFillInfo: jest.fn(),
 }
 
 // Mock the UniswapXEventWatcher constructor
@@ -141,6 +147,7 @@ jest.mock('../../../../lib/handlers/check-order-status/util', () => {
 
   return {
     ...jest.requireActual('../../../../lib/handlers/check-order-status/util'),
+    OrderFillWatcher: jest.fn().mockImplementation(() => mockWatcher),
     getSettledAmounts: jest.fn().mockReturnValue([
       {
         tokenOut: testData.MOCK_ORDER_ENTITY.outputs[0].token,
@@ -185,16 +192,7 @@ describe('GSReaper', () => {
     // Add test order to repository
     await mockOrdersRepository.addOrder(MOCK_ORDER_ENTITY)
     mockWatcher.getFillEvents.mockResolvedValue([{ orderHash: MOCK_V2_ORDER_ENTITY.orderHash }, { orderHash: MOCK_ORDER_ENTITY.orderHash }])
-    mockWatcher.getFillInfo.mockResolvedValue([{
-      orderHash: MOCK_ORDER_ENTITY.orderHash,
-      txHash: '0xmocktxhash',
-      blockNumber: mockFillBlockNumber,
-    },
-    {
-      orderHash: MOCK_V2_ORDER_ENTITY.orderHash,
-      txHash: '0xmocktxhash2',
-      blockNumber: mockFillBlockNumber,
-    }])
+    mockWatcher.getFillInfoForOrder.mockImplementation(getMockFillsForOrder)
     
     // Create new reaper instance with OPEN status
     reaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN)
@@ -325,6 +323,43 @@ describe('GSReaper', () => {
       expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash].status).toBe(ORDER_STATUS.FILLED)
       // Verify order was removed from parsedOrders
       expect(result?.orderHashes.includes(MOCK_ORDER_ENTITY.orderHash)).toBe(false)
+    })
+
+    it('looks up only the matched order\'s fill, not every fill in a busy range', async () => {
+      // Regression: from Sep 28 to Oct 23 2026 the prod reaper task died about
+      // every 2h (~500 restarts, peaking at ~190/day). Each death came right after
+      // "Fill event found" for a mainnet limit order on the Dutch reactor. The
+      // SDK's getFillInfo fetched a receipt for every Fill in the 10k-block range
+      // concurrently (6,248 logs at ~16KB each), which pushed the 1 GiB task to
+      // 100% memory and got it killed. The crash recurred on the same cursor page
+      // every cycle, so later limit pages never reached UPDATE_DB.
+      const otherFills = Array.from({ length: 6000 }, (_, i) => ({ orderHash: `0xother${i}` }))
+      mockWatcher.getFillEvents.mockImplementation(async (lowBlock, highBlock) =>
+        mockFillBlockNumber >= lowBlock && mockFillBlockNumber <= highBlock
+          ? [...otherFills, { orderHash: MOCK_ORDER_ENTITY.orderHash }]
+          : []
+      )
+      const fillRange = { low: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET], high: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET] + BLOCK_RANGE }
+
+      const result = await reaper.processChainState({
+        chainId: ChainId.MAINNET,
+        currentBlock: fillRange.high,
+        earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+        orderUpdates: {},
+        orderHashes: [MOCK_ORDER_ENTITY.orderHash],
+        failedFillScanRanges: [],
+        stage: ReaperStage.PROCESS_BLOCKS
+      })
+
+      expect(mockWatcher.getFillInfo).not.toHaveBeenCalled()
+      expect(mockWatcher.getFillInfoForOrder).toHaveBeenCalledTimes(1)
+      expect(mockWatcher.getFillInfoForOrder).toHaveBeenCalledWith(MOCK_ORDER_ENTITY.orderHash, fillRange.low, fillRange.high)
+      expect(result?.orderUpdates[MOCK_ORDER_ENTITY.orderHash]).toMatchObject({
+        status: ORDER_STATUS.FILLED,
+        txHash: '0xmocktxhash',
+        fillBlock: mockFillBlockNumber,
+      })
+      expect(result?.failedFillScanRanges).toEqual([])
     })
 
     it('processes CHECK_CANCELLED stage correctly', async () => {
@@ -582,9 +617,9 @@ describe('GSReaper', () => {
 
     it('records the failed range when a fill event is observed but cannot be processed', async () => {
       // The fill event was literally seen -- if enriching it fails (e.g. the
-      // second getFillInfo getLogs call), the order must not fall through to
+      // order's own fill lookup), the order must not fall through to
       // CHECK_CANCELLED as if the range were cleanly scanned.
-      mockWatcher.getFillInfo.mockRejectedValue(new Error('limit exceeded'))
+      mockWatcher.getFillInfoForOrder.mockRejectedValue(new Error('limit exceeded'))
 
       const state = {
         chainId: ChainId.MAINNET,
@@ -618,7 +653,8 @@ describe('GSReaper', () => {
           [MOCK_ORDER_ENTITY.orderHash]: {
             status: ORDER_STATUS.FILLED,
             txHash: '0xmocktxhash',
-            fillBlock: mockFillBlockNumber
+            fillBlock: mockFillBlockNumber,
+            fillTimestamp: 1_700_000_000
           }
         },
         orderHashes: [],
@@ -633,6 +669,7 @@ describe('GSReaper', () => {
       expect(updatedOrder?.orderStatus).toBe(ORDER_STATUS.FILLED)
       expect(updatedOrder?.txHash).toBe('0xmocktxhash')
       expect(updatedOrder?.fillBlock).toBe(mockFillBlockNumber)
+      expect(updatedOrder?.fillTimestamp).toBe(1_700_000_000)
 
       // Verify we're moving to the next chain
       const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)

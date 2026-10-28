@@ -1,25 +1,7 @@
 import { ethers } from 'ethers'
-import { 
-  OrderValidation, 
-  UniswapXOrder, 
-  DutchOrder, 
-  CosignedV2DutchOrder, 
-  CosignedV3DutchOrder, 
-  CosignedPriorityOrder,
-  CosignedHybridOrder 
-} from '@uniswap/uniswapx-sdk'
+import { OrderValidation, UniswapXOrder } from '@uniswap/uniswapx-sdk'
 import { ChainId } from './chain'
 import { permit2Address, SignatureProvider, PermitTransferFrom, TokenPermissions } from '@uniswap/permit2-sdk'
-
-// Type for legacy orders that have input at the info level
-type LegacyUniswapXOrder = DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder | CosignedPriorityOrder
-
-export interface ValidationContext {
-  chainId: ChainId
-  currentBlock: number
-  currentTimestamp: number
-  provider: ethers.providers.Provider
-}
 
 /**
  * Permit2Validator performs on-chain validation checks for UniswapX orders.
@@ -31,10 +13,16 @@ export interface ValidationContext {
 export class Permit2Validator {
   private provider: ethers.providers.Provider
   private chainId: ChainId
+  private getCurrentTime: () => number
 
-  constructor(provider: ethers.providers.Provider, chainId: ChainId) {
+  constructor(
+    provider: ethers.providers.Provider,
+    chainId: ChainId,
+    getCurrentTime: () => number = () => Math.floor(Date.now() / 1000)
+  ) {
     this.provider = provider
     this.chainId = chainId
+    this.getCurrentTime = getCurrentTime
   }
 
   /**
@@ -47,37 +35,34 @@ export class Permit2Validator {
   ): Promise<OrderValidation> {
     const address = permit2Address(this.chainId)
     const signatureProvider = new SignatureProvider(this.provider, address)
-    // Get input token from the order (handles both legacy and v4 orders)
-    const token = order instanceof CosignedHybridOrder ? order.info.input.token : (order as LegacyUniswapXOrder).info.input.token
+    const token = order.info.input.token
 
-    // Validate each input token
-      const permitTransferFrom: PermitTransferFrom = {
-        permitted: {
-          token,
-          amount: 0 // Amount is not used in validation
-        } as TokenPermissions,
-        spender: order.info.swapper,
-        nonce: order.info.nonce,
-        deadline: order.info.deadline
-      }
+    const permitTransferFrom: PermitTransferFrom = {
+      permitted: {
+        token,
+        amount: 0 // Amount is not used in validation
+      } as TokenPermissions,
+      spender: order.info.swapper,
+      nonce: order.info.nonce,
+      deadline: order.info.deadline
+    }
 
-      const permitValidation = await signatureProvider.validatePermit(permitTransferFrom)
+    const permitValidation = await signatureProvider.validatePermit(permitTransferFrom)
 
-      // A used nonce must win over expiry: fills also consume the nonce, so
-      // reporting an old filled order as Expired would let callers finalize
-      // EXPIRED without ever checking for a fill (mirrors the SDK quoter's
-      // checkTerminalStates semantics).
-      if (permitValidation.isUsed) {
-        return OrderValidation.NonceUsed
-      }
+    // A used nonce must win over expiry: fills also consume the nonce, so
+    // reporting an old filled order as Expired would let callers finalize
+    // EXPIRED without ever checking for a fill (mirrors the SDK quoter's
+    // checkTerminalStates semantics).
+    if (permitValidation.isUsed) {
+      return OrderValidation.NonceUsed
+    }
 
-      if (permitValidation.isExpired) {
-        return OrderValidation.Expired
-      }
+    if (permitValidation.isExpired) {
+      return OrderValidation.Expired
+    }
 
     // Check if order deadline has passed
-    const currentTimestamp = Math.floor(Date.now() / 1000)
-    if (currentTimestamp > order.info.deadline) {
+    if (this.getCurrentTime() > order.info.deadline) {
       return OrderValidation.Expired
     }
 

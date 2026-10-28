@@ -1,31 +1,31 @@
 import { GetOrdersHandler } from './handler'
-import { GetOrdersInjector } from './injector'
 
-import { OrderValidator, RelayOrderValidator } from '@uniswap/uniswapx-sdk'
-import { DynamoDB } from 'aws-sdk'
+import { OrderValidator } from '@uniswap/uniswapx-sdk'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
-import { RelayOrderRepository } from '../../repositories/RelayOrderRepository'
 import { AnalyticsService } from '../../services/analytics-service'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { RelayOrderService } from '../../services/RelayOrderService'
-import { UniswapXOrderService } from '../../services/UniswapXOrderService'
+import { SINGLE_PAGE, UniswapXOrderService } from '../../services/UniswapXOrderService'
 import { ONE_DAY_IN_SECONDS } from '../../util/constants'
 
 import { log } from '../../Logging'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
-import { OffChainRelayOrderValidator } from '../../util/OffChainRelayOrderValidator'
+import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
-import { FillEventLogger } from '../check-order-status/fill-event-logger'
-import { FILL_EVENT_LOOKBACK_BLOCKS_ON } from '../check-order-status/util'
-import { EventWatcherMap } from '../EventWatcherMap'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
-import { getMaxOpenOrders } from '../post-order/injector'
-import { DynamoQuoteMetadataRepository } from '../../repositories/quote-metadata-repository'
+import { getMaxOpenOrders } from '../post-order/policy'
+import { createReadPathDocumentClient } from '../shared/dynamo'
+import { getOrdersQueryCache } from './query-cache'
 
-const repo = DutchOrdersRepository.create(new DynamoDB.DocumentClient())
-const limitRepo = LimitOrdersRepository.create(new DynamoDB.DocumentClient())
-const quoteMetadataRepository = DynamoQuoteMetadataRepository.create(new DynamoDB.DocumentClient())
-const orderValidator = new OffChainUniswapXOrderValidator(() => new Date().getTime() / 1000, ONE_DAY_IN_SECONDS)
+// This Lambda only reads, so its repositories share the sub-second query cache. Write
+// paths build them without it -- see query-cache.ts. Its DocumentClient fails fast on
+// throttles -- see shared/dynamo.ts.
+const repo = DutchOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
+const limitRepo = LimitOrdersRepository.create(createReadPathDocumentClient(), getOrdersQueryCache)
+const orderValidator = new OffChainUniswapXOrderValidator({
+  getCurrentTime: () => new Date().getTime() / 1000,
+  deadlineValidityPeriodSeconds: ONE_DAY_IN_SECONDS,
+  ...cosignersFromEnv(),
+})
 const onChainValidatorMap = new OnChainValidatorMap<OrderValidator>()
 const providerMap = new Map()
 
@@ -34,31 +34,15 @@ const uniswapXOrderService = new UniswapXOrderService(
   onChainValidatorMap,
   repo,
   limitRepo,
-  quoteMetadataRepository,
   log,
   getMaxOpenOrders,
   AnalyticsService.create(),
-  providerMap
+  providerMap,
+  undefined,
+  SINGLE_PAGE
 )
 
-const relayOrderValidator = new OffChainRelayOrderValidator(() => new Date().getTime() / 1000)
-const relayOrderValidatorMap = new OnChainValidatorMap<RelayOrderValidator>()
-
-const relayOrderService = new RelayOrderService(
-  relayOrderValidator,
-  relayOrderValidatorMap,
-  EventWatcherMap.createRelayEventWatcherMap(),
-  RelayOrderRepository.create(new DynamoDB.DocumentClient()),
-  log,
-  getMaxOpenOrders,
-  new FillEventLogger(FILL_EVENT_LOOKBACK_BLOCKS_ON, AnalyticsService.create())
-)
-const getOrdersInjectorPromise = new GetOrdersInjector('getOrdersInjector').build()
-const getOrdersHandler = new GetOrdersHandler(
-  'getOrdersHandler',
-  getOrdersInjectorPromise,
-  new OrderDispatcher(uniswapXOrderService, relayOrderService, log)
-)
+const getOrdersHandler = new GetOrdersHandler('getOrdersHandler', repo, new OrderDispatcher(uniswapXOrderService))
 
 module.exports = {
   getOrdersHandler: getOrdersHandler.handler,

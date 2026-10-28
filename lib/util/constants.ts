@@ -1,14 +1,10 @@
 import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
 import { ChainId } from './chain'
-import { BigNumber } from 'ethers'
-import { z } from 'zod'
 
 export const WEBHOOK_CONFIG_BUCKET = 'order-webhook-notification-config'
 export const PRODUCTION_WEBHOOK_CONFIG_KEY = 'production.json'
 export const BETA_WEBHOOK_CONFIG_KEY = 'beta.json'
 export const NATIVE_ADDRESS = '0x0000000000000000000000000000000000000000'
-export const SCALING_FACTOR_MASK = BigNumber.from(1).shl(240).sub(1)
-export const ONE_HOUR_IN_SECONDS = 60 * 60
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24
 export const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365
 // Per-chain "oldest block worth scanning" used by the GS reaper to floor its
@@ -44,64 +40,16 @@ export const REAPER_RANGES_PER_RUN = 10
 //Dynamo limits batch write to 25
 export const DYNAMO_BATCH_WRITE_MAX = 25
 
-export const UNIMIND_ALGORITHM_VERSION = 4
-
-export enum UnimindUpdateType {
-  NEW_PAIR = 'new_pair',
-  ALGORITHM_UPDATE = 'algorithm_update',
-  THRESHOLD_REACHED = 'threshold_reached',
-}
-export const DEFAULT_UNIMIND_PARAMETERS = JSON.stringify({
-  lambda1: 0,
-  lambda2: 5,
-  Sigma: -9.21034,
-})
-export const UNIMIND_UPDATE_THRESHOLD = 25
-export const UNIMIND_CIRCUIT_BREAKER_MAX_BATCH = 5 // Circuit breaker active for batches 0-5
-export const UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS = 4 // Order count to begin checking circuit breaker
-export const UNIMIND_CIRCUIT_BREAKER_FILL_RATE_THRESHOLD = 0.25 // Fill rate at or below this value triggers circuit breaker
-export const UNIMIND_DEV_SWAPPER_ADDRESS = '0x2b813964306D8F12bdaB5504073a52e5802f049D'
-
-// Direct pi and tau to use for curve; Not intrinsicValues
-export const PUBLIC_STATIC_PARAMETERS = {
-  pi: 15,
-  tau: 15,
-  batchNumber: -1, // -1 indicates Unimind was not used to calculate these params
-  algorithmVersion: -1, // -1 indicates not using Unimind algorithm
-}
-export const UNIMIND_MAX_TAU_BPS = 25
-export const UNIMIND_LARGE_PRICE_IMPACT_THRESHOLD = 1.25 // 1.25% price impact threshold
-
-// Sanity-check unimind constants at module load time so misconfigurations fail fast.
-const UnimindConstantsSchema = z.object({
-  updateThreshold: z.number().int().positive(),
-  circuitBreakerMaxBatch: z.number().int().nonnegative(),
-  circuitBreakerMinOrders: z.number().int().positive(),
-  circuitBreakerFillRateThreshold: z.number().min(0).max(1),
-  maxTauBps: z.number().positive(),
-  devSwapperAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
-})
-
-UnimindConstantsSchema.parse({
-  updateThreshold: UNIMIND_UPDATE_THRESHOLD,
-  circuitBreakerMaxBatch: UNIMIND_CIRCUIT_BREAKER_MAX_BATCH,
-  circuitBreakerMinOrders: UNIMIND_CIRCUIT_BREAKER_MIN_ORDERS,
-  circuitBreakerFillRateThreshold: UNIMIND_CIRCUIT_BREAKER_FILL_RATE_THRESHOLD,
-  maxTauBps: UNIMIND_MAX_TAU_BPS,
-  devSwapperAddress: UNIMIND_DEV_SWAPPER_ADDRESS,
-})
-
-// When pi = 0, AMM will be favored over Dutch Auction
-export const USE_CLASSIC_PARAMETERS = {
-  pi: 0,
-  tau: 0,
-  // batchNumber and algorithmVersion are added dynamically
-}
-
 // Bound RPC calls well below the post-order Lambda's 29s budget so a hung
 // provider fails the request before the order is accepted, instead of the
 // ethers default of 120s.
 export const RPC_PROVIDER_TIMEOUT_MS = 5_000
+
+// GET /nonce sits on the hot quote path, so bound its on-chain nonceBitmap
+// check more aggressively than RPC_PROVIDER_TIMEOUT_MS; on timeout the
+// handler falls back to the stored nonce instead of failing the request,
+// so a degraded RPC costs at most 1s of added latency per request.
+export const ONCHAIN_NONCE_CHECK_TIMEOUT_MS = 1_000
 
 export const RPC_HEADERS: { [key: string]: string } = {
   'x-uni-service-id': 'x_order_service',
@@ -109,9 +57,4 @@ export const RPC_HEADERS: { [key: string]: string } = {
   // via the RPC_HEADER_SECRET env var (sourced from Secrets Manager); omitted
   // when unset (e.g. local dev / unit tests).
   ...(process.env.RPC_HEADER_SECRET ? { 'x-internal-service-secret': process.env.RPC_HEADER_SECRET } : {}),
-}
-
-export enum TradeType {
-  EXACT_INPUT = 'EXACT_INPUT',
-  EXACT_OUTPUT = 'EXACT_OUTPUT',
 }

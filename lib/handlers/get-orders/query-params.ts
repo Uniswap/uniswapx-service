@@ -1,0 +1,46 @@
+import { GetOrdersQueryParams, RawGetOrdersQueryParams } from './schema'
+import { GetOrderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
+
+export const parseGetQueryParams = (
+  requestQueryParams: RawGetOrdersQueryParams
+): { limit: number; queryFilters: GetOrdersQueryParams; cursor?: string; orderType?: GetOrderTypeQueryParamEnum } => {
+  // default to no limit
+  const limit = requestQueryParams?.limit ?? 0
+  const rawOrderStatus = requestQueryParams?.orderStatus
+  // Deduped defensively even though validation rejects repeats: every entry is a separate query.
+  const orderStatus = rawOrderStatus?.includes(',') ? [...new Set(rawOrderStatus.split(','))] : rawOrderStatus
+  const orderHash = requestQueryParams?.orderHash?.toLowerCase()
+  // externally we use swapper
+  const offerer = requestQueryParams?.swapper?.toLowerCase()
+  const sortKey = requestQueryParams?.sortKey
+  const defaultSort = sortKey ? 'gt(0)' : undefined
+  const sort = requestQueryParams?.sort ?? defaultSort
+  const filler = requestQueryParams?.filler
+  const cursor = requestQueryParams?.cursor
+  const chainId = requestQueryParams?.chainId
+  const desc = requestQueryParams?.desc
+  const orderHashes = requestQueryParams?.orderHashes?.split(',').map((orderHash: string) => orderHash.toLowerCase())
+  const orderType =
+    requestQueryParams?.orderType && requestQueryParams?.orderType in GetOrderTypeQueryParamEnum
+      ? requestQueryParams?.orderType
+      : undefined
+  const pair = requestQueryParams?.pair
+
+  return {
+    limit: limit,
+    orderType,
+    queryFilters: {
+      ...(orderStatus && { orderStatus: orderStatus }),
+      ...(orderHash && { orderHash: orderHash }),
+      ...(offerer && { offerer: offerer.toLowerCase() }),
+      ...(sortKey && { sortKey: sortKey }),
+      ...(filler && { filler: filler.toLowerCase() }),
+      ...(sort && { sort: sort }),
+      ...(chainId && { chainId: chainId }),
+      ...(desc !== undefined && { desc: desc }),
+      ...(orderHashes && { orderHashes: [...new Set(orderHashes)] }),
+      ...(pair && { pair: pair }),
+    },
+    ...(cursor && { cursor: cursor }),
+  }
+}

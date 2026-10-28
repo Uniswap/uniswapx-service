@@ -14,14 +14,12 @@ jest.mock('../../../../lib/handlers/shared/sfn', () => {
 describe('CheckOrderStatusHandler step function restarts', () => {
   const checkOrderStatusServiceMock = { handleRequest: jest.fn() }
   const checkLimitOrderStatusServiceMock = { handleRequest: jest.fn() }
-  const relayOrderServiceMock = { checkOrderStatus: jest.fn() }
 
   const handler = new CheckOrderStatusHandler(
     'checkOrderStatus',
     Promise.resolve({}) as any,
     checkOrderStatusServiceMock as any,
-    checkLimitOrderStatusServiceMock as any,
-    relayOrderServiceMock as any
+    checkLimitOrderStatusServiceMock as any
   )
 
   const nowSec = Math.floor(Date.now() / 1000)
@@ -78,7 +76,7 @@ describe('CheckOrderStatusHandler step function restarts', () => {
     expect(kickoffOrderTrackingSfn).toHaveBeenCalled()
   })
 
-  it('stops restarting deadline-less state at the run cap (no infinite respawn for Relay/UnknownError zombies)', async () => {
+  it('stops restarting deadline-less state at the run cap (no infinite respawn for UnknownError zombies)', async () => {
     // Without a deadline the grace gate can never fire, so the run cap is the
     // only bound on the respawn loop.
     const requestInjected = {

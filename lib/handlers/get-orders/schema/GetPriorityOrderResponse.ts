@@ -1,26 +1,15 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
+import { PriorityOrderEntity, PriorityOrderInput, PriorityOrderOutput } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 import { GetDutchV2OrderResponse } from './GetDutchV2OrderResponse'
-import { Route } from '../../../repositories/quote-metadata-repository'
 import { CommonOrderValidationFields } from './Common'
 
 export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'input' | 'outputs' | 'cosignerData'> & {
   type: OrderType.Priority
-  input: {
-    token: string
-    amount: string
-    mpsPerPriorityFeeWei: string
-  }
-  outputs: {
-    token: string
-    amount: string
-    mpsPerPriorityFeeWei: string
-    recipient: string
-  }[]
-  cosignerData: {
-    auctionTargetBlock: number
-  }
+  input: PriorityOrderInput
+  outputs: PriorityOrderOutput[]
+  cosignerData: PriorityOrderEntity['cosignerData']
   auctionStartBlock: number
   baselinePriorityFeeWei: string
   cosignature: string
@@ -28,7 +17,6 @@ export type GetPriorityOrderResponse = Omit<GetDutchV2OrderResponse, 'type' | 'i
   quoteId: string | undefined
   requestId: string | undefined
   createdAt: number | undefined
-  route: Route | undefined
 }
 
 export const PriorityCosignerDataJoi = Joi.object({

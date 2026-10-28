@@ -3,20 +3,17 @@ import Joi from 'joi'
 import { UniswapXOrderEntity } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
 import { DUTCH_LIMIT } from '../../../util/order'
+import { OrderOutputJoi, SettledAmountJoi } from './Common'
 import { GetDutchV2OrderResponse, GetDutchV2OrderResponseEntryJoi } from './GetDutchV2OrderResponse'
 import { GetPriorityOrderResponse, GetPriorityOrderResponseEntryJoi } from './GetPriorityOrderResponse'
-import { GetHybridOrderResponse, GetHybridOrderResponseEntryJoi } from './GetHybridOrderResponse'
-import { GetRelayOrderResponse } from './GetRelayOrderResponse'
 import { GetDutchV3OrderResponse, GetDutchV3OrderResponseEntryJoi } from './GetDutchV3OrderResponse'
 
 export type GetOrdersResponse<
   T extends
     | UniswapXOrderEntity
-    | GetRelayOrderResponse
     | GetDutchV2OrderResponse
     | GetDutchV3OrderResponse
     | GetPriorityOrderResponse
-    | GetHybridOrderResponse
     | undefined
 > = {
   orders: T[]
@@ -29,19 +26,6 @@ export const OrderInputJoi = Joi.object({
   endAmount: FieldValidator.isValidAmount(),
 })
 
-export const OrderOutputJoi = Joi.object({
-  token: FieldValidator.isValidEthAddress().required(),
-  startAmount: FieldValidator.isValidAmount().required(),
-  endAmount: FieldValidator.isValidAmount().required(),
-  recipient: FieldValidator.isValidEthAddress().required(),
-})
-
-export const SettledAmount = Joi.object({
-  tokenOut: FieldValidator.isValidEthAddress(),
-  amountOut: FieldValidator.isValidAmount(),
-  tokenIn: FieldValidator.isValidEthAddress(),
-  amountIn: FieldValidator.isValidAmount(),
-})
 const OrderRepsonseEntryJoiMigrations = {
   chainId: FieldValidator.isValidChainId().valid(12341234),
 }
@@ -54,10 +38,12 @@ export const OrderResponseEntryJoi = Joi.object({
   orderHash: FieldValidator.isValidOrderHash(),
   swapper: FieldValidator.isValidEthAddress(),
   txHash: FieldValidator.isValidTxHash(),
-  type: Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT, OrderType.Limit, OrderType.Priority, OrderType.Dutch_V3, OrderType.Hybrid),
+  fillBlock: FieldValidator.isValidNumber(),
+  fillTimestamp: FieldValidator.isValidNumber(),
+  type: Joi.string().valid(OrderType.Dutch, DUTCH_LIMIT, OrderType.Limit, OrderType.Priority, OrderType.Dutch_V3),
   input: OrderInputJoi,
   outputs: Joi.array().items(OrderOutputJoi),
-  settledAmounts: Joi.array().items(SettledAmount),
+  settledAmounts: Joi.array().items(SettledAmountJoi),
   chainId: FieldValidator.isValidChainId(),
   quoteId: FieldValidator.isValidQuoteId(),
   requestId: FieldValidator.isValidRequestId(),
@@ -72,8 +58,7 @@ export const GetOrdersResponseJoi = Joi.object({
       OrderResponseEntryJoi,
       GetDutchV2OrderResponseEntryJoi,
       GetDutchV3OrderResponseEntryJoi,
-      GetPriorityOrderResponseEntryJoi,
-      GetHybridOrderResponseEntryJoi
+      GetPriorityOrderResponseEntryJoi
     )
   ),
   cursor: FieldValidator.isValidCursor(),

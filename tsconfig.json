@@ -29,7 +29,9 @@
     "outDir": "dist",
     "allowJs": true,
     "typeRoots": ["./node_modules/@types"],
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    // Third-party .d.ts (ts-essentials 7, via jest-mock-extended) do not type-check under TS 5; our own sources still do.
+    "skipLibCheck": true
   },
   "exclude": ["cdk.out", "./dist/**/*"]
 }

@@ -1,8 +1,7 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
-import { ORDER_STATUS } from '../../../entities'
+import { DutchV3OrderEntity, ORDER_STATUS, SettledAmount, V3OrderInput, V3OrderOutput } from '../../../entities'
 import FieldValidator from '../../../util/field-validator'
-import { Route } from '../../../repositories/quote-metadata-repository'
 import { CommonOrderValidationFields } from './Common'
 
 export type GetDutchV3OrderResponse = {
@@ -18,47 +17,32 @@ export type GetDutchV3OrderResponse = {
 
   txHash: string | undefined
   fillBlock: number | undefined
+  fillTimestamp: number | undefined
   deadline: number
-  input: {
-    token: string
-    startAmount: string
-    curve: {
-      relativeBlocks: number[]
-      relativeAmounts: string[]
-    }
-    maxAmount: string
-    adjustmentPerGweiBaseFee: string
-  }
-  outputs: {
-    token: string
-    startAmount: string
-    curve: {
-      relativeBlocks: number[]
-      relativeAmounts: string[]
-    }
-    recipient: string
-    minAmount: string
-    adjustmentPerGweiBaseFee: string
-  }[]
-  settledAmounts: {
-    tokenOut: string
-    amountOut: string
-    tokenIn: string
-    amountIn: string
-  }[] | undefined
+  /** As signed by swapper. A non-zero `cosignerData.inputOverride` replaces `startAmount` at fill. */
+  input: Required<V3OrderInput>
+  /** As signed by swapper. A non-zero `cosignerData.outputOverrides[i]` replaces `startAmount` at fill. */
+  outputs: V3OrderOutput[]
+  /**
+   * `input` with the override applied: what the filler receives. `curve` and
+   * `adjustmentPerGweiBaseFee` still apply. Always set for Dutch V3; optional for the
+   * legacy untyped response.
+   */
+  effectiveInput?: Required<V3OrderInput>
+  /**
+   * `outputs` with the overrides applied: what the filler pays. `curve` and
+   * `adjustmentPerGweiBaseFee` still apply, plus `cosignerData.exclusivityOverrideBps` for
+   * a non-exclusive filler. Always set for Dutch V3; optional for the legacy untyped response.
+   */
+  effectiveOutputs?: V3OrderOutput[]
+  settledAmounts: SettledAmount[] | undefined
   startingBaseFee: string
-  cosignerData: {
-    decayStartBlock: number
-    exclusiveFiller: string
-    inputOverride: string
-    outputOverrides: string[]
-  }
+  cosignerData: DutchV3OrderEntity['cosignerData']
   cosignature: string
   nonce: string
   quoteId: string | undefined
   requestId: string | undefined
   createdAt: number | undefined
-  route: Route | undefined
 }
 
 export const CosignerDataJoi = Joi.object({
@@ -68,34 +52,36 @@ export const CosignerDataJoi = Joi.object({
   outputOverrides: Joi.array().items(FieldValidator.isValidAmount()),
 })
 
+const CurveJoi = Joi.object({
+  relativeBlocks: Joi.array().items(FieldValidator.isValidNumber()),
+  relativeAmounts: Joi.array().items(FieldValidator.isValidBigIntString()),
+})
+
+const InputJoi = Joi.object({
+  token: FieldValidator.isValidEthAddress().required(),
+  startAmount: FieldValidator.isValidAmount().required(),
+  curve: CurveJoi,
+  maxAmount: FieldValidator.isValidAmount(),
+  adjustmentPerGweiBaseFee: FieldValidator.isValidAmount(),
+})
+
+const OutputJoi = Joi.object({
+  token: FieldValidator.isValidEthAddress().required(),
+  startAmount: FieldValidator.isValidAmount().required(),
+  curve: CurveJoi,
+  recipient: FieldValidator.isValidEthAddress().required(),
+  minAmount: FieldValidator.isValidAmount(),
+  adjustmentPerGweiBaseFee: FieldValidator.isValidAmount(),
+})
+
 export const GetDutchV3OrderResponseEntryJoi = Joi.object({
   ...CommonOrderValidationFields,
   //only Dutch_V3
   type: Joi.string().valid(OrderType.Dutch_V3).required(),
   startingBaseFee: FieldValidator.isValidAmount(),
-  fillBlock: FieldValidator.isValidNumber(),
-  input: Joi.object({
-    token: FieldValidator.isValidEthAddress().required(),
-    startAmount: FieldValidator.isValidAmount().required(),
-    curve: Joi.object({
-      relativeBlocks: Joi.array().items(FieldValidator.isValidNumber()),
-      relativeAmounts: Joi.array().items(FieldValidator.isValidBigIntString()),
-    }),
-    maxAmount: FieldValidator.isValidAmount(),
-    adjustmentPerGweiBaseFee: FieldValidator.isValidAmount(),
-  }),
-  outputs: Joi.array().items(
-    Joi.object({
-      token: FieldValidator.isValidEthAddress().required(),
-      startAmount: FieldValidator.isValidAmount().required(),
-      curve: Joi.object({
-        relativeBlocks: Joi.array().items(FieldValidator.isValidNumber()),
-        relativeAmounts: Joi.array().items(FieldValidator.isValidBigIntString()),
-      }),
-      recipient: FieldValidator.isValidEthAddress().required(),
-      minAmount: FieldValidator.isValidAmount(),
-      adjustmentPerGweiBaseFee: FieldValidator.isValidAmount(),
-    })
-  ),
+  input: InputJoi,
+  outputs: Joi.array().items(OutputJoi),
+  effectiveInput: InputJoi,
+  effectiveOutputs: Joi.array().items(OutputJoi),
   cosignerData: CosignerDataJoi,
 })

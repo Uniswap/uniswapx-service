@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { Duration } from 'aws-cdk-lib'
 import * as asg from 'aws-cdk-lib/aws-applicationautoscaling'
 import { Alarm, ComparisonOperator, MathExpression, Metric, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch'
+import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import { CfnEIP, NatProvider, Vpc } from 'aws-cdk-lib/aws-ec2'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import * as aws_kms from 'aws-cdk-lib/aws-kms'
@@ -12,21 +13,30 @@ import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
-import { STAGE, logRetentionDays } from '../../lib/util/stage'
-import { SERVICE_NAME, FILTER_PATTERNS } from '../constants'
-import { CronStack } from './cron-stack'
-import { DynamoStack, IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
-import { StepFunctionStack } from './step-function-stack'
+import { STAGE } from '../../lib/util/stage'
+import { SERVICE_NAME } from '../constants'
+import { AlarmNotifier } from './alerting'
+import { DynamoStack, TableCapacityConfig } from './dynamo-stack'
+import { logRetentionDays } from './log-retention'
 import { ReaperStack } from './reaper-stack'
+import { StepFunctionStack } from './step-function-stack'
 
 export interface LambdaStackProps extends cdk.NestedStackProps {
   provisionedConcurrency: number
+  // Hard cap on concurrent Get Orders executions, carved out of the account's shared pool
+  // (so it is also unavailable to every other function). Two jobs: it stops a Get Orders
+  // poll storm from exhausting account concurrency and taking post-order and status tracking
+  // down with it, and -- because the query cache lives in each execution environment, so hot
+  // partition reads scale with environment count (~ environments / GET_ORDERS_CACHE_TTL_MS)
+  // -- it puts a ceiling on those reads. Requests past the cap are rejected by Lambda rather
+  // than throttled by DynamoDB. Must be >= the alias' provisioned concurrency.
+  getOrdersReservedConcurrency?: number
   stage: STAGE
   envVars: { [key: string]: string }
   kmsKey: aws_kms.Key
   tableCapacityConfig: TableCapacityConfig
-  indexCapacityConfig?: IndexCapacityConfig
   chatbotSNSArn?: string
+  incidentIoSNSArn?: string
 }
 export class LambdaStack extends cdk.NestedStack {
   public readonly postOrderLambda: aws_lambda_nodejs.NodejsFunction
@@ -48,13 +58,19 @@ export class LambdaStack extends cdk.NestedStack {
 
   public readonly chainIdToStatusTrackingStateMachineArn: { [key: string]: string }
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
-
-  public readonly getUnimindLambda: aws_lambda_nodejs.NodejsFunction
-  public readonly getUnimindLambdaAlias: aws_lambda.Alias
+  public readonly ordersTable: aws_dynamo.ITable
+  public readonly limitOrdersTable: aws_dynamo.ITable
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
-    const { provisionedConcurrency, kmsKey, tableCapacityConfig, indexCapacityConfig, chatbotSNSArn } = props
+    const {
+      provisionedConcurrency,
+      getOrdersReservedConcurrency,
+      kmsKey,
+      tableCapacityConfig,
+      chatbotSNSArn,
+      incidentIoSNSArn,
+    } = props
 
     const lambdaName = `${SERVICE_NAME}Lambda`
     const orderNotificationProvisionedConcurrency = 50
@@ -106,8 +122,11 @@ export class LambdaStack extends cdk.NestedStack {
 
     const databaseStack = new DynamoStack(this, `${SERVICE_NAME}DynamoStack`, {
       tableCapacityConfig,
-      indexCapacityConfig,
+      chatbotSNSArn,
+      incidentIoSNSArn,
     })
+    this.ordersTable = databaseStack.ordersTable
+    this.limitOrdersTable = databaseStack.limitOrdersTable
 
     new ReaperStack(this, `${SERVICE_NAME}ReaperStack`, {
       environmentVariables: {
@@ -129,7 +148,7 @@ export class LambdaStack extends cdk.NestedStack {
       ...props.envVars,
       stage: props.stage as STAGE,
       KMS_KEY_ID: kmsKey.keyId,
-      VERSION: '9',
+      VERSION: '10',
       NODE_OPTIONS: '--enable-source-maps',
     }
 
@@ -138,6 +157,7 @@ export class LambdaStack extends cdk.NestedStack {
       runtime: aws_lambda.Runtime.NODEJS_20_X,
       entry: path.join(__dirname, '../../lib/handlers/get-orders/index.ts'),
       handler: 'getOrdersHandler',
+      reservedConcurrentExecutions: getOrdersReservedConcurrency,
       timeout: Duration.seconds(29),
       memorySize: 1024,
       bundling: {
@@ -165,7 +185,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...props.envVars,
         stage: props.stage as STAGE,
         KMS_KEY_ID: kmsKey.keyId,
-        VERSION: '8',
+        VERSION: '9',
         NODE_OPTIONS: '--enable-source-maps',
       },
       vpc,
@@ -206,7 +226,7 @@ export class LambdaStack extends cdk.NestedStack {
       ...props.envVars,
       stage: props.stage as STAGE,
       KMS_KEY_ID: kmsKey.keyId,
-      VERSION: '9',
+      VERSION: '10',
       NODE_OPTIONS: '--enable-source-maps',
       REGION: this.region,
     }
@@ -284,7 +304,7 @@ export class LambdaStack extends cdk.NestedStack {
         ...props.envVars,
         stage: props.stage as STAGE,
         KMS_KEY_ID: kmsKey.keyId,
-        VERSION: '8',
+        VERSION: '9',
         NODE_OPTIONS: '--enable-source-maps',
       },
       tracing: aws_lambda.Tracing.ACTIVE,
@@ -305,7 +325,7 @@ export class LambdaStack extends cdk.NestedStack {
         stage: props.stage as STAGE,
         ...props.envVars,
         KMS_KEY_ID: kmsKey.keyId,
-        VERSION: '8',
+        VERSION: '9',
         NODE_OPTIONS: '--enable-source-maps',
       },
       logRetention: logRetentionDays(props.stage),
@@ -325,41 +345,11 @@ export class LambdaStack extends cdk.NestedStack {
         stage: props.stage as STAGE,
         KMS_KEY_ID: kmsKey.keyId,
         ...props.envVars,
-        VERSION: '8',
+        VERSION: '9',
         NODE_OPTIONS: '--enable-source-maps',
       },
       logRetention: logRetentionDays(props.stage),
     })
-
-    this.getUnimindLambda = new aws_lambda_nodejs.NodejsFunction(this, `GetUnimind${lambdaName}`, {
-      role: lambdaRole,
-      runtime: aws_lambda.Runtime.NODEJS_20_X,
-      entry: path.join(__dirname, '../../lib/handlers/get-unimind/index.ts'),
-      handler: 'getUnimindHandler',
-      timeout: Duration.seconds(29),
-      memorySize: 512,
-      bundling: {
-        minify: true,
-        sourceMap: true,
-      },
-      environment: postOrderEnv,
-      tracing: aws_lambda.Tracing.ACTIVE,
-      logRetention: logRetentionDays(props.stage),
-    })
-
-    if (props.envVars['POSTED_ORDER_DESTINATION_ARN']) {
-      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedOrderSub', {
-        destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
-        filterPattern: FILTER_PATTERNS.ORDER_POSTED,
-        logGroupName: this.postOrderLambda.logGroup.logGroupName,
-      })
-
-      new cdk.aws_logs.CfnSubscriptionFilter(this, 'PostedLimitOrderSub', {
-        destinationArn: props.envVars['POSTED_ORDER_DESTINATION_ARN'],
-        filterPattern: FILTER_PATTERNS.ORDER_POSTED,
-        logGroupName: this.postLimitOrderLambda.logGroup.logGroupName,
-      })
-    }
 
     const enableProvisionedConcurrency = provisionedConcurrency > 0
 
@@ -410,21 +400,6 @@ export class LambdaStack extends cdk.NestedStack {
       version: this.orderNotificationLambda.currentVersion,
       provisionedConcurrentExecutions: orderNotificationProvisionedConcurrency,
     })
-
-    this.getUnimindLambdaAlias = new aws_lambda.Alias(this, `GetUnimindLiveAlias`, {
-      aliasName: 'live',
-      version: this.getUnimindLambda.currentVersion,
-      provisionedConcurrentExecutions: enableProvisionedConcurrency ? provisionedConcurrency : undefined,
-    })
-
-    // Subscription filters for UnimindResponse analytics events
-    if (props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN']) {
-      new cdk.aws_logs.CfnSubscriptionFilter(this, 'UnimindResponseSub', {
-        destinationArn: props.envVars['UNIMIND_RESPONSE_DESTINATION_ARN'],
-        filterPattern: FILTER_PATTERNS.UNIMIND_RESPONSE,
-        logGroupName: this.getUnimindLambda.logGroup.logGroupName,
-      })
-    }
 
     if (enableProvisionedConcurrency) {
       const postOrderTarget = new asg.ScalableTarget(this, `${lambdaName}-PostOrder-ProvConcASG`, {
@@ -544,14 +519,32 @@ export class LambdaStack extends cdk.NestedStack {
         targetValue: 0.5,
         predefinedMetric: asg.PredefinedMetric.LAMBDA_PROVISIONED_CONCURRENCY_UTILIZATION,
       })
-
-      // TODO: Add unimind-related targets
     }
 
-    let chatBotTopic: cdk.aws_sns.ITopic | undefined
-    if (chatbotSNSArn) {
-      chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
-    }
+    const notifier = new AlarmNotifier(this, { chatbotSNSArn, incidentIoSNSArn })
+
+    // Reserved concurrency turns a Get Orders poll storm into Lambda throttles instead of a
+    // DynamoDB throttle spiral. Sustained throttling is the earliest signal that the endpoint is
+    // over its ceiling: on Sep 2 it led the API 5xx rate by five minutes. A ratio, not a count:
+    // the cap sheds bursts of ~10k throttles (under 1% of requests) most days, which is the cap
+    // doing its job; on Sep 2 the ratio went 21% -> 86% in two periods.
+    const getOrdersThrottlesAlarm = new Alarm(this, `${SERVICE_NAME}-SEV2-GetOrders-LambdaThrottles`, {
+      alarmName: `${SERVICE_NAME}-SEV2-GetOrders-LambdaThrottles`,
+      metric: new MathExpression({
+        expression: '100 * FILL(throttles, 0) / (FILL(invocations, 0) + FILL(throttles, 0))',
+        period: Duration.minutes(5),
+        usingMetrics: {
+          throttles: this.getOrdersLambda.metricThrottles({ period: Duration.minutes(5), statistic: 'sum' }),
+          invocations: this.getOrdersLambda.metricInvocations({ period: Duration.minutes(5), statistic: 'sum' }),
+        },
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+    })
+    notifier.page(getOrdersThrottlesAlarm)
 
     const postOrder4xxRateMetric = new MathExpression({
       expression: '(por4xx/por) * 100',
@@ -592,10 +585,9 @@ export class LambdaStack extends cdk.NestedStack {
       datapointsToAlarm: 2,
     })
 
-    if (chatBotTopic) {
-      sev2PostOrder4xxRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      sev3PostOrder4xxRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-    }
+    // Slack only despite SEV2: the 4xx rate is client-driven and crossed 60% for two periods
+    // ~150 times in the two months to Oct 26, so it is not a paging signal.
+    notifier.notify(sev2PostOrder4xxRate, sev3PostOrder4xxRate)
 
     // Post-persist failures: the order was accepted and stored, but the
     // follow-on work (starting the status-tracking step function) threw.
@@ -677,7 +669,7 @@ export class LambdaStack extends cdk.NestedStack {
     }
 
     // 5xx error-rate alarms per endpoint. Each endpoint emits a `<Endpoint>Request` counter
-    // and a `<Endpoint>Status5XX` counter via embedded metrics in the handler's afterResponseHook.
+    // and a `<Endpoint>Status5XX` counter via embedded metrics, recorded by the base API handler.
     // Two-tier alarm so we get both a slow-burn and a fast catastrophic signal:
     //   - sustained:    > 10% for 20 min (4 of 4 5-min datapoints) — would have caught the
     //                   noNetwork-from-bad-RPC incident that blocked PostOrder for ~24h silently
@@ -690,13 +682,10 @@ export class LambdaStack extends cdk.NestedStack {
     //   - `check-order-status` is an SfnLambdaHandler invoked by Step Functions, not API Gateway;
     //     it has no HTTP status code and emits no `*Status5XX` metric. Failures there surface
     //     via the Lambda error metric and step function alarms.
-    //   - `hard-quote` is not a separate handler in this repo — `HardQuote` is a request body
-    //     variant parsed by PostOrderBodyParser and served through the post-order endpoint.
     const endpointsForFiveXxAlarms: { name: string; requestMetric: string; errorMetric: string }[] = [
       { name: 'PostOrder', requestMetric: 'PostOrderRequest', errorMetric: 'PostOrderStatus5XX' },
       { name: 'GetOrders', requestMetric: 'GetOrdersRequest', errorMetric: 'GetOrdersStatus5XX' },
       { name: 'GetNonce', requestMetric: 'GetNonceRequest', errorMetric: 'GetNonceStatus5XX' },
-      { name: 'GetUnimind', requestMetric: 'GetUnimindRequest', errorMetric: 'GetUnimindStatus5XX' },
     ]
 
     for (const { name, requestMetric, errorMetric } of endpointsForFiveXxAlarms) {
@@ -741,10 +730,7 @@ export class LambdaStack extends cdk.NestedStack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
       })
 
-      if (chatBotTopic) {
-        sustainedAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-        catastrophicAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      }
+      notifier.page(sustainedAlarm, catastrophicAlarm)
     }
 
     for (const chainId of SUPPORTED_CHAINS) {
@@ -789,18 +775,8 @@ export class LambdaStack extends cdk.NestedStack {
         comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
       })
 
-      if (chatBotTopic) {
-        sev2OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-        sev3OrderNotificationErrorRate.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      }
+      notifier.page(sev2OrderNotificationErrorRate)
+      notifier.notify(sev3OrderNotificationErrorRate)
     }
-
-    /* cron stack */
-    new CronStack(this, `${SERVICE_NAME}CronStack`, {
-      lambdaRole,
-      stage: props.stage,
-      envVars: props.envVars,
-      chatbotSNSArn: props.chatbotSNSArn,
-    })
   }
 }

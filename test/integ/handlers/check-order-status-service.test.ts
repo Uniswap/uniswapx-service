@@ -38,7 +38,7 @@ describe('checkOrderStatusService', () => {
     logInsufficientFunds: jest.fn(),
   } as any
   describe('check order status', () => {
-    let watcherMock: { getFillEvents: jest.Mock<any, any>; getFillInfo: jest.Mock<any, any> },
+    let watcherMock: { getFillEvents: jest.Mock<any, any>; getFillInfoForOrder: jest.Mock<any, any> },
       providerMock: {
         getBlockNumber: jest.Mock<any, any>
         getTransaction: jest.Mock<any, any>
@@ -71,7 +71,7 @@ describe('checkOrderStatusService', () => {
 
       watcherMock = {
         getFillEvents: getFillEventsMock,
-        getFillInfo: getFillInfoMock,
+        getFillInfoForOrder: getFillInfoMock,
       }
       providerMock = {
         getBlockNumber: getBlockNumberMock,
@@ -135,8 +135,18 @@ describe('checkOrderStatusService', () => {
         const result = await checkOrderStatusService.handleRequest(openOrderRequest)
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
-        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalledWith(
+          expect.anything(),
+          MOCK_ORDER_HASH,
+          ORDER_STATUS.FILLED,
+          {
+            txHash: '0x1244345323',
+            fillBlock: 12321312313,
+            settledAmounts: expect.any(Array),
+            fillTimestamp: 123456,
+          }
+        )
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -151,6 +161,8 @@ describe('checkOrderStatusService', () => {
               },
             ],
             txHash: '0x1244345323',
+            fillBlock: 12321312313,
+            fillTimestamp: 123456,
           })
         )
       })
@@ -164,7 +176,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).not.toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -186,7 +198,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).not.toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -222,7 +234,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -250,7 +262,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).not.toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -270,7 +282,7 @@ describe('checkOrderStatusService', () => {
         expect(analyticsMock.logCancelled).toHaveBeenCalled()
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).not.toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -292,7 +304,7 @@ describe('checkOrderStatusService', () => {
           checkOrderStatusService.handleRequest({ ...openOrderRequest, getFillLogAttempts: 1 })
         ).rejects.toThrow('limit exceeded')
 
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(analyticsMock.logCancelled).not.toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).not.toHaveBeenCalled()
       })
@@ -407,10 +419,10 @@ describe('checkOrderStatusService', () => {
       })
 
       it('falls back to the rolling window when the anchor is zero (absent-field default)', () => {
-        // Regression: a Hybrid order with auctionTargetBlock=0 must not anchor
+        // Regression: a Dutch V3 order with decayStartBlock=0 must not anchor
         // the search to block zero -- that turns the lookup into an unbounded
         // getLogs from genesis. Zero is an absent field's default, not a block.
-        const order: any = { type: OrderType.Hybrid, cosignerData: { auctionTargetBlock: 0 } }
+        const order: any = { type: OrderType.Dutch_V3, cosignerData: { decayStartBlock: 0 } }
         const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)
         expect(fromBlock).toBe(5000 - OVERLAP)
       })
@@ -440,11 +452,10 @@ describe('checkOrderStatusService', () => {
         expect(fromBlock).toBe(5344413 - 2400)
       })
 
-      it('keeps the legacy 20-block pad on mainnet and on chains without a registered cadence', () => {
+      it('keeps the legacy 20-block pad on 12s chains', () => {
         const order: any = { type: OrderType.Dutch }
-        // mainnet: 240s / 12s = exactly the old 20 blocks
+        // 240s / 12s = exactly the old 20 blocks
         expect((checkOrderStatusService as any).getFillSearchFromBlock(order, 1, 5000)).toBe(5000 - 20)
-        // unregistered chain (Sepolia): falls back to 20 rather than throwing
         expect((checkOrderStatusService as any).getFillSearchFromBlock(order, 11155111, 5000)).toBe(5000 - 20)
       })
 
@@ -452,7 +463,8 @@ describe('checkOrderStatusService', () => {
         expect(getFillCheckOverlapBlocks(1)).toBe(20) // 240s / 12s
         expect(getFillCheckOverlapBlocks(42161)).toBe(960) // 240s / 0.25s
         expect(getFillCheckOverlapBlocks(4663)).toBe(2400) // 240s / 0.1s
-        expect(getFillCheckOverlapBlocks(11155111)).toBe(20) // unregistered -> legacy pad
+        expect(getFillCheckOverlapBlocks(11155111)).toBe(20) // Sepolia, 240s / 12s
+        expect(getFillCheckOverlapBlocks(1301)).toBe(240) // Unichain Sepolia, 240s / 1s
       })
 
       it('keeps the fill inside BOTH bounds for a short-lived order on a sub-second chain', () => {
@@ -475,6 +487,104 @@ describe('checkOrderStatusService', () => {
         expect(toBlock).toBeGreaterThanOrEqual(FILL_BLOCK)
         // and the whole possible fill range [anchor, ~deadline] stays covered
         expect(toBlock).toBeGreaterThanOrEqual(5344413 + Math.ceil(60 / 0.1))
+      })
+    })
+
+    describe('run start block (getRunStartBlock)', () => {
+      // FILL_EVENT_LOOKBACK_BLOCKS_ON(1)
+      const LOOKBACK = 10
+      const NOW = 1_800_000_000
+
+      it('reaches back to the order creation on the first run when the first poll was delayed', () => {
+        // Created 3h ago on mainnet (~900 blocks); the window must cover all of it.
+        const order: any = { createdAt: NOW - 3 * 3600 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 100_000, NOW)
+        expect(start).toBeLessThanOrEqual(100_000 - 900 - LOOKBACK)
+        expect(start).toBe(100_000 - 1800 - LOOKBACK)
+      })
+
+      it('treats a missing runIndex as the first run', () => {
+        const order: any = { createdAt: NOW - 3 * 3600 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, undefined, 100_000, NOW)
+        expect(start).toBe(100_000 - 1800 - LOOKBACK)
+      })
+
+      it('keeps the rolling window for a fresh order', () => {
+        const order: any = { createdAt: NOW }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 100_000, NOW)
+        expect(start).toBe(100_000 - LOOKBACK)
+      })
+
+      it('keeps the rolling window on restarts, so year-old orders do not search their whole life', () => {
+        const order: any = { createdAt: NOW - 200 * 24 * 3600 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 3, 100_000, NOW)
+        expect(start).toBe(100_000 - LOOKBACK)
+      })
+
+      it('keeps the rolling window when createdAt is missing or in the future', () => {
+        expect((checkOrderStatusService as any).getRunStartBlock({}, 1, 0, 100_000, NOW)).toBe(100_000 - LOOKBACK)
+        expect((checkOrderStatusService as any).getRunStartBlock({ createdAt: NOW + 60 }, 1, 0, 100_000, NOW)).toBe(
+          100_000 - LOOKBACK
+        )
+      })
+
+      it('reaches back to the order creation on testnets too', () => {
+        // Created 1h ago on Sepolia (12s blocks, ~300 blocks); doubled to 600.
+        const order: any = { createdAt: NOW - 3600 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 11155111, 0, 100_000, NOW)
+        expect(start).toBe(100_000 - 600 - LOOKBACK)
+      })
+
+      it('keeps a delayed short-lived order fill inside both bounds', () => {
+        // A 2-minute Dutch order created 3h ago (~900 mainnet blocks) and filled
+        // 5 blocks after creation; its first poll only runs now.
+        const order: any = { type: OrderType.Dutch, createdAt: NOW - 3 * 3600, deadline: NOW - 3 * 3600 + 120 }
+        const head = 100_000
+        const fillBlock = head - 900 + 5
+        const runStart = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, head, NOW)
+        const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 1, runStart)
+        const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 1, fromBlock, head, NOW)
+        expect(fromBlock).toBeLessThanOrEqual(fillBlock)
+        expect(toBlock).toBeGreaterThanOrEqual(fillBlock)
+      })
+
+      it.each([
+        ['slower', 0.275],
+        ['faster', 0.225],
+      ])(
+        'keeps a delayed 2-minute Arbitrum order fill inside both bounds when the chain runs %s than registered',
+        (_label, actualBlockTime) => {
+          // Arbitrum is registered at 0.25s; the first poll runs 3h after creation.
+          const order: any = { type: OrderType.Dutch, createdAt: NOW - 3 * 3600, deadline: NOW - 3 * 3600 + 120 }
+          const head = 1_000_000
+          const fillBlock = head - Math.round((3 * 3600) / actualBlockTime) + 5
+          const runStart = (checkOrderStatusService as any).getRunStartBlock(order, 42161, 0, head, NOW)
+          const fromBlock = (checkOrderStatusService as any).getFillSearchFromBlock(order, 42161, runStart)
+          const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 42161, fromBlock, head, NOW)
+          expect(fromBlock).toBeLessThanOrEqual(fillBlock)
+          expect(toBlock).toBeGreaterThanOrEqual(fillBlock)
+        }
+      )
+
+      it('keeps the rolling window for order types anchored to their auction start block', () => {
+        const order: any = {
+          type: OrderType.Dutch_V3,
+          createdAt: NOW - 3 * 3600,
+          cosignerData: { decayStartBlock: 99_000 },
+        }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 100_000, NOW)
+        expect(start).toBe(100_000 - LOOKBACK)
+      })
+
+      it('does not move the window for time shorter than a block', () => {
+        const order: any = { createdAt: NOW - 1 }
+        const start = (checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 100_000, NOW)
+        expect(start).toBe(100_000 - LOOKBACK)
+      })
+
+      it('never returns a negative block', () => {
+        const order: any = { createdAt: NOW - 3 * 3600 }
+        expect((checkOrderStatusService as any).getRunStartBlock(order, 1, 0, 50, NOW)).toBe(0)
       })
     })
 
@@ -501,13 +611,11 @@ describe('checkOrderStatusService', () => {
         expect(toBlock).toBe(500_000)
       })
 
-      it('uses the current head on chains without a registered block time (testnets)', () => {
-        // getAverageBlockTimeSecs throws for chains missing from its registry
-        // (e.g. Sepolia); the cap must degrade to the old uncapped behavior
-        // instead of failing the poll before the fill lookup.
+      it('caps the upper bound on testnets too', () => {
         const order: any = { createdAt: 1_000_000, deadline: 1_000_120 }
         const toBlock = (checkOrderStatusService as any).getFillSearchToBlock(order, 11155111, 1000, 500_000)
-        expect(toBlock).toBe(500_000)
+        expect(toBlock).toBeLessThan(500_000)
+        expect(toBlock).toBeGreaterThan(1000)
       })
     })
 
@@ -557,7 +665,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(
@@ -597,7 +705,7 @@ describe('checkOrderStatusService', () => {
 
         expect(ordersRepositoryMock.getByHash).toHaveBeenCalled()
         expect(ordersRepositoryMock.updateOrderStatus).toHaveBeenCalled()
-        expect(watcherMock.getFillInfo).toHaveBeenCalled()
+        expect(watcherMock.getFillInfoForOrder).toHaveBeenCalled()
         expect(providerMock.getTransaction).toHaveBeenCalled()
         expect(validatorMock.validate).toHaveBeenCalled()
         expect(result).toEqual(

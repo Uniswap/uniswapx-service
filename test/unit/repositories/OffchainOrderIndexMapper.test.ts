@@ -1,12 +1,10 @@
 import { TABLE_KEY } from '../../../lib/config/dynamodb'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../../../lib/entities'
 import { GET_QUERY_PARAMS } from '../../../lib/handlers/get-orders/schema'
 import { OffchainOrderIndexMapper } from '../../../lib/repositories/IndexMappers/OffchainOrderIndexMapper'
-import { MOCK_ORDER_ENTITY } from '../../test-data'
 import { QueryParamsBuilder } from '../builders/QueryParamsBuilder'
 
 describe('OffchainOrderIndexMapper', () => {
-  const indexMapper: OffchainOrderIndexMapper<UniswapXOrderEntity> = new OffchainOrderIndexMapper()
+  const indexMapper = new OffchainOrderIndexMapper()
   const queryParamsBuilder = new QueryParamsBuilder()
   describe('getIndexFromParams', () => {
     it('should give filler_offerer_orderStatus index', async () => {
@@ -107,49 +105,6 @@ describe('OffchainOrderIndexMapper', () => {
       expect(indexMapper.getIndexFromParams(queryParams)).toEqual({
         partitionKey: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
         index: `${TABLE_KEY.PAIR}`,
-      })
-    })
-  })
-
-  describe('getIndexFieldsForUpdate', () => {
-    it('should give all index fields from order', () => {
-      const order: UniswapXOrderEntity = {
-        ...MOCK_ORDER_ENTITY,
-        orderStatus: ORDER_STATUS.FILLED,
-        offerer: '0xOfferer',
-        filler: '0xFiller',
-        chainId: 5,
-        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-      }
-      expect(indexMapper.getIndexFieldsForUpdate(order)).toEqual({
-        chainId_filler: '5_0xFiller',
-        chainId_orderStatus: '5_filled',
-        chainId_orderStatus_filler: '5_filled_0xFiller',
-        filler_offerer: '0xFiller_0xOfferer',
-        filler_offerer_orderStatus: '0xFiller_0xOfferer_filled',
-        filler_orderStatus: '0xFiller_filled',
-        offerer_orderStatus: '0xOfferer_filled',
-      })
-    })
-  })
-
-  describe('getIndexFieldsForStatusUpdate', () => {
-    it('should give all index fields from order', () => {
-      const order: UniswapXOrderEntity = {
-        ...MOCK_ORDER_ENTITY,
-        orderStatus: ORDER_STATUS.OPEN,
-        offerer: '0xOfferer',
-        filler: '0xFiller',
-        chainId: 5,
-        pair: '0x0000000000000000000000000000000000000000-0x1111111111111111111111111111111111111111-123',
-      }
-      expect(indexMapper.getIndexFieldsForStatusUpdate(order, ORDER_STATUS.INSUFFICIENT_FUNDS)).toEqual({
-        chainId_orderStatus: '5_insufficient-funds',
-        chainId_orderStatus_filler: '5_insufficient-funds_0xFiller',
-        filler_offerer_orderStatus: '0xFiller_0xOfferer_insufficient-funds',
-        filler_orderStatus: '0xFiller_insufficient-funds',
-        offerer_orderStatus: '0xOfferer_insufficient-funds',
-        orderStatus: 'insufficient-funds',
       })
     })
   })

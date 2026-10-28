@@ -15,13 +15,14 @@ import { log } from '../../../lib/Logging'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../../lib/repositories/limit-orders-repository'
 import { AnalyticsService } from '../../../lib/services/analytics-service'
-import { RelayOrderService } from '../../../lib/services/RelayOrderService'
 import { ChainId, SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { NATIVE_ADDRESS } from '../../../lib/util/constants'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
+import { DYNAMO_LOCAL_CONFIG } from '../dynamo-local'
+import { TEST_STORE_CONTEXT, nowSeconds } from '../../fakes/orders-repository'
 
 // Mock the Permit2Validator
 jest.mock('../../../lib/util/Permit2Validator', () => ({
@@ -39,18 +40,7 @@ describe('Testing check order status handler', () => {
   const providerMock = jest.fn().mockReturnValue(mockedBlockNumber)
   const getTransactionMock = jest.fn()
 
-  const dynamoConfig = {
-    convertEmptyValues: true,
-    endpoint: 'localhost:8000',
-    region: 'local-env',
-    sslEnabled: false,
-    credentials: {
-      accessKeyId: 'fakeMyKeyId',
-      secretAccessKey: 'fakeSecretAccessKey',
-    },
-  }
-
-  const localDocumentClient = new DocumentClient(dynamoConfig)
+  const localDocumentClient = new DocumentClient(DYNAMO_LOCAL_CONFIG)
   const mockLookbackFn = () => 10
 
   beforeAll(() => {
@@ -80,7 +70,7 @@ describe('Testing check order status handler', () => {
           },
           orderWatcher: {
             getFillEvents: getFillEventsMock,
-            getFillInfo: getFillInfoMock,
+            getFillInfoForOrder: getFillInfoMock,
           },
           provider: {
             getBlockNumber: providerMock,
@@ -111,8 +101,7 @@ describe('Testing check order status handler', () => {
         mockLookbackFn,
         mock<FillEventLogger>(),
         mock<CheckOrderStatusUtils>()
-      ),
-      mock<RelayOrderService>()
+      )
     )
 
     it('Should throw when orderHash is not provided', async () => {
@@ -166,7 +155,7 @@ describe('Testing check order status handler', () => {
     }
 
     beforeAll(async () => {
-      await DutchOrdersRepository.create(localDocumentClient).putOrderAndUpdateNonceTransaction(MOCK_ORDER_ENTITY)
+      await DutchOrdersRepository.create(localDocumentClient).putOrderAndUpdateNonce(TEST_STORE_CONTEXT, MOCK_ORDER_ENTITY, nowSeconds())
     })
 
     beforeEach(async () => {
@@ -195,8 +184,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getFillInfoMock.mockReturnValue([])
@@ -227,8 +215,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getTransactionMock.mockReturnValueOnce({
@@ -279,8 +266,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock.mockReturnValue(OrderValidation.NonceUsed)
       getTransactionMock.mockReturnValueOnce({
@@ -330,8 +316,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock.mockReturnValue(OrderValidation.InsufficientFunds)
       expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
@@ -361,8 +346,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
       validateMock
         .mockReturnValueOnce(OrderValidation.UnknownError)
@@ -404,8 +388,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
 
       validateMock.mockReturnValue(OrderValidation.OK)
@@ -445,8 +428,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
 
       // Mock that the token is permissioned
@@ -509,8 +491,7 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        ),
-        mock<RelayOrderService>()
+        )
       )
 
       // Mock that the token is NOT permissioned

@@ -3,18 +3,21 @@ import { CfnOutput, Duration } from 'aws-cdk-lib'
 import * as aws_apigateway from 'aws-cdk-lib/aws-apigateway'
 import { MethodLoggingLevel } from 'aws-cdk-lib/aws-apigateway'
 import * as aws_cloudwatch from 'aws-cdk-lib/aws-cloudwatch'
-import * as aws_cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions'
-import { PolicyStatement } from 'aws-cdk-lib/aws-iam'
 import * as aws_logs from 'aws-cdk-lib/aws-logs'
 import * as aws_sns from 'aws-cdk-lib/aws-sns'
+import * as aws_sns_subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as aws_waf from 'aws-cdk-lib/aws-wafv2'
 import { Construct } from 'constructs'
-import { STAGE, logRetentionDays } from '../../lib/util/stage'
+import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
+import { AlarmNotifier } from './alerting'
+import { AnalyticsStack } from './analytics-stack'
 import { DashboardStack } from './dashboard-stack'
-import { IndexCapacityConfig, TableCapacityConfig } from './dynamo-stack'
+import { TableCapacityConfig } from './dynamo-stack'
+import { BACKEND_ACCOUNTS, IamStack } from './iam-stack'
 import { KmsStack } from './kms-stack'
 import { LambdaStack } from './lambda-stack'
+import { logRetentionDays } from './log-retention'
 
 export class APIStack extends cdk.Stack {
   public readonly url: CfnOutput
@@ -25,54 +28,95 @@ export class APIStack extends cdk.Stack {
     props: cdk.StackProps & {
       provisionedConcurrency: number
       throttlingOverride?: string
+      getOrdersReservedConcurrency?: number
+      getOrdersThrottlePerFiveMins?: number
       internalApiKey?: string
       chatbotSNSArn?: string
+      // incident.io CloudWatch alert-source URL (with ?team=&service= routing params), as a Secrets
+      // Manager dynamic reference. When set, an SNS topic subscribed to it is created here and
+      // every alarm notifies it on ALARM and OK.
+      incidentIoCloudWatchEndpoint?: string
       stage: string
       envVars: { [key: string]: string }
       tableCapacityConfig: TableCapacityConfig
-      indexCapacityConfig?: IndexCapacityConfig
     }
   ) {
     super(parent, name, props)
 
     const {
       throttlingOverride,
+      getOrdersReservedConcurrency,
+      getOrdersThrottlePerFiveMins,
       chatbotSNSArn,
+      incidentIoCloudWatchEndpoint,
       stage,
       provisionedConcurrency,
       internalApiKey,
       tableCapacityConfig,
-      indexCapacityConfig,
     } = props
 
     // KMS initialization
     const kmsStack = new KmsStack(this, `${SERVICE_NAME}PostOrderCosignerKey`)
 
+    // incident.io's CloudWatch connector: a plain SNS topic with an HTTPS subscription to the
+    // alert-source endpoint (raw message delivery off, as incident.io requires). Alarms in every
+    // nested stack publish to it on ALARM and OK. The endpoint arrives as a Secrets Manager
+    // dynamic reference, so the protocol cannot be inferred from the string and is set explicitly.
+    let incidentIoSNSArn: string | undefined
+    if (incidentIoCloudWatchEndpoint) {
+      const incidentIoTopic = new aws_sns.Topic(this, `${SERVICE_NAME}IncidentIoCloudWatchAlerts`, {
+        topicName: `${SERVICE_NAME}-CloudWatch-alerts-incident-io`,
+        displayName: 'CloudWatch alerts for incident.io',
+      })
+      incidentIoTopic.addSubscription(
+        new aws_sns_subscriptions.UrlSubscription(incidentIoCloudWatchEndpoint, {
+          protocol: aws_sns.SubscriptionProtocol.HTTPS,
+        })
+      )
+      incidentIoSNSArn = incidentIoTopic.topicArn
+    }
+
     const {
       getOrdersLambdaAlias,
       getOrdersLambda,
       getNonceLambdaAlias,
-      getNonceLambda,
       postOrderLambdaAlias,
       postOrderLambda,
       postLimitOrderLambdaAlias,
-      // postLimitOrderLambda, TODO: dashboard
+      postLimitOrderLambda,
       getLimitOrdersLambdaAlias,
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
       chainIdToStatusTrackingStateMachineArn,
       checkStatusFunction,
-      getUnimindLambdaAlias,
-      getUnimindLambda,
+      ordersTable,
+      limitOrdersTable,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
+      getOrdersReservedConcurrency,
       stage: stage as STAGE,
       envVars: props.envVars,
       kmsKey: kmsStack.key,
       tableCapacityConfig,
-      indexCapacityConfig,
       chatbotSNSArn,
+      incidentIoSNSArn,
     })
+
+    new AnalyticsStack(this, `${SERVICE_NAME}AnalyticsStack`, {
+      stage: stage as STAGE,
+      postOrderLambda,
+      postLimitOrderLambda,
+      checkStatusFunction,
+    })
+
+    // Only where there is a backend account to trust: an empty nested stack fails to deploy.
+    if (BACKEND_ACCOUNTS[stage as STAGE].length > 0) {
+      new IamStack(this, `${SERVICE_NAME}IamStack`, {
+        stage: stage as STAGE,
+        ordersTable,
+        limitOrdersTable,
+      })
+    }
 
     const accessLogGroup = new aws_logs.LogGroup(this, `${SERVICE_NAME}APIGAccessLogs`, {
       retention: logRetentionDays(stage as STAGE),
@@ -103,6 +147,7 @@ export class APIStack extends cdk.Stack {
       apiKeySourceType: aws_apigateway.ApiKeySourceType.HEADER,
     })
 
+    const DEFAULT_GET_ORDERS_THROTTLE_PER_FIVE_MINS = 1200
     const ipThrottlingACL = new aws_waf.CfnWebACL(this, `${SERVICE_NAME}IPThrottlingACL`, {
       defaultAction: { allow: {} },
       scope: 'REGIONAL',
@@ -194,9 +239,12 @@ export class APIStack extends cdk.Stack {
           priority: 2,
           statement: {
             rateBasedStatement: {
-              // rate limit across all chains
-              // default evaluation window: 5 minutes => 6 per second
-              limit: throttlingOverride ? parseInt(throttlingOverride) : 1800,
+              // Per IP, across all chains and query shapes, over WAF's 5-minute window
+              // (1200 => 4 req/s). Tuned on its own rather than through THROTTLE_PER_FIVE_MINS:
+              // the handler serves each query from a page cached for GET_ORDERS_CACHE_TTL_MS,
+              // so polling any one query faster than that returns identical data and only
+              // spends capacity. Keyed callers are exempt via allow-api-key above.
+              limit: getOrdersThrottlePerFiveMins ?? DEFAULT_GET_ORDERS_THROTTLE_PER_FIVE_MINS,
               aggregateKeyType: 'FORWARDED_IP',
               scopeDownStatement: {
                 byteMatchStatement: {
@@ -377,7 +425,6 @@ export class APIStack extends cdk.Stack {
     const getNonceLambdaIntegration = new aws_apigateway.LambdaIntegration(getNonceLambdaAlias, {})
     const getDocsLambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsLambdaAlias, {})
     const getDocsUILambdaIntegration = new aws_apigateway.LambdaIntegration(getDocsUILambdaAlias, {})
-    const getUnimindLambdaIntegration = new aws_apigateway.LambdaIntegration(getUnimindLambdaAlias, {})
 
     const dutchAuction = api.root.addResource('dutch-auction', {
       defaultCorsPreflightOptions: {
@@ -426,25 +473,13 @@ export class APIStack extends cdk.Stack {
     orders.addMethod('GET', getOrdersLambdaIntegration, {})
     nonce.addMethod('GET', getNonceLambdaIntegration, {})
 
-    const unimind = api.root.addResource('unimind', {
-      defaultCorsPreflightOptions: {
-        allowOrigins: aws_apigateway.Cors.ALL_ORIGINS,
-        allowMethods: ['GET'],
-      },
-    })
-
-    unimind.addMethod('GET', getUnimindLambdaIntegration, {
-      apiKeyRequired: false, // TODO: Set to true once URA has integrated
-    })
-
     new DashboardStack(this, `${SERVICE_NAME}-Dashboard`, {
       apiName: api.restApiName,
       postOrderLambdaName: postOrderLambda.functionName,
-      getNonceLambdaName: getNonceLambda.functionName,
       getOrdersLambdaName: getOrdersLambda.functionName,
-      getUnimindLambdaName: getUnimindLambda.functionName,
       chainIdToStatusTrackingStateMachineArn,
       orderStatusLambdaName: checkStatusFunction.functionName,
+      getOrdersReservedConcurrency,
     })
 
     const apiAlarm5xxSev2 = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV2-5XXAlarm`, {
@@ -502,24 +537,9 @@ export class APIStack extends cdk.Stack {
       evaluationPeriods: 3,
     })
 
-    if (chatbotSNSArn) {
-      const chatBotTopic = aws_sns.Topic.fromTopicArn(this, `${SERVICE_NAME}ChatbotTopic`, chatbotSNSArn)
-      apiAlarm5xxSev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarm5xxSev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarm4xxSev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarmLatencySev3.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      apiAlarmLatencySev2.addAlarmAction(new aws_cloudwatch_actions.SnsAction(chatBotTopic))
-    }
-
-    const dynamoPolicy = new PolicyStatement({
-      actions: ['dynamodb:PutItem', 'dynamodb:GetItem'],
-      resources: [
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/QuoteMetadata`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/UnimindParameters`,
-      ],
-    })
-
-    getUnimindLambdaAlias.addToRolePolicy(dynamoPolicy)
+    const notifier = new AlarmNotifier(this, { chatbotSNSArn, incidentIoSNSArn })
+    notifier.page(apiAlarm5xxSev2, apiAlarmLatencySev2)
+    notifier.notify(apiAlarm5xxSev3, apiAlarm4xxSev3, apiAlarmLatencySev3)
 
     // Add API keys and usage plan
     const tradingAPIKey = new aws_apigateway.ApiKey(this, 'TradingAPIKey', {

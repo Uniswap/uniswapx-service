@@ -1,178 +1,73 @@
-import { Logger } from '@aws-lambda-powertools/logger'
-import {
-  OrderType,
-  OrderValidation,
-  OrderValidator,
-  RelayEventWatcher,
-  RelayOrderValidator,
-} from '@uniswap/uniswapx-sdk'
-import { mock } from 'jest-mock-extended'
-import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
+import { OrderType } from '@uniswap/uniswapx-sdk'
+import { APIGatewayProxyEvent } from 'aws-lambda'
 import { ErrorCode } from '../../../../lib/handlers/base'
-import { FillEventLogger } from '../../../../lib/handlers/check-order-status/fill-event-logger'
-import { DEFAULT_MAX_OPEN_LIMIT_ORDERS } from '../../../../lib/handlers/constants'
-import { EventWatcherMap } from '../../../../lib/handlers/EventWatcherMap'
-import { OnChainValidatorMap } from '../../../../lib/handlers/OnChainValidatorMap'
-import { getMaxLimitOpenOrders } from '../../../../lib/handlers/post-limit-order/injector'
-import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
-import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
-import { kickoffOrderTrackingSfn } from '../../../../lib/handlers/shared/sfn'
+import { LIMIT_ORDER_ROUTE } from '../../../../lib/handlers/post-order/routes'
 import { HttpStatusCode } from '../../../../lib/HttpStatusCode'
-import { BaseOrdersRepository } from '../../../../lib/repositories/base'
-import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
-import { RelayOrderService } from '../../../../lib/services/RelayOrderService'
-import { UniswapXOrderService } from '../../../../lib/services/UniswapXOrderService'
-import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
-import { formatOrderEntity } from '../../../../lib/util/order'
+import { WebhookProvider } from '../../../../lib/providers/base'
+import { ChainId } from '../../../../lib/util/chain'
+import { dutchOrderEntity } from '../../../factories/order-entities'
 import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
+import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
+import { freezeClock, restoreClock } from '../../../fakes/clock'
+import { makePostOrderHandler, PostOrderHandlerHarness } from '../../builders/post-path'
 import { EVENT_CONTEXT, QUOTE_ID, SIGNATURE } from '../../fixtures'
 import { PostOrderRequestFactory } from './PostOrderRequestFactory'
-import { QuoteMetadataRepository } from '../../../../lib/repositories/quote-metadata-repository'
 
-jest.mock('../../../../lib/handlers/shared/sfn', () => {
-  return {
-    kickoffOrderTrackingSfn: jest.fn(),
-  }
-})
+jest.mock('../../../../lib/handlers/shared/sfn', () => ({ kickoffOrderTrackingSfn: jest.fn() }))
 
-// The handler rebuilds ARNs from STATE_MACHINE_NAMES + REGION + ACCOUNT_ID;
-// see lib/util/stateMachineArn.ts.
-const MOCK_ACCOUNT_ID = '123456789012'
-const MOCK_SM_REGION = 'region'
-
+// Cases both post routes share live in post-order-shared.test.ts.
 describe('Testing post limit order handler.', () => {
-  const putOrderAndUpdateNonceTransactionMock = jest.fn()
-  const countOrdersByOffererAndStatusMock = jest.fn()
-  const validatorMock = jest.fn()
-  const onchainValidationSucceededMock = jest.fn().mockResolvedValue(OrderValidation.OK) // Ordervalidation.Ok
-  const validationFailedValidatorMock = jest.fn().mockResolvedValue(OrderValidation.ValidationFailed) // OrderValidation.ValidationFailed
-  const mockSfnClient = jest.fn()
+  let harness: PostOrderHandlerHarness
+  const handle = (event: APIGatewayProxyEvent) => harness.handler.handler(event, EVENT_CONTEXT)
 
-  const mockLog = mock<Logger>()
-  const requestInjected = {
-    requestId: 'testRequest',
-    log: mockLog,
-  }
-  const validatorMockMapping = [
-    [
-      1,
-      {
-        validate: onchainValidationSucceededMock,
-      },
-    ],
-    [
-      5,
-      {
-        validate: onchainValidationSucceededMock,
-      },
-    ],
-    [
-      137,
-      {
-        validate: validationFailedValidatorMock,
-      },
-    ],
-    [
-      11155111,
-      {
-        validate: onchainValidationSucceededMock,
-      },
-    ],
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ] as any
-
-  const injectorPromiseMock: any = {
-    getContainerInjected: () => {
-      return {}
-    },
-    getRequestInjected: () => requestInjected,
-  }
-
-  const postOrderHandler = new PostOrderHandler(
-    'post-limit-order',
-    injectorPromiseMock,
-    new OrderDispatcher(
-      new UniswapXOrderService(
-        {
-          validate: validatorMock,
-        } as any,
-        new OnChainValidatorMap<OrderValidator>(validatorMockMapping),
-        {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        } as any,
-        mock<BaseOrdersRepository<UniswapXOrderEntity>>(), // limit repo
-        mock<QuoteMetadataRepository>(),
-        mockLog,
-        getMaxLimitOpenOrders,
-        {
-          logOrderPosted: jest.fn(),
-          logCancelled: jest.fn(),
-          logInsufficientFunds: jest.fn(),
-          logUnimindResponse: jest.fn(),
-          logUnimindParameterUpdate: jest.fn(),
-        },
-        new Map()
-      ),
-      new RelayOrderService(
-        {
-          validate: validatorMock,
-        } as any,
-        new OnChainValidatorMap<RelayOrderValidator>(validatorMockMapping),
-        mock<EventWatcherMap<RelayEventWatcher>>(),
-        {
-          putOrderAndUpdateNonceTransaction: putOrderAndUpdateNonceTransactionMock,
-          countOrdersByOffererAndStatus: countOrdersByOffererAndStatusMock,
-        } as any,
-        mockLog,
-        getMaxLimitOpenOrders,
-        mock<FillEventLogger>()
-      ),
-      mockLog
-    ),
-    new PostOrderBodyParser(mockLog)
-  )
-
-  beforeAll(() => {
-    process.env['STATE_MACHINE_NAMES'] = JSON.stringify({
-      1: 'MOCK_SM_1',
-      11155111: 'MOCK_SM_11155111',
-    })
-    process.env['ACCOUNT_ID'] = MOCK_ACCOUNT_ID
-    process.env['REGION'] = MOCK_SM_REGION
+  beforeEach(() => {
+    freezeClock(100)
+    harness = makePostOrderHandler(LIMIT_ORDER_ROUTE)
   })
 
   afterEach(() => {
-    jest.clearAllMocks()
+    restoreClock()
+  })
+
+  it('never sends the immediate exclusive-filler notice, even when given a webhook provider', async () => {
+    const getExclusiveFillerEndpoints = jest.fn().mockResolvedValue([])
+    harness = makePostOrderHandler(LIMIT_ORDER_ROUTE, {
+      webhookProvider: { getExclusiveFillerEndpoints } as unknown as WebhookProvider,
+    })
+    const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
+      exclusiveFiller: '0x0000000000000000000000000000000000000044',
+    })
+
+    const response = await handle(PostOrderRequestFactory.request({ encodedOrder: order.serialize() }))
+
+    expect(response.statusCode).toEqual(HttpStatusCode.Created)
+    expect(harness.repository.puts[0].filler).toEqual('0x0000000000000000000000000000000000000044')
+    expect(getExclusiveFillerEndpoints).not.toHaveBeenCalled()
   })
 
   describe('Testing valid request and response', () => {
     it('Testing valid request and response.', async () => {
-      validatorMock.mockReturnValue({ valid: true })
       const order = SDKDutchOrderFactory.buildLimitOrder()
 
       // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
+      const expectedOrderEntity = dutchOrderEntity(order, SIGNATURE, QUOTE_ID)
 
-      const postOrderResponse = await postOrderHandler.handler(
+      const postOrderResponse = await handle(
         PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
-        }),
-        EVENT_CONTEXT
+        })
       )
 
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
-      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
-      expect(onchainValidationSucceededMock).toBeCalled()
-      expect(validatorMock).toBeCalledWith(order)
-      expect(kickoffOrderTrackingSfn).toHaveBeenCalledWith(
-        expect.objectContaining({ orderType: 'Limit' }),
-        expect.anything()
-      )
+      expect(harness.repository.puts).toEqual([expectedOrderEntity])
+      expect(harness.onChainValidator.calls).toHaveLength(1)
+      expect(harness.orderValidator.calls).toEqual([order])
+      expect(harness.tracking.calls).toEqual([
+        { input: expect.objectContaining({ orderType: 'Limit' }), stateMachineArn: expect.anything() },
+      ])
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
         statusCode: HttpStatusCode.Created,
@@ -186,27 +81,24 @@ describe('Testing post limit order handler.', () => {
     })
 
     it('Testing valid request and response on another chain', async () => {
-      validatorMock.mockReturnValue({ valid: true })
-
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.SEPOLIA)
 
       // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
+      const expectedOrderEntity = dutchOrderEntity(order, SIGNATURE, QUOTE_ID)
 
-      const postOrderResponse = await postOrderHandler.handler(
+      const postOrderResponse = await handle(
         PostOrderRequestFactory.request({
           encodedOrder: order.serialize(),
           signature: SIGNATURE,
           quoteId: QUOTE_ID,
           chainId: ChainId.SEPOLIA,
-        }),
-        EVENT_CONTEXT
+        })
       )
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.Created)
 
-      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
-      expect(onchainValidationSucceededMock).toBeCalled()
-      expect(validatorMock).toBeCalledWith(order)
+      expect(harness.repository.puts).toEqual([expectedOrderEntity])
+      expect(harness.onChainValidator.calls).toHaveLength(1)
+      expect(harness.orderValidator.calls).toEqual([order])
       expect(postOrderResponse).toEqual({
         body: JSON.stringify({ hash: expectedOrderEntity.orderHash }),
         statusCode: HttpStatusCode.Created,
@@ -220,218 +112,25 @@ describe('Testing post limit order handler.', () => {
     })
   })
 
-  describe('Test order submission blocking', () => {
-    describe('Max open orders', () => {
-      it('should reject order submission for offerer when too many open orders exist', async () => {
-        countOrdersByOffererAndStatusMock.mockReturnValueOnce(DEFAULT_MAX_OPEN_LIMIT_ORDERS + 1)
-        validatorMock.mockReturnValue({ valid: true })
-        const order = SDKDutchOrderFactory.buildLimitOrder()
-        expect(
-          await postOrderHandler.handler(
-            PostOrderRequestFactory.request({
-              encodedOrder: order.serialize(),
-            }),
-            EVENT_CONTEXT
-          )
-        ).toMatchObject({
-          body: JSON.stringify({
-            errorCode: ErrorCode.TooManyOpenOrders,
-            id: 'testRequest',
-          }),
-          statusCode: HttpStatusCode.Forbidden,
+  describe('Testing posts to the wrong route', () => {
+    it('rejects a Dutch_V2 order and points to the Dutch auction order route', async () => {
+      const order = SDKDutchOrderV2Factory.buildDutchV2Order()
+      const postOrderResponse = await handle(
+        PostOrderRequestFactory.request({
+          encodedOrder: order.serialize(),
+          orderType: OrderType.Dutch_V2,
         })
-        expect(countOrdersByOffererAndStatusMock).toBeCalled()
-        expect(onchainValidationSucceededMock).toBeCalled()
-        expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
-      })
+      )
 
-      it('should allow more orders if in the high list', async () => {
-        countOrdersByOffererAndStatusMock.mockReturnValueOnce(100)
-        validatorMock.mockReturnValue({ valid: true })
-
-        const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
-          swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
-        })
-
-        expect(
-          await postOrderHandler.handler(
-            PostOrderRequestFactory.request({
-              encodedOrder: order.serialize(),
-            }),
-            EVENT_CONTEXT
-          )
-        ).toMatchObject({
-          statusCode: HttpStatusCode.Created,
-        })
-        expect(countOrdersByOffererAndStatusMock).toBeCalled()
-        expect(onchainValidationSucceededMock).toBeCalled()
-        expect(putOrderAndUpdateNonceTransactionMock).toBeCalled()
-      })
-
-      it('should reject order submission for offerer in high list at higher order count', async () => {
-        countOrdersByOffererAndStatusMock.mockReturnValueOnce(201)
-        validatorMock.mockReturnValue({ valid: true })
-
-        const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
-          swapper: '0xa7152fad7467857dc2d4060fecaadf9f6b8227d3',
-        })
-        expect(
-          await postOrderHandler.handler(
-            PostOrderRequestFactory.request({
-              encodedOrder: order.serialize(),
-            }),
-            EVENT_CONTEXT
-          )
-        ).toMatchObject({
-          body: JSON.stringify({
-            errorCode: ErrorCode.TooManyOpenOrders,
-            id: 'testRequest',
-          }),
-          statusCode: HttpStatusCode.Forbidden,
-        })
-        expect(countOrdersByOffererAndStatusMock).toBeCalled()
-        expect(onchainValidationSucceededMock).toBeCalled()
-        expect(putOrderAndUpdateNonceTransactionMock).not.toBeCalled()
-      })
-    })
-
-    it('should return 500 if DDB call throws', async () => {
-      countOrdersByOffererAndStatusMock.mockRejectedValueOnce(new Error('DDB error'))
-      const order = SDKDutchOrderFactory.buildLimitOrder()
-
-      expect(
-        await postOrderHandler.handler(
-          PostOrderRequestFactory.request({
-            encodedOrder: order.serialize(),
-          }),
-          EVENT_CONTEXT
-        )
-      ).toMatchObject({
-        statusCode: HttpStatusCode.InternalServerError,
-      })
-    })
-  })
-
-  describe('Testing invalid request validation.', () => {
-    it.each([
-      [
-        { encodedOrder: '0xbad_order' },
-        '{"detail":"\\"encodedOrder\\" with value \\"0xbad_order\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{0,4000}$/","errorCode":"VALIDATION_ERROR"}',
-      ],
-      [
-        { signature: '0xbad_signature' },
-        '{"detail":"\\"signature\\" with value \\"0xbad_signature\\" fails to match the required pattern: /^0x[0-9,a-z,A-Z]{130}$/","errorCode":"VALIDATION_ERROR"}',
-      ],
-      [
-        { chainId: 0 },
-        `{"detail":"\\"chainId\\" must be one of [${SUPPORTED_CHAINS.join(', ')}]","errorCode":"VALIDATION_ERROR"}`,
-      ],
-      [{ quoteId: 'not_UUIDV4' }, '{"detail":"\\"quoteId\\" must be a valid GUID","errorCode":"VALIDATION_ERROR"}'],
-    ])('Throws 400 with invalid field %p', async (invalidBodyField, bodyMsg) => {
-      const invalidEvent = PostOrderRequestFactory.request({
-        ...invalidBodyField,
-      })
-      const postOrderResponse = await postOrderHandler.handler(invalidEvent, EVENT_CONTEXT)
-      expect(validatorMock).not.toHaveBeenCalled()
-      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
       expect(postOrderResponse.statusCode).toEqual(HttpStatusCode.BadRequest)
-      expect(postOrderResponse.body).toEqual(expect.stringContaining(bodyMsg))
-      expect(postOrderResponse.body).toEqual(expect.stringContaining('VALIDATION_ERROR'))
-    })
-
-    it('should not call StepFunctions', async () => {
-      validatorMock.mockReturnValue({ valid: true })
-      await postOrderHandler.handler(PostOrderRequestFactory.request(), EVENT_CONTEXT)
-      expect(mockSfnClient).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('Testing invalid response validation.', () => {
-    it('Throws 500 when db interface errors out.', async () => {
-      putOrderAndUpdateNonceTransactionMock.mockImplementation(() => {
-        throw new Error('database unavailable')
+      expect(JSON.parse(postOrderResponse.body)).toEqual({
+        detail: 'Dutch_V2 orders must be posted to /v2/order',
+        errorCode: ErrorCode.InvalidOrder,
+        id: 'testRequest',
       })
-
-      validatorMock.mockReturnValue({ valid: true })
-
-      const order = SDKDutchOrderFactory.buildLimitOrder()
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
-      const expectedOrderEntity = formatOrderEntity(order, SIGNATURE, OrderType.Dutch, ORDER_STATUS.OPEN, QUOTE_ID)
-
-      const postOrderResponse = await postOrderHandler.handler(
-        PostOrderRequestFactory.request({
-          encodedOrder: order.serialize(),
-        }),
-        EVENT_CONTEXT
-      )
-      expect(putOrderAndUpdateNonceTransactionMock).toBeCalledWith(expectedOrderEntity)
-      expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ detail: 'database unavailable', errorCode: ErrorCode.InternalError, id: 'testRequest' }),
-        statusCode: HttpStatusCode.InternalServerError,
-        headers: {
-          'Access-Control-Allow-Credentials': true,
-          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-      })
-    })
-  })
-
-  describe('When validation fails', () => {
-    it('off-chain validation failed; throws 400', async () => {
-      const errorCode = ErrorCode.InvalidOrder
-      const errorString = 'testing offchain validation'
-      validatorMock.mockReturnValue({
-        valid: false,
-        errorString,
-      })
-
-      const order = SDKDutchOrderFactory.buildLimitOrder()
-      const postOrderResponse = await postOrderHandler.handler(
-        PostOrderRequestFactory.request({
-          encodedOrder: order.serialize(),
-        }),
-        EVENT_CONTEXT
-      )
-      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
-      expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ detail: errorString, errorCode, id: 'testRequest' }),
-        statusCode: HttpStatusCode.BadRequest,
-        headers: {
-          'Access-Control-Allow-Credentials': true,
-          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-      })
-    })
-
-    it('on-chain validation failed; throws 400', async () => {
-      validatorMock.mockReturnValue({
-        valid: true,
-      })
-
-      const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.POLYGON)
-      const postOrderResponse = await postOrderHandler.handler(
-        PostOrderRequestFactory.request({ chainId: ChainId.POLYGON, encodedOrder: order.serialize() }),
-        EVENT_CONTEXT
-      )
-      expect(putOrderAndUpdateNonceTransactionMock).not.toHaveBeenCalled()
-      expect(postOrderResponse).toEqual({
-        body: JSON.stringify({
-          detail: `Onchain validation failed: ValidationFailed`,
-          errorCode: ErrorCode.InvalidOrder,
-          id: 'testRequest',
-        }),
-        statusCode: HttpStatusCode.BadRequest,
-        headers: {
-          'Access-Control-Allow-Credentials': true,
-          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-      })
+      expect(harness.orderValidator.calls).toEqual([])
+      expect(harness.repository.puts).toEqual([])
+      expect(harness.tracking.calls).toEqual([])
     })
   })
 })

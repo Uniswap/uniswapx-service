@@ -40,7 +40,11 @@ export class OrderNotificationHandler extends DynamoStreamLambdaHandler<Containe
         const getEndpointsDuration = Date.now() - getEndpointsStartTime
         metrics.putMetric('OrderNotificationGetEndpointsDuration', getEndpointsDuration, Unit.Milliseconds)
 
-        log.info({ order: newOrder, registeredEndpoints }, 'Sending order to registered webhooks.')
+        // Log only the URLs: endpoints carry the auth headers we send to each webhook.
+        log.info(
+          { order: newOrder, registeredEndpoints: registeredEndpoints.map(({ url }) => ({ url })) },
+          'Sending order to registered webhooks.'
+        )
 
         // Convert to standard webhook format (map swapper -> offerer)
         const webhookOrderData: WebhookOrderData = {
@@ -162,9 +166,10 @@ export async function sendWebhookNotifications(
   results.forEach((result, index) => {
     metrics.putMetric(`OrderNotificationAttempt-chain-${order.chainId}`, 1)
     if (result.status == 'fulfilled' && result?.value?.status >= 200 && result?.value?.status <= 202) {
-      delete result.value.request
+      // The response's config carries the request headers, including the webhook's auth.
+      const { status, statusText, headers, data } = result.value
       logger.info(
-        { result: result.value },
+        { result: { status, statusText, headers, data } },
         `Success: New order record sent to registered webhook ${endpoints[index].url}.`
       )
       metrics.putMetric(`OrderNotificationSendSuccess-chain-${order.chainId}`, 1)

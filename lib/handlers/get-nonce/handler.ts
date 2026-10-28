@@ -1,29 +1,69 @@
 import { Unit } from 'aws-embedded-metrics'
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
+import Logger from 'bunyan'
 import Joi from 'joi'
+import { NonceRepository } from '../../repositories/nonce-repository'
+import { ONCHAIN_NONCE_CHECK_TIMEOUT_MS } from '../../util/constants'
 import { metrics } from '../../util/metrics'
-import { APIGLambdaHandler, APIHandleRequestParams, ErrorCode, ErrorResponse, Response } from '../base/index'
-import { ContainerInjected, RequestInjected } from './injector'
+import { findUnusedNonce, generateRandomNonce } from '../../util/nonce'
+import {
+  APIGLambdaHandler,
+  APIHandleRequestParams,
+  ApiRInj,
+  ErrorCode,
+  ErrorResponse,
+  RequestMetricsConfig,
+  Response,
+} from '../base/index'
+import type { ProviderMap } from '../shared'
 import { GetNonceQueryParams, GetNonceQueryParamsJoi, GetNonceResponse, GetNonceResponseJoi } from './schema/index'
 
-export class GetNonceHandler extends APIGLambdaHandler<
-  ContainerInjected,
-  RequestInjected,
-  void,
-  GetNonceQueryParams,
-  GetNonceResponse
-> {
+export interface RequestInjected extends ApiRInj {
+  address: string
+  chainId: number
+}
+
+export class GetNonceHandler extends APIGLambdaHandler<RequestInjected, void, GetNonceQueryParams, GetNonceResponse> {
+  constructor(
+    handlerName: string,
+    private readonly nonceRepository: Pick<NonceRepository, 'getNonce'>,
+    private readonly providerMap: ProviderMap
+  ) {
+    super(handlerName)
+  }
+
+  protected buildRequestInjected(
+    base: ApiRInj,
+    _requestBody: void,
+    requestQueryParams: GetNonceQueryParams
+  ): RequestInjected {
+    return {
+      ...base,
+      address: requestQueryParams.address,
+      chainId: requestQueryParams.chainId ?? 1,
+    }
+  }
+
   public async handleRequest(
-    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, GetNonceQueryParams>
+    params: APIHandleRequestParams<RequestInjected, void, GetNonceQueryParams>
   ): Promise<ErrorResponse | Response<GetNonceResponse>> {
     const {
       requestInjected: { address, chainId, log },
-      containerInjected: { dbInterface },
     } = params
 
     try {
       log.info({ address: address }, 'Getting nonce for address')
-      const nonce = await dbInterface.getNonceByAddressAndChain(address.toLowerCase(), chainId)
+      const lastUsedNonce = await this.nonceRepository.getNonce(params.ctx, address.toLowerCase(), chainId)
+      if (lastUsedNonce === undefined) {
+        // Never-seen address: a fresh random nonce lands on an untouched 248-bit word, so the
+        // chance of an on-chain collision is negligible — skip the RPC check entirely.
+        return {
+          statusCode: 200,
+          body: {
+            nonce: generateRandomNonce(),
+          },
+        }
+      }
+      const nonce = await this.verifyNonceOnChain(lastUsedNonce, address, chainId, this.providerMap, log)
       return {
         statusCode: 200,
         body: {
@@ -40,30 +80,54 @@ export class GetNonceHandler extends APIGLambdaHandler<
     }
   }
 
-  protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
-    const { statusCode } = response
-
-    // Try and extract the chain id from the raw json.
-    let chainId = '0'
+  /**
+   * The stored nonce only advances when an order is posted through this service, so it can be
+   * stale if a nonce was consumed on-chain via another path. Verify the candidate against the
+   * on-chain Permit2 nonceBitmap and skip past any consumed values. Falls back to the stored
+   * nonce if the check cannot complete, rather than failing the request.
+   */
+  private async verifyNonceOnChain(
+    lastUsedNonce: string,
+    address: string,
+    chainId: number,
+    providerMap: ProviderMap,
+    log: Logger
+  ): Promise<string> {
+    let timeout: NodeJS.Timeout | undefined = undefined
     try {
-      chainId = event.queryStringParameters?.chainId ?? '0'
-    } catch (err) {
-      // no-op. If we can't get chainId still log the metric as chain 0
+      const provider = providerMap.get(chainId)
+      const adjustedNonce = await Promise.race([
+        findUnusedNonce(provider, chainId, address, lastUsedNonce),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error('on-chain nonce check timed out')),
+            ONCHAIN_NONCE_CHECK_TIMEOUT_MS
+          )
+        }),
+      ])
+      if (adjustedNonce !== lastUsedNonce) {
+        log.info(
+          { address, chainId, storedNonce: lastUsedNonce, adjustedNonce },
+          'On-chain nonce check advanced past the stored nonce'
+        )
+        metrics.putMetric('GetNonceOnChainAdvance', 1, Unit.Count)
+      }
+      return adjustedNonce
+    } catch (e: unknown) {
+      log.warn({ e, address, chainId }, 'On-chain nonce check failed; falling back to stored nonce')
+      metrics.putMetric('GetNonceOnChainCheckFallback', 1, Unit.Count)
+      return lastUsedNonce
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout)
+      }
     }
+  }
 
-    const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
-
-    const getNonceStatusByChain = `GetNonceChainId${chainId.toString()}Status${statusCodeMod}`
-    metrics.putMetric(getNonceStatusByChain, 1, Unit.Count)
-
-    const getNonceStatus = `GetNonceStatus${statusCodeMod}`
-    metrics.putMetric(getNonceStatus, 1, Unit.Count)
-
-    const getNonceChainId = `GetNonceRequestChainId${chainId.toString()}`
-    metrics.putMetric(getNonceChainId, 1, Unit.Count)
-
-    const getNonce = `GetNonceRequest`
-    metrics.putMetric(getNonce, 1, Unit.Count)
+  // Counted under the chainId the query names, so a request without one is chain 0 although the
+  // handler serves chain 1.
+  protected requestMetricsConfig(): RequestMetricsConfig {
+    return { prefix: 'GetNonce', chainIdFrom: 'query' }
   }
 
   protected requestBodySchema(): Joi.ObjectSchema | null {

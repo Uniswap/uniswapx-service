@@ -1,11 +1,14 @@
 import Joi from 'joi'
-import { APIGLambdaHandler, APIHandleRequestParams, ErrorResponse, Response } from '../base/index'
-import { ContainerInjected, RequestInjected } from './GetDocsInjector'
+import { APIGLambdaHandler, APIHandleRequestParams, ApiRInj, ErrorResponse, Response } from '../base/index'
 import SWAGGER_UI from './swagger-ui'
 
-export class GetDocsUIHandler extends APIGLambdaHandler<ContainerInjected, RequestInjected, void, void, void> {
+export class GetDocsUIHandler extends APIGLambdaHandler<ApiRInj, void, void, void> {
+  protected buildRequestInjected(base: ApiRInj): ApiRInj {
+    return base
+  }
+
   public async handleRequest(
-    _params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, void>
+    _params: APIHandleRequestParams<ApiRInj, void, void>
   ): Promise<Response<any> | ErrorResponse> {
     try {
       return {

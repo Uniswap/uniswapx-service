@@ -5,8 +5,9 @@ import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 
 import { Operation } from 'aws-cdk-lib/aws-dynamodb'
 import { Construct } from 'constructs'
-import { TABLE_KEY } from '../../lib/config/dynamodb'
+import { GLOBAL_SECONDARY_INDEXES, gsiName, TABLE_KEY } from '../../lib/config/dynamodb'
 import { SERVICE_NAME } from '../constants'
+import { AlarmNotifier } from './alerting'
 
 type CapacityOptions = {
   readCapacity?: number
@@ -17,48 +18,28 @@ type TableCapacityOptions = {
   billingMode: aws_dynamo.BillingMode
 } & CapacityOptions
 
-export type IndexCapacityConfig = {
-  orderStatus?: CapacityOptions
-  offerer?: CapacityOptions
-  filler?: CapacityOptions
-  fillerOrderStatus?: CapacityOptions
-  fillerOfferer?: CapacityOptions
-  fillerOrderStatusOfferer?: CapacityOptions
-  offererOrderStatus?: CapacityOptions
-  chainId?: CapacityOptions
-  chainIdFiller?: CapacityOptions
-  chaindIdOrderStatus?: CapacityOptions
-  chainIdFillerOrderStatus?: CapacityOptions
-  pair?: CapacityOptions
-}
-
 export type TableCapacityConfig = {
   order: TableCapacityOptions
   limitOrder: TableCapacityOptions
-  relayOrder: TableCapacityOptions
   nonce: TableCapacityOptions
-  quoteMetadata: TableCapacityOptions
-  unimindParameters: TableCapacityOptions
 }
 
 export type DynamoStackProps = {
   chatbotSNSArn?: string
+  incidentIoSNSArn?: string
   tableCapacityConfig: TableCapacityConfig
-  indexCapacityConfig?: IndexCapacityConfig
 } & cdk.NestedStackProps
 
 export class DynamoStack extends cdk.NestedStack {
   public readonly ordersTable: aws_dynamo.Table
   public readonly nonceTable: aws_dynamo.Table
   public readonly limitOrdersTable: aws_dynamo.Table
-  public readonly relayOrdersTable: aws_dynamo.Table
-  public readonly quoteMetadataTable: aws_dynamo.Table
-  public readonly unimindParametersTable: aws_dynamo.Table
 
   constructor(scope: Construct, id: string, props: DynamoStackProps) {
     super(scope, id, props)
 
-    const { chatbotSNSArn, tableCapacityConfig, indexCapacityConfig } = props
+    const { chatbotSNSArn, incidentIoSNSArn, tableCapacityConfig } = props
+    const notifier = new AlarmNotifier(this, { chatbotSNSArn, incidentIoSNSArn })
 
     /* orders table */
     const ordersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}OrdersTable`, {
@@ -73,7 +54,7 @@ export class DynamoStack extends cdk.NestedStack {
       contributorInsightsEnabled: false,
       ...tableCapacityConfig.order,
     })
-    createCommonIndices(ordersTable, indexCapacityConfig)
+    createCommonIndices(ordersTable)
     this.ordersTable = ordersTable
 
     const limitOrdersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}LimitOrdersTable`, {
@@ -88,23 +69,8 @@ export class DynamoStack extends cdk.NestedStack {
       contributorInsightsEnabled: false,
       ...tableCapacityConfig.limitOrder,
     })
-    createCommonIndices(limitOrdersTable, indexCapacityConfig)
+    createCommonIndices(limitOrdersTable)
     this.limitOrdersTable = limitOrdersTable
-
-    const relayOrdersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}RelayOrdersTable`, {
-      tableName: 'RelayOrders',
-      partitionKey: {
-        name: TABLE_KEY.ORDER_HASH,
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      stream: aws_dynamo.StreamViewType.NEW_IMAGE,
-      deletionProtection: true,
-      pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
-      ...tableCapacityConfig.relayOrder,
-    })
-    createCommonIndices(relayOrdersTable, indexCapacityConfig)
-    this.relayOrdersTable = relayOrdersTable
 
     /* Nonces Table
      * This is needed because we want to do strongly-consistent reads on the nonce value,
@@ -123,38 +89,9 @@ export class DynamoStack extends cdk.NestedStack {
     })
     this.nonceTable = nonceTable
 
-    this.alarmsPerTable(this.nonceTable, 'Nonces', chatbotSNSArn)
-    this.alarmsPerTable(this.ordersTable, 'Orders', chatbotSNSArn)
-
-    const quoteMetadataTable = new aws_dynamo.Table(this, `${SERVICE_NAME}QuoteMetadataTable`, {
-      tableName: 'QuoteMetadata',
-      partitionKey: {
-        name: 'quoteId',
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      deletionProtection: true,
-      pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
-      ...tableCapacityConfig.quoteMetadata,
-    })
-    this.quoteMetadataTable = quoteMetadataTable
-
-    this.alarmsPerTable(this.quoteMetadataTable, 'QuoteMetadata', chatbotSNSArn)
-
-    const unimindParametersTable = new aws_dynamo.Table(this, `${SERVICE_NAME}UnimindParametersTable`, {
-      tableName: 'UnimindParameters',
-      partitionKey: {
-        name: 'pair',
-        type: aws_dynamo.AttributeType.STRING,
-      },
-      deletionProtection: true,
-      pointInTimeRecovery: true,
-      contributorInsightsEnabled: false,
-      ...tableCapacityConfig.unimindParameters,
-    })
-    this.unimindParametersTable = unimindParametersTable
-
-    this.alarmsPerTable(this.unimindParametersTable, 'UnimindParameters', chatbotSNSArn)
+    this.alarmsPerTable(this.nonceTable, 'Nonces', tableCapacityConfig.nonce, notifier)
+    this.alarmsPerTable(this.ordersTable, 'Orders', tableCapacityConfig.order, notifier)
+    this.hotIndexAlarms(this.ordersTable, 'Orders', notifier)
 
     // Dynamos built-in PointInTimeRecovery retention is max 35 days.
     // In addition to PITR being enabled on the tables we do a monthly backup
@@ -165,60 +102,64 @@ export class DynamoStack extends cdk.NestedStack {
       resources: [
         aws_backup.BackupResource.fromDynamoDbTable(nonceTable),
         aws_backup.BackupResource.fromDynamoDbTable(ordersTable),
-        aws_backup.BackupResource.fromDynamoDbTable(unimindParametersTable),
       ],
     })
   }
 
-  private alarmsPerTable(table: aws_dynamo.Table, name: string, chatbotSNSArn?: string): void {
-    const readCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`, {
-      alarmName: `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`,
-      metric: table.metricConsumedReadCapacityUnits(),
-      threshold: 80,
-      evaluationPeriods: 2,
-    })
+  private alarmsPerTable(
+    table: aws_dynamo.Table,
+    name: string,
+    capacity: TableCapacityOptions,
+    notifier: AlarmNotifier
+  ): void {
+    // Consumed-capacity alarms only mean something against a provisioned ceiling. On a
+    // pay-per-request table there is no ceiling and the old "80 units per 5 minutes" was always
+    // exceeded, so the Orders alarms sat in ALARM permanently. On a provisioned table the same
+    // 80-unit threshold was just as permanently exceeded (Nonces alarmed from June on), so the
+    // threshold is now 80% of the provisioned capacity summed over the 5-minute period.
+    if (capacity.billingMode !== aws_dynamo.BillingMode.PAY_PER_REQUEST) {
+      const period = cdk.Duration.minutes(5)
+      const eightyPercentOver = (unitsPerSecond: number) => 0.8 * unitsPerSecond * period.toSeconds()
+      notifier.notify(
+        new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`, {
+          alarmName: `${SERVICE_NAME}-SEV3-${name}-ReadCapacityAlarm`,
+          metric: table.metricConsumedReadCapacityUnits({ period, statistic: 'Sum' }),
+          threshold: eightyPercentOver(capacity.readCapacity ?? 5),
+          evaluationPeriods: 2,
+        }),
+        new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-WriteCapacityAlarm`, {
+          alarmName: `${SERVICE_NAME}-SEV3-${name}-WriteCapacityAlarm`,
+          metric: table.metricConsumedWriteCapacityUnits({ period, statistic: 'Sum' }),
+          threshold: eightyPercentOver(capacity.writeCapacity ?? 5),
+          evaluationPeriods: 2,
+        })
+      )
+    }
 
-    const writeCapacityAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-WriteCapacityAlarm`, {
-      alarmName: `${SERVICE_NAME}-SEV3-${name}-WriteCapacityAlarm`,
-      metric: table.metricConsumedWriteCapacityUnits(),
-      threshold: 80,
-      evaluationPeriods: 2,
-    })
+    // DynamoDB only publishes ThrottledRequests / SystemErrors when they are non-zero, so a
+    // quiet table produces no datapoints. The default (treat missing as missing) freezes the
+    // alarm in whatever state it last had, which left the Orders throttle alarms stuck in
+    // ALARM for weeks. Missing must mean healthy.
+    const quietIsHealthy = { treatMissingData: aws_cloudwatch.TreatMissingData.NOT_BREACHING }
 
     const readThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-ReadThrottlesAlarm`, {
       alarmName: `${SERVICE_NAME}-SEV3-${name}-ReadThrottlesAlarm`,
       metric: table.metricThrottledRequestsForOperations({
-        operations: [
-          Operation.GET_ITEM,
-          Operation.BATCH_GET_ITEM,
-          Operation.BATCH_WRITE_ITEM,
-          Operation.PUT_ITEM,
-          Operation.QUERY,
-          Operation.SCAN,
-          Operation.UPDATE_ITEM,
-          Operation.DELETE_ITEM,
-        ],
+        operations: [Operation.GET_ITEM, Operation.BATCH_GET_ITEM, Operation.QUERY, Operation.SCAN],
       }),
       threshold: 10,
       evaluationPeriods: 2,
+      ...quietIsHealthy,
     })
 
     const writeThrottleAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-WriteThrottlesAlarm`, {
       alarmName: `${SERVICE_NAME}-SEV3-${name}-WriteThrottlesAlarm`,
       metric: table.metricThrottledRequestsForOperations({
-        operations: [
-          Operation.GET_ITEM,
-          Operation.BATCH_GET_ITEM,
-          Operation.BATCH_WRITE_ITEM,
-          Operation.PUT_ITEM,
-          Operation.QUERY,
-          Operation.SCAN,
-          Operation.UPDATE_ITEM,
-          Operation.DELETE_ITEM,
-        ],
+        operations: [Operation.PUT_ITEM, Operation.UPDATE_ITEM, Operation.DELETE_ITEM, Operation.BATCH_WRITE_ITEM],
       }),
       threshold: 10,
       evaluationPeriods: 2,
+      ...quietIsHealthy,
     })
 
     const systemErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-SystemErrorsAlarm`, {
@@ -237,6 +178,7 @@ export class DynamoStack extends cdk.NestedStack {
       }),
       threshold: 10,
       evaluationPeriods: 2,
+      ...quietIsHealthy,
     })
 
     const userErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-UserErrorsAlarm`, {
@@ -244,187 +186,56 @@ export class DynamoStack extends cdk.NestedStack {
       metric: table.metricUserErrors(),
       threshold: 10,
       evaluationPeriods: 2,
+      ...quietIsHealthy,
     })
 
-    if (chatbotSNSArn) {
-      const chatBotTopic = cdk.aws_sns.Topic.fromTopicArn(this, 'ChatbotTopic', chatbotSNSArn)
-      userErrorsAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      systemErrorsAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      writeThrottleAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      readThrottleAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      writeCapacityAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
-      readCapacityAlarm.addAlarmAction(new cdk.aws_cloudwatch_actions.SnsAction(chatBotTopic))
+    notifier.notify(userErrorsAlarm, systemErrorsAlarm, writeThrottleAlarm, readThrottleAlarm)
+  }
+
+  /**
+   * Read throttles on the GSIs the Get Orders cache serves: a single hot partition key throttles
+   * at the index. chainId_orderStatus crossed 5,000 per period for 3 periods only during the
+   * Aug 31 and Sep 2 outages, which the Get Orders throttle alarm already pages on, so these are
+   * SEV3. chainId-createdAt-all is left out: it has throttled most days since Sep 7 and would sit
+   * in ALARM for hundreds of hours at any threshold that still catches an outage.
+   */
+  private hotIndexAlarms(table: aws_dynamo.Table, name: string, notifier: AlarmNotifier): void {
+    const hotIndexes = [gsiName(TABLE_KEY.CHAIN_ID_ORDER_STATUS), gsiName(TABLE_KEY.ORDER_STATUS)]
+    for (const index of hotIndexes) {
+      notifier.notify(
+        new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-${index}-ReadThrottles`, {
+          alarmName: `${SERVICE_NAME}-SEV3-${name}-GSI-${index}-ReadThrottles`,
+          metric: new aws_cloudwatch.Metric({
+            namespace: 'AWS/DynamoDB',
+            metricName: 'ReadThrottleEvents',
+            dimensionsMap: { TableName: table.tableName, GlobalSecondaryIndexName: index },
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+          }),
+          threshold: 5000,
+          evaluationPeriods: 3,
+          datapointsToAlarm: 3,
+          comparisonOperator: aws_cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+          treatMissingData: aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+        })
+      )
     }
   }
 }
 
-const createCommonIndices = (table: aws_dynamo.Table, indexCapacityConfig: IndexCapacityConfig | undefined) => {
-  // Create global secondary indexes with createdAt sort key
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.OFFERER,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.offerer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.ORDER_STATUS,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.orderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.FILLER,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.filler,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOfferer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.FILLER}_${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.fillerOrderStatusOfferer,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.OFFERER}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.offererOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.CHAIN_ID,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainId,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.FILLER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainIdFiller,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chaindIdOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: `${TABLE_KEY.CHAIN_ID}_${TABLE_KEY.ORDER_STATUS}_${TABLE_KEY.FILLER}`,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.chainIdFillerOrderStatus,
-  })
-
-  table.addGlobalSecondaryIndex({
-    indexName: `${TABLE_KEY.PAIR}-${TABLE_KEY.CREATED_AT}-all`,
-    partitionKey: {
-      name: TABLE_KEY.PAIR,
-      type: aws_dynamo.AttributeType.STRING,
-    },
-    sortKey: {
-      name: TABLE_KEY.CREATED_AT,
-      type: aws_dynamo.AttributeType.NUMBER,
-    },
-    projectionType: aws_dynamo.ProjectionType.ALL,
-    ...indexCapacityConfig?.pair,
-  })
+const createCommonIndices = (table: aws_dynamo.Table) => {
+  for (const { indexName, partitionKey, partitionKeyType, sortKey } of GLOBAL_SECONDARY_INDEXES) {
+    table.addGlobalSecondaryIndex({
+      indexName,
+      partitionKey: {
+        name: partitionKey,
+        type: partitionKeyType === 'N' ? aws_dynamo.AttributeType.NUMBER : aws_dynamo.AttributeType.STRING,
+      },
+      sortKey: {
+        name: sortKey,
+        type: aws_dynamo.AttributeType.NUMBER,
+      },
+      projectionType: aws_dynamo.ProjectionType.ALL,
+    })
+  }
 }

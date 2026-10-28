@@ -1,60 +1,101 @@
 import Joi from 'joi'
-import { Unit } from 'aws-embedded-metrics'
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda'
+import Logger from 'bunyan'
 import { UniswapXOrderEntity } from '../../entities'
+import { BaseOrdersRepository } from '../../repositories/base'
 import { OrderDispatcher } from '../../services/OrderDispatcher'
-import { log } from '../../util/log'
-import { metrics } from '../../util/metrics'
 import {
   APIGLambdaHandler,
   APIHandleRequestParams,
-  ApiInjector,
+  ApiRInj,
   ErrorCode,
   ErrorResponse,
+  RequestMetricsConfig,
   Response,
 } from '../base/index'
-import { ContainerInjected, RequestInjected } from './injector'
+import { parseGetQueryParams } from './query-params'
 import { GetDutchV2OrderResponse } from './schema/GetDutchV2OrderResponse'
 import { GetOrdersResponse, GetOrdersResponseJoi } from './schema/GetOrdersResponse'
 import { GetPriorityOrderResponse } from './schema/GetPriorityOrderResponse'
-import { GetHybridOrderResponse } from './schema/GetHybridOrderResponse'
-import { GetRelayOrderResponse, GetRelayOrdersResponseJoi } from './schema/GetRelayOrderResponse'
-import { GetOrdersQueryParams, GetOrdersQueryParamsJoi, RawGetOrdersQueryParams } from './schema/index'
+import {
+  GetLimitOrdersQueryParamsJoi,
+  GetOrdersQueryParams,
+  GetOrdersQueryParamsJoi,
+  RawGetOrdersQueryParams,
+} from './schema/index'
 import { GetDutchV3OrderResponse } from './schema/GetDutchV3OrderResponse'
+import { GetOrderTypeQueryParamEnum } from './schema/GetOrderTypeQueryParamEnum'
+
+export type GetOrdersHandlerOptions = {
+  queryParamsSchema: Joi.ObjectSchema
+  // Whether the endpoint pages: reads a request cursor and returns the next one. A
+  // single-page endpoint ignores an incoming cursor and never hands one out.
+  paginated: boolean
+}
+
+// GET /orders: one page of the newest orders; non-default sort params and any cursor are a 400 (see schema/index.ts).
+export const GET_ORDERS_HANDLER_OPTIONS: GetOrdersHandlerOptions = {
+  queryParamsSchema: GetOrdersQueryParamsJoi,
+  paginated: false,
+}
+
+// GET /limit-orders: still pages with a cursor and accepts sortKey/sort/desc.
+export const GET_LIMIT_ORDERS_HANDLER_OPTIONS: GetOrdersHandlerOptions = {
+  queryParamsSchema: GetLimitOrdersQueryParamsJoi,
+  paginated: true,
+}
+
+export interface RequestInjected extends ApiRInj {
+  limit: number
+  queryFilters: GetOrdersQueryParams
+  // Only ever set for GET /limit-orders; GET /orders rejects the parameter.
+  cursor?: string
+  orderType?: GetOrderTypeQueryParamEnum
+}
+
+type GetOrdersBody = GetOrdersResponse<
+  | UniswapXOrderEntity
+  | GetDutchV2OrderResponse
+  | GetDutchV3OrderResponse
+  | GetPriorityOrderResponse
+  | undefined
+>
 
 export class GetOrdersHandler extends APIGLambdaHandler<
-  ContainerInjected,
   RequestInjected,
   void,
   RawGetOrdersQueryParams,
-  GetOrdersResponse<
-    UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | GetHybridOrderResponse | undefined
-  >
+  GetOrdersBody
 > {
   constructor(
     handlerName: string,
-    injectorPromise: Promise<ApiInjector<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>>,
-    private readonly orderDispatcher: OrderDispatcher
+    // The table this endpoint reads when the request names no orderType: the one its order
+    // service reads.
+    private readonly repository: Pick<BaseOrdersRepository<UniswapXOrderEntity>, 'getOrders'>,
+    private readonly orderDispatcher: OrderDispatcher,
+    private readonly options: GetOrdersHandlerOptions = GET_ORDERS_HANDLER_OPTIONS
   ) {
-    super(handlerName, injectorPromise)
+    super(handlerName)
+  }
+
+  protected buildRequestInjected(
+    base: ApiRInj,
+    _requestBody: void,
+    requestQueryParams: RawGetOrdersQueryParams
+  ): RequestInjected {
+    return { ...parseGetQueryParams(requestQueryParams), ...base }
   }
 
   public async handleRequest(
-    params: APIHandleRequestParams<ContainerInjected, RequestInjected, void, RawGetOrdersQueryParams>
-  ): Promise<
-    | Response<
-        GetOrdersResponse<
-          UniswapXOrderEntity | GetDutchV2OrderResponse | GetDutchV3OrderResponse | GetRelayOrderResponse | GetPriorityOrderResponse | GetHybridOrderResponse | undefined
-        >
-      >
-    | ErrorResponse
-  > {
+    params: APIHandleRequestParams<RequestInjected, void, RawGetOrdersQueryParams>
+  ): Promise<Response<GetOrdersBody> | ErrorResponse> {
     const {
-      requestInjected: { limit, queryFilters, cursor, orderType, executeAddress },
-      containerInjected: { dbInterface },
+      requestInjected: { limit, queryFilters, orderType, log },
     } = params
+    // The single-page schema already rejects a cursor; this keeps the contract even if the
+    // schema and the option ever disagree.
+    const cursor = this.options.paginated ? params.requestInjected.cursor : undefined
 
-    this.logMetrics(queryFilters)
+    this.logMetrics(log, queryFilters)
 
     try {
       if (orderType) {
@@ -62,35 +103,23 @@ export class GetOrdersHandler extends APIGLambdaHandler<
           limit,
           params: queryFilters,
           cursor,
-          executeAddress,
         })
 
         return {
           statusCode: 200,
-          body: getOrdersResult,
+          body: this.withCursor({ ...getOrdersResult, orders: getOrdersResult.orders.map(offererToSwapper) }),
         }
       }
 
       //without orderType specified, keep legacy implementation
-      const getOrdersResult = await dbInterface.getOrders(limit, queryFilters, cursor)
+      const getOrdersResult = await this.repository.getOrders(limit, queryFilters, cursor)
 
       return {
         statusCode: 200,
-        body: {
-          // w/o specifying orderType, the orderDispatcher uses the legacy get implementation
-          //   and for priority orders, the returned object will contain offerer instead of swapper
-          orders: getOrdersResult.orders.map((order: any) => {
-            if (order.offerer) {
-              const { offerer, ...rest } = order
-              return {
-                ...rest,
-                swapper: offerer,
-              }
-            }
-            return order
-          }),
+        body: this.withCursor({
+          orders: getOrdersResult.orders.map(offererToSwapper),
           cursor: getOrdersResult.cursor,
-        },
+        }),
       }
     } catch (e: unknown) {
       // TODO: differentiate between input errors and add logging if unknown is not type Error
@@ -102,7 +131,13 @@ export class GetOrdersHandler extends APIGLambdaHandler<
     }
   }
 
-  private logMetrics(queryFilters: GetOrdersQueryParams) {
+  // The repository reports a cursor whenever more rows exist; only a paginated endpoint
+  // passes it on. (undefined is dropped by JSON serialization.)
+  private withCursor<R extends { cursor?: string }>(result: R): R {
+    return this.options.paginated ? result : { ...result, cursor: undefined }
+  }
+
+  private logMetrics(log: Logger, queryFilters: GetOrdersQueryParams) {
     // This log is used for generating a metrics dashboard, do not modify.
     log.info({ queryFiltersSorted: Object.keys(queryFilters).sort().join(',') }, 'Get orders query filters for metrics')
   }
@@ -112,36 +147,27 @@ export class GetOrdersHandler extends APIGLambdaHandler<
   }
 
   protected requestQueryParamsSchema(): Joi.ObjectSchema | null {
-    return GetOrdersQueryParamsJoi
+    return this.options.queryParamsSchema
   }
 
   protected responseBodySchema(): Joi.Schema | null {
-    return Joi.alternatives(GetOrdersResponseJoi, GetRelayOrdersResponseJoi)
+    return GetOrdersResponseJoi
   }
 
-  protected afterResponseHook(event: APIGatewayProxyEvent, _context: Context, response: APIGatewayProxyResult): void {
-    const { statusCode } = response
-
-    // Try and extract the chain id from the raw json.
-    let chainId = '0'
-    try {
-      const rawBody = JSON.parse(event.body!)
-      chainId = rawBody.chainId ?? chainId
-    } catch (err) {
-      // no-op. If we can't get chainId still log the metric as chain 0
-    }
-    const statusCodeMod = (Math.floor(statusCode / 100) * 100).toString().replace(/0/g, 'X')
-
-    const getOrdersByChainMetricName = `GetOrdersChainId${chainId.toString()}Status${statusCodeMod}`
-    metrics.putMetric(getOrdersByChainMetricName, 1, Unit.Count)
-
-    const getOrdersMetricName = `GetOrdersStatus${statusCodeMod}`
-    metrics.putMetric(getOrdersMetricName, 1, Unit.Count)
-
-    const getOrdersRequestMetricName = `GetOrdersRequest`
-    metrics.putMetric(getOrdersRequestMetricName, 1, Unit.Count)
-
-    const getOrdersRequestByChainIdMetricName = `GetOrdersRequestChainId${chainId.toString()}`
-    metrics.putMetric(getOrdersRequestByChainIdMetricName, 1, Unit.Count)
+  // Always counted under chain 0: the counters never read the query's chainId.
+  protected requestMetricsConfig(): RequestMetricsConfig {
+    return { prefix: 'GetOrders', chainIdFrom: 'none' }
   }
+}
+
+// Stored rows key the swapper as `offerer`, but the response schema only has `swapper` and strips
+// unknown fields, so a row returned as stored would lose its swapper. This covers both the
+// no-orderType path and the typed paths that return stored rows (Dutch, Dutch_V1_V2's V1 rows,
+// Limit); responses built from the decoded order already carry `swapper` and pass through.
+function offererToSwapper<T>(order: T): T {
+  if (order && typeof order === 'object' && 'offerer' in order) {
+    const { offerer, ...rest } = order as T & { offerer: string }
+    return { ...rest, swapper: offerer } as T
+  }
+  return order
 }
