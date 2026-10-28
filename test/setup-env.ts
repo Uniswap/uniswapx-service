@@ -1,5 +1,5 @@
 // Defaults for the env the post path reads at request time (lib/util/stateMachineArn.ts and the
-// Priority cosigner in UniswapXOrderService), so no test needs a .env. A test that asserts on one
+// Priority cosigner in OrderPoster), so no test needs a .env. A test that asserts on one
 // of these values still sets it itself.
 process.env.KMS_KEY_ID ??= 'test-kms-key'
 process.env.REGION ??= 'us-east-2'

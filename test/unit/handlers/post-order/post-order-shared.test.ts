@@ -73,7 +73,7 @@ const ROUTES: RouteCase[] = [
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, swapper ? { swapper } : {})
       return {
         request: PostOrderRequestFactory.request({ encodedOrder: order.serialize() }),
-        // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
+        // TODO(andy.smith): This is a bug in OrderPoster. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
         entity: dutchOrderEntity(order, SIGNATURE, QUOTE_ID),
       }
     },

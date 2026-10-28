@@ -65,7 +65,7 @@ changing the other and `yarn test` names the exact divergence. See
 | `bin/`              | CDK app: `api-stack` (API Gateway + WAF), `lambda-stack`, `dynamo-stack`, `step-function-stack`, `reaper-stack` (ECS), `dashboard-stack`, `kms-stack`               |
 | `lib/handlers/`     | Lambda entry points: `post-order`, `get-orders`, `get-limit-orders`, `get-nonce`, `check-order-status`, `order-notification`, `get-docs`                |
 | `lib/models/`       | Order types: Dutch V1/V2/V3, Priority, Limit                                                                                                |
-| `lib/services/`     | `UniswapXOrderService` holds the order logic; `OrderDispatcher` routes GET reads by order type                                              |
+| `lib/services/`     | `OrderPoster` validates, stores and starts tracking a posted order; GET reads by order type are in `get-orders/order-reader.ts`             |
 | `lib/repositories/` | DynamoDB access, one repository per order family, plus index mappers                                                                        |
 | `lib/crons/`        | `gs-reaper` (status hygiene)                                                                                                                |
 

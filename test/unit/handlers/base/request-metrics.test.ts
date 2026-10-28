@@ -5,11 +5,11 @@ import { UniswapXOrderEntity } from '../../../../lib/entities'
 import { GetDocsHandler } from '../../../../lib/handlers/get-docs/GetDocsHandler'
 import { GetNonceHandler } from '../../../../lib/handlers/get-nonce/handler'
 import { GetOrdersHandler } from '../../../../lib/handlers/get-orders/handler'
+import { OrderReader } from '../../../../lib/handlers/get-orders/order-reader'
 import { PostOrderHandler } from '../../../../lib/handlers/post-order/handler'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
 import { DUTCH_AUCTION_ORDER_ROUTE } from '../../../../lib/handlers/post-order/routes'
 import { BaseOrdersRepository } from '../../../../lib/repositories/base'
-import { OrderDispatcher } from '../../../../lib/services/OrderDispatcher'
 
 // The request counters every API handler records once it has answered, on the request's own
 // metrics logger, in the namespace and dimensions the request/4XX/5XX alarms and dashboards read.
@@ -214,7 +214,7 @@ describe('API request metrics', () => {
 
     function ordersHandler() {
       const repository = { getOrders } as unknown as BaseOrdersRepository<UniswapXOrderEntity>
-      return { handler: new GetOrdersHandler('get-orders', repository, {} as OrderDispatcher) }
+      return { handler: new GetOrdersHandler('get-orders', repository, {} as OrderReader) }
     }
 
     // The counters never read the query's chainId: every GET /orders request is chain 0.

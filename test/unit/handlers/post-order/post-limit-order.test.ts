@@ -49,7 +49,7 @@ describe('Testing post limit order handler.', () => {
     it('Testing valid request and response.', async () => {
       const order = SDKDutchOrderFactory.buildLimitOrder()
 
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
+      // TODO(andy.smith): This is a bug in OrderPoster. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
       const expectedOrderEntity = dutchOrderEntity(order, SIGNATURE, QUOTE_ID)
 
       const postOrderResponse = await handle(
@@ -83,7 +83,7 @@ describe('Testing post limit order handler.', () => {
     it('Testing valid request and response on another chain', async () => {
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.SEPOLIA)
 
-      // TODO(andy.smith): This is a bug in UniswapXOrderService. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
+      // TODO(andy.smith): This is a bug in OrderPoster. https://linear.app/uniswap/issue/DAT-313/fix-order-type-for-limit-orders-in-database
       const expectedOrderEntity = dutchOrderEntity(order, SIGNATURE, QUOTE_ID)
 
       const postOrderResponse = await handle(

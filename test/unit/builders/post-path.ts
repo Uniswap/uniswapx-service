@@ -10,7 +10,7 @@ import { LIMIT_ORDER_ROUTE, PostOrderRoute } from '../../../lib/handlers/post-or
 import { ProviderMap } from '../../../lib/handlers/shared'
 import { WebhookProvider } from '../../../lib/providers/base'
 import { BaseOrdersRepository } from '../../../lib/repositories/base'
-import { UniswapXOrderService } from '../../../lib/services/UniswapXOrderService'
+import { OrderPoster } from '../../../lib/services/OrderPoster'
 import { RecordingAnalytics } from '../../fakes/analytics'
 import { FakeCosigner } from '../../fakes/cosigner'
 import { FakeOffChainValidator, FakeOnChainValidator } from '../../fakes/order-validators'
@@ -33,7 +33,7 @@ export type PostOrderServiceOverrides<R extends OrdersRepository = FakeOrdersRep
 }
 
 export type PostOrderServiceHarness<R extends OrdersRepository = FakeOrdersRepository> = {
-  service: UniswapXOrderService
+  service: OrderPoster
   orderValidator: FakeOffChainValidator
   onChainValidator: FakeOnChainValidator
   repository: R

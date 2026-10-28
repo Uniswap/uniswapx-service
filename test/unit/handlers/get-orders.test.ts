@@ -4,7 +4,7 @@ import { ORDER_STATUS } from '../../../lib/entities'
 import { GET_LIMIT_ORDERS_HANDLER_OPTIONS, GetOrdersHandler } from '../../../lib/handlers/get-orders/handler'
 import { parseGetQueryParams } from '../../../lib/handlers/get-orders/query-params'
 import { GetOrdersQueryParamsJoi } from '../../../lib/handlers/get-orders/schema'
-import { OrderDispatcher } from '../../../lib/services/OrderDispatcher'
+import { OrderReader } from '../../../lib/handlers/get-orders/order-reader'
 import { SUPPORTED_CHAINS } from '../../../lib/util/chain'
 import { HeaderExpectation } from '../../HeaderExpectation'
 import { REQUEST_ID } from '../fixtures'
@@ -144,7 +144,7 @@ describe('Testing get orders handler.', () => {
     }
 
     const getOrdersHandler = (repository = repositoryMock) =>
-      new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+      new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
 
     const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
     expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
@@ -159,7 +159,7 @@ describe('Testing get orders handler.', () => {
 
   it('Testing valid request and response, Priority order', async () => {
     const getOrdersHandler = (repository = repositoryMock) =>
-      new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+      new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
     getOrdersMock.mockReturnValue({
       orders: [MOCK_PRIORITY_ORDER],
     })
@@ -182,7 +182,7 @@ describe('Testing get orders handler.', () => {
 
   it('Testing valid request and response, DutchV3 order', async () => {
     const getOrdersHandler = (repository = repositoryMock) =>
-      new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+      new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
     getOrdersMock.mockReturnValue({
       orders: [MOCK_V3_ORDER],
     })
@@ -210,7 +210,7 @@ describe('Testing get orders handler.', () => {
     }
 
     const getOrdersHandler = (repository = repositoryMock) =>
-      new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+      new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
 
     const chainQuery = { chainId: '1', filler: FILLER, orderStatus: ORDER_STATUS.OPEN, limit: '10' }
     const getOrdersResponse = await getOrdersHandler().handler(
@@ -263,7 +263,7 @@ describe('Testing get orders handler.', () => {
       }
 
       const getOrdersHandler = (repository = repositoryMock) =>
-        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+        new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
 
       const invalidEvent = {
         ...event,
@@ -297,7 +297,7 @@ describe('Testing get orders handler.', () => {
       }
 
       const getOrdersHandler = (repository = repositoryMock) =>
-        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+        new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...invalidResponseField }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
@@ -313,7 +313,7 @@ describe('Testing get orders handler.', () => {
       }
 
       const getOrdersHandler = (repository = repositoryMock) =>
-        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+        new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
 
       const error = new Error('Oh no! This is an error.')
       getOrdersMock.mockImplementation(() => {
@@ -342,7 +342,7 @@ describe('Testing get orders handler.', () => {
         }
 
         const getOrdersHandler = (repository = repositoryMock) =>
-          new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+          new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
         getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...deprecatedField }] })
         const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
         expect(getOrdersMock).toBeCalledWith(LIMIT, queryFiltersMock, undefined)
@@ -359,7 +359,7 @@ describe('Testing get orders handler.', () => {
       }
 
       const getOrdersHandler = (repository = repositoryMock) =>
-        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+        new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
 
       getOrdersMock.mockReturnValue({
         orders: [{ ...MOCK_ORDER, quoteId: '4385e89a-0553-46fa-9b7e-464c1fa7822f', requestId: REQUEST_ID }],
@@ -379,7 +379,7 @@ describe('Testing get orders handler.', () => {
       }
 
       const getOrdersHandler = (repository = repositoryMock) =>
-        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+        new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, quoteId: undefined }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
@@ -403,7 +403,7 @@ describe('Testing get orders handler.', () => {
         body: null,
       }
       const getOrdersHandler = (repository = repositoryMock) =>
-        new GetOrdersHandler('get-orders', repository, mock<OrderDispatcher>())
+        new GetOrdersHandler('get-orders', repository, mock<OrderReader>())
 
       getOrdersMock.mockReturnValue({ orders: [{ ...MOCK_ORDER, ...FILL_FIELDS }] })
       const getOrdersResponse = await getOrdersHandler().handler(event as any, {} as any)
@@ -488,7 +488,7 @@ describe('Testing get orders handler.', () => {
       // The cached first page reports a cursor whenever the partition holds more rows; a
       // single-page endpoint must not hand out a cursor it would reject on the next request.
       getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
-      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderReader>())
 
       const response = await handler.handler({ queryStringParameters: { orderStatus: 'open' } } as any, {} as any)
 
@@ -505,7 +505,7 @@ describe('Testing get orders handler.', () => {
       // They describe exactly the page the endpoint serves, so a client that always sent them
       // keeps working; the repository sees a plain query and the response has no cursor.
       getOrdersMock.mockReturnValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR })
-      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderReader>())
 
       const response = await handler.handler({ queryStringParameters } as any, {} as any)
 
@@ -522,7 +522,7 @@ describe('Testing get orders handler.', () => {
       [{ orderStatus: 'open', sortKey: 'createdBy' }, 'must be [createdAt]'],
     ])('GET /orders rejects non-default paging or sort params %p with a 400', async (queryStringParameters, message) => {
       // A client that actually relied on paging or another ordering must find out.
-      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderReader>())
 
       const response = await handler.handler({ queryStringParameters } as any, {} as any)
 
@@ -547,17 +547,17 @@ describe('Testing get orders handler.', () => {
           return { ...super.buildRequestInjected(...args), cursor: REQUEST_CURSOR }
         }
       }
-      const handler = new CursorSlipsPastValidation('get-orders', repositoryMock, mock<OrderDispatcher>())
+      const handler = new CursorSlipsPastValidation('get-orders', repositoryMock, mock<OrderReader>())
 
       await handler.handler({ queryStringParameters: { orderStatus: 'open' } } as any, {} as any)
 
       expect(getOrdersMock).toBeCalledWith(0, { orderStatus: 'open' }, undefined)
     })
 
-    it('GET /orders strips the cursor from dispatcher responses too', async () => {
-      const dispatcher = mock<OrderDispatcher>()
-      dispatcher.getOrder.mockResolvedValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR } as any)
-      const handler = new GetOrdersHandler('get-orders', repositoryMock, dispatcher)
+    it('GET /orders strips the cursor from typed reads too', async () => {
+      const reader = mock<OrderReader>()
+      reader.getOrders.mockResolvedValue({ orders: [MOCK_ORDER], cursor: NEXT_CURSOR } as any)
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, reader)
 
       const response = await handler.handler(
         { queryStringParameters: { orderStatus: 'open', orderType: 'Dutch' } } as any,
@@ -573,7 +573,7 @@ describe('Testing get orders handler.', () => {
       const handler = new GetOrdersHandler(
         'get-limit-orders',
         repositoryMock,
-        mock<OrderDispatcher>(),
+        mock<OrderReader>(),
         GET_LIMIT_ORDERS_HANDLER_OPTIONS
       )
 
@@ -595,7 +595,7 @@ describe('Testing get orders handler.', () => {
       const handler = new GetOrdersHandler(
         'get-limit-orders',
         repositoryMock,
-        mock<OrderDispatcher>(),
+        mock<OrderReader>(),
         GET_LIMIT_ORDERS_HANDLER_OPTIONS
       )
 
@@ -620,7 +620,7 @@ describe('Testing get orders handler.', () => {
       const handler = new GetOrdersHandler(
         'get-limit-orders',
         repositoryMock,
-        mock<OrderDispatcher>(),
+        mock<OrderReader>(),
         GET_LIMIT_ORDERS_HANDLER_OPTIONS
       )
 
@@ -645,7 +645,7 @@ describe('Testing get orders handler.', () => {
       [{ chainId: 1, limit: 0.5 }, 'must be an integer'],
       [{ filler: '0x1234' }, 'Invalid address'],
     ])('rejects %p', async (queryStringParameters, message) => {
-      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderReader>())
 
       const response = await handler.handler({ queryStringParameters } as any, {} as any)
 
@@ -655,7 +655,7 @@ describe('Testing get orders handler.', () => {
     })
 
     it('accepts a well-formed pair', async () => {
-      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderDispatcher>())
+      const handler = new GetOrdersHandler('get-orders', repositoryMock, mock<OrderReader>())
 
       const response = await handler.handler(
         {

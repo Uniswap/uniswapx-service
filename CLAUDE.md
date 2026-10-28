@@ -35,7 +35,7 @@ cdk deploy GoudaServiceStack  # Deploy to AWS
 - `lib/handlers/` - Lambda handlers (get-orders, post-order, check-status, etc.)
 - `lib/models/` - Order types (DutchV1/V2/V3, Priority, Limit)
 - `lib/repositories/` - DynamoDB repositories
-- `lib/services/` - Business logic (UniswapXOrderService; OrderDispatcher routes GET reads by order type)
+- `lib/services/` - Business logic (OrderPoster validates, stores and starts tracking a posted order; GET reads by order type live in `lib/handlers/get-orders/order-reader.ts`)
 - `lib/util/` - Validators, helpers, constants
 - `test/` - Unit, integration, and e2e tests
 
