@@ -94,6 +94,19 @@ export class DynamoStack extends cdk.NestedStack {
     this.alarmsPerTable(this.limitOrdersTable, 'LimitOrders', tableCapacityConfig.limitOrder, notifier)
     this.hotIndexAlarms(this.ordersTable, 'Orders', notifier)
 
+    // UserErrors has no table dimension: it counts 4xx errors across every table in the account and
+    // region, so one alarm covers all three tables. Per-table copies were identical and posted the
+    // same spike once per table.
+    notifier.notify(
+      new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-DynamoDB-UserErrorsAlarm`, {
+        alarmName: `${SERVICE_NAME}-SEV3-DynamoDB-UserErrorsAlarm`,
+        metric: this.ordersTable.metricUserErrors(),
+        threshold: 10,
+        evaluationPeriods: 2,
+        treatMissingData: aws_cloudwatch.TreatMissingData.NOT_BREACHING,
+      })
+    )
+
     // Dynamos built-in PointInTimeRecovery retention is max 35 days.
     // In addition to PITR being enabled on the tables we do a monthly backup
     // in case we need to recover to a point older than 35 months.
@@ -183,15 +196,7 @@ export class DynamoStack extends cdk.NestedStack {
       ...quietIsHealthy,
     })
 
-    const userErrorsAlarm = new aws_cloudwatch.Alarm(this, `${SERVICE_NAME}-SEV3-${name}-UserErrorsAlarm`, {
-      alarmName: `${SERVICE_NAME}-SEV3-${name}-UserErrorsAlarm`,
-      metric: table.metricUserErrors(),
-      threshold: 10,
-      evaluationPeriods: 2,
-      ...quietIsHealthy,
-    })
-
-    notifier.notify(userErrorsAlarm, systemErrorsAlarm, writeThrottleAlarm, readThrottleAlarm)
+    notifier.notify(systemErrorsAlarm, writeThrottleAlarm, readThrottleAlarm)
   }
 
   /**
