@@ -12,8 +12,7 @@ const repo = LimitOrdersRepository.create(createReadPathDocumentClient(), getLim
 const getLimitOrdersHandler = new GetOrdersHandler(
   'getLimitOrdersHandler',
   repo,
-  // Every orderType reads the limit-orders table here.
-  new OrderReader(repo, repo),
+  OrderReader.forLimitOrders(repo),
   GET_LIMIT_ORDERS_HANDLER_OPTIONS
 )
 

@@ -187,14 +187,22 @@ describe('OrderReader', () => {
     }
   })
 
-  test('GET /limit-orders wiring: every orderType reads the limit-orders table', async () => {
+  test('forLimitOrders: every orderType reads the limit-orders table, following the cursor', async () => {
     const limitOrders = new PagedRepository([{ orders: [v2Row()] }])
-    const reader = new OrderReader(limitOrders, limitOrders)
+    const reader = OrderReader.forLimitOrders(limitOrders)
 
     await reader.getOrders(GetOrderTypeQueryParamEnum.Dutch_V2, { params: PARAMS, limit: 50, cursor: undefined })
     await reader.getOrders(GetOrderTypeQueryParamEnum.Limit, { params: PARAMS, limit: 50, cursor: undefined })
 
     expect(limitOrders.calls.map((c) => c.types)).toEqual([[OrderType.Dutch_V2], [OrderType.Dutch]])
+
+    const paging = new PagedRepository([{ orders: [], cursor: 'cursor' }])
+    await OrderReader.forLimitOrders(paging).getOrders(GetOrderTypeQueryParamEnum.Dutch_V2, {
+      params: PARAMS,
+      limit: 50,
+      cursor: undefined,
+    })
+    expect(paging.calls).toHaveLength(MAX_QUERY_RETRY + 1)
   })
 
   test('an orderType with no read plan throws', async () => {

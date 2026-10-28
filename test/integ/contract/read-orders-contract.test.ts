@@ -63,7 +63,7 @@ describe('GET order contract', () => {
   const getLimitOrders = new GetOrdersHandler(
     'getLimitOrdersHandler',
     limitOrdersRepository,
-    new OrderReader(limitOrdersRepository, limitOrdersRepository),
+    OrderReader.forLimitOrders(limitOrdersRepository),
     GET_LIMIT_ORDERS_HANDLER_OPTIONS
   )
   // An orders repository also reads nonces, so it stands in for the Nonces repository.

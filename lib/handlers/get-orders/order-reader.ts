@@ -74,8 +74,13 @@ export const READ_PLANS: Record<GetOrderTypeQueryParamEnum, ReadPlan> = {
   },
 }
 
-// GET reads filtered by orderType. GET /limit-orders passes its limit-orders repository as both.
+// GET reads filtered by orderType.
 export class OrderReader {
+  // GET /limit-orders: every orderType reads the limit-orders table, with the default retry budget.
+  static forLimitOrders(limitOrdersRepository: OrdersRepository): OrderReader {
+    return new OrderReader(limitOrdersRepository, limitOrdersRepository)
+  }
+
   constructor(
     private readonly ordersRepository: OrdersRepository,
     private readonly limitOrdersRepository: OrdersRepository,
