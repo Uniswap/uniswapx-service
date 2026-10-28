@@ -177,7 +177,7 @@ export abstract class APIGLambdaHandler<RInj extends ApiRInj, ReqBody, ReqQueryP
               body: response,
             }
           } else {
-            log.debug({ requestBody, requestQueryParams }, 'Handler returned 200')
+            log.debug({ requestQueryParams }, 'Handler returned 200')
             ;({ headers, body, statusCode } = handleRequestResult)
           }
         } catch (err) {
@@ -329,7 +329,8 @@ export abstract class APIGLambdaHandler<RInj extends ApiRInj, ReqBody, ReqQueryP
       })
 
       if (bodyValidation.error) {
-        log.info({ bodyValidation }, 'Request failed validation')
+        // The message only: the body holds the order's signature.
+        log.info({ detail: bodyValidation.error.message }, 'Request failed validation')
         return {
           state: 'invalid',
           errorResponse: {

@@ -46,19 +46,22 @@ export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderReques
 
     try {
       order = this.bodyParser.fromPostRequest(requestBody)
-      const { info, chainId } = order.inner
-      log.info(
-        { orderType: order.orderType, orderHash: order.inner.hash(), chainId, swapper: info.swapper },
-        'parsed order'
-      )
     } catch (e: unknown) {
-      log.error(e, 'Failed to parse order')
+      // The one log for a failed parse: the encoded order, never the signature.
+      const { orderType, chainId, encodedOrder } = requestBody
+      log.error({ err: e, orderType, chainId, encodedOrder }, 'Failed to parse order')
       return {
         statusCode: HttpStatusCode.BadRequest,
         errorCode: ErrorCode.OrderParseFail,
         ...(e instanceof Error && { detail: e.message }),
       }
     }
+
+    const { info, chainId } = order.inner
+    log.info(
+      { orderType: order.orderType, orderHash: order.inner.hash(), chainId, swapper: info.swapper },
+      'parsed order'
+    )
 
     if (!this.route.accepts(order.orderType)) {
       log.warn({ orderType: order.orderType, route: this.route.path }, 'Rejected order posted to the wrong route')

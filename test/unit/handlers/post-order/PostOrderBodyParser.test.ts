@@ -1,7 +1,4 @@
-import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType } from '@uniswap/uniswapx-sdk'
-import { MetricsLogger } from 'aws-embedded-metrics'
-import { mock } from 'jest-mock-extended'
 import { UnsupportedOrderTypeError } from '../../../../lib/errors/UnsupportedOrderTypeError'
 import { DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC } from '../../../../lib/handlers/constants'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
@@ -17,10 +14,11 @@ import { SDKDutchOrderFactory } from '../../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../../factories/SDKPriorityOrderFactory'
+import { RecordingMetrics } from '../../../fakes/metrics'
 import { QUOTE_ID, SIGNATURE } from '../../fixtures'
 
 describe('PostOrderBodyParser', () => {
-  const parser = new PostOrderBodyParser(mock<Logger>())
+  const parser = new PostOrderBodyParser()
   // Joi still lets through order types the parser no longer accepts, so these bodies reach it at runtime.
   const unsupportedTypeBody = (
     orderType: OrderType.Dutch | typeof DUTCH_LIMIT,
@@ -166,11 +164,11 @@ describe('PostOrderBodyParser', () => {
     // The parser's clock, ahead of the real one so a parser reading the real clock fails these. The
     // SDK's builder checks deadlines against the real clock, so every time here stays in the future.
     const NOW = Math.floor(Date.now() / 1000) + 1_000
-    let putMetric: jest.Mock
+    let recorded: RecordingMetrics
 
     beforeEach(() => {
-      putMetric = jest.fn()
-      setGlobalMetrics({ putMetric } as unknown as MetricsLogger)
+      recorded = new RecordingMetrics()
+      setGlobalMetrics(recorded)
     })
 
     afterAll(() => {
@@ -182,7 +180,7 @@ describe('PostOrderBodyParser', () => {
         cosignerData: { decayStartTime, decayEndTime: decayStartTime + 60 },
         deadline: decayStartTime + 120,
       })
-      new PostOrderBodyParser(mock<Logger>(), () => NOW).fromPostRequest({
+      new PostOrderBodyParser(() => NOW).fromPostRequest({
         chainId,
         orderType: OrderType.Dutch_V2,
         encodedOrder: order.serialize(),
@@ -192,7 +190,7 @@ describe('PostOrderBodyParser', () => {
 
     it('records how far ahead the decay starts, and a stale order past the threshold on mainnet', () => {
       parseV2At(NOW + DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC + 5, ChainId.MAINNET)
-      expect(putMetric.mock.calls).toEqual([
+      expect(recorded.calls).toEqual([
         ['StaleOrder-chain-1', 1, 'Count'],
         ['OrderStaleness-chain-1', DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC + 5],
       ])
@@ -200,39 +198,12 @@ describe('PostOrderBodyParser', () => {
 
     it('records only the staleness within the threshold', () => {
       parseV2At(NOW + DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC, ChainId.MAINNET)
-      expect(putMetric.mock.calls).toEqual([['OrderStaleness-chain-1', DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC]])
+      expect(recorded.calls).toEqual([['OrderStaleness-chain-1', DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC]])
     })
 
     it('never counts a stale order off mainnet', () => {
       parseV2At(NOW + DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC + 5, ChainId.ARBITRUM_ONE)
-      expect(putMetric.mock.calls).toEqual([['OrderStaleness-chain-42161', DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC + 5]])
-    })
-  })
-
-  describe('parse failures', () => {
-    it.each([
-      [OrderType.Dutch_V2, 'DutchV2'],
-      [OrderType.Dutch_V3, 'DutchV3'],
-      [OrderType.Priority, 'Priority'],
-      [OrderType.Limit, 'Limit'],
-    ])('logs one %s failure with the encoded order and without the signature', (orderType, label) => {
-      const logger = mock<Logger>()
-      expect(() =>
-        new PostOrderBodyParser(logger).fromPostRequest({
-          chainId: ChainId.MAINNET,
-          orderType,
-          encodedOrder: '0xdeadbeef',
-          signature: SIGNATURE,
-        })
-      ).toThrow()
-
-      expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith(`Unable to parse ${label} order`, {
-        err: expect.anything(),
-        encodedOrder: '0xdeadbeef',
-        chainId: ChainId.MAINNET,
-      })
-      expect(logger.info).not.toHaveBeenCalled()
+      expect(recorded.calls).toEqual([['OrderStaleness-chain-42161', DUTCHV2_ORDER_LATENCY_THRESHOLD_SEC + 5]])
     })
   })
 })

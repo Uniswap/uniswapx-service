@@ -1,4 +1,3 @@
-import { Logger } from '@aws-lambda-powertools/logger'
 import {
   CosignedV2DutchOrder,
   CosignedV3DutchOrder,
@@ -24,10 +23,7 @@ export type PostableOrder = LimitOrder | DutchV2Order | DutchV3Order | PriorityO
 export class PostOrderBodyParser {
   private readonly uniswapXParser = new UniswapXOrderParser()
 
-  constructor(
-    private readonly logger: Logger,
-    private readonly nowSeconds: () => number = () => Math.floor(Date.now() / 1000)
-  ) {}
+  constructor(private readonly nowSeconds: () => number = () => Math.floor(Date.now() / 1000)) {}
 
   fromPostRequest(body: PostOrderRequestBody): PostableOrder {
     const { encodedOrder, signature, chainId, orderType, quoteId, requestId } = body
@@ -35,43 +31,25 @@ export class PostOrderBodyParser {
       case OrderType.Limit:
       case undefined:
         // Orders without an orderType use the legacy V1 encoding, which now only carries limit orders.
-        return this.tryParse('Limit', chainId, encodedOrder, () =>
-          this.parseLimit(encodedOrder, signature, chainId, quoteId)
-        )
-      case OrderType.Dutch_V2:
-        return this.tryParse('DutchV2', chainId, encodedOrder, () => {
-          const order = CosignedV2DutchOrder.parse(encodedOrder, chainId)
-          this.recordV2Staleness(order, chainId)
-          return new DutchV2Order(order, signature, chainId, quoteId, requestId)
-        })
+        return this.parseLimit(encodedOrder, signature, chainId, quoteId)
+      case OrderType.Dutch_V2: {
+        const order = CosignedV2DutchOrder.parse(encodedOrder, chainId)
+        this.recordV2Staleness(order, chainId)
+        return new DutchV2Order(order, signature, chainId, quoteId, requestId)
+      }
       case OrderType.Dutch_V3:
-        return this.tryParse(
-          'DutchV3',
+        return new DutchV3Order(
+          CosignedV3DutchOrder.parse(encodedOrder, chainId),
+          signature,
           chainId,
-          encodedOrder,
-          () =>
-            new DutchV3Order(CosignedV3DutchOrder.parse(encodedOrder, chainId), signature, chainId, quoteId, requestId)
+          quoteId,
+          requestId
         )
       case OrderType.Priority:
-        return this.tryParse(
-          'Priority',
-          chainId,
-          encodedOrder,
-          () => new PriorityOrder(SDKPriorityOrder.parse(encodedOrder, chainId), signature, chainId, quoteId, requestId)
-        )
+        return new PriorityOrder(SDKPriorityOrder.parse(encodedOrder, chainId), signature, chainId, quoteId, requestId)
       default:
         // The request schema still lets through order types we no longer accept (Dutch, DutchLimit).
         throw new UnsupportedOrderTypeError(orderType)
-    }
-  }
-
-  // One failure log per post, with the encoded order and without the signature.
-  private tryParse<T>(label: string, chainId: number, encodedOrder: string, parse: () => T): T {
-    try {
-      return parse()
-    } catch (err) {
-      this.logger.error(`Unable to parse ${label} order`, { err, encodedOrder, chainId })
-      throw err
     }
   }
 

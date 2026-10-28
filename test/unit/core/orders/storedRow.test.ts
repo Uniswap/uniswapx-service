@@ -1,6 +1,4 @@
-import { Logger } from '@aws-lambda-powertools/logger'
 import { CosignedPriorityOrder } from '@uniswap/uniswapx-sdk'
-import { mock } from 'jest-mock-extended'
 import { toOrderEntity, toStatusUpdate, toStoredRow } from '../../../../lib/core/orders/storedRow'
 import { ORDER_STATUS, UniswapXOrderEntity } from '../../../../lib/entities'
 import { PostOrderBodyParser } from '../../../../lib/handlers/post-order/PostOrderBodyParser'
@@ -20,7 +18,7 @@ import { MOCK_ORDER_ENTITY } from '../../../test-data'
 // The post path's order: the request parsed as the handler parses it, and for Priority the
 // cosigner data and cosignature the service adds (as the stored row encodes them).
 function postedOrder(request: object) {
-  const order = new PostOrderBodyParser(mock<Logger>()).fromPostRequest(request as PostOrderRequestBody)
+  const order = new PostOrderBodyParser().fromPostRequest(request as PostOrderRequestBody)
   if (!(order instanceof PriorityOrder)) {
     return order
   }

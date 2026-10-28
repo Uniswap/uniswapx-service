@@ -1,5 +1,6 @@
 import { CosignedV2DutchOrder, OrderType, OrderValidation, PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import bunyan from 'bunyan'
 import { BigNumber } from 'ethers'
 import { toOrderEntity } from '../../../../lib/core/orders/storedRow'
 import { ErrorCode } from '../../../../lib/handlers/base'
@@ -336,6 +337,51 @@ describe('Testing post order handler.', () => {
           'Content-Type': 'application/json',
         },
       })
+    })
+  })
+
+  describe('request logs', () => {
+    let error: jest.SpyInstance
+    let info: jest.SpyInstance
+
+    beforeEach(() => {
+      error = jest.spyOn(bunyan.prototype, 'error')
+      info = jest.spyOn(bunyan.prototype, 'info')
+    })
+
+    afterEach(() => {
+      error.mockRestore()
+      info.mockRestore()
+    })
+
+    // Distinctive, unlike the fixture SIGNATURE, whose zero runs also appear in encoded orders.
+    const signature = `0x${'5e'.repeat(65)}`
+    const loggedSignature = () => JSON.stringify([...error.mock.calls, ...info.mock.calls]).includes('5e5e5e5e')
+    const parseFailures = () => error.mock.calls.filter(([, message]) => message === 'Failed to parse order')
+
+    it.each([
+      ['an encoding that does not parse', OrderType.Dutch_V2, '0xdeadbeef'],
+      ['an order type no longer accepted', OrderType.Dutch, SDKDutchOrderFactory.buildDutchOrder().serialize()],
+    ])(
+      'logs a parse failure (%s) once, with the encoded order and without the signature',
+      async (_case, orderType, encodedOrder) => {
+        const response = await handle(PostOrderRequestFactory.request({ encodedOrder, orderType, signature }))
+
+        expect(response.statusCode).toEqual(HttpStatusCode.BadRequest)
+        expect(parseFailures()).toEqual([
+          [{ err: expect.any(Error), orderType, chainId: ChainId.MAINNET, encodedOrder }, 'Failed to parse order'],
+        ])
+        expect(error).toHaveBeenCalledTimes(1)
+        expect(loggedSignature()).toBe(false)
+      }
+    )
+
+    it('logs a body that fails validation without the signature', async () => {
+      const response = await handle(PostOrderRequestFactory.request({ chainId: 999, signature }))
+
+      expect(response.statusCode).toEqual(HttpStatusCode.BadRequest)
+      expect(info).toHaveBeenCalledWith({ detail: expect.stringContaining('chainId') }, 'Request failed validation')
+      expect(loggedSignature()).toBe(false)
     })
   })
 
