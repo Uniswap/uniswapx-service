@@ -1,5 +1,5 @@
 import { UniswapXOrderEntity } from '../../lib/entities'
-import { BaseOrdersRepository, OrderStoreContext, QueryResult } from '../../lib/repositories/base'
+import { BaseOrdersRepository, OrderStoreContext, PutOrderResult, QueryResult } from '../../lib/repositories/base'
 
 export type CountOrdersCall = { offerer: string; max: number }
 
@@ -30,12 +30,17 @@ export class FakeOrdersRepository implements BaseOrdersRepository<UniswapXOrderE
     return Math.min(this.openOrderCount, max + 1)
   }
 
-  async putOrderAndUpdateNonce(_ctx: OrderStoreContext, order: UniswapXOrderEntity): Promise<void> {
+  // Like the real store, keeps the first write of an order hash.
+  async putOrderAndUpdateNonce(_ctx: OrderStoreContext, order: UniswapXOrderEntity): Promise<PutOrderResult> {
     this.puts.push(order)
     if (this.putError) {
       throw this.putError
     }
+    if (this.stored.has(order.orderHash)) {
+      return 'already-stored'
+    }
     this.stored.set(order.orderHash, order)
+    return 'stored'
   }
 
   async getByHash(_ctx: OrderStoreContext, hash: string): Promise<UniswapXOrderEntity | undefined> {

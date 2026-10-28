@@ -17,7 +17,7 @@ import { checkDefined } from '../preconditions/preconditions'
 import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { metrics } from '../util/metrics'
-import { BaseOrdersRepository, OrderStoreContext, QueryResult } from './base'
+import { BaseOrdersRepository, OrderStoreContext, PutOrderResult, QueryResult } from './base'
 import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
 import { NonceRepository } from './nonce-repository'
 import { CachedQueryPage, OrdersQueryCache } from './QueryCache'
@@ -85,6 +85,18 @@ function matchesAnyFilter(order: object, filters: QueryFilter[]): boolean {
 function isConditionalCheckFailed(e: unknown): boolean {
   return (e as { name?: string } | null)?.name === 'ConditionalCheckFailedException'
 }
+
+// Why DynamoDB cancelled a transaction, one code per item in TransactItems order; [] for any other error.
+function cancellationReasons(e: unknown): (string | undefined)[] {
+  const err = e as { name?: string; CancellationReasons?: { Code?: string }[] } | null
+  return err?.name === 'TransactionCanceledException' ? (err.CancellationReasons ?? []).map((r) => r.Code) : []
+}
+
+// The order put's index in putOrderAndUpdateNonce's TransactItems.
+const ORDER_PUT_ITEM = 0
+// Attempts at the put while it's cancelled by a conflicting transaction, the first included.
+export const ORDER_PUT_ATTEMPTS = 3
+const ORDER_PUT_CONFLICT_BACKOFF_MS = 25
 
 const OPEN_ORDERS_BY_OFFERER_INDEX = 'offerer_orderStatus-createdAt-all'
 
@@ -162,18 +174,41 @@ export class GenericOrdersRepository implements BaseOrdersRepository<UniswapXOrd
     _ctx: OrderStoreContext,
     order: UniswapXOrderEntity,
     createdAt: number
-  ): Promise<void> {
+  ): Promise<PutOrderResult> {
     const now = new Date()
     const { client, tableName, entityName, attributes } = this.store
-    await client.send(
-      new TransactWriteCommand({
-        TransactItems: [
-          { Put: { TableName: tableName, Item: putItem(toStoredRow(order, createdAt), attributes, entityName, now) } },
-          this.nonces.updateTransaction(order.offerer, order.chainId, order.nonce, now),
-        ],
-        ReturnConsumedCapacity: 'TOTAL',
-      })
-    )
+    const transactItems = [
+      // Must stay at ORDER_PUT_ITEM (0): its cancellation reason is read by position.
+      {
+        Put: {
+          TableName: tableName,
+          Item: putItem(toStoredRow(order, createdAt), attributes, entityName, now),
+          // A re-post must not overwrite the stored order: its status, fill and createdAt.
+          ConditionExpression: 'attribute_not_exists(#orderHash)',
+          ExpressionAttributeNames: { '#orderHash': TABLE_KEY.ORDER_HASH },
+        },
+      },
+      this.nonces.updateTransaction(order.offerer, order.chainId, order.nonce, now),
+    ]
+
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await client.send(new TransactWriteCommand({ TransactItems: transactItems, ReturnConsumedCapacity: 'TOTAL' }))
+        return 'stored'
+      } catch (e) {
+        const reasons = cancellationReasons(e)
+        if (reasons[ORDER_PUT_ITEM] === 'ConditionalCheckFailed') {
+          return 'already-stored'
+        }
+        // A duplicate posted at the same instant can cancel this write with a conflict instead of
+        // failing its condition. Once it commits, a retry fails the condition: 'already-stored'.
+        if (reasons.includes('TransactionConflict') && attempt < ORDER_PUT_ATTEMPTS) {
+          await new Promise((resolve) => setTimeout(resolve, ORDER_PUT_CONFLICT_BACKOFF_MS * attempt))
+          continue
+        }
+        throw e
+      }
+    }
   }
 
   public async updateOrderStatus(

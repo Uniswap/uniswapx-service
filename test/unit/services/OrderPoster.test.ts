@@ -34,6 +34,7 @@ import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
 import { RecordingAnalytics } from '../../fakes/analytics'
 import { RecordingMetrics } from '../../fakes/metrics'
 import { FakeOffChainValidator } from '../../fakes/order-validators'
+import { TEST_STORE_CONTEXT } from '../../fakes/orders-repository'
 import { SilentServer, silentServerClientOptions } from '../../fakes/silent-server'
 import { makePostOrderService } from '../builders/post-path'
 import { TestWallets, Tokens, ZERO_SIGNATURE } from '../fixtures'
@@ -127,6 +128,29 @@ describe('OrderPoster', () => {
     expect(metrics.calls).toContainEqual(['PostOrderTrackerAlreadyExists', 1, Unit.Count])
     expect(metrics.calls).not.toContainEqual(['PostOrderPostPersistFailure', 1, Unit.Count])
     expect(metrics.calls).not.toContainEqual(['OrderTrackerStarted', 1, Unit.Count])
+  })
+
+  test('createOrder answers a re-post with the same hash and writes, logs, notifies and tracks nothing', async () => {
+    const logger = mock<Logger>()
+    const { service, repository, analytics, tracking, metrics } = makePostOrderService({
+      logger,
+      getMaxOpenOrders: () => 10,
+    })
+    const order = SDKDutchOrderFactory.buildLimitOrder()
+
+    const first = await service.createOrder(new LimitOrder(order, '0x00', 1))
+    const second = await service.createOrder(new LimitOrder(order, '0x00', 1))
+
+    expect(second).toBe(first)
+    expect(repository.puts).toHaveLength(2)
+    expect(await repository.getByHash(TEST_STORE_CONTEXT, first)).toBe(repository.puts[0])
+    expect(analytics.posted).toHaveLength(1)
+    expect(tracking.calls).toHaveLength(1)
+    expect(metrics.calls.filter(([name]) => name === 'PostOrderRepost')).toEqual([['PostOrderRepost', 1, Unit.Count]])
+    expect(metrics.calls.filter(([name]) => name === 'OrderTrackerStarted')).toHaveLength(1)
+    expect(logger.warn).toHaveBeenCalledWith('Order already stored; answering the re-post without writing', {
+      orderHash: first,
+    })
   })
 
   test('createOrder still starts tracking when the OrderPosted analytics log throws', async () => {

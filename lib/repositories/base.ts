@@ -34,10 +34,13 @@ export interface OrderStore<T extends UniswapXOrderEntity> {
   ) => Promise<void>
 }
 
+// 'already-stored': a row with this order hash exists, so nothing was written, the nonce included.
+export type PutOrderResult = 'stored' | 'already-stored'
+
 // What only the post path uses.
 export interface PostOrderStore<T extends UniswapXOrderEntity> {
-  // createdAt is epoch seconds.
-  putOrderAndUpdateNonce: (ctx: OrderStoreContext, order: T, createdAt: number) => Promise<void>
+  // Writes the order only if its hash isn't stored yet. createdAt is epoch seconds.
+  putOrderAndUpdateNonce: (ctx: OrderStoreContext, order: T, createdAt: number) => Promise<PutOrderResult>
   // The offerer's OPEN orders, counted up to max + 1.
   countOpenOrders: (ctx: OrderStoreContext, offerer: string, max: number) => Promise<number>
   getNonce: (ctx: OrderStoreContext, address: string, chainId: number) => Promise<string | undefined>

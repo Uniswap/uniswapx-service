@@ -22,6 +22,7 @@ import {
   MetricCall,
   OpenOrderLimit,
   PostRejections,
+  RepostMetrics,
 } from './fixtures/post-order'
 import {
   deleteRawItems,
@@ -30,6 +31,7 @@ import {
   LAMBDA_CONTEXT,
   leftoverKeys,
   postEvent,
+  putRawItems,
   rawItem,
   RecordingMetricsLogger,
   RecordingWebhookProvider,
@@ -191,6 +193,44 @@ describe('POST order contract', () => {
       const { response, storedRow, metrics } = await postAndObserve(lambda, request, 'Orders')
       expectContract({ response, stored: storedRow !== undefined, metrics }, expected)
     })
+  })
+
+  // The first post's row is marked filled and its nonce row changed before the re-post, so any
+  // rewrite of either shows.
+  describe('re-posts', () => {
+    it.each(Object.entries(AcceptedPosts))(
+      'answers a re-post of %s like the first post and writes or sends nothing',
+      async (name, { route, request, table, expected }) => {
+        const lambda = postLambda(route, webhookProvider)
+        const first = await postAndObserve(lambda, request, table)
+        const keys = {
+          order: { orderHash: expected.response.body.hash },
+          nonce: { offerer: `${Swappers.poster.toLowerCase()}-${request.chainId}` },
+        }
+        await putRawItems(table as TABLE_NAMES, [{ ...first.storedRow, orderStatus: ORDER_STATUS.FILLED }])
+        await putRawItems(TABLE_NAMES.Nonces, [{ ...first.nonceRow, nonce: '0' }])
+        const stored = async () => ({
+          order: await rawItem(table as TABLE_NAMES, keys.order),
+          nonce: await rawItem(TABLE_NAMES.Nonces, keys.nonce),
+        })
+        const before = await stored()
+        const noticesBefore = webhookProvider.notices.length
+
+        const response = await lambda.handler.handler(postEvent(request), LAMBDA_CONTEXT)
+        await settle()
+
+        expectContract(
+          { response: httpResult(response), metrics: scopes[1].sorted() },
+          { response: expected.response, metrics: RepostMetrics[name as keyof typeof RepostMetrics] }
+        )
+        expect(await stored()).toEqual(before)
+        expect(lambda.tracking.calls).toHaveLength(1)
+        expect(lambda.analytics.posted).toHaveLength(1)
+        expect(webhookProvider.notices).toHaveLength(noticesBefore)
+        // A priority order is cosigned again before the write finds it stored.
+        expect(lambda.cosigner.digests).toHaveLength(name === 'Priority' ? 2 : 0)
+      }
+    )
   })
 
   describe('rejections', () => {
