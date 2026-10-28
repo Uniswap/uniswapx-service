@@ -41,7 +41,8 @@ export type PostContext = {
   metrics: IMetrics
 }
 
-// Pushes a newly stored order to its exclusive filler. It must not throw: the order is already stored.
+// Pushes a newly stored order to its exclusive filler. Fire-and-forget: a failure, thrown or
+// rejected, is logged and never fails the post, since the order is already stored.
 export type ExclusiveFillerNotifier = (
   order: ExclusiveFillerWebhookOrder,
   orderType: OrderType,
@@ -128,7 +129,8 @@ export class OrderPoster {
       this.logOrderCreatedEvent(ctx, orderEntity, realOrderType)
 
       // Send immediate notification to exclusive filler if present
-      if (this.deps.notifyExclusiveFiller && hasExclusiveFiller(orderEntity.filler)) {
+      const notifyExclusiveFiller = this.deps.notifyExclusiveFiller
+      if (notifyExclusiveFiller && hasExclusiveFiller(orderEntity.filler)) {
         // Create properly typed webhook order data
         const exclusiveFillerOrder: ExclusiveFillerWebhookOrder = {
           orderHash: orderEntity.orderHash,
@@ -144,14 +146,17 @@ export class OrderPoster {
           orderType: realOrderType,
         }
 
-        // Don't await to minimize latency-add to order posting flow
-        this.deps.notifyExclusiveFiller(exclusiveFillerOrder, realOrderType, ctx.logger).catch((error) => {
-          ctx.logger.warn({
-            orderHash: orderEntity.orderHash,
-            error: error.message || error,
-            message: 'Immediate webhook notification failed, will rely on DynamoDB stream',
+        // Don't await to minimize latency-add to order posting flow. Called inside a promise so a
+        // notifier that throws before returning one also lands in this catch and tracking still starts.
+        Promise.resolve()
+          .then(() => notifyExclusiveFiller(exclusiveFillerOrder, realOrderType, ctx.logger))
+          .catch((error) => {
+            ctx.logger.warn({
+              orderHash: orderEntity.orderHash,
+              error: error.message || error,
+              message: 'Immediate webhook notification failed, will rely on DynamoDB stream',
+            })
           })
-        })
       }
 
       await this.startOrderTracker(ctx, orderEntity.orderHash, order.chainId, order.quoteId, realOrderType)

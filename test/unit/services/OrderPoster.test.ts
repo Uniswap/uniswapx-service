@@ -14,20 +14,25 @@ import { mock } from 'jest-mock-extended'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../lib/handlers/constants'
+import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { ProviderMap } from '../../../lib/handlers/shared'
 import { createSfnClient } from '../../../lib/handlers/shared/sfn'
 import { DutchV2Order } from '../../../lib/models/DutchV2Order'
 import { DutchV3Order } from '../../../lib/models/DutchV3Order'
 import { LimitOrder } from '../../../lib/models/LimitOrder'
 import { PriorityOrder } from '../../../lib/models/PriorityOrder'
+import { OrderPoster } from '../../../lib/services/OrderPoster'
+import { SfnStartTracking } from '../../../lib/services/start-tracking'
 import { ChainId } from '../../../lib/util/chain'
 import { Permit2Validator } from '../../../lib/util/Permit2Validator'
+import { getStateMachineArn } from '../../../lib/util/stateMachineArn'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
 import { RecordingAnalytics } from '../../fakes/analytics'
+import { RecordingMetrics } from '../../fakes/metrics'
 import { FakeOffChainValidator } from '../../fakes/order-validators'
 import { SilentServer, silentServerClientOptions } from '../../fakes/silent-server'
 import { makePostOrderService } from '../builders/post-path'
@@ -178,6 +183,43 @@ describe('OrderPoster', () => {
       client.destroy()
       await server.stop()
     }
+  })
+
+  test('createOrder still starts tracking when the exclusive-filler notifier throws before returning a promise', async () => {
+    const { orderValidator, onChainValidator, repository, analytics, cosigner, tracking } = makePostOrderService()
+    const poster = new OrderPoster({
+      orderValidator,
+      onChainValidatorMap: new OnChainValidatorMap([], () => onChainValidator),
+      repository,
+      getMaxOpenOrders: () => 10,
+      analytics,
+      providerMap: { get: () => mock<StaticJsonRpcProvider>() },
+      startTracking: new SfnStartTracking(tracking, getStateMachineArn),
+      createPriorityCosigner: () => cosigner,
+      now: () => Date.now(),
+      notifyExclusiveFiller: () => {
+        throw new Error('notifier broke')
+      },
+    })
+    const logger = mock<Logger>()
+    const metrics = new RecordingMetrics()
+    const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, {
+      exclusiveFiller: '0x0000000000000000000000000000000000000044',
+    })
+
+    const response = await poster.createOrder({ logger, metrics }, new LimitOrder(order, '0x00', ChainId.MAINNET))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(tracking.calls).toHaveLength(1)
+    expect(metrics.calls).toContainEqual(['OrderTrackerStarted', 1, Unit.Count])
+    expect(metrics.calls).not.toContainEqual(['PostOrderPostPersistFailure', 1, Unit.Count])
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderHash: response,
+        error: 'notifier broke',
+        message: 'Immediate webhook notification failed, will rely on DynamoDB stream',
+      })
+    )
   })
 
   test('createOrder throws TooManyOpenOrdersError and does not persist when open order limit is reached', async () => {
