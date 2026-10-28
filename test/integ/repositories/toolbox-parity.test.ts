@@ -147,19 +147,44 @@ describe.each(TABLES)('$tableName', ({ tableName, create, entityName, attributes
       expect(written.order).toEqual(expect.objectContaining({ _et: entityName, createdAt: createdAtTick(1) }))
     })
 
-    it('rewrites the nonce row as toolbox did, keeping its first created stamp', async () => {
-      setClockToTick(1)
-      await repository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, row, createdAtTick(1))
-      setClockToTick(2)
-      await repository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, { ...row, nonce: '99' }, createdAtTick(2))
-      const written = await raw(row)
-      await remove(row)
+    it("rewrites the nonce row on the swapper's next order as toolbox did, keeping its first created stamp", async () => {
+      const next = { ...row, orderHash: `${row.orderHash}-next`, nonce: '99' }
+      try {
+        setClockToTick(1)
+        await repository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, row, createdAtTick(1))
+        setClockToTick(2)
+        await repository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, next, createdAtTick(2))
+        const written = await raw(row)
+        await remove(row)
+        await remove(next)
 
+        setClockToTick(1)
+        await toolbox.put(row, createdAtTick(1))
+        setClockToTick(2)
+        await toolbox.put(next, createdAtTick(2))
+        expect(written.nonce).toEqual((await raw(row)).nonce)
+      } finally {
+        await remove(next)
+      }
+    })
+
+    // Not parity: toolbox overwrote the stored order and its nonce on a re-post.
+    it('writes nothing on a re-put of a stored order hash, the nonce included', async () => {
       setClockToTick(1)
-      await toolbox.put(row, createdAtTick(1))
+      expect(await repository.putOrderAndUpdateNonce(TEST_STORE_CONTEXT, row, createdAtTick(1))).toBe('stored')
+      await repository.updateOrderStatus(TEST_STORE_CONTEXT, row.orderHash, ORDER_STATUS.FILLED, FILL)
+      const before = await raw(row)
+
       setClockToTick(2)
-      await toolbox.put({ ...row, nonce: '99' }, createdAtTick(2))
-      expect(written.nonce).toEqual((await raw(row)).nonce)
+      const result = await repository.putOrderAndUpdateNonce(
+        TEST_STORE_CONTEXT,
+        { ...row, nonce: '99' },
+        createdAtTick(2)
+      )
+
+      expect(result).toBe('already-stored')
+      expect(await raw(row)).toEqual(before)
+      expect(before.order).toEqual(expect.objectContaining({ orderStatus: ORDER_STATUS.FILLED }))
     })
 
     it.each([

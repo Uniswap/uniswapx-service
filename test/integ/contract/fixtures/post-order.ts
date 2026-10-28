@@ -565,6 +565,19 @@ export const AcceptedWithCaveats = {
   },
 }
 
+// A second post of an order already stored answers like the first and records only its request
+// counters, any parse-time metrics and PostOrderRepost: no analytics record, notice or tracker.
+// Changed on purpose (A11): a re-post used to overwrite the stored row, resetting a filled order to
+// open, and send everything again.
+const REPOSTED: MetricCall[] = [['PostOrderRepost', 1, 'Count']]
+
+export const RepostMetrics: Record<keyof typeof AcceptedPosts, MetricCall[]> = {
+  Dutch_V2: [...requestCounters(1, '2XX'), ...MAINNET_V2_STALENESS, ...REPOSTED],
+  Dutch_V3: [...requestCounters(42161, '2XX'), ...REPOSTED],
+  Priority: [...requestCounters(8453, '2XX'), ...REPOSTED],
+  Limit: [...requestCounters(1, '2XX'), ...REPOSTED],
+}
+
 // A request rejected before the handler runs (invalid JSON, a Joi 400) records its counters on its
 // own metrics logger. Changed on purpose: they used to go to the logger the previous request on the
 // instance installed, which had already flushed (none on a cold start), so the alarms undercounted.

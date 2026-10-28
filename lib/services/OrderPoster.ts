@@ -23,7 +23,7 @@ import { DutchV2Order } from '../models/DutchV2Order'
 import { DutchV3Order } from '../models/DutchV3Order'
 import { LimitOrder } from '../models/LimitOrder'
 import { PriorityCosigner, PriorityOrder } from '../models/PriorityOrder'
-import { BaseOrdersRepository } from '../repositories/base'
+import { BaseOrdersRepository, PutOrderResult } from '../repositories/base'
 import { hasExclusiveFiller } from '../util/address'
 import { IMetrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
@@ -119,7 +119,15 @@ export class OrderPoster {
       throw new TooManyOpenOrdersError()
     }
 
-    await this.persistOrder(ctx, orderEntity)
+    if ((await this.persistOrder(ctx, orderEntity)) === 'already-stored') {
+      // A re-post: the first post stored the order, logged its analytics record, notified its
+      // exclusive filler and started its tracker, so this one answers the same and does nothing else.
+      ctx.logger.warn('Order already stored; answering the re-post without writing', {
+        orderHash: orderEntity.orderHash,
+      })
+      ctx.metrics.putMetric('PostOrderRepost', 1, Unit.Count)
+      return orderEntity.orderHash
+    }
 
     // From here on the signed order is durably stored and fillable, so a thrown
     // error would make the caller report an accepted order as rejected
@@ -284,10 +292,13 @@ export class OrderPoster {
     }
   }
 
-  private async persistOrder(ctx: PostContext, order: UniswapXOrderEntity): Promise<void> {
+  private async persistOrder(ctx: PostContext, order: UniswapXOrderEntity): Promise<PutOrderResult> {
     try {
-      await this.deps.repository.putOrderAndUpdateNonce(ctx, order, Math.floor(this.deps.now() / 1000))
-      ctx.logger.info(`Successfully inserted Order ${order.orderHash} into DB`)
+      const result = await this.deps.repository.putOrderAndUpdateNonce(ctx, order, Math.floor(this.deps.now() / 1000))
+      if (result === 'stored') {
+        ctx.logger.info(`Successfully inserted Order ${order.orderHash} into DB`)
+      }
+      return result
     } catch (e: unknown) {
       ctx.logger.error(`Failed to insert order ${order.orderHash} into DB`, {
         e,

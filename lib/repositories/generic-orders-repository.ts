@@ -17,7 +17,7 @@ import { checkDefined } from '../preconditions/preconditions'
 import { ComparisonFilter, parseComparisonFilter } from '../util/comparison'
 import { decode, encode } from '../util/encryption'
 import { metrics } from '../util/metrics'
-import { BaseOrdersRepository, OrderStoreContext, QueryResult } from './base'
+import { BaseOrdersRepository, OrderStoreContext, PutOrderResult, QueryResult } from './base'
 import { OffchainOrderIndexMapper } from './IndexMappers/OffchainOrderIndexMapper'
 import { NonceRepository } from './nonce-repository'
 import { CachedQueryPage, OrdersQueryCache } from './QueryCache'
@@ -84,6 +84,12 @@ function matchesAnyFilter(order: object, filters: QueryFilter[]): boolean {
 
 function isConditionalCheckFailed(e: unknown): boolean {
   return (e as { name?: string } | null)?.name === 'ConditionalCheckFailedException'
+}
+
+// A transaction cancelled because its first item failed its condition.
+function firstTransactItemConditionFailed(e: unknown): boolean {
+  const err = e as { name?: string; CancellationReasons?: { Code?: string }[] } | null
+  return err?.name === 'TransactionCanceledException' && err.CancellationReasons?.[0]?.Code === 'ConditionalCheckFailed'
 }
 
 const OPEN_ORDERS_BY_OFFERER_INDEX = 'offerer_orderStatus-createdAt-all'
@@ -162,18 +168,34 @@ export class GenericOrdersRepository implements BaseOrdersRepository<UniswapXOrd
     _ctx: OrderStoreContext,
     order: UniswapXOrderEntity,
     createdAt: number
-  ): Promise<void> {
+  ): Promise<PutOrderResult> {
     const now = new Date()
     const { client, tableName, entityName, attributes } = this.store
-    await client.send(
-      new TransactWriteCommand({
-        TransactItems: [
-          { Put: { TableName: tableName, Item: putItem(toStoredRow(order, createdAt), attributes, entityName, now) } },
-          this.nonces.updateTransaction(order.offerer, order.chainId, order.nonce, now),
-        ],
-        ReturnConsumedCapacity: 'TOTAL',
-      })
-    )
+    try {
+      await client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              Put: {
+                TableName: tableName,
+                Item: putItem(toStoredRow(order, createdAt), attributes, entityName, now),
+                // A re-post must not overwrite the stored order: its status, fill and createdAt.
+                ConditionExpression: 'attribute_not_exists(#orderHash)',
+                ExpressionAttributeNames: { '#orderHash': TABLE_KEY.ORDER_HASH },
+              },
+            },
+            this.nonces.updateTransaction(order.offerer, order.chainId, order.nonce, now),
+          ],
+          ReturnConsumedCapacity: 'TOTAL',
+        })
+      )
+    } catch (e) {
+      if (firstTransactItemConditionFailed(e)) {
+        return 'already-stored'
+      }
+      throw e
+    }
+    return 'stored'
   }
 
   public async updateOrderStatus(
