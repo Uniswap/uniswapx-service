@@ -1,5 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { KMSClient } from '@aws-sdk/client-kms'
+import { ExecutionAlreadyExists } from '@aws-sdk/client-sfn'
 import { KmsSigner } from '@uniswap/signer'
 import {
   CosignedPriorityOrder,
@@ -316,23 +317,32 @@ export class UniswapXOrderService {
     orderType: OrderType
   ) {
     const stateMachineArn = getStateMachineArn(chainId)
-    await kickoffOrderTrackingSfn(
-      {
-        orderHash: orderHash,
-        chainId: chainId,
-        orderStatus: ORDER_STATUS.OPEN,
-        quoteId: quoteId ?? '',
-        orderType,
-        stateMachineArn,
-        runIndex: 0,
-      },
-      stateMachineArn
-    )
-    // Success heartbeat. The post-persist catch in createOrder swallows any
-    // failure here so an accepted order is never reported as rejected, which
-    // means the request-level metrics look identical whether tracking started
-    // or not. This counter going to zero is the only aggregate signal that it
-    // stopped, and lambda-stack alarms on its absence.
+    try {
+      await kickoffOrderTrackingSfn(
+        {
+          orderHash: orderHash,
+          chainId: chainId,
+          orderStatus: ORDER_STATUS.OPEN,
+          quoteId: quoteId ?? '',
+          orderType,
+          stateMachineArn,
+          runIndex: 0,
+        },
+        stateMachineArn
+      )
+    } catch (err) {
+      // A tracker named after this order already exists, running or finished: the order was
+      // posted before and its tracker started then. Counted on its own so
+      // PostOrderPostPersistFailure only counts trackers that failed to start.
+      if (err instanceof ExecutionAlreadyExists) {
+        this.logger.warn('Order tracker already exists for re-posted order', { orderHash })
+        metrics.putMetric('PostOrderTrackerAlreadyExists', 1, Unit.Count)
+        return
+      }
+      throw err
+    }
+    // The post-persist catch in createOrder swallows a failed start, so request metrics look the
+    // same whether tracking started or not. lambda-stack alarms when this counter stops.
     metrics.putMetric('OrderTrackerStarted', 1, Unit.Count)
   }
 

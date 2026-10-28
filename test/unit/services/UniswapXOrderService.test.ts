@@ -1,4 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger'
+import { ExecutionAlreadyExists } from '@aws-sdk/client-sfn'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import {
   CosignedV2DutchOrder,
@@ -114,6 +115,44 @@ describe('UniswapXOrderService', () => {
       'Post-persist processing failed for accepted order',
       expect.objectContaining({ orderHash: response })
     )
+  })
+
+  test('createOrder counts a started tracker', async () => {
+    const putMetric = jest.spyOn(metrics, 'putMetric')
+    try {
+      const { service, tracking } = makePostOrderService({ getMaxOpenOrders: () => 10 })
+
+      await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+      expect(tracking.calls).toHaveLength(1)
+      expect(putMetric).toHaveBeenCalledWith('OrderTrackerStarted', 1, Unit.Count)
+      expect(putMetric).not.toHaveBeenCalledWith('PostOrderPostPersistFailure', 1, Unit.Count)
+    } finally {
+      putMetric.mockRestore()
+    }
+  })
+
+  test('createOrder counts a tracker that already exists as a re-post, not a post-persist failure', async () => {
+    const putMetric = jest.spyOn(metrics, 'putMetric')
+    try {
+      const logger = mock<Logger>()
+      const { service, repository, tracking } = makePostOrderService({ logger, getMaxOpenOrders: () => 10 })
+      tracking.failNextWith(new ExecutionAlreadyExists({ message: 'Execution Already Exists', $metadata: {} }))
+
+      const response = await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+      expect(response).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(repository.puts).toHaveLength(1)
+      expect(logger.warn).toHaveBeenCalledWith('Order tracker already exists for re-posted order', {
+        orderHash: response,
+      })
+      expect(logger.error).not.toHaveBeenCalled()
+      expect(putMetric).toHaveBeenCalledWith('PostOrderTrackerAlreadyExists', 1, Unit.Count)
+      expect(putMetric).not.toHaveBeenCalledWith('PostOrderPostPersistFailure', 1, Unit.Count)
+      expect(putMetric).not.toHaveBeenCalledWith('OrderTrackerStarted', 1, Unit.Count)
+    } finally {
+      putMetric.mockRestore()
+    }
   })
 
   test('createOrder still starts tracking when the OrderPosted analytics log throws', async () => {
