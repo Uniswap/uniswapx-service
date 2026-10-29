@@ -29,7 +29,7 @@ export interface RequestInjected {
   orderQuoter: OrderValidator
   orderType: OrderType
   stateMachineArn: string
-  // Set only by repair runs started by hand; never carried to later polls or executions.
+  // Both set only by repair runs started by hand; never carried to later polls or executions.
   skipNotify: boolean
   fillSearchToBlock?: number
 }
