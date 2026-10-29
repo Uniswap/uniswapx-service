@@ -86,6 +86,9 @@ export type CheckOrderStatusRequest = {
   orderType: OrderType
   runIndex?: number
   skipNotify?: boolean
+  // Repairs only: the highest block to search for the fill. A repair knows where the fill landed;
+  // without this, an old order's window (sized from its age) can need more getLogs than one run allows.
+  fillSearchToBlock?: number
 }
 
 export type ExtraUpdateInfo = {
@@ -118,6 +121,7 @@ export class CheckOrderStatusService {
     orderStatus,
     runIndex,
     skipNotify,
+    fillSearchToBlock: repairToBlock,
   }: CheckOrderStatusRequest): Promise<SfnStateInputOutput> {
     const order: UniswapXOrderEntity = checkDefined(
       await wrapWithTimerMetric<UniswapXOrderEntity | undefined>(
@@ -212,7 +216,10 @@ export class CheckOrderStatusService {
       // after the fill -- the fill is then never found and the used nonce gets
       // misread as a cancellation.
       const fillSearchFromBlock = this.getFillSearchFromBlock(order, chainId, fromBlock)
-      const fillSearchToBlock = this.getFillSearchToBlock(order, chainId, fillSearchFromBlock, curBlockNumber)
+      const fillSearchToBlock = Math.min(
+        this.getFillSearchToBlock(order, chainId, fillSearchFromBlock, curBlockNumber),
+        repairToBlock ?? Infinity
+      )
 
       let fillEvent: FillInfo | undefined
       try {

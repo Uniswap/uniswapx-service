@@ -253,6 +253,20 @@ describe('checkOrderStatusService', () => {
         )
       })
 
+      it("caps the fill search at a repair run's fillSearchToBlock", async () => {
+        getBlockNumberMock.mockReturnValue(1_000_000)
+        getFillInfoMock.mockResolvedValue([])
+        const request = { ...openOrderRequest, startingBlockNumber: 499_990, getFillLogAttempts: 1 }
+
+        await checkOrderStatusService.handleRequest(request)
+        const [, uncappedFrom, uncappedTo] = getFillInfoMock.mock.calls[0]
+        await checkOrderStatusService.handleRequest({ ...request, fillSearchToBlock: 500_000 })
+
+        expect(uncappedTo).toBeGreaterThan(500_000)
+        expect(getFillInfoMock).toHaveBeenLastCalledWith(MOCK_ORDER_HASH, uncappedFrom, 500_000)
+        getBlockNumberMock.mockReturnValue(mockedBlockNumber)
+      })
+
       it('should retry if nonce used and no fillEvent and getFillLogAttempts = 0', async () => {
         getFillInfoMock.mockImplementation(() => {
           return []
