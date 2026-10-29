@@ -69,5 +69,26 @@ describe('CheckOrderStatusInjector', () => {
       runIndex: 0,
     })
     expect(requestInjected.deadline).toBeUndefined()
+    expect(requestInjected.skipNotify).toBe(false)
+    expect(requestInjected.fillSearchToBlock).toBeUndefined()
+  })
+
+  it('reads the fields only repair runs pass', async () => {
+    const requestInjected = await injector.getRequestInjected(
+      {
+        chainId: 1,
+        orderHash: '0xhash',
+        quoteId: 'quoteId',
+        orderType: OrderType.Dutch_V3,
+        orderStatus: ORDER_STATUS.CANCELLED,
+        stateMachineArn: 'arn:sfn',
+        skipNotify: true,
+        fillSearchToBlock: 5000,
+      } as never,
+      logMock,
+      metricsMock
+    )
+
+    expect(requestInjected).toMatchObject({ skipNotify: true, fillSearchToBlock: 5000 })
   })
 })
