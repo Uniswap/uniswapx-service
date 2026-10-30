@@ -7,10 +7,17 @@ import {
   crossAccountRoleName,
   IamStack,
   ORDERS_WRITE_ACTIONS,
+  OWNER_FILE_READ_ACTIONS,
   SHADOW_READ_ACTIONS,
+  START_TRACKING_ACTIONS,
   STREAM_READ_ACTIONS,
 } from '../../../bin/stacks/iam-stack'
 import { STAGE } from '../../../lib/util/stage'
+
+const STATE_MACHINE_ARNS = [
+  'arn:aws:states:us-east-2:316116520258:stateMachine:Tracking-1',
+  'arn:aws:states:us-east-2:316116520258:stateMachine:Tracking-8453',
+]
 
 function buildTemplate(stage: STAGE): Template {
   const app = new cdk.App()
@@ -21,10 +28,16 @@ function buildTemplate(stage: STAGE): Template {
       partitionKey: { name: 'orderHash', type: aws_dynamo.AttributeType.STRING },
       stream: aws_dynamo.StreamViewType.NEW_IMAGE,
     })
+  const noncesTable = new aws_dynamo.Table(parent, 'Nonces', {
+    tableName: 'Nonces',
+    partitionKey: { name: 'offerer', type: aws_dynamo.AttributeType.STRING },
+  })
   const stack = new IamStack(parent, 'TestIamStack', {
     stage,
     ordersTable: table('Orders', 'Orders'),
     limitOrdersTable: table('LimitOrders', 'LimitOrders'),
+    noncesTable,
+    trackingStateMachineArns: STATE_MACHINE_ARNS,
   })
   return Template.fromStack(stack)
 }
@@ -46,6 +59,26 @@ function statementsOf(template: Template, logicalIdPattern: RegExp): Statement[]
 
 function actionsOf(statements: Statement[]): string[] {
   return statements.flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action])).sort()
+}
+
+function withAction(statements: Statement[], action: string): Statement {
+  const matching = statements.filter((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]).includes(action))
+  expect(matching).toHaveLength(1)
+  return matching[0]
+}
+
+function resourcesOf(statement: Statement): unknown[] {
+  return Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource]
+}
+
+// The owner file's ARN is built from the deploying account, so it renders as a join on AWS::AccountId.
+function expectOwnerFileOnly(statement: Statement) {
+  const resources = resourcesOf(statement)
+  expect(resources).toHaveLength(1)
+  const rendered = JSON.stringify(resources[0])
+  expect(rendered).toContain('arn:aws:s3:::uniswapx-chain-owners-')
+  expect(rendered).toContain('AWS::AccountId')
+  expect(rendered).toContain('/chain-owners.json')
 }
 
 describe('IamStack', () => {
@@ -95,26 +128,60 @@ describe('IamStack', () => {
     }
   })
 
-  it('shadow-read: table reads on Orders + LimitOrders + indexes, stream reads on their streams, nothing else', () => {
+  it('shadow-read: reads on the three tables, Orders + LimitOrders indexes and streams, and the owner file', () => {
     const statements = statementsOf(prod, /ShadowRead/)
-    expect(actionsOf(statements)).toEqual([...SHADOW_READ_ACTIONS, ...STREAM_READ_ACTIONS].sort())
-    const tableStmt = statements.find((s) => (s.Action as string[]).includes('dynamodb:Query'))
-    const streamStmt = statements.find((s) => (s.Action as string[]).includes('dynamodb:GetRecords'))
-    expect(tableStmt).toBeDefined()
-    expect(streamStmt).toBeDefined()
-    // Table statement: each table ARN plus its index wildcard, i.e. four resources.
-    expect(tableStmt?.Resource).toHaveLength(4)
-    expect(JSON.stringify(tableStmt?.Resource)).toContain('/index/*')
-    // Stream statement: the two stream ARNs only.
-    expect(streamStmt?.Resource).toHaveLength(2)
-    expect(JSON.stringify(streamStmt?.Resource)).toContain('StreamArn')
+    expect(statements).toHaveLength(3)
+    expect(actionsOf(statements)).toEqual(
+      [...SHADOW_READ_ACTIONS, ...STREAM_READ_ACTIONS, ...OWNER_FILE_READ_ACTIONS].sort()
+    )
+    // Table statement: Orders and LimitOrders with their index wildcards, plus Nonces (no indexes).
+    const tableStmt = withAction(statements, 'dynamodb:Query')
+    expect(resourcesOf(tableStmt)).toHaveLength(5)
+    expect(JSON.stringify(tableStmt.Resource)).toContain('/index/*')
+    expect(JSON.stringify(tableStmt.Resource)).toContain('Nonces')
+    // Stream statement: the two order-table stream ARNs only.
+    const streamStmt = withAction(statements, 'dynamodb:GetRecords')
+    expect(resourcesOf(streamStmt)).toHaveLength(2)
+    expect(JSON.stringify(streamStmt.Resource)).toContain('StreamArn')
+    expect(JSON.stringify(streamStmt.Resource)).not.toContain('Nonces')
+    expectOwnerFileOnly(withAction(statements, 's3:GetObject'))
   })
 
-  it('orders-write: conditional writes plus the reads needed to make them, no Delete and no Scan', () => {
+  it('orders-write: conditional writes on the three tables, starting a tracking run, and the owner file', () => {
     const statements = statementsOf(prod, /OrdersWrite/)
-    expect(actionsOf(statements)).toEqual([...ORDERS_WRITE_ACTIONS].sort())
-    expect(statements).toHaveLength(1)
-    expect(statements[0].Resource).toHaveLength(4)
+    expect(statements).toHaveLength(3)
+    expect(actionsOf(statements)).toEqual(
+      [...ORDERS_WRITE_ACTIONS, ...START_TRACKING_ACTIONS, ...OWNER_FILE_READ_ACTIONS].sort()
+    )
+    const tableStmt = withAction(statements, 'dynamodb:PutItem')
+    expect(resourcesOf(tableStmt)).toHaveLength(5)
+    expect(JSON.stringify(tableStmt.Resource)).toContain('Nonces')
+    // Exactly the tracking state machines, never a wildcard.
+    expect(withAction(statements, 'states:StartExecution').Resource).toEqual(STATE_MACHINE_ARNS)
+    expectOwnerFileOnly(withAction(statements, 's3:GetObject'))
+  })
+
+  it('reaches Nonces by its own table ARN only, with no index or stream', () => {
+    const all = Object.values(prod.findResources('AWS::IAM::Policy')).flatMap(
+      (p) => p.Properties.PolicyDocument.Statement as Statement[]
+    )
+    const nonceResources = all.flatMap(resourcesOf).filter((r) => JSON.stringify(r).includes('Nonces'))
+    expect(nonceResources).toHaveLength(2)
+    for (const resource of nonceResources) {
+      expect(JSON.stringify(resource)).not.toMatch(/index|Stream/)
+    }
+  })
+
+  it('grants no Step Functions action but StartExecution and no S3 action but GetObject', () => {
+    const all = Object.values(prod.findResources('AWS::IAM::Policy')).flatMap(
+      (p) => p.Properties.PolicyDocument.Statement as Statement[]
+    )
+    const actions = actionsOf(all)
+    expect(actions.filter((a) => a.startsWith('states:'))).toEqual(['states:StartExecution'])
+    expect(new Set(actions.filter((a) => a.startsWith('s3:')))).toEqual(new Set(['s3:GetObject']))
+    for (const action of actions) {
+      expect(action).not.toContain('*')
+    }
   })
 
   it('grants no Delete, Scan, BatchWrite, or table-management action on either role', () => {
@@ -127,10 +194,6 @@ describe('IamStack', () => {
     }
   })
 
-  it('never references the Nonces table', () => {
-    expect(JSON.stringify(prod.toJSON())).not.toMatch(/Nonce/)
-  })
-
   it('trusts only the ECS task role name, not every uniswapx-prefixed role in the account', () => {
     // A bare service-prefix wildcard would also admit other services, deploy/CI roles, or anything
     // someone names with the prefix, and would bypass the backend side's cutover flag on the write role.
@@ -139,6 +202,26 @@ describe('IamStack', () => {
       const [trust] = role.Properties.AssumeRolePolicyDocument.Statement as Statement[]
       expect(trust.Condition?.ArnLike['aws:PrincipalArn']).toMatch(/:role\/uniswapx-ecsTaskRole-\*$/)
     }
+  })
+
+  it('refuses to be created without tracking state machines to grant on', () => {
+    const app = new cdk.App()
+    const parent = new cdk.Stack(app, 'TestParent')
+    const table = (id: string) =>
+      new aws_dynamo.Table(parent, id, {
+        partitionKey: { name: 'orderHash', type: aws_dynamo.AttributeType.STRING },
+        stream: aws_dynamo.StreamViewType.NEW_IMAGE,
+      })
+    expect(
+      () =>
+        new IamStack(parent, 'TestIamStack', {
+          stage: STAGE.PROD,
+          ordersTable: table('Orders'),
+          limitOrdersTable: table('LimitOrders'),
+          noncesTable: table('Nonces'),
+          trackingStateMachineArns: [],
+        })
+    ).toThrow(/no tracking state machines/)
   })
 
   it('refuses to be created for a stage with no backend accounts (an empty nested stack fails to deploy)', () => {
