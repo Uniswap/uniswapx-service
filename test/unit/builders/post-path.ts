@@ -15,6 +15,7 @@ import { OrderPoster, PostContext } from '../../../lib/services/OrderPoster'
 import { SfnStartTracking } from '../../../lib/services/start-tracking'
 import { getStateMachineArn } from '../../../lib/util/stateMachineArn'
 import { RecordingAnalytics } from '../../fakes/analytics'
+import { allLegacy, FixedChainOwners } from '../../fakes/chain-owners'
 import { FakeCosigner } from '../../fakes/cosigner'
 import { RecordingMetrics } from '../../fakes/metrics'
 import { FakeOffChainValidator, FakeOnChainValidator } from '../../fakes/order-validators'
@@ -36,6 +37,8 @@ export type PostOrderServiceOverrides<R extends OrdersRepository = FakeOrdersRep
   webhookProvider?: WebhookProvider
   // A real Step Functions client in place of the recording one.
   startExecutionClient?: StartExecutionClient
+  // The chain owner file; every chain on legacy unless overridden.
+  chainOwners?: FixedChainOwners
 }
 
 type PostPathFakesHarness<R extends OrdersRepository> = {
@@ -88,7 +91,11 @@ function postPathFakes<R extends OrdersRepository>(
       analytics,
       providerMap: overrides.providerMap ?? MOCK_PROVIDER_MAP,
       // The real start-tracking code over a recording Step Functions client; ARNs from setup-env.
-      startTracking: new SfnStartTracking(overrides.startExecutionClient ?? tracking, getStateMachineArn),
+      startTracking: new SfnStartTracking(
+        overrides.startExecutionClient ?? tracking,
+        getStateMachineArn,
+        overrides.chainOwners ?? allLegacy()
+      ),
       createPriorityCosigner: () => cosigner,
       // Follows a frozen clock (fakes/clock.ts).
       now: () => Date.now(),

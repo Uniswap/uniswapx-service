@@ -332,6 +332,11 @@ export class OrderPoster {
       ctx.metrics.putMetric('PostOrderTrackerAlreadyExists', 1, Unit.Count)
       return
     }
+    if (result === 'tracked-elsewhere') {
+      ctx.logger.info('Not starting a tracker: legacy no longer tracks this chain', { orderHash, chainId })
+      ctx.metrics.putMetric('PostOrderTrackingHandedOff', 1, Unit.Count)
+      return
+    }
     // The post-persist catch in createOrder swallows a failed start, so request metrics look the
     // same whether tracking started or not. lambda-stack alarms when this counter stops.
     ctx.metrics.putMetric('OrderTrackerStarted', 1, Unit.Count)

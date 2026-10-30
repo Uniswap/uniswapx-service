@@ -8,6 +8,7 @@ import { ORDER_STATUS } from '../../../../lib/entities'
 import { BLOCK_RANGE, REAPER_RANGES_PER_RUN, OLDEST_BLOCK_BY_CHAIN, REAPER_MAX_ATTEMPTS, BLOCKS_IN_24_HOURS } from '../../../../lib/util/constants'
 import { ChainId } from '../../../../lib/util/chain'
 import { MOCK_ORDER_ENTITY, MOCK_V2_ORDER_ENTITY } from '../../../test-data'
+import { allLegacy, FixedChainOwners } from '../../../fakes/chain-owners'
 
 const log: Logger = bunyan.createLogger({
   name: 'test',
@@ -195,7 +196,7 @@ describe('GSReaper', () => {
     mockWatcher.getFillInfoForOrder.mockImplementation(getMockFillsForOrder)
     
     // Create new reaper instance with OPEN status
-    reaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN)
+    reaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN, allLegacy())
   })
 
   afterEach(async () => {
@@ -205,12 +206,12 @@ describe('GSReaper', () => {
 
   describe('constructor with different order statuses', () => {
     it('creates reaper with OPEN status', () => {
-      const openReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN)
+      const openReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN, allLegacy())
       expect(openReaper).toBeDefined()
     })
 
     it('creates reaper with INSUFFICIENT_FUNDS status', () => {
-      const insufficientFundsReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.INSUFFICIENT_FUNDS)
+      const insufficientFundsReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.INSUFFICIENT_FUNDS, allLegacy())
       expect(insufficientFundsReaper).toBeDefined()
     })
   })
@@ -229,7 +230,7 @@ describe('GSReaper', () => {
         orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS
       })
 
-      const openReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN)
+      const openReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN, allLegacy())
       const state = await openReaper.initializeChainState(ChainId.MAINNET)
       
       const result = await openReaper.processChainState({
@@ -255,7 +256,7 @@ describe('GSReaper', () => {
         orderStatus: ORDER_STATUS.INSUFFICIENT_FUNDS
       })
 
-      const insufficientFundsReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.INSUFFICIENT_FUNDS)
+      const insufficientFundsReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.INSUFFICIENT_FUNDS, allLegacy())
       const state = await insufficientFundsReaper.initializeChainState(ChainId.MAINNET)
       
       const result = await insufficientFundsReaper.processChainState({
@@ -675,6 +676,72 @@ describe('GSReaper', () => {
       const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
       expect(result?.chainId).toBe(chainIds[chainIds.indexOf(ChainId.MAINNET) + 1])
       expect(result?.stage).toBe(ReaperStage.GET_OPEN_ORDERS)
+    })
+
+    const twoUpdates = () => ({
+      [MOCK_ORDER_ENTITY.orderHash]: { status: ORDER_STATUS.CANCELLED },
+      [MOCK_V2_ORDER_ENTITY.orderHash]: { status: ORDER_STATUS.EXPIRED },
+    })
+    const updateDbState = (orderUpdates) => ({
+      chainId: ChainId.MAINNET,
+      currentBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+      earliestBlock: OLDEST_BLOCK_BY_CHAIN[ChainId.MAINNET],
+      orderUpdates,
+      orderHashes: [],
+      failedFillScanRanges: [],
+      stage: ReaperStage.UPDATE_DB,
+    })
+
+    it('reads the owner file before every write and writes as before when every chain is on legacy', async () => {
+      await mockOrdersRepository.addOrder(MOCK_V2_ORDER_ENTITY)
+      const owners = allLegacy()
+      const legacyReaper = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN, owners)
+
+      await legacyReaper.processChainState(updateDbState(twoUpdates()))
+
+      expect(owners.reads).toEqual([ChainId.MAINNET, ChainId.MAINNET])
+      expect(mockOrdersRepository.updateOrderStatus).toHaveBeenCalledTimes(2)
+    })
+
+    it.each(['draining', 'phase1'])('writes nothing on a %s chain and moves on to the next chain', async (tracking) => {
+      await mockOrdersRepository.addOrder(MOCK_V2_ORDER_ENTITY)
+      const handedOff = new GSReaper(
+        mockOrdersRepository,
+        ORDER_STATUS.OPEN,
+        new FixedChainOwners({ [ChainId.MAINNET]: { tracking } })
+      )
+
+      const result = await handedOff.processChainState(updateDbState(twoUpdates()))
+
+      expect(mockOrdersRepository.updateOrderStatus).not.toHaveBeenCalled()
+      expect((await mockOrdersRepository.getOrder(MOCK_ORDER_ENTITY.orderHash)).orderStatus).toBe(ORDER_STATUS.OPEN)
+      const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
+      expect(result?.chainId).toBe(chainIds[chainIds.indexOf(ChainId.MAINNET) + 1])
+    })
+
+    it('stops writing mid-run once the chain is handed off', async () => {
+      await mockOrdersRepository.addOrder(MOCK_V2_ORDER_ENTITY)
+      let reads = 0
+      const flipsAfterFirstRead = {
+        ownerOf: async () => ({ posting: 'legacy', tracking: reads++ === 0 ? 'legacy' : 'draining' }),
+      }
+      const flipping = new GSReaper(mockOrdersRepository, ORDER_STATUS.OPEN, flipsAfterFirstRead)
+
+      await flipping.processChainState(updateDbState(twoUpdates()))
+
+      expect(mockOrdersRepository.updateOrderStatus).toHaveBeenCalledTimes(1)
+    })
+
+    it('only skips the chains the file hands off', async () => {
+      const otherChainHandedOff = new GSReaper(
+        mockOrdersRepository,
+        ORDER_STATUS.OPEN,
+        new FixedChainOwners({ [ChainId.BASE]: { tracking: 'phase1' } })
+      )
+
+      await otherChainHandedOff.processChainState(updateDbState({ [MOCK_ORDER_ENTITY.orderHash]: { status: ORDER_STATUS.CANCELLED } }))
+
+      expect(mockOrdersRepository.updateOrderStatus).toHaveBeenCalledTimes(1)
     })
 
     it('returns null when processing UPDATE_DB stage for the last chain', async () => {

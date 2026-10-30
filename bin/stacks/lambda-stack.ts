@@ -16,6 +16,7 @@ import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { AlarmNotifier } from './alerting'
+import { ChainOwnersFileConstruct } from './chain-owners'
 import { DynamoStack, TableCapacityConfig } from './dynamo-stack'
 import { logRetentionDays } from './log-retention'
 import { ReaperStack } from './reaper-stack'
@@ -130,6 +131,11 @@ export class LambdaStack extends cdk.NestedStack {
     this.limitOrdersTable = databaseStack.limitOrdersTable
     this.noncesTable = databaseStack.nonceTable
 
+    // Read before every status write and every tracking start (lib/chain-owners/owners.ts).
+    const chainOwners = new ChainOwnersFileConstruct(this, 'ChainOwners', { chainIds: SUPPORTED_CHAINS })
+    chainOwners.grantRead(lambdaRole)
+    const chainOwnersEnv = { CHAIN_OWNERS_BUCKET: chainOwners.bucket.bucketName }
+
     new ReaperStack(this, `${SERVICE_NAME}ReaperStack`, {
       environmentVariables: {
         ...props.envVars,
@@ -140,6 +146,7 @@ export class LambdaStack extends cdk.NestedStack {
       stage: props.stage as STAGE,
       envVars: {
         ...props.envVars,
+        ...chainOwnersEnv,
       },
       lambdaRole: lambdaRole,
     })
@@ -231,6 +238,7 @@ export class LambdaStack extends cdk.NestedStack {
       VERSION: '10',
       NODE_OPTIONS: '--enable-source-maps',
       REGION: this.region,
+      ...chainOwnersEnv,
     }
 
     // Lambda caps all env vars at 4KB total, and a full ARN per chain does not
