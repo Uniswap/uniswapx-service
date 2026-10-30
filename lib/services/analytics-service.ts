@@ -14,7 +14,6 @@ import { ANALYTICS_EVENTS } from '../util/analytics-events'
 import { currentTimestampInSeconds } from '../util/time'
 
 export interface AnalyticsServiceInterface {
-  logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType): void
   logCancelled(orderHash: string, orderType: OrderType, quoteId?: string): void
   logInsufficientFunds(orderHash: string, orderType: OrderType, quoteId?: string): void
 }
@@ -33,6 +32,14 @@ export class AnalyticsService implements AnalyticsServiceInterface {
   }
 
   public logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType) {
+    this.logPostedOrderRecord(this.postedOrderRecord(order, orderType))
+  }
+
+  /**
+   * The record Data Eng loads into `posted_orders`: one per accepted order. Its keys and key order
+   * are the loaded file's bytes, whether it goes out as a log line or straight to Firehose.
+   */
+  public postedOrderRecord(order: UniswapXOrderEntity, orderType: OrderType): object {
     const sharedFields = {
       quoteId: order.quoteId,
       createdAt: this.createdAtTimestampInSeconds(),
@@ -47,47 +54,46 @@ export class AnalyticsService implements AnalyticsServiceInterface {
 
     if (isPriorityOrderEntity(order)) {
       const userOutput = largestOutput(order.outputs, (output) => output.amount)
-      this.logger.info('Analytics Message', {
-        eventType: ANALYTICS_EVENTS.ORDER_POSTED,
-        body: Object.assign(sharedFields, {
-          auctionStartBlock: order.auctionStartBlock,
-          auctionTargetBlock: order.cosignerData.auctionTargetBlock,
-          baselinePriorityFeeWei: order.baselinePriorityFeeWei,
-          inputStartAmount: order.input?.amount,
-          inputEndAmount: order.input?.amount,
-          inputMpsPerPriorityFeeWei: order.input?.mpsPerPriorityFeeWei,
-          outputStartAmount: userOutput.amount,
-          outputEndAmount: userOutput.amount,
-          outputMpsPerPriorityFeeWei: userOutput.mpsPerPriorityFeeWei,
-        }),
+      return Object.assign(sharedFields, {
+        auctionStartBlock: order.auctionStartBlock,
+        auctionTargetBlock: order.cosignerData.auctionTargetBlock,
+        baselinePriorityFeeWei: order.baselinePriorityFeeWei,
+        inputStartAmount: order.input?.amount,
+        inputEndAmount: order.input?.amount,
+        inputMpsPerPriorityFeeWei: order.input?.mpsPerPriorityFeeWei,
+        outputStartAmount: userOutput.amount,
+        outputEndAmount: userOutput.amount,
+        outputMpsPerPriorityFeeWei: userOutput.mpsPerPriorityFeeWei,
       })
     } else if (isDutchV3OrderEntity(order)) {
       const userOutput = largestOutput(order.outputs, (output) => output.startAmount)
-      this.logger.info('Analytics Message', {
-        eventType: ANALYTICS_EVENTS.ORDER_POSTED,
-        body: Object.assign(sharedFields, {
-          startBlock: order.cosignerData.decayStartBlock,
-          inputStartAmount: order.input?.startAmount,
-          inputCurve: JSON.stringify(order.input?.curve),
-          outputStartAmount: userOutput.startAmount,
-          outputCurve: JSON.stringify(userOutput.curve),
-          startingBaseFee: order.startingBaseFee,
-        }),
+      return Object.assign(sharedFields, {
+        startBlock: order.cosignerData.decayStartBlock,
+        inputStartAmount: order.input?.startAmount,
+        inputCurve: JSON.stringify(order.input?.curve),
+        outputStartAmount: userOutput.startAmount,
+        outputCurve: JSON.stringify(userOutput.curve),
+        startingBaseFee: order.startingBaseFee,
       })
     } else {
       const userOutput = largestOutput(order.outputs, (output) => output.startAmount)
-      this.logger.info('Analytics Message', {
-        eventType: ANALYTICS_EVENTS.ORDER_POSTED,
-        body: Object.assign(sharedFields, {
-          startTime: order.decayStartTime,
-          endTime: order.decayEndTime,
-          inputStartAmount: order.input?.startAmount,
-          inputEndAmount: order.input?.endAmount,
-          outputStartAmount: userOutput.startAmount,
-          outputEndAmount: userOutput.endAmount,
-        }),
+      return Object.assign(sharedFields, {
+        startTime: order.decayStartTime,
+        endTime: order.decayEndTime,
+        inputStartAmount: order.input?.startAmount,
+        inputEndAmount: order.input?.endAmount,
+        outputStartAmount: userOutput.startAmount,
+        outputEndAmount: userOutput.endAmount,
       })
     }
+  }
+
+  // The log line the posted-orders subscription filter forwards to Firehose.
+  public logPostedOrderRecord(record: object) {
+    this.logger.info('Analytics Message', {
+      eventType: ANALYTICS_EVENTS.ORDER_POSTED,
+      body: record,
+    })
   }
 
   public logCancelled(orderHash: string, orderType: OrderType, quoteId?: string) {

@@ -56,8 +56,12 @@ For tests:
 `bin/stacks/analytics-stack.ts` delivers two log-derived S3 feeds that Data Eng's `data-eng-workflows`
 (`lib/spaces/uniswap_x`) loads hourly into BigQuery `uniswap_x.posted_orders` / `archived_orders`:
 
-- `uniswapx-service-<stage>-analytics-posted-orders` — `body` of `AnalyticsService.logOrderPosted` lines
-  (`{ $.eventType = "OrderPosted" }` on the post-order and post-limit-order log groups).
+- `uniswapx-service-<stage>-analytics-posted-orders` — `AnalyticsService.postedOrderRecord`. The post Lambdas
+  put it directly on the `GoudaService-<stage>-PostedOrdersDirect` stream (`lib/services/posted-order-analytics.ts`,
+  awaited before the post returns: an un-awaited put is frozen with the Lambda and lost). Only when that put fails do
+  they log the old `{ $.eventType = "OrderPosted" }` line, which the subscription filter on the post-order and
+  post-limit-order log groups still forwards. Both paths write `JSON.stringify(record)`; the direct one adds a
+  newline. The record's keys and key order are the file's bytes, so keep them as they are.
 - `uniswapx-service-<stage>-analytics-fills` — `orderInfo` of `logFillInfo` / `logCancelled` lines
   (`{ $.orderInfo.orderStatus = "filled" || "cancelled" }` on the check-order-status log group).
 

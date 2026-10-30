@@ -51,6 +51,31 @@ describe('LambdaStack', () => {
     expect(Object.keys(vars).filter((k) => k.startsWith('STATE_MACHINE_ARN_'))).toEqual([])
   })
 
+  it('names the posted-orders direct stream to the post Lambdas and lets them put to it alone', () => {
+    const template = buildTemplate(STAGE.PROD)
+    expect(postOrderEnv(template).POSTED_ORDERS_ANALYTICS_STREAM).toEqual('GoudaService-prod-PostedOrdersDirect')
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          {
+            Action: 'firehose:PutRecord',
+            Effect: 'Allow',
+            Resource: {
+              'Fn::Join': [
+                '',
+                [
+                  'arn:',
+                  { Ref: 'AWS::Partition' },
+                  ':firehose:us-east-2:123456789012:deliverystream/GoudaService-prod-PostedOrdersDirect',
+                ],
+              ],
+            },
+          },
+        ]),
+      }),
+    })
+  })
+
   it('pages in prod when no order trackers start for an hour, treating missing data as breaching', () => {
     buildTemplate(STAGE.PROD).hasResourceProperties('AWS::CloudWatch::Alarm', {
       AlarmName: 'GoudaService-SEV2-NoOrderTrackersStarted',

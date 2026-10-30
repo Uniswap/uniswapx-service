@@ -153,19 +153,25 @@ describe('OrderPoster', () => {
     })
   })
 
-  test('createOrder still starts tracking when the OrderPosted analytics log throws', async () => {
+  test.each([
+    [
+      'throws',
+      () => {
+        throw new Error('bad amount')
+      },
+    ],
+    ['rejects', () => Promise.reject(new Error('bad amount'))],
+  ])('createOrder still starts tracking when the OrderPosted analytics send %s', async (_, failure) => {
     const logger = mock<Logger>()
     const analytics = new RecordingAnalytics()
-    jest.spyOn(analytics, 'logOrderPosted').mockImplementation(() => {
-      throw new Error('bad amount')
-    })
+    jest.spyOn(analytics, 'send').mockImplementation(failure)
     const { service, repository, tracking } = makePostOrderService({ logger, analytics, getMaxOpenOrders: () => 10 })
 
     const response = await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
 
     expect(repository.puts).toHaveLength(1)
     expect(tracking.calls).toHaveLength(1)
-    expect(logger.error).toHaveBeenCalledWith('Failed to log OrderPosted', {
+    expect(logger.error).toHaveBeenCalledWith('Failed to send OrderPosted', {
       orderHash: response,
       err: expect.objectContaining({ message: 'bad amount' }),
     })
@@ -173,6 +179,41 @@ describe('OrderPoster', () => {
       'Post-persist processing failed for accepted order',
       expect.anything()
     )
+  })
+
+  test('createOrder does not resolve until the OrderPosted analytics send has', async () => {
+    const analytics = new RecordingAnalytics()
+    let finishSend: () => void = () => undefined
+    jest.spyOn(analytics, 'send').mockImplementation(() => new Promise<void>((resolve) => (finishSend = resolve)))
+    const { service, tracking } = makePostOrderService({ analytics, getMaxOpenOrders: () => 10 })
+
+    let resolved = false
+    const created = service
+      .createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+      .then(() => (resolved = true))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // The tracker started while the put was still in flight.
+    expect(tracking.calls).toHaveLength(1)
+    expect(resolved).toBe(false)
+    finishSend()
+    await created
+    expect(resolved).toBe(true)
+  })
+
+  test('createOrder still waits for the OrderPosted analytics send when tracking fails', async () => {
+    const analytics = new RecordingAnalytics()
+    let sendFinished = false
+    jest.spyOn(analytics, 'send').mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      sendFinished = true
+    })
+    const { service, tracking } = makePostOrderService({ analytics, getMaxOpenOrders: () => 10 })
+    tracking.failNextWith(new Error('sfn down'))
+
+    await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+    expect(sendFinished).toBe(true)
   })
 
   test('createOrder returns the order hash when the tracking kickoff hangs until the SFN client times out', async () => {
