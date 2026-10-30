@@ -32,6 +32,7 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
 import { RecordingAnalytics } from '../../fakes/analytics'
+import { allLegacy, FixedChainOwners } from '../../fakes/chain-owners'
 import { RecordingMetrics } from '../../fakes/metrics'
 import { FakeOffChainValidator } from '../../fakes/order-validators'
 import { TEST_STORE_CONTEXT } from '../../fakes/orders-repository'
@@ -110,6 +111,48 @@ describe('OrderPoster', () => {
     expect(tracking.calls).toHaveLength(1)
     expect(metrics.calls).toContainEqual(['OrderTrackerStarted', 1, Unit.Count])
     expect(metrics.calls).not.toContainEqual(['PostOrderPostPersistFailure', 1, Unit.Count])
+  })
+
+  test.each(['draining', 'phase1'] as const)(
+    'createOrder stores the order but starts no tracker when the chain is %s',
+    async (tracking) => {
+      const logger = mock<Logger>()
+      const chainOwners = new FixedChainOwners({ 1: { tracking } })
+      const {
+        service,
+        repository,
+        tracking: sfn,
+        metrics,
+      } = makePostOrderService({
+        logger,
+        getMaxOpenOrders: () => 10,
+        chainOwners,
+      })
+
+      const response = await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+      expect(response).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(repository.puts).toHaveLength(1)
+      expect(chainOwners.reads).toEqual([1])
+      expect(sfn.calls).toHaveLength(0)
+      expect(logger.info).toHaveBeenCalledWith('Not starting a tracker: legacy no longer tracks this chain', {
+        orderHash: response,
+        chainId: 1,
+      })
+      expect(metrics.calls).toContainEqual(['PostOrderTrackingHandedOff', 1, Unit.Count])
+      expect(metrics.calls).not.toContainEqual(['OrderTrackerStarted', 1, Unit.Count])
+      expect(metrics.calls).not.toContainEqual(['PostOrderPostPersistFailure', 1, Unit.Count])
+    }
+  )
+
+  test('createOrder still starts tracking on a chain uniswapx posts but legacy tracks', async () => {
+    const chainOwners = new FixedChainOwners({ 1: { posting: 'uniswapx', tracking: 'legacy' } })
+    const { service, tracking, metrics } = makePostOrderService({ getMaxOpenOrders: () => 10, chainOwners })
+
+    await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+    expect(tracking.calls).toHaveLength(1)
+    expect(metrics.calls).toContainEqual(['OrderTrackerStarted', 1, Unit.Count])
   })
 
   test('createOrder counts a tracker that already exists as a re-post, not a post-persist failure', async () => {
@@ -218,7 +261,7 @@ describe('OrderPoster', () => {
       getMaxOpenOrders: () => 10,
       analytics,
       providerMap: { get: () => mock<StaticJsonRpcProvider>() },
-      startTracking: new SfnStartTracking(tracking, getStateMachineArn),
+      startTracking: new SfnStartTracking(tracking, getStateMachineArn, allLegacy()),
       createPriorityCosigner: () => cosigner,
       now: () => Date.now(),
       notifyExclusiveFiller: () => {
