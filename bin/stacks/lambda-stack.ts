@@ -12,10 +12,12 @@ import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
+import { POSTED_ORDERS_STREAM_ENV } from '../../lib/util/analytics-events'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { AlarmNotifier } from './alerting'
+import { postedOrdersDirectStreamName } from './analytics-stack'
 import { DynamoStack, TableCapacityConfig } from './dynamo-stack'
 import { logRetentionDays } from './log-retention'
 import { ReaperStack } from './reaper-stack'
@@ -239,6 +241,23 @@ export class LambdaStack extends cdk.NestedStack {
     postOrderEnv.STATE_MACHINE_NAMES = `{${SUPPORTED_CHAINS.map(
       (chainId) => `"${chainId}":"${sfnStack.chainIdToStatusTrackingStateMachineName[chainId]}"`
     ).join(',')}}`
+
+    // The post Lambdas put each posted order's analytics record on this stream (analytics-stack.ts).
+    // Named, not referenced, to keep the analytics stack's dependency on these Lambdas one-way.
+    const postedOrdersStreamName = postedOrdersDirectStreamName(props.stage)
+    postOrderEnv[POSTED_ORDERS_STREAM_ENV] = postedOrdersStreamName
+    lambdaRole.addToPolicy(
+      new aws_iam.PolicyStatement({
+        actions: ['firehose:PutRecord'],
+        resources: [
+          cdk.Stack.of(this).formatArn({
+            service: 'firehose',
+            resource: 'deliverystream',
+            resourceName: postedOrdersStreamName,
+          }),
+        ],
+      })
+    )
 
     const postOrderMemorySize = props.stage === STAGE.PROD ? 2048 : 1024
 

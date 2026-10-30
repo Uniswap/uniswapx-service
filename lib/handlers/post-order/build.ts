@@ -3,8 +3,8 @@ import { UniswapXOrderEntity } from '../../entities'
 import { PriorityCosigner } from '../../models/PriorityOrder'
 import { WebhookProvider } from '../../providers/base'
 import { BaseOrdersRepository } from '../../repositories/base'
-import { AnalyticsServiceInterface } from '../../services/analytics-service'
 import { ExclusiveFillerNotifier, OrderPoster } from '../../services/OrderPoster'
+import { PostedOrderAnalytics } from '../../services/posted-order-analytics'
 import { StartTracking } from '../../services/start-tracking'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
@@ -20,7 +20,7 @@ export type PostOrderDeps = {
   orderValidator: OffChainUniswapXOrderValidator
   onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>
   repository: BaseOrdersRepository<UniswapXOrderEntity>
-  analytics: AnalyticsServiceInterface
+  analytics: PostedOrderAnalytics
   providerMap: ProviderMap
   startTracking: StartTracking
   createPriorityCosigner: () => PriorityCosigner
