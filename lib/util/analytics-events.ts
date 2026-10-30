@@ -1,6 +1,6 @@
 /**
- * Analytics event type constants
- * Used by analytics service (producer) and subscription filters (consumer)
+ * Analytics event type constants, on the posted-order log line the local stack writes in place of
+ * the delivery stream.
  */
 export const ANALYTICS_EVENTS = {
   ORDER_POSTED: 'OrderPosted',
