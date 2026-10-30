@@ -73,19 +73,22 @@ only by the processor and the Data Eng schema.
 ## Cross-Account IAM Roles (backend monorepo, ECO-861)
 
 `bin/stacks/iam-stack.ts` creates two roles per stage that the UniswapX service being built in the
-`backend` monorepo assumes cross-account, scoped to `Orders` + `LimitOrders` only (never `Nonces`):
+`backend` monorepo assumes cross-account, scoped to `Orders`, `LimitOrders`, `Nonces`, the per-chain tracking
+state machines and the chain owner file (`lib/chain-owners/location.ts`):
 
-- `uniswapx-shadow-read-<stage>` — Get/BatchGet/Query/DescribeTable on the tables and their indexes, plus
-  DescribeStream/GetRecords/GetShardIterator/ListStreams on their streams. Used first, by the shadow
-  comparator that diffs the new status tracker against the live tables.
-- `uniswapx-orders-write-<stage>` — Put/Update/Get/Query/ConditionCheckItem on the tables and indexes. No
-  Delete, no Scan, no batch writes. Stays unassumed until cutover; revoking it is the rollback.
+- `uniswapx-shadow-read-<stage>` — Get/BatchGet/Query/DescribeTable on the three tables and the order tables'
+  indexes, DescribeStream/GetRecords/GetShardIterator/ListStreams on the order tables' streams, and GetObject
+  on the owner file. Used first, by the shadow comparator and by nonce reads.
+- `uniswapx-orders-write-<stage>` — Put/Update/Get/Query/ConditionCheckItem on the three tables and indexes
+  (the post transaction's order put and nonce update are authorized by these), StartExecution on the
+  tracking state machines, and GetObject on the owner file. No Delete, no Scan, no batch writes. Stays
+  unassumed until uniswapx writes; revoking it is the rollback.
 
 Trust is per stage: beta trusts backend dev (411170392337) + staging (413367642260), prod trusts backend prod
 (654200013602), each statement narrowed with `aws:PrincipalArn` to that account's ECS task role (`uniswapx-ecsTaskRole-*`,
 not the wider `uniswapx-*`, which would admit other roles and bypass the backend cutover flag). Local stacks
 do not create the nested stack at all (an empty nested stack fails to deploy). Role ARNs are stack outputs (`ShadowReadRoleArn`, `OrdersWriteRoleArn`). This is a
-transitional arrangement that goes away with the DynamoDB migration; do not widen it to other tables.
+transitional arrangement that goes away with the DynamoDB migration; do not widen it to other tables or actions.
 
 ## Gotchas
 

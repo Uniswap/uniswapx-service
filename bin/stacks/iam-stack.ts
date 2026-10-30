@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
+import { CHAIN_OWNERS_KEY, chainOwnersBucketName } from '../../lib/chain-owners/location'
 import { STAGE } from '../../lib/util/stage'
 
 /**
@@ -49,9 +50,11 @@ export const STREAM_READ_ACTIONS = [
   'dynamodb:ListStreams',
 ] as const
 
-// Used after cutover: the new status tracker writes order state transitions. Every write is
-// conditional on the current status, hence ConditionCheckItem. No Delete, no Scan, no batch
-// writes. Revoking this role (or its trust) is an instant rollback to the legacy writer.
+// Used after cutover: the new status tracker writes order state transitions, and the ported post
+// path writes the order and its nonce in one transaction (TransactWriteItems is authorized per
+// item, by these same actions). Every write is conditional, hence ConditionCheckItem. No Delete,
+// no Scan, no batch writes. Revoking this role (or its trust) is an instant rollback to the
+// legacy writer.
 export const ORDERS_WRITE_ACTIONS = [
   'dynamodb:PutItem',
   'dynamodb:UpdateItem',
@@ -60,23 +63,37 @@ export const ORDERS_WRITE_ACTIONS = [
   'dynamodb:ConditionCheckItem',
 ] as const
 
+// The ported post path starts the order's legacy tracking run, as legacy's post path does, on a
+// chain whose tracking is still legacy's. Step Functions has no resource policies, so this can
+// only be granted to a role in this account. No Stop, no Describe, no other state machine.
+export const START_TRACKING_ACTIONS = ['states:StartExecution'] as const
+
+// Both sides read the chain owner file (see lib/chain-owners/location.ts) before they post or
+// write a status. Read only: the file is edited by hand, never by either service.
+export const OWNER_FILE_READ_ACTIONS = ['s3:GetObject'] as const
+
 export interface IamStackProps extends cdk.NestedStackProps {
   stage: STAGE
   ordersTable: aws_dynamo.ITable
   limitOrdersTable: aws_dynamo.ITable
+  noncesTable: aws_dynamo.ITable
+  // One per chain (step-function-stack.ts).
+  trackingStateMachineArns: string[]
 }
 
 /**
  * Cross-account IAM roles for the UniswapX service being built in the backend monorepo
- * (ECO-861). Created for beta and prod only (see BACKEND_ACCOUNTS). Two roles, scoped to
- * Orders + LimitOrders only:
+ * (ECO-861). Created for beta and prod only (see BACKEND_ACCOUNTS). Two roles, scoped to the
+ * order service's three tables, its tracking state machines and the chain owner file:
  *
- * - `uniswapx-shadow-read-<stage>`: read tables, indexes and streams (shadow comparison phase)
- * - `uniswapx-orders-write-<stage>`: conditional writes + the reads needed to make them (cutover)
+ * - `uniswapx-shadow-read-<stage>`: read Orders, LimitOrders (with indexes and streams) and
+ *   Nonces, and the owner file
+ * - `uniswapx-orders-write-<stage>`: conditional writes to the three tables + the reads needed to
+ *   make them, starting a tracking run, and the owner file
  *
- * This arrangement is transitional: it exists so the status-tracking logic can move to the
- * monorepo before the tables do. It goes away with the DynamoDB migration. Nothing here touches
- * Nonces or any other table.
+ * This arrangement is transitional: it exists so posting and status tracking can move to the
+ * monorepo one chain at a time before the tables do. It goes away with the DynamoDB migration.
+ * Nothing here touches any other table.
  */
 export class IamStack extends cdk.NestedStack {
   public readonly shadowReadRole: aws_iam.Role
@@ -84,7 +101,7 @@ export class IamStack extends cdk.NestedStack {
 
   constructor(scope: Construct, name: string, props: IamStackProps) {
     super(scope, name, props)
-    const { stage, ordersTable, limitOrdersTable } = props
+    const { stage, ordersTable, limitOrdersTable, noncesTable, trackingStateMachineArns } = props
 
     const accounts = BACKEND_ACCOUNTS[stage]
     if (accounts.length === 0) {
@@ -94,22 +111,32 @@ export class IamStack extends cdk.NestedStack {
       throw new Error(`IamStack: stage '${stage}' has no backend accounts to trust; do not create it`)
     }
 
-    const tables = [ordersTable, limitOrdersTable]
-    const tableArns = tables.flatMap((t) => [t.tableArn, `${t.tableArn}/index/*`])
-    const streamArns = tables.map((t) => {
+    const orderTables = [ordersTable, limitOrdersTable]
+    // Nonces has no indexes, and nothing needs its (absent) stream.
+    const tableArns = [...orderTables.flatMap((t) => [t.tableArn, `${t.tableArn}/index/*`]), noncesTable.tableArn]
+    const streamArns = orderTables.map((t) => {
       if (!t.tableStreamArn) {
         throw new Error(`${t.tableName} has no stream; the shadow comparator needs one`)
       }
       return t.tableStreamArn
     })
+    if (trackingStateMachineArns.length === 0) {
+      throw new Error('IamStack: no tracking state machines to grant StartExecution on')
+    }
+    const ownerFileArn = `arn:aws:s3:::${chainOwnersBucketName(cdk.Stack.of(this).account)}/${CHAIN_OWNERS_KEY}`
+    const readOwnerFile = () =>
+      new aws_iam.PolicyStatement({ actions: [...OWNER_FILE_READ_ACTIONS], resources: [ownerFileArn] })
 
     this.shadowReadRole = this.createRole('ShadowRead', stage, 'shadow-read', accounts, [
       new aws_iam.PolicyStatement({ actions: [...SHADOW_READ_ACTIONS], resources: tableArns }),
       new aws_iam.PolicyStatement({ actions: [...STREAM_READ_ACTIONS], resources: streamArns }),
+      readOwnerFile(),
     ])
 
     this.ordersWriteRole = this.createRole('OrdersWrite', stage, 'orders-write', accounts, [
       new aws_iam.PolicyStatement({ actions: [...ORDERS_WRITE_ACTIONS], resources: tableArns }),
+      new aws_iam.PolicyStatement({ actions: [...START_TRACKING_ACTIONS], resources: trackingStateMachineArns }),
+      readOwnerFile(),
     ])
 
     new cdk.CfnOutput(this, 'ShadowReadRoleArn', { value: this.shadowReadRole.roleArn })
@@ -135,7 +162,7 @@ export class IamStack extends cdk.NestedStack {
     const role = new aws_iam.Role(this, `${id}Role`, {
       roleName: crossAccountRoleName(stage, kind),
       assumedBy,
-      description: `UniswapX backend-monorepo ${kind} access to Orders + LimitOrders (ECO-861, transitional)`,
+      description: `UniswapX backend-monorepo ${kind} access to the order service's tables, tracking and owner file (ECO-861, transitional)`,
     })
     role.attachInlinePolicy(new aws_iam.Policy(this, `${id}Policy`, { statements }))
     return role

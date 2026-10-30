@@ -60,6 +60,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
   public readonly ordersTable: aws_dynamo.ITable
   public readonly limitOrdersTable: aws_dynamo.ITable
+  public readonly noncesTable: aws_dynamo.ITable
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -127,6 +128,7 @@ export class LambdaStack extends cdk.NestedStack {
     })
     this.ordersTable = databaseStack.ordersTable
     this.limitOrdersTable = databaseStack.limitOrdersTable
+    this.noncesTable = databaseStack.nonceTable
 
     new ReaperStack(this, `${SERVICE_NAME}ReaperStack`, {
       environmentVariables: {
