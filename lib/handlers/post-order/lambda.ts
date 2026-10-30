@@ -2,6 +2,7 @@ import { KMSClient } from '@aws-sdk/client-kms'
 import { KmsSigner } from '@uniswap/signer'
 import { OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
 import { DynamoDB } from 'aws-sdk'
+import { S3ChainOwners } from '../../chain-owners/owners'
 import { checkDefined } from '../../preconditions/preconditions'
 import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
 import { AnalyticsService } from '../../services/analytics-service'
@@ -36,7 +37,7 @@ export function buildPostOrderLambda(policy: PostRoutePolicy): PostOrderHandler 
     repository: policy.createRepository(new DynamoDB.DocumentClient()),
     analytics: AnalyticsService.create(),
     providerMap,
-    startTracking: new SfnStartTracking(sharedStartExecutionClient, getStateMachineArn),
+    startTracking: new SfnStartTracking(sharedStartExecutionClient, getStateMachineArn, S3ChainOwners.fromEnv()),
     createPriorityCosigner,
     now,
     webhookProvider: policy.notifyExclusiveFiller ? webhookProviderForStage() : undefined,

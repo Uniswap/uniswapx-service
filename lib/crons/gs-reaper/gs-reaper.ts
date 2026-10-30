@@ -1,6 +1,7 @@
 import { createMetricsLogger, Unit } from 'aws-embedded-metrics'
 import { DynamoDB } from 'aws-sdk'
 import { default as bunyan, default as Logger } from 'bunyan'
+import { ChainOwners, legacyTracks, S3ChainOwners } from '../../chain-owners/owners'
 import { ORDER_STATUS, SettledAmount, UniswapXOrderEntity } from '../../entities'
 import { BaseOrdersRepository, QueryResult, SERVICE_STORE_CONTEXT } from '../../repositories/base'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
@@ -88,8 +89,13 @@ export class GSReaper {
   private unresolvedOrderStatus: ORDER_STATUS
   private providers: Map<ChainId, ethers.providers.StaticJsonRpcProvider>
   private cursors: Map<ChainId, string | undefined> = new Map()
+  private chainOwners: ChainOwners
 
-  constructor(repo: BaseOrdersRepository<UniswapXOrderEntity>, unresolvedOrderStatus: ORDER_STATUS) {
+  constructor(
+    repo: BaseOrdersRepository<UniswapXOrderEntity>,
+    unresolvedOrderStatus: ORDER_STATUS,
+    chainOwners: ChainOwners
+  ) {
     this.log = bunyan.createLogger({
       name: 'GSReaper',
       serializers: bunyan.stdSerializers,
@@ -97,6 +103,7 @@ export class GSReaper {
     })
     this.repo = repo
     this.unresolvedOrderStatus = unresolvedOrderStatus
+    this.chainOwners = chainOwners
     this.providers = new Map<ChainId, ethers.providers.StaticJsonRpcProvider>()
     this.initializeProviders()
   }
@@ -239,7 +246,7 @@ export class GSReaper {
 
       case ReaperStage.UPDATE_DB: {
         this.log.info(`UPDATE_DB for chainId ${state.chainId}`)
-        await updateOrders(this.repo, state.orderUpdates, this.log)
+        await updateOrders(this.repo, state.chainId, state.orderUpdates, this.chainOwners, this.log)
         
         const chainIds = Object.keys(OLDEST_BLOCK_BY_CHAIN).map(Number)
         const currentChainIndex = chainIds.indexOf(state.chainId)
@@ -555,12 +562,21 @@ async function emitReaperMetrics(
 
 async function updateOrders(
   repo: BaseOrdersRepository<UniswapXOrderEntity>,
+  chainId: number,
   orderUpdates: Record<string, OrderUpdate>,
+  chainOwners: ChainOwners,
   log: Logger
 ): Promise<void> {
   log.info(`Updating ${Object.keys(orderUpdates).length} incorrect orders`)
   
   for (const [orderHash, orderUpdate] of Object.entries(orderUpdates)) {
+    // Read before every write, not once per run: a run can take minutes, and the chain may be
+    // handed to the new tracker in the meantime. Once it is, the rest of the run's updates drop.
+    const owner = await chainOwners.ownerOf(chainId)
+    if (!legacyTracks(owner)) {
+      log.info(`Skipping updates for chainId ${chainId}: legacy no longer tracks it (${owner.tracking})`)
+      return
+    }
     log.info(`Updating order ${orderHash} to ${orderUpdate.status}`)
     await repo.updateOrderStatus(SERVICE_STORE_CONTEXT, orderHash, orderUpdate.status, {
       txHash: orderUpdate.txHash,
@@ -684,10 +700,11 @@ async function getOrderFillInfo(
 }
 
 async function startReapers() {
-  const dutchOpenOrderReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.OPEN)
-  const limitOpenOrderReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.OPEN)
-  const dutchInsufficientFundsOrderReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.INSUFFICIENT_FUNDS)
-  const limitInsufficientFundsOrderReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.INSUFFICIENT_FUNDS)
+  const chainOwners = S3ChainOwners.fromEnv()
+  const dutchOpenOrderReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.OPEN, chainOwners)
+  const limitOpenOrderReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.OPEN, chainOwners)
+  const dutchInsufficientFundsOrderReaper = new GSReaper(DutchOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.INSUFFICIENT_FUNDS, chainOwners)
+  const limitInsufficientFundsOrderReaper = new GSReaper(LimitOrdersRepository.create(new DynamoDB.DocumentClient()), ORDER_STATUS.INSUFFICIENT_FUNDS, chainOwners)
   const reapers = [
     dutchOpenOrderReaper,
     limitOpenOrderReaper,

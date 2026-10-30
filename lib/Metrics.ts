@@ -11,6 +11,8 @@ export const CheckOrderStatusHandlerMetricNames = {
   // the order stays non-terminal unless handled manually, so this deserves its
   // own alarm, separate from grace-period abandons the reaper will resolve.
   OrderTrackingAbandonedNoBackstopCount: CheckOrderStatusHandlerPrefix + 'OrderTrackingAbandonedNoBackstopCount',
+  // Runs ended because the chain owner file says legacy no longer tracks the chain.
+  TrackingHandedOffCount: CheckOrderStatusHandlerPrefix + 'TrackingHandedOffCount',
   GetFromDynamoTime: CheckOrderStatusHandlerPrefix + 'GetFromDynamoTime',
   GetBlockNumberTime: CheckOrderStatusHandlerPrefix + 'GetBlockNumberTime',
   GetValidationTime: CheckOrderStatusHandlerPrefix + 'GetValidationTime',

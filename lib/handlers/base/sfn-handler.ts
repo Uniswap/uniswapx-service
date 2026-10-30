@@ -4,7 +4,7 @@ import Joi from 'joi'
 import { checkDefined } from '../../preconditions/preconditions'
 import { InjectionError, SfnInputValidationError } from '../../util/errors'
 
-export type SfnStateInputOutput = Record<string, string | number | { [key: string]: string }[]>
+export type SfnStateInputOutput = Record<string, string | number | boolean | { [key: string]: string }[]>
 
 export type SfnHandler = (event: SfnStateInputOutput) => Promise<SfnStateInputOutput>
 

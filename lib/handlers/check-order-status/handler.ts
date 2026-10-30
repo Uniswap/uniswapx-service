@@ -1,6 +1,7 @@
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import Joi from 'joi'
+import { ChainOwners, legacyTracks } from '../../chain-owners/owners'
 import { CheckOrderStatusHandlerMetricNames, powertoolsMetric } from '../../Metrics'
 import { SfnInjector, SfnLambdaHandler, SfnStateInputOutput } from '../base'
 import { kickoffOrderTrackingSfn } from '../shared/sfn'
@@ -30,7 +31,8 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     handlerName: string,
     injectorPromise: Promise<SfnInjector<ContainerInjected, RequestInjected>>,
     private readonly checkOrderStatusService: CheckOrderStatusService,
-    private readonly checkLimitOrderStatusService: CheckOrderStatusService
+    private readonly checkLimitOrderStatusService: CheckOrderStatusService,
+    private readonly chainOwners: ChainOwners
   ) {
     super(handlerName, injectorPromise)
   }
@@ -39,6 +41,31 @@ export class CheckOrderStatusHandler extends SfnLambdaHandler<ContainerInjected,
     containerInjected: ContainerInjected
     requestInjected: RequestInjected
   }): Promise<SfnStateInputOutput> {
+    // Checked on every poll, before anything else, so a chain handed over to the new tracker
+    // stops here: no restart, no analytics, no status write. `trackingHandedOff` routes the
+    // state machine straight to its succeed state.
+    const owner = await this.chainOwners.ownerOf(input.requestInjected.chainId)
+    if (!legacyTracks(owner)) {
+      log.info('Ending tracking run: legacy no longer tracks this chain', {
+        orderHash: input.requestInjected.orderHash,
+        chainId: input.requestInjected.chainId,
+        tracking: owner.tracking,
+      })
+      powertoolsMetric
+        .singleMetric()
+        .addMetric(CheckOrderStatusHandlerMetricNames.TrackingHandedOffCount, MetricUnits.Count, 1)
+      return {
+        orderHash: input.requestInjected.orderHash,
+        chainId: input.requestInjected.chainId,
+        quoteId: input.requestInjected.quoteId,
+        orderStatus: input.requestInjected.orderStatus,
+        orderType: input.requestInjected.orderType,
+        stateMachineArn: input.requestInjected.stateMachineArn,
+        runIndex: input.requestInjected.runIndex,
+        trackingHandedOff: true,
+      }
+    }
+
     //make sure to change "Variable": "$.retryCount", in order-tracking-sfn.json to be 1+retryCount
     const retryCount = input.requestInjected?.retryCount ?? 0
     if (retryCount > 300) {

@@ -1,5 +1,6 @@
 import { ExecutionAlreadyExists } from '@aws-sdk/client-sfn'
 import { OrderType } from '@uniswap/uniswapx-sdk'
+import { ChainOwners, legacyTracks } from '../chain-owners/owners'
 import { ORDER_STATUS } from '../entities'
 import { kickoffOrderTrackingSfn, StartExecutionClient } from '../handlers/shared/sfn'
 
@@ -12,7 +13,9 @@ export type TrackedOrder = {
 
 // 'already-started': a tracker named after this order exists, running or finished, because the
 // order was posted before and its tracker started then.
-export type StartTrackingResult = 'started' | 'already-started'
+// 'tracked-elsewhere': the chain owner file says legacy doesn't track the order's chain, so no
+// tracker was started; the new tracker picks the order up from the table.
+export type StartTrackingResult = 'started' | 'already-started' | 'tracked-elsewhere'
 
 /** Starts tracking a newly stored order until it reaches a final status. */
 export interface StartTracking {
@@ -26,10 +29,14 @@ export interface StartTracking {
 export class SfnStartTracking implements StartTracking {
   constructor(
     private readonly client: StartExecutionClient,
-    private readonly stateMachineArn: (chainId: number) => string
+    private readonly stateMachineArn: (chainId: number) => string,
+    private readonly chainOwners: ChainOwners
   ) {}
 
   async start({ orderHash, chainId, quoteId, orderType }: TrackedOrder): Promise<StartTrackingResult> {
+    if (!legacyTracks(await this.chainOwners.ownerOf(chainId))) {
+      return 'tracked-elsewhere'
+    }
     const stateMachineArn = this.stateMachineArn(chainId)
     try {
       await kickoffOrderTrackingSfn(

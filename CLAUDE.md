@@ -90,6 +90,34 @@ not the wider `uniswapx-*`, which would admit other roles and bypass the backend
 do not create the nested stack at all (an empty nested stack fails to deploy). Role ARNs are stack outputs (`ShadowReadRoleArn`, `OrdersWriteRoleArn`). This is a
 transitional arrangement that goes away with the DynamoDB migration; do not widen it to other tables or actions.
 
+## Chain Owner File (migration to backend uniswapx)
+
+While posting and tracking move to the backend `uniswapx` service one chain at a time, one JSON object per
+account says who owns each chain: `s3://uniswapx-chain-owners-<account>/chain-owners.json`
+(`lib/chain-owners/`, created by `bin/stacks/chain-owners.ts`).
+
+```json
+{ "chains": { "1": { "posting": "legacy", "tracking": "legacy" }, "8453": { "posting": "uniswapx", "tracking": "draining" } } }
+```
+
+- `posting`: `legacy` | `uniswapx`. `tracking`: `legacy` | `draining` | `phase1`. Legacy writes a chain's statuses only
+  while `tracking` is `legacy`; nobody writes them while it is `draining`.
+- Legacy reads it before every tracker poll (a run on a non-legacy chain ends at once, via the state machine's
+  `trackingHandedOff` succeed state, with no restart, analytics or write), before each reaper write, and before
+  starting tracking for a new post. Each process reuses a read for 30 s, so a flip takes up to 30 s to land.
+- Fail closed: a chain missing from the file is legacy / legacy; an unreadable or invalid file (one bad entry
+  invalidates the whole file) makes every chain legacy / legacy and emits the `ChainOwnersUnreadable` metric.
+  The uniswapx side must read it with the same rules.
+- CDK creates the object once (every chain on legacy) and never writes it again, so a deploy can't undo a flip.
+  Edits are by hand; check the file parses before uploading, and the bucket's versions are the history:
+
+```bash
+aws s3 cp s3://uniswapx-chain-owners-<account>/chain-owners.json chain-owners.json
+yarn build && node -e "require('./dist/lib/chain-owners/owners').parseChainOwners(require('fs').readFileSync('chain-owners.json', 'utf8'))"
+aws s3 cp chain-owners.json s3://uniswapx-chain-owners-<account>/chain-owners.json --content-type application/json
+aws s3api list-object-versions --bucket uniswapx-chain-owners-<account> --prefix chain-owners.json
+```
+
 ## Gotchas
 
 - `pair` on order entities (and the `pair-createdAt-all` GSI behind `GET /orders?pair=`) has had no writer since the Unimind quote-metadata path was removed in Sep 2026. Existing rows keep the attribute; new orders never set it.

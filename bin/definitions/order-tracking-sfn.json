@@ -36,6 +36,19 @@
       "InputPath": "$.Payload",
       "Choices": [
         {
+          "And": [
+            {
+              "Variable": "$.trackingHandedOff",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.trackingHandedOff",
+              "BooleanEquals": true
+            }
+          ],
+          "Next": "trackingHandedOff"
+        },
+        {
           "Or": [
             {
               "Variable": "$.orderStatus",
@@ -77,6 +90,9 @@
       "Type": "Succeed"
     },
     "orderRetried": {
+      "Type": "Succeed"
+    },
+    "trackingHandedOff": {
       "Type": "Succeed"
     }
   }

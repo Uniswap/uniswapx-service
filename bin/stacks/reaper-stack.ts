@@ -5,6 +5,7 @@ import { Construct } from "constructs";
 import { buildSync } from "esbuild";
 import * as fs from "fs";
 import * as path from "path";
+import { CHAIN_OWNERS_KEY, chainOwnersBucketName } from "../../lib/chain-owners/location";
 import { SERVICE_NAME } from "../constants";
 
 const REPO_ROOT = path.join(__dirname, "../..");
@@ -60,6 +61,15 @@ export class ReaperStack extends Stack {
         aws_iam.ManagedPolicy.fromAwsManagedPolicyName("CloudWatchFullAccess"),
       ],
     });
+    // The chain owner file, read before each status write. Named from the account rather than
+    // passed in from LambdaStack, so this separate stack takes no cross-stack reference.
+    const chainOwnersBucket = chainOwnersBucketName(this.account);
+    reaperRole.addToPolicy(
+      new aws_iam.PolicyStatement({
+        actions: ["s3:GetObject"],
+        resources: [`arn:aws:s3:::${chainOwnersBucket}/${CHAIN_OWNERS_KEY}`],
+      })
+    );
 
     const taskDefinition = new aws_ecs.FargateTaskDefinition(
       this,
@@ -90,6 +100,7 @@ export class ReaperStack extends Stack {
         environment: {
           ...environmentVariables,
           AWS_EMF_ENVIRONMENT: "Local",
+          CHAIN_OWNERS_BUCKET: chainOwnersBucket,
           // update to trigger deployment
           VERSION: "4",
         },

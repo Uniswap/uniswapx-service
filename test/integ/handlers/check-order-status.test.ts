@@ -22,6 +22,7 @@ import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
 import { SDKPriorityOrderFactory } from '../../factories/SDKPriorityOrderFactory'
 import { MOCK_ORDER_ENTITY, MOCK_ORDER_HASH } from '../../test-data'
 import { DYNAMO_LOCAL_CONFIG } from '../dynamo-local'
+import { allLegacy } from '../../fakes/chain-owners'
 import { TEST_STORE_CONTEXT, nowSeconds } from '../../fakes/orders-repository'
 
 // Mock the Permit2Validator
@@ -101,7 +102,8 @@ describe('Testing check order status handler', () => {
         mockLookbackFn,
         mock<FillEventLogger>(),
         mock<CheckOrderStatusUtils>()
-      )
+      ),
+      allLegacy()
     )
 
     it('Should throw when orderHash is not provided', async () => {
@@ -184,7 +186,8 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        )
+        ),
+        allLegacy()
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getFillInfoMock.mockReturnValue([])
@@ -215,7 +218,8 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        )
+        ),
+        allLegacy()
       )
       validateMock.mockReturnValue(OrderValidation.Expired)
       getTransactionMock.mockReturnValueOnce({
@@ -266,7 +270,8 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        )
+        ),
+        allLegacy()
       )
       validateMock.mockReturnValue(OrderValidation.NonceUsed)
       getTransactionMock.mockReturnValueOnce({
@@ -316,7 +321,8 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        )
+        ),
+        allLegacy()
       )
       validateMock.mockReturnValue(OrderValidation.InsufficientFunds)
       expect(await checkOrderStatusHandler.handler(handlerEventMock)).toMatchObject({
@@ -346,7 +352,8 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        )
+        ),
+        allLegacy()
       )
       validateMock
         .mockReturnValueOnce(OrderValidation.UnknownError)
@@ -388,7 +395,8 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        )
+        ),
+        allLegacy()
       )
 
       validateMock.mockReturnValue(OrderValidation.OK)
@@ -428,7 +436,8 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        )
+        ),
+        allLegacy()
       )
 
       // Mock that the token is permissioned
@@ -491,7 +500,8 @@ describe('Testing check order status handler', () => {
           mockLookbackFn,
           mock<FillEventLogger>(),
           new CheckOrderStatusUtils(OrderType.Limit, mock<AnalyticsService>(), limitOrdersRepository, () => 30)
-        )
+        ),
+        allLegacy()
       )
 
       // Mock that the token is NOT permissioned
