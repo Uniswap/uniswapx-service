@@ -84,14 +84,20 @@ export const CHAIN_OWNERS_REQUEST_TIMEOUT_MS = 1_000
 
 export const CHAIN_OWNERS_UNREADABLE_METRIC = 'ChainOwnersUnreadable'
 
-// Tests point the client at a local server.
+// Tests point the client at a local server. Deployed, region comes from AWS_REGION.
 export type ChainOwnersS3ClientOptions = {
+  region?: string
   endpoint?: string
   credentials?: { accessKeyId: string; secretAccessKey: string }
 }
 
-export function createChainOwnersS3Client({ endpoint, credentials }: ChainOwnersS3ClientOptions = {}): S3Client {
+export function createChainOwnersS3Client({
+  region,
+  endpoint,
+  credentials,
+}: ChainOwnersS3ClientOptions = {}): S3Client {
   return new S3Client({
+    region,
     endpoint,
     credentials,
     forcePathStyle: endpoint !== undefined,

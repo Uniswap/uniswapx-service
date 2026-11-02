@@ -239,6 +239,7 @@ describe('the deployed S3 client', () => {
     const server = new ResettingS3()
     const endpoint = await server.start()
     const client = createChainOwnersS3Client({
+      region: 'us-east-2',
       endpoint,
       credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
     })
