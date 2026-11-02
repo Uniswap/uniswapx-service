@@ -107,6 +107,20 @@ describe('LambdaStack', () => {
     })
   })
 
+  it('sends dropped posted-order analytics records to Slack without paging', () => {
+    buildTemplate(STAGE.PROD).hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'GoudaService-SEV3-PostedOrderAnalyticsDropped',
+      Namespace: 'Uniswap',
+      MetricName: 'PostedOrderAnalyticsDropped',
+      Dimensions: [{ Name: 'Service', Value: 'UniswapXService' }],
+      Threshold: 3,
+      EvaluationPeriods: 2,
+      TreatMissingData: 'notBreaching',
+      AlarmActions: [CHATBOT_ARN],
+      OKActions: Match.absent(),
+    })
+  })
+
   describe('chain owner file', () => {
     const beta = buildTemplate(STAGE.BETA)
     const bucketRef = () => {

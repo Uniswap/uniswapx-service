@@ -645,6 +645,30 @@ export class LambdaStack extends cdk.NestedStack {
     })
     notifier.notify(sev3PostOrderPostPersistFailure)
 
+    // Posted-order analytics puts that failed. The record is dropped, the post still succeeds and
+    // nothing else moves, so a broken stream or grant would otherwise be a silent gap in Data Eng's
+    // posted_orders. A lone timeout is normal; a few in each of two periods in a row is not.
+    const sev3PostedOrderAnalyticsDropped = new Alarm(this, `${SERVICE_NAME}-SEV3-PostedOrderAnalyticsDropped`, {
+      alarmName: `${SERVICE_NAME}-SEV3-PostedOrderAnalyticsDropped`,
+      alarmDescription:
+        "Posted-order analytics records are failing to reach the PostedOrdersDirect Firehose stream and are being dropped. Posts still succeed. Check the stream and the post Lambdas' firehose:PutRecord grant.",
+      metric: new Metric({
+        namespace: 'Uniswap',
+        metricName: 'PostedOrderAnalyticsDropped',
+        dimensionsMap: { Service: 'UniswapXService' },
+        unit: cdk.aws_cloudwatch.Unit.COUNT,
+        statistic: 'sum',
+        period: Duration.minutes(5),
+      }),
+      threshold: 3,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      // No datapoints means nothing was dropped.
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    })
+    notifier.notify(sev3PostedOrderAnalyticsDropped)
+
     // The chain owner file can't be read or doesn't parse. Readers keep their last good read, but
     // a fresh process has none and treats every chain as legacy, so once a chain has moved, legacy
     // can write on it again. Two periods in a row, so one S3 blip doesn't alarm; a bad edit
