@@ -1,5 +1,6 @@
 import { OrderType } from '@uniswap/uniswapx-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
+import { S3ChainOwners } from '../../chain-owners/owners'
 import { DutchOrdersRepository } from '../../repositories/dutch-orders-repository'
 import { LimitOrdersRepository } from '../../repositories/limit-orders-repository'
 import { AnalyticsService } from '../../services/analytics-service'
@@ -44,7 +45,8 @@ const checkOrderStatusHandler = new CheckOrderStatusHandler(
       limitOrdersRepository,
       calculateLimitRetryWaitSeconds
     )
-  )
+  ),
+  S3ChainOwners.fromEnv()
 )
 
 module.exports = {
