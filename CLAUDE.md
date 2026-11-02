@@ -84,6 +84,9 @@ state machines and the chain owner file (`lib/chain-owners/location.ts`):
   tracking state machines, and GetObject on the owner file. No Delete, no Scan, no batch writes. Stays
   unassumed until uniswapx writes; revoking it is the rollback.
 
+Both owner-file grants are conditioned on `s3:ResourceAccount` = this account, because the bucket name is
+derived rather than created by this stack.
+
 Trust is per stage: beta trusts backend dev (411170392337) + staging (413367642260), prod trusts backend prod
 (654200013602), each statement narrowed with `aws:PrincipalArn` to that account's ECS task role (`uniswapx-ecsTaskRole-*`,
 not the wider `uniswapx-*`, which would admit other roles and bypass the backend cutover flag). Local stacks

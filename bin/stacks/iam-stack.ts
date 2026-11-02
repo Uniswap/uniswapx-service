@@ -123,9 +123,17 @@ export class IamStack extends cdk.NestedStack {
     if (trackingStateMachineArns.length === 0) {
       throw new Error('IamStack: no tracking state machines to grant StartExecution on')
     }
-    const ownerFileArn = `arn:aws:s3:::${chainOwnersBucketName(cdk.Stack.of(this).account)}/${CHAIN_OWNERS_KEY}`
+    const account = cdk.Stack.of(this).account
+    const ownerFileArn = `arn:aws:s3:::${chainOwnersBucketName(account)}/${CHAIN_OWNERS_KEY}`
+    // Bucket names are global and this one is derived, not created here: until the owner file's
+    // stack creates it, anyone could register the name and serve their own file. Pinning the
+    // read to buckets owned by this account means a squatted bucket can never be read.
     const readOwnerFile = () =>
-      new aws_iam.PolicyStatement({ actions: [...OWNER_FILE_READ_ACTIONS], resources: [ownerFileArn] })
+      new aws_iam.PolicyStatement({
+        actions: [...OWNER_FILE_READ_ACTIONS],
+        resources: [ownerFileArn],
+        conditions: { StringEquals: { 's3:ResourceAccount': account } },
+      })
 
     this.shadowReadRole = this.createRole('ShadowRead', stage, 'shadow-read', accounts, [
       new aws_iam.PolicyStatement({ actions: [...SHADOW_READ_ACTIONS], resources: tableArns }),

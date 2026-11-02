@@ -79,6 +79,8 @@ function expectOwnerFileOnly(statement: Statement) {
   expect(rendered).toContain('arn:aws:s3:::uniswapx-chain-owners-')
   expect(rendered).toContain('AWS::AccountId')
   expect(rendered).toContain('/chain-owners.json')
+  // Only a bucket this account owns: a squatted bucket with the derived name is never read.
+  expect(statement.Condition).toEqual({ StringEquals: { 's3:ResourceAccount': { Ref: 'AWS::AccountId' } } })
 }
 
 describe('IamStack', () => {
