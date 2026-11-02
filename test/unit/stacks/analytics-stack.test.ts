@@ -1,7 +1,12 @@
 import * as cdk from 'aws-cdk-lib'
 import { Match, Template } from 'aws-cdk-lib/assertions'
 import { FILTER_PATTERNS } from '../../../bin/constants'
-import { analyticsBucketName, AnalyticsStack, DATA_ENG_LOADER_PRINCIPAL_ARN } from '../../../bin/stacks/analytics-stack'
+import {
+  analyticsBucketName,
+  AnalyticsStack,
+  DATA_ENG_LOADER_PRINCIPAL_ARN,
+  postedOrdersDirectStreamName,
+} from '../../../bin/stacks/analytics-stack'
 import { STAGE } from '../../../lib/util/stage'
 
 function buildTemplate(stage: STAGE): Template {
@@ -46,15 +51,22 @@ describe('AnalyticsStack', () => {
     }
   })
 
+  const streams = Object.values(template.findResources('AWS::KinesisFirehose::DeliveryStream'))
+  const logStreams = streams.filter((s) => s.Properties.DeliveryStreamName === undefined)
+  const directStream = streams.find((s) => s.Properties.DeliveryStreamName === postedOrdersDirectStreamName(STAGE.PROD))
+
   it('delivers to S3 with the same buffering and layout as the previous cross-account streams', () => {
-    template.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 2)
-    const streams = Object.values(template.findResources('AWS::KinesisFirehose::DeliveryStream'))
+    template.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 3)
     for (const stream of streams) {
       const s3 = stream.Properties.ExtendedS3DestinationConfiguration
       expect(s3.BufferingHints).toEqual({ IntervalInSeconds: 300, SizeInMBs: 5 })
       expect(s3.CompressionFormat).toEqual('UNCOMPRESSED')
       // No prefix override: Data Eng lists objects under Firehose's default YYYY/MM/DD/HH/.
       expect(s3.Prefix).toBeUndefined()
+    }
+    expect(logStreams).toHaveLength(2)
+    for (const stream of logStreams) {
+      const s3 = stream.Properties.ExtendedS3DestinationConfiguration
       const params = s3.ProcessingConfiguration.Processors[0].Parameters as {
         ParameterName: string
         ParameterValue: unknown
@@ -64,6 +76,18 @@ describe('AnalyticsStack', () => {
       expect(byName.BufferSizeInMBs).toEqual('1')
       expect(byName.NumberOfRetries).toEqual('3')
     }
+  })
+
+  it('adds a named direct-put stream into the posted-orders bucket, with no processor', () => {
+    expect(postedOrdersDirectStreamName(STAGE.PROD)).toEqual('GoudaService-prod-PostedOrdersDirect')
+    const s3 = directStream?.Properties.ExtendedS3DestinationConfiguration
+    expect(directStream?.Properties.DeliveryStreamType).toEqual('DirectPut')
+    expect(s3.ProcessingConfiguration).toBeUndefined()
+    expect(s3.CloudWatchLoggingOptions.Enabled).toBe(true)
+    const [bucketId] = s3.BucketARN['Fn::GetAtt']
+    expect(template.toJSON().Resources[bucketId].Properties.BucketName).toEqual(
+      analyticsBucketName(STAGE.PROD, 'posted-orders')
+    )
   })
 
   it('subscribes the three producing log groups with the existing filter patterns', () => {

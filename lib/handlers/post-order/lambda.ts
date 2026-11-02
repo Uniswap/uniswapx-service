@@ -6,7 +6,13 @@ import { S3ChainOwners } from '../../chain-owners/owners'
 import { checkDefined } from '../../preconditions/preconditions'
 import { S3WebhookConfigurationProvider } from '../../providers/s3-webhook-provider'
 import { AnalyticsService } from '../../services/analytics-service'
+import {
+  FirehosePostedOrderAnalytics,
+  LogLinePostedOrderAnalytics,
+  PostedOrderAnalytics,
+} from '../../services/posted-order-analytics'
 import { SfnStartTracking } from '../../services/start-tracking'
+import { POSTED_ORDERS_STREAM_ENV } from '../../util/analytics-events'
 import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../util/constants'
 import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
@@ -14,6 +20,7 @@ import { STAGE } from '../../util/stage'
 import { getStateMachineArn } from '../../util/stateMachineArn'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { LazyProviderMap } from '../shared'
+import { sharedFirehoseRecordWriter } from '../shared/firehose'
 import { sharedStartExecutionClient } from '../shared/sfn'
 import { buildPostOrderHandler } from './build'
 import { PostOrderHandler } from './handler'
@@ -35,13 +42,21 @@ export function buildPostOrderLambda(policy: PostRoutePolicy): PostOrderHandler 
       (chainId) => new OnChainOrderValidator(providerMap.get(chainId), chainId)
     ),
     repository: policy.createRepository(new DynamoDB.DocumentClient()),
-    analytics: AnalyticsService.create(),
+    analytics: postedOrderAnalyticsFromEnv(),
     providerMap,
     startTracking: new SfnStartTracking(sharedStartExecutionClient, getStateMachineArn, S3ChainOwners.fromEnv()),
     createPriorityCosigner,
     now,
     webhookProvider: policy.notifyExclusiveFiller ? webhookProviderForStage() : undefined,
   })
+}
+
+// Straight to the delivery stream where the Lambda stack names one; else log lines (local stack).
+function postedOrderAnalyticsFromEnv(): PostedOrderAnalytics {
+  const streamName = process.env[POSTED_ORDERS_STREAM_ENV]
+  return streamName
+    ? new FirehosePostedOrderAnalytics(AnalyticsService.create(), streamName, sharedFirehoseRecordWriter)
+    : new LogLinePostedOrderAnalytics(AnalyticsService.create())
 }
 
 // Read per priority order, not at cold start, so a missing key fails only priority posts.

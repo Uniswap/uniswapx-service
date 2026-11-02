@@ -21,6 +21,13 @@ export function analyticsBucketName(stage: STAGE, feed: 'posted-orders' | 'fills
   return `uniswapx-service-${stage}-analytics-${feed}`
 }
 
+// The post Lambdas put posted-order records straight onto this stream. Its name is fixed so the
+// Lambda stack can name and grant it without a reference to this stack, which already depends on
+// the Lambdas' log groups.
+export function postedOrdersDirectStreamName(stage: STAGE): string {
+  return `${SERVICE_NAME}-${stage}-PostedOrdersDirect`
+}
+
 export interface AnalyticsStackProps extends cdk.NestedStackProps {
   stage: STAGE
   postOrderLambda: aws_lambda.Function
@@ -32,6 +39,8 @@ export interface AnalyticsStackProps extends cdk.NestedStackProps {
  * S3 feed of posted orders and terminal order states for Data Eng. Same-account subscription
  * filters on the producing Lambdas' log groups deliver matching lines through Firehose, where a
  * processor unwraps the CloudWatch envelope down to the analytics record, into two buckets.
+ * The post Lambdas also write posted-order records directly, through a second stream into the
+ * same bucket; their log lines now reach the filter only when a direct put fails.
  */
 export class AnalyticsStack extends cdk.NestedStack {
   public readonly postedOrdersBucket: aws_s3.Bucket
@@ -63,6 +72,12 @@ export class AnalyticsStack extends cdk.NestedStack {
 
     const postedOrdersStream = this.createStream('PostedOrdersStream', this.postedOrdersBucket, processor, stage)
     const fillsStream = this.createStream('FillsStream', this.fillsBucket, processor, stage)
+    this.createDirectStream(
+      'PostedOrdersDirectStream',
+      postedOrdersDirectStreamName(stage),
+      this.postedOrdersBucket,
+      stage
+    )
 
     const subscriptionRole = new aws_iam.Role(this, 'LogsToFirehoseRole', {
       assumedBy: new aws_iam.ServicePrincipal('logs.amazonaws.com'),
@@ -127,6 +142,27 @@ export class AnalyticsStack extends cdk.NestedStack {
           bufferSize: Size.mebibytes(1),
           retries: 3,
         }),
+        loggingConfig: new aws_firehose.EnableLogging(
+          new aws_logs.LogGroup(this, `${id}Logs`, { retention: logRetentionDays(stage) })
+        ),
+      }),
+    })
+  }
+
+  // Producers write records that are already in their loaded form, so there is no processor.
+  // Buffering and layout match createStream's, so both streams fill the same hourly folders.
+  private createDirectStream(
+    id: string,
+    deliveryStreamName: string,
+    bucket: aws_s3.Bucket,
+    stage: STAGE
+  ): aws_firehose.DeliveryStream {
+    return new aws_firehose.DeliveryStream(this, id, {
+      deliveryStreamName,
+      destination: new aws_firehose.S3Bucket(bucket, {
+        bufferingInterval: Duration.seconds(300),
+        bufferingSize: Size.mebibytes(5),
+        compression: aws_firehose.Compression.UNCOMPRESSED,
         loggingConfig: new aws_firehose.EnableLogging(
           new aws_logs.LogGroup(this, `${id}Logs`, { retention: logRetentionDays(stage) })
         ),

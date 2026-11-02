@@ -29,7 +29,7 @@ import { IMetrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { OrderSignatureValidator } from '../util/OrderSignatureValidator'
 import { Permit2Validator } from '../util/Permit2Validator'
-import { AnalyticsServiceInterface } from './analytics-service'
+import { PostedOrderAnalytics } from './posted-order-analytics'
 import { StartTracking } from './start-tracking'
 
 // From a string: BigNumber.from(Number.MAX_SAFE_INTEGER) itself throws overflow.
@@ -56,7 +56,7 @@ export type OrderPosterDeps = {
   onChainValidatorMap: OnChainValidatorMap<OnChainOrderValidator>
   repository: BaseOrdersRepository<UniswapXOrderEntity>
   getMaxOpenOrders: (offerer: string) => number
-  analytics: AnalyticsServiceInterface
+  analytics: PostedOrderAnalytics
   providerMap: ProviderMap
   startTracking: StartTracking
   // Called once per priority order, so each gets a new signer (uniswapx-parameterization-api#358).
@@ -129,12 +129,15 @@ export class OrderPoster {
       return orderEntity.orderHash
     }
 
+    // Sent alongside the filler notice and the tracker start, then awaited before returning: on
+    // Lambda a put still in flight when the handler returns is frozen and never sent.
+    const analyticsSent = this.sendOrderPostedRecord(ctx, orderEntity, order.orderType)
+
     // From here on the signed order is durably stored and fillable, so a thrown
     // error would make the caller report an accepted order as rejected
     // (SWAP-2839). Log and alarm instead of throwing.
     try {
       const realOrderType = order.orderType
-      this.logOrderCreatedEvent(ctx, orderEntity, realOrderType)
 
       // Send immediate notification to exclusive filler if present
       const notifyExclusiveFiller = this.deps.notifyExclusiveFiller
@@ -176,6 +179,7 @@ export class OrderPoster {
       ctx.metrics.putMetric('PostOrderPostPersistFailure', 1, Unit.Count)
     }
 
+    await analyticsSent
     return orderEntity.orderHash
   }
 
@@ -307,15 +311,11 @@ export class OrderPoster {
     }
   }
 
-  // Analytics only: a failure here must not skip the filler notice or the tracker.
-  private logOrderCreatedEvent(ctx: PostContext, order: UniswapXOrderEntity, orderType: OrderType) {
-    try {
-      // Log used for cw dashboard and redshift metrics, do not modify
-      // skip fee output logging
-      this.deps.analytics.logOrderPosted(order, orderType)
-    } catch (err) {
-      ctx.logger.error('Failed to log OrderPosted', { orderHash: order.orderHash, err })
-    }
+  // Analytics only: never rejects, so a failure here cannot fail the post or skip the tracker.
+  private sendOrderPostedRecord(ctx: PostContext, order: UniswapXOrderEntity, orderType: OrderType): Promise<void> {
+    return Promise.resolve()
+      .then(() => this.deps.analytics.send(ctx, order, orderType))
+      .catch((err) => ctx.logger.error('Failed to send OrderPosted', { orderHash: order.orderHash, err }))
   }
 
   private async startOrderTracker(

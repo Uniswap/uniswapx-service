@@ -172,7 +172,7 @@ export class DashboardStack extends cdk.NestedStack {
             x: 0,
             type: 'log',
             properties: {
-              query: `SOURCE '/aws/lambda/${postOrderLambdaName}' | fields @timestamp, body.orderHash, body.chainId, body.tokenIn, body.tokenOut, body.startTime, body.endTime, body.deadline, body.inputStartAmount, body.inputEndAmount, body.outputStartAmount, body.outputEndAmount\n| filter eventType = 'OrderPosted'\n| sort @timestamp desc`,
+              query: `SOURCE '/aws/lambda/${postOrderLambdaName}' | fields @timestamp, body.orderHash, body.chainId, body.tokenIn, body.tokenOut, body.startTime, body.endTime, body.deadline, body.inputStartAmount, body.inputEndAmount, body.outputStartAmount, body.outputEndAmount\n| filter ispresent(body.orderHash)\n| sort @timestamp desc`,
               region,
               stacked: false,
               view: 'table',
