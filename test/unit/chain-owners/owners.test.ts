@@ -1,8 +1,11 @@
 import { GetObjectCommand } from '@aws-sdk/client-s3'
+import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
+import { AddressInfo, Socket } from 'net'
 import { CHAIN_OWNERS_KEY, chainOwnersBucketName } from '../../../lib/chain-owners/location'
 import {
   CHAIN_OWNERS_TTL_MS,
   ChainOwnersFile,
+  createChainOwnersS3Client,
   GetObjectClient,
   LEGACY_OWNER,
   legacyTracks,
@@ -194,5 +197,66 @@ describe('chain owner file', () => {
 
     expect(results.map((o) => o.tracking)).toEqual(['legacy', 'draining', 'phase1'])
     expect(s3.requests).toHaveLength(1)
+  })
+})
+
+// Serves the file over HTTP like S3, but resets any request that arrives on a connection it has
+// already answered on: what a pooled connection S3 closed while a Lambda was frozen looks like.
+class ResettingS3 {
+  public connections = 0
+  public requests = 0
+  private readonly answered = new WeakSet<Socket>()
+  private readonly server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
+    this.requests++
+    if (this.answered.has(req.socket)) {
+      req.socket.destroy()
+      return
+    }
+    this.answered.add(req.socket)
+    res.writeHead(200, { 'content-type': 'application/json', connection: 'keep-alive' })
+    res.end(JSON.stringify(FILE))
+  })
+
+  constructor() {
+    this.server.on('connection', () => this.connections++)
+  }
+
+  async start(): Promise<string> {
+    await new Promise<void>((resolve) => this.server.listen(0, '127.0.0.1', resolve))
+    return `http://127.0.0.1:${(this.server.address() as AddressInfo).port}`
+  }
+
+  async stop(): Promise<void> {
+    this.server.closeAllConnections()
+    await new Promise<void>((resolve) => this.server.close(() => resolve()))
+  }
+}
+
+describe('the deployed S3 client', () => {
+  it('opens a fresh connection for every read, so a connection closed while frozen is never reused', async () => {
+    const unreadable = jest.fn()
+    jest.spyOn(powertoolsMetric, 'singleMetric').mockReturnValue({ addMetric: unreadable } as any)
+    const server = new ResettingS3()
+    const endpoint = await server.start()
+    const client = createChainOwnersS3Client({
+      region: 'us-east-2',
+      endpoint,
+      credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
+    })
+    let now = 1_000_000
+    const owners = new S3ChainOwners(client, 'owners-bucket', () => now)
+    try {
+      for (let i = 0; i < 3; i++) {
+        expect((await owners.ownerOf(8453)).tracking).toEqual('phase1')
+        now += CHAIN_OWNERS_TTL_MS
+      }
+      expect(server.requests).toEqual(3)
+      expect(server.connections).toEqual(3)
+      expect(unreadable).not.toHaveBeenCalled()
+    } finally {
+      client.destroy()
+      await server.stop()
+      jest.restoreAllMocks()
+    }
   })
 })
