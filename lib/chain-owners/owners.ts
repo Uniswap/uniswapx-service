@@ -1,6 +1,8 @@
 import { MetricUnits } from '@aws-lambda-powertools/metrics'
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { NodeHttpHandler } from '@aws-sdk/node-http-handler'
+import { Agent as HttpAgent } from 'http'
+import { Agent as HttpsAgent } from 'https'
 import Joi from 'joi'
 import { log } from '../Logging'
 import { powertoolsMetric } from '../Metrics'
@@ -82,13 +84,29 @@ export const CHAIN_OWNERS_REQUEST_TIMEOUT_MS = 1_000
 
 export const CHAIN_OWNERS_UNREADABLE_METRIC = 'ChainOwnersUnreadable'
 
-export function createChainOwnersS3Client(): S3Client {
+// Tests point the client at a local server.
+export type ChainOwnersS3ClientOptions = {
+  endpoint?: string
+  credentials?: { accessKeyId: string; secretAccessKey: string }
+}
+
+export function createChainOwnersS3Client({ endpoint, credentials }: ChainOwnersS3ClientOptions = {}): S3Client {
   return new S3Client({
+    endpoint,
+    credentials,
+    forcePathStyle: endpoint !== undefined,
     // The pinned SDK makes maxAttempts + 1 attempts (see createSfnClient), so this is two.
     maxAttempts: 1,
     requestHandler: new NodeHttpHandler({
       connectionTimeout: CHAIN_OWNERS_CONNECTION_TIMEOUT_MS,
       requestTimeout: CHAIN_OWNERS_REQUEST_TIMEOUT_MS,
+      // A fresh connection per read. One read per TTL leaves a pooled connection idle for 30 s,
+      // long enough for S3 to close it while a Lambda is frozen; the frozen process never sees
+      // the close, so the next read and its retry reset at once (ECONNRESET, which the SDK
+      // reports as a TimeoutError "socket hang up"). In prod that failed a few hundred tracker
+      // refreshes every 5 minutes. A handshake every 30 s costs nothing.
+      httpAgent: new HttpAgent({ keepAlive: false }),
+      httpsAgent: new HttpsAgent({ keepAlive: false }),
     }),
   })
 }
