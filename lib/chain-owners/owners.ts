@@ -27,9 +27,13 @@ export const LEGACY_OWNER: ChainOwner = Object.freeze({ posting: 'legacy', track
  * Both services read it with the same rules, so on any chain at most one of them posts and at
  * most one writes statuses:
  * - a chain missing from the file is legacy / legacy;
- * - a file that can't be read, isn't JSON or doesn't match this schema makes every chain
- *   legacy / legacy (fail closed). One bad entry invalidates the whole file, on purpose, so a
- *   typo shows up as an error on every reader rather than as one chain quietly changing hands.
+ * - a read that fails, or a file that isn't JSON or doesn't match this schema, is unreadable.
+ *   One bad entry makes the whole file unreadable, on purpose, so a typo shows up as an error on
+ *   every reader rather than as one chain quietly changing hands;
+ * - on an unreadable read, a reader keeps the last file it read successfully. Only a reader that
+ *   has never read one treats every chain as legacy / legacy (fail closed). Falling back to legacy
+ *   on every failed refresh would make legacy write again on a chain that has moved while the
+ *   other side, reading fine, keeps writing too.
  */
 export type ChainOwnersFile = { chains: Record<string, ChainOwner> }
 
@@ -58,7 +62,7 @@ export function legacyTracks(owner: ChainOwner): boolean {
 }
 
 export interface ChainOwners {
-  /** The chain's owners as of the last read. Never throws: anything unreadable is legacy. */
+  /** The chain's owners as of the last good read, or legacy before one. Never throws. */
   ownerOf(chainId: number): Promise<ChainOwner>
 }
 
@@ -68,8 +72,8 @@ export type GetObjectClient = {
 }
 
 // How long a read is reused. A flip reaches every reader within this, so a hand-over waits at
-// least this long in `draining` (it already waits longer than one tracking run). Unreadable
-// results are reused for the same time, so a failing S3 isn't asked again on every call.
+// least this long in `draining` (it already waits longer than one tracking run). A failed read is
+// also reused for this long, so a failing S3 isn't asked again on every call.
 export const CHAIN_OWNERS_TTL_MS = 30_000
 // GetObject on a small object answers in tens of ms. These bound a hung read, which a post or a
 // tracking poll waits on at most once per TTL.
@@ -89,6 +93,7 @@ export function createChainOwnersS3Client(): S3Client {
   })
 }
 
+// `file` is the last file read successfully, carried across failed reads; undefined until one.
 type CachedRead = { file: ChainOwnersFile | undefined; readAtMs: number }
 
 /** Reads the owner file from S3, reusing each read for CHAIN_OWNERS_TTL_MS. */
@@ -140,13 +145,15 @@ export class S3ChainOwners implements ChainOwners {
       }
       return { file: parseChainOwners(await res.Body.transformToString()), readAtMs: this.now() }
     } catch (error) {
-      log.error('Chain owner file unreadable; treating every chain as legacy', {
-        error,
-        bucket: this.bucket,
-        key: CHAIN_OWNERS_KEY,
-      })
+      const lastGood = this.cached?.file
+      log.error(
+        lastGood
+          ? 'Chain owner file unreadable; keeping the last file read'
+          : 'Chain owner file unreadable and never read; treating every chain as legacy',
+        { error, bucket: this.bucket, key: CHAIN_OWNERS_KEY }
+      )
       powertoolsMetric.singleMetric().addMetric(CHAIN_OWNERS_UNREADABLE_METRIC, MetricUnits.Count, 1)
-      return { file: undefined, readAtMs: this.now() }
+      return { file: lastGood, readAtMs: this.now() }
     }
   }
 }

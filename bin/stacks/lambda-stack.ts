@@ -12,6 +12,7 @@ import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
+import { CHAIN_OWNERS_UNREADABLE_METRIC } from '../../lib/chain-owners/owners'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
@@ -624,6 +625,31 @@ export class LambdaStack extends cdk.NestedStack {
       comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
     })
     notifier.notify(sev3PostOrderPostPersistFailure)
+
+    // The chain owner file can't be read or doesn't parse. Readers keep their last good read, but
+    // a fresh process has none and treats every chain as legacy, so once a chain has moved, legacy
+    // can write on it again. Two periods in a row, so one S3 blip doesn't alarm; a bad edit
+    // persists and does. Emitted by the tracker, both post Lambdas and the reaper, through
+    // powertools (dimension `service`).
+    const sev3ChainOwnersUnreadable = new Alarm(this, `${SERVICE_NAME}-SEV3-ChainOwnersUnreadable`, {
+      alarmName: `${SERVICE_NAME}-SEV3-ChainOwnersUnreadable`,
+      alarmDescription:
+        'The chain owner file (s3://uniswapx-chain-owners-<account>/chain-owners.json) is unreadable or invalid. New processes treat every chain as legacy until it is fixed.',
+      metric: new Metric({
+        namespace: 'Uniswap',
+        metricName: CHAIN_OWNERS_UNREADABLE_METRIC,
+        dimensionsMap: { service: SERVICE_NAME },
+        unit: cdk.aws_cloudwatch.Unit.COUNT,
+        statistic: 'sum',
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    })
+    notifier.notify(sev3ChainOwnersUnreadable)
 
     // Heartbeat: no order tracker has started on any chain for an hour. The step function alarms
     // are failure-rate alarms with missing data ignored, so they stay OK when nothing starts at all,

@@ -108,16 +108,22 @@ account says who owns each chain: `s3://uniswapx-chain-owners-<account>/chain-ow
 - Legacy reads it before every tracker poll (a run on a non-legacy chain ends at once, via the state machine's
   `trackingHandedOff` succeed state, with no restart, analytics or write), before each reaper write, and before
   starting tracking for a new post. Each process reuses a read for 30 s, so a flip takes up to 30 s to land.
-- Fail closed: a chain missing from the file is legacy / legacy; an unreadable or invalid file (one bad entry
-  invalidates the whole file) makes every chain legacy / legacy and emits the `ChainOwnersUnreadable` metric.
-  The uniswapx side must read it with the same rules.
+- A chain missing from the file is legacy / legacy. A failed read or an invalid file (one bad entry invalidates
+  the whole file) emits `ChainOwnersUnreadable` (SEV3 alarm after two 5-minute periods in a row); the reader keeps
+  the last file it read successfully, and only a process that has never read one treats every chain as legacy /
+  legacy. So a bad edit still reaches new processes as all-legacy: check it parses before uploading. The uniswapx
+  side must read it with the same rules.
 - CDK creates the object once (every chain on legacy) and never writes it again, so a deploy can't undo a flip.
-  Edits are by hand; check the file parses before uploading, and the bucket's versions are the history:
+  Edits are by hand. Upload with `--if-match` on the ETag you downloaded, so a concurrent edit is rejected
+  (`PreconditionFailed`: download again and redo yours) instead of silently lost. `--if-match` on
+  `put-object` needs a late-2024 or newer AWS CLI (2.17 doesn't have it). The bucket's versions are the
+  history:
 
 ```bash
-aws s3 cp s3://uniswapx-chain-owners-<account>/chain-owners.json chain-owners.json
+aws s3api get-object --bucket uniswapx-chain-owners-<account> --key chain-owners.json chain-owners.json  # note ETag
 yarn build && node -e "require('./dist/lib/chain-owners/owners').parseChainOwners(require('fs').readFileSync('chain-owners.json', 'utf8'))"
-aws s3 cp chain-owners.json s3://uniswapx-chain-owners-<account>/chain-owners.json --content-type application/json
+aws s3api put-object --bucket uniswapx-chain-owners-<account> --key chain-owners.json --body chain-owners.json \
+  --content-type application/json --if-match '<ETag from get-object>'
 aws s3api list-object-versions --bucket uniswapx-chain-owners-<account> --prefix chain-owners.json
 ```
 

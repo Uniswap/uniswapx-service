@@ -127,6 +127,23 @@ describe('LambdaStack', () => {
       })
     })
 
+    it('alarms to Slack when it stays unreadable for two periods, on the metric the readers emit', () => {
+      beta.hasResourceProperties('AWS::CloudWatch::Alarm', {
+        AlarmName: 'GoudaService-SEV3-ChainOwnersUnreadable',
+        Namespace: 'Uniswap',
+        MetricName: 'ChainOwnersUnreadable',
+        // powertoolsMetric's default dimension (lib/Metrics.ts), not the embedded-metrics `Service`.
+        Dimensions: [{ Name: 'service', Value: 'GoudaService' }],
+        Statistic: 'Sum',
+        Period: 300,
+        Threshold: 1,
+        EvaluationPeriods: 2,
+        DatapointsToAlarm: 2,
+        TreatMissingData: 'notBreaching',
+        AlarmActions: [CHATBOT_ARN],
+      })
+    })
+
     it('tells both post Lambdas and the tracker where it is, and lets them read only the file', () => {
       const fns = beta.findResources('AWS::Lambda::Function')
       for (const prefix of ['PostOrder', 'PostLimitOrder']) {

@@ -35,6 +35,30 @@ const FILE: ChainOwnersFile = {
   },
 }
 
+// Every way a read can be unreadable.
+const cases: [string, (s3: FakeS3) => void][] = [
+  ['the read fails', (s3) => (s3.error = Object.assign(new Error('Access Denied'), { name: 'AccessDenied' }))],
+  ['the object is missing', (s3) => (s3.error = Object.assign(new Error('missing'), { name: 'NoSuchKey' }))],
+  ['the object has no body', (s3) => (s3.body = undefined)],
+  ['the body is not JSON', (s3) => (s3.body = '{"chains": ')],
+  ['chains is missing', (s3) => (s3.body = '{}')],
+  [
+    'one chain has an unknown owner',
+    (s3) =>
+      (s3.body = JSON.stringify({
+        chains: { ...FILE.chains, '10': { posting: 'legacy', tracking: 'uniswapx' } },
+      })),
+  ],
+  [
+    'one chain is missing a field',
+    (s3) => (s3.body = JSON.stringify({ chains: { ...FILE.chains, '10': { posting: 'legacy' } } })),
+  ],
+  [
+    'a chain key is not a chain id',
+    (s3) => (s3.body = JSON.stringify({ chains: { ...FILE.chains, base: LEGACY_OWNER } })),
+  ],
+]
+
 describe('chain owner file', () => {
   let now: number
   let s3: FakeS3
@@ -77,30 +101,7 @@ describe('chain owner file', () => {
     expect(legacyTracks({ posting: 'legacy', tracking: 'phase1' })).toBe(false)
   })
 
-  describe('fails closed: every chain is legacy, and the miss is counted', () => {
-    const cases: [string, (s3: FakeS3) => void][] = [
-      ['the read fails', (s3) => (s3.error = Object.assign(new Error('Access Denied'), { name: 'AccessDenied' }))],
-      ['the object is missing', (s3) => (s3.error = Object.assign(new Error('missing'), { name: 'NoSuchKey' }))],
-      ['the object has no body', (s3) => (s3.body = undefined)],
-      ['the body is not JSON', (s3) => (s3.body = '{"chains": ')],
-      ['chains is missing', (s3) => (s3.body = '{}')],
-      [
-        'one chain has an unknown owner',
-        (s3) =>
-          (s3.body = JSON.stringify({
-            chains: { ...FILE.chains, '10': { posting: 'legacy', tracking: 'uniswapx' } },
-          })),
-      ],
-      [
-        'one chain is missing a field',
-        (s3) => (s3.body = JSON.stringify({ chains: { ...FILE.chains, '10': { posting: 'legacy' } } })),
-      ],
-      [
-        'a chain key is not a chain id',
-        (s3) => (s3.body = JSON.stringify({ chains: { ...FILE.chains, base: LEGACY_OWNER } })),
-      ],
-    ]
-
+  describe('before any good read, fails closed: every chain is legacy, and the miss is counted', () => {
     it.each(cases)('when %s', async (_, breakIt) => {
       breakIt(s3)
       const owners = reader()
@@ -116,6 +117,39 @@ describe('chain owner file', () => {
       expect(await new S3ChainOwners(s3, undefined, () => now).ownerOf(8453)).toEqual(LEGACY_OWNER)
       expect(s3.requests).toHaveLength(0)
       expect(unreadable).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('after a good read, keeps the last file read and counts the miss', () => {
+    it.each(cases)('when %s', async (_, breakIt) => {
+      const owners = reader()
+      expect((await owners.ownerOf(8453)).tracking).toEqual('phase1')
+
+      breakIt(s3)
+      now += CHAIN_OWNERS_TTL_MS
+
+      // Falling back to legacy here would put legacy back to writing on a chain that has moved.
+      expect((await owners.ownerOf(8453)).tracking).toEqual('phase1')
+      expect((await owners.ownerOf(130)).tracking).toEqual('draining')
+      expect(await owners.ownerOf(10)).toEqual(LEGACY_OWNER)
+      expect(s3.requests).toHaveLength(2)
+      expect(unreadable).toHaveBeenCalledTimes(1)
+    })
+
+    it('through repeated failures, until a good read replaces it', async () => {
+      const owners = reader()
+      await owners.ownerOf(8453)
+      s3.error = new Error('throttled')
+      for (let i = 0; i < 3; i++) {
+        now += CHAIN_OWNERS_TTL_MS
+        expect((await owners.ownerOf(8453)).tracking).toEqual('phase1')
+      }
+
+      s3.error = undefined
+      s3.body = JSON.stringify({ chains: { '8453': { posting: 'uniswapx', tracking: 'draining' } } })
+      now += CHAIN_OWNERS_TTL_MS
+      expect((await owners.ownerOf(8453)).tracking).toEqual('draining')
+      expect(unreadable).toHaveBeenCalledTimes(3)
     })
   })
 
