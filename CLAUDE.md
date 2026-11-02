@@ -77,19 +77,59 @@ only by the processor and the Data Eng schema.
 ## Cross-Account IAM Roles (backend monorepo, ECO-861)
 
 `bin/stacks/iam-stack.ts` creates two roles per stage that the UniswapX service being built in the
-`backend` monorepo assumes cross-account, scoped to `Orders` + `LimitOrders` only (never `Nonces`):
+`backend` monorepo assumes cross-account, scoped to `Orders`, `LimitOrders`, `Nonces`, the per-chain tracking
+state machines and the chain owner file (`lib/chain-owners/location.ts`):
 
-- `uniswapx-shadow-read-<stage>` — Get/BatchGet/Query/DescribeTable on the tables and their indexes, plus
-  DescribeStream/GetRecords/GetShardIterator/ListStreams on their streams. Used first, by the shadow
-  comparator that diffs the new status tracker against the live tables.
-- `uniswapx-orders-write-<stage>` — Put/Update/Get/Query/ConditionCheckItem on the tables and indexes. No
-  Delete, no Scan, no batch writes. Stays unassumed until cutover; revoking it is the rollback.
+- `uniswapx-shadow-read-<stage>` — Get/BatchGet/Query/DescribeTable on the three tables and the order tables'
+  indexes, DescribeStream/GetRecords/GetShardIterator/ListStreams on the order tables' streams, and GetObject
+  on the owner file. Used first, by the shadow comparator and by nonce reads.
+- `uniswapx-orders-write-<stage>` — Put/Update/Get/Query/ConditionCheckItem on the three tables and indexes
+  (the post transaction's order put and nonce update are authorized by these), StartExecution on the
+  tracking state machines, and GetObject on the owner file. No Delete, no Scan, no batch writes. Stays
+  unassumed until uniswapx writes; revoking it is the rollback.
+
+Both owner-file grants are conditioned on `s3:ResourceAccount` = this account, because the bucket name is
+derived rather than created by this stack.
 
 Trust is per stage: beta trusts backend dev (411170392337) + staging (413367642260), prod trusts backend prod
 (654200013602), each statement narrowed with `aws:PrincipalArn` to that account's ECS task role (`uniswapx-ecsTaskRole-*`,
 not the wider `uniswapx-*`, which would admit other roles and bypass the backend cutover flag). Local stacks
 do not create the nested stack at all (an empty nested stack fails to deploy). Role ARNs are stack outputs (`ShadowReadRoleArn`, `OrdersWriteRoleArn`). This is a
-transitional arrangement that goes away with the DynamoDB migration; do not widen it to other tables.
+transitional arrangement that goes away with the DynamoDB migration; do not widen it to other tables or actions.
+
+## Chain Owner File (migration to backend uniswapx)
+
+While posting and tracking move to the backend `uniswapx` service one chain at a time, one JSON object per
+account says who owns each chain: `s3://uniswapx-chain-owners-<account>/chain-owners.json`
+(`lib/chain-owners/`, created by `bin/stacks/chain-owners.ts`).
+
+```json
+{ "chains": { "1": { "posting": "legacy", "tracking": "legacy" }, "8453": { "posting": "uniswapx", "tracking": "draining" } } }
+```
+
+- `posting`: `legacy` | `uniswapx`. `tracking`: `legacy` | `draining` | `phase1`. Legacy writes a chain's statuses only
+  while `tracking` is `legacy`; nobody writes them while it is `draining`.
+- Legacy reads it before every tracker poll (a run on a non-legacy chain ends at once, via the state machine's
+  `trackingHandedOff` succeed state, with no restart, analytics or write), before each reaper write, and before
+  starting tracking for a new post. Each process reuses a read for 30 s, so a flip takes up to 30 s to land.
+- A chain missing from the file is legacy / legacy. A failed read or an invalid file (one bad entry invalidates
+  the whole file) emits `ChainOwnersUnreadable` (SEV3 alarm after two 5-minute periods in a row); the reader keeps
+  the last file it read successfully, and only a process that has never read one treats every chain as legacy /
+  legacy. So a bad edit still reaches new processes as all-legacy: check it parses before uploading. The uniswapx
+  side must read it with the same rules.
+- CDK creates the object once (every chain on legacy) and never writes it again, so a deploy can't undo a flip.
+  Edits are by hand. Upload with `--if-match` on the ETag you downloaded, so a concurrent edit is rejected
+  (`PreconditionFailed`: download again and redo yours) instead of silently lost. `--if-match` on
+  `put-object` needs a late-2024 or newer AWS CLI (2.17 doesn't have it). The bucket's versions are the
+  history:
+
+```bash
+aws s3api get-object --bucket uniswapx-chain-owners-<account> --key chain-owners.json chain-owners.json  # note ETag
+yarn build && node -e "require('./dist/lib/chain-owners/owners').parseChainOwners(require('fs').readFileSync('chain-owners.json', 'utf8'))"
+aws s3api put-object --bucket uniswapx-chain-owners-<account> --key chain-owners.json --body chain-owners.json \
+  --content-type application/json --if-match '<ETag from get-object>'
+aws s3api list-object-versions --bucket uniswapx-chain-owners-<account> --prefix chain-owners.json
+```
 
 ## Gotchas
 
