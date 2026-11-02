@@ -12,12 +12,14 @@ import * as aws_lambda_nodejs from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Queue } from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 import * as path from 'path'
+import { CHAIN_OWNERS_UNREADABLE_METRIC } from '../../lib/chain-owners/owners'
 import { POSTED_ORDERS_STREAM_ENV } from '../../lib/util/analytics-events'
 import { SUPPORTED_CHAINS } from '../../lib/util/chain'
 import { STAGE } from '../../lib/util/stage'
 import { SERVICE_NAME } from '../constants'
 import { AlarmNotifier } from './alerting'
 import { postedOrdersDirectStreamName } from './analytics-stack'
+import { ChainOwnersFileConstruct } from './chain-owners'
 import { DynamoStack, TableCapacityConfig } from './dynamo-stack'
 import { logRetentionDays } from './log-retention'
 import { ReaperStack } from './reaper-stack'
@@ -62,6 +64,7 @@ export class LambdaStack extends cdk.NestedStack {
   public readonly checkStatusFunction: aws_lambda_nodejs.NodejsFunction
   public readonly ordersTable: aws_dynamo.ITable
   public readonly limitOrdersTable: aws_dynamo.ITable
+  public readonly noncesTable: aws_dynamo.ITable
 
   constructor(scope: Construct, name: string, props: LambdaStackProps) {
     super(scope, name, props)
@@ -129,6 +132,12 @@ export class LambdaStack extends cdk.NestedStack {
     })
     this.ordersTable = databaseStack.ordersTable
     this.limitOrdersTable = databaseStack.limitOrdersTable
+    this.noncesTable = databaseStack.nonceTable
+
+    // Read before every status write and every tracking start (lib/chain-owners/owners.ts).
+    const chainOwners = new ChainOwnersFileConstruct(this, 'ChainOwners', { chainIds: SUPPORTED_CHAINS })
+    chainOwners.grantRead(lambdaRole)
+    const chainOwnersEnv = { CHAIN_OWNERS_BUCKET: chainOwners.bucket.bucketName }
 
     new ReaperStack(this, `${SERVICE_NAME}ReaperStack`, {
       environmentVariables: {
@@ -140,6 +149,7 @@ export class LambdaStack extends cdk.NestedStack {
       stage: props.stage as STAGE,
       envVars: {
         ...props.envVars,
+        ...chainOwnersEnv,
       },
       lambdaRole: lambdaRole,
     })
@@ -231,6 +241,7 @@ export class LambdaStack extends cdk.NestedStack {
       VERSION: '10',
       NODE_OPTIONS: '--enable-source-maps',
       REGION: this.region,
+      ...chainOwnersEnv,
     }
 
     // Lambda caps all env vars at 4KB total, and a full ARN per chain does not
@@ -633,6 +644,31 @@ export class LambdaStack extends cdk.NestedStack {
       comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
     })
     notifier.notify(sev3PostOrderPostPersistFailure)
+
+    // The chain owner file can't be read or doesn't parse. Readers keep their last good read, but
+    // a fresh process has none and treats every chain as legacy, so once a chain has moved, legacy
+    // can write on it again. Two periods in a row, so one S3 blip doesn't alarm; a bad edit
+    // persists and does. Emitted by the tracker, both post Lambdas and the reaper, through
+    // powertools (dimension `service`).
+    const sev3ChainOwnersUnreadable = new Alarm(this, `${SERVICE_NAME}-SEV3-ChainOwnersUnreadable`, {
+      alarmName: `${SERVICE_NAME}-SEV3-ChainOwnersUnreadable`,
+      alarmDescription:
+        'The chain owner file (s3://uniswapx-chain-owners-<account>/chain-owners.json) is unreadable or invalid. New processes treat every chain as legacy until it is fixed.',
+      metric: new Metric({
+        namespace: 'Uniswap',
+        metricName: CHAIN_OWNERS_UNREADABLE_METRIC,
+        dimensionsMap: { service: SERVICE_NAME },
+        unit: cdk.aws_cloudwatch.Unit.COUNT,
+        statistic: 'sum',
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 2,
+      datapointsToAlarm: 2,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+    })
+    notifier.notify(sev3ChainOwnersUnreadable)
 
     // Heartbeat: no order tracker has started on any chain for an hour. The step function alarms
     // are failure-rate alarms with missing data ignored, so they stay OK when nothing starts at all,

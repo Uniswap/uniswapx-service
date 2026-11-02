@@ -90,6 +90,7 @@ export class APIStack extends cdk.Stack {
       checkStatusFunction,
       ordersTable,
       limitOrdersTable,
+      noncesTable,
     } = new LambdaStack(this, `${SERVICE_NAME}LambdaStack`, {
       provisionedConcurrency,
       getOrdersReservedConcurrency,
@@ -112,6 +113,8 @@ export class APIStack extends cdk.Stack {
         stage: stage as STAGE,
         ordersTable,
         limitOrdersTable,
+        noncesTable,
+        trackingStateMachineArns: Object.values(chainIdToStatusTrackingStateMachineArn),
       })
     }
 
