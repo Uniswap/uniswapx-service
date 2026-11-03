@@ -75,6 +75,23 @@ export class OrderPoster {
     ctx: PostContext,
     order: LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order
   ): Promise<string> {
+    // Read what starting the tracker needs (the chain's owner, from S3) alongside validation.
+    // Read after the order was stored, it put a fresh S3 connection in series with every post.
+    const trackingPrepared = Promise.resolve()
+      .then(() => this.deps.startTracking.prepare(order.chainId))
+      .catch(() => undefined)
+    try {
+      return await this.postOrder(ctx, order)
+    } finally {
+      // A rejected post can return before the read does; on Lambda it would be frozen in flight.
+      await trackingPrepared
+    }
+  }
+
+  private async postOrder(
+    ctx: PostContext,
+    order: LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order
+  ): Promise<string> {
     // Start the open-order count alongside validation; both must pass before the
     // order is accepted but neither depends on the other. All order entities
     // store offerer as the lowercased swapper address.

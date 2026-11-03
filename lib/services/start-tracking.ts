@@ -19,6 +19,12 @@ export type StartTrackingResult = 'started' | 'already-started' | 'tracked-elsew
 
 /** Starts tracking a newly stored order until it reaches a final status. */
 export interface StartTracking {
+  /**
+   * Begins the reads `start` needs for an order on this chain, so a post can overlap them with
+   * validation instead of waiting on them after the order is stored. Never rejects. Await it
+   * before the Lambda returns: a read still in flight is frozen with the environment.
+   */
+  prepare(chainId: number): Promise<void>
   start(order: TrackedOrder): Promise<StartTrackingResult>
 }
 
@@ -32,6 +38,12 @@ export class SfnStartTracking implements StartTracking {
     private readonly stateMachineArn: (chainId: number) => string,
     private readonly chainOwners: ChainOwners
   ) {}
+
+  // The owner reader shares an in-flight read and reuses a read for its TTL, so `start`'s own
+  // read waits on this one rather than making a second. `start` still decides from its own read.
+  async prepare(chainId: number): Promise<void> {
+    await this.chainOwners.ownerOf(chainId)
+  }
 
   async start({ orderHash, chainId, quoteId, orderType }: TrackedOrder): Promise<StartTrackingResult> {
     if (!legacyTracks(await this.chainOwners.ownerOf(chainId))) {

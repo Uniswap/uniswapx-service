@@ -11,6 +11,7 @@ import {
 import { Unit } from 'aws-embedded-metrics'
 import { BigNumber, constants } from 'ethers'
 import { mock } from 'jest-mock-extended'
+import { ChainOwner, ChainOwners, LEGACY_OWNER } from '../../../lib/chain-owners/owners'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../lib/handlers/constants'
@@ -34,7 +35,7 @@ import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
 import { RecordingAnalytics } from '../../fakes/analytics'
 import { allLegacy, FixedChainOwners } from '../../fakes/chain-owners'
 import { RecordingMetrics } from '../../fakes/metrics'
-import { FakeOffChainValidator } from '../../fakes/order-validators'
+import { FakeOffChainValidator, FakeOnChainValidator } from '../../fakes/order-validators'
 import { TEST_STORE_CONTEXT } from '../../fakes/orders-repository'
 import { SilentServer, silentServerClientOptions } from '../../fakes/silent-server'
 import { makePostOrderService } from '../builders/post-path'
@@ -133,7 +134,8 @@ describe('OrderPoster', () => {
 
       expect(response).toMatch(/^0x[0-9a-f]{64}$/)
       expect(repository.puts).toHaveLength(1)
-      expect(chainOwners.reads).toEqual([1])
+      // One read begun alongside validation, one when the tracker starts.
+      expect(chainOwners.reads).toEqual([1, 1])
       expect(sfn.calls).toHaveLength(0)
       expect(logger.info).toHaveBeenCalledWith('Not starting a tracker: legacy no longer tracks this chain', {
         orderHash: response,
@@ -144,6 +146,73 @@ describe('OrderPoster', () => {
       expect(metrics.calls).not.toContainEqual(['PostOrderPostPersistFailure', 1, Unit.Count])
     }
   )
+
+  describe('reading the chain owner alongside validation', () => {
+    // Answers only once released, so a test can see what has started while it waits.
+    const gate = () => {
+      let release: () => void = () => undefined
+      const opened = new Promise<void>((resolve) => (release = resolve))
+      return { opened, release }
+    }
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+    class GatedOnChainValidator extends FakeOnChainValidator {
+      public readonly gate = gate()
+      override async validate(...args: Parameters<FakeOnChainValidator['validate']>): Promise<OrderValidation> {
+        const result = super.validate(...args)
+        await this.gate.opened
+        return result
+      }
+    }
+
+    class GatedChainOwners implements ChainOwners {
+      public readonly reads: number[] = []
+      public readonly gate = gate()
+      async ownerOf(chainId: number): Promise<ChainOwner> {
+        this.reads.push(chainId)
+        await this.gate.opened
+        return LEGACY_OWNER
+      }
+    }
+
+    test('starts the read before onchain validation finishes', async () => {
+      const onChainValidator = new GatedOnChainValidator()
+      const chainOwners = new FixedChainOwners()
+      const { service, tracking } = makePostOrderService({
+        onChainValidator,
+        chainOwners,
+        getMaxOpenOrders: () => 10,
+      })
+
+      const created = service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+      await tick()
+
+      expect(onChainValidator.calls).toHaveLength(1)
+      expect(chainOwners.reads).toEqual([1])
+      expect(tracking.calls).toHaveLength(0)
+      onChainValidator.gate.release()
+      await created
+      expect(tracking.calls).toHaveLength(1)
+    })
+
+    test('a rejected post still waits for the read, so none is left in flight when the Lambda returns', async () => {
+      const chainOwners = new GatedChainOwners()
+      const { service, orderValidator } = makePostOrderService({ chainOwners, getMaxOpenOrders: () => 10 })
+      orderValidator.result = { valid: false, errorString: 'bad order' }
+
+      let settled = false
+      const created = service
+        .createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+        .finally(() => (settled = true))
+      created.catch(() => undefined)
+      await tick()
+
+      expect(chainOwners.reads).toEqual([1])
+      expect(settled).toBe(false)
+      chainOwners.gate.release()
+      await expect(created).rejects.toBeInstanceOf(OrderValidationFailedError)
+    })
+  })
 
   test('createOrder still starts tracking on a chain uniswapx posts but legacy tracks', async () => {
     const chainOwners = new FixedChainOwners({ 1: { posting: 'uniswapx', tracking: 'legacy' } })

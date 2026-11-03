@@ -1,6 +1,7 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderValidator } from '@uniswap/uniswapx-sdk'
 import { mock } from 'jest-mock-extended'
+import { ChainOwners } from '../../../lib/chain-owners/owners'
 import { UniswapXOrderEntity } from '../../../lib/entities'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
 import { buildPostOrderHandler, buildPostOrderService, PostOrderDeps } from '../../../lib/handlers/post-order/build'
@@ -15,7 +16,7 @@ import { OrderPoster, PostContext } from '../../../lib/services/OrderPoster'
 import { SfnStartTracking } from '../../../lib/services/start-tracking'
 import { getStateMachineArn } from '../../../lib/util/stateMachineArn'
 import { RecordingAnalytics } from '../../fakes/analytics'
-import { allLegacy, FixedChainOwners } from '../../fakes/chain-owners'
+import { allLegacy } from '../../fakes/chain-owners'
 import { FakeCosigner } from '../../fakes/cosigner'
 import { RecordingMetrics } from '../../fakes/metrics'
 import { FakeOffChainValidator, FakeOnChainValidator } from '../../fakes/order-validators'
@@ -38,7 +39,7 @@ export type PostOrderServiceOverrides<R extends OrdersRepository = FakeOrdersRep
   // A real Step Functions client in place of the recording one.
   startExecutionClient?: StartExecutionClient
   // The chain owner file; every chain on legacy unless overridden.
-  chainOwners?: FixedChainOwners
+  chainOwners?: ChainOwners
 }
 
 type PostPathFakesHarness<R extends OrdersRepository> = {
