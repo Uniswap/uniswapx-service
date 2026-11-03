@@ -20,8 +20,6 @@ function buildTemplate(stage: STAGE): Template {
     })
   const stack = new AnalyticsStack(parent, 'TestAnalyticsStack', {
     stage,
-    postOrderLambda: producer('PostOrder'),
-    postLimitOrderLambda: producer('PostLimitOrder'),
     checkStatusFunction: producer('CheckOrderStatus'),
   })
   return Template.fromStack(stack)
@@ -56,7 +54,7 @@ describe('AnalyticsStack', () => {
   const directStream = streams.find((s) => s.Properties.DeliveryStreamName === postedOrdersDirectStreamName(STAGE.PROD))
 
   it('delivers to S3 with the same buffering and layout as the previous cross-account streams', () => {
-    template.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 3)
+    template.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 2)
     for (const stream of streams) {
       const s3 = stream.Properties.ExtendedS3DestinationConfiguration
       expect(s3.BufferingHints).toEqual({ IntervalInSeconds: 300, SizeInMBs: 5 })
@@ -64,7 +62,7 @@ describe('AnalyticsStack', () => {
       // No prefix override: Data Eng lists objects under Firehose's default YYYY/MM/DD/HH/.
       expect(s3.Prefix).toBeUndefined()
     }
-    expect(logStreams).toHaveLength(2)
+    expect(logStreams).toHaveLength(1)
     for (const stream of logStreams) {
       const s3 = stream.Properties.ExtendedS3DestinationConfiguration
       const params = s3.ProcessingConfiguration.Processors[0].Parameters as {
@@ -90,13 +88,12 @@ describe('AnalyticsStack', () => {
     )
   })
 
-  it('subscribes the three producing log groups with the existing filter patterns', () => {
-    template.resourceCountIs('AWS::Logs::SubscriptionFilter', 3)
+  it('subscribes only the check-order-status log group: posted orders no longer come from logs', () => {
+    template.resourceCountIs('AWS::Logs::SubscriptionFilter', 1)
     template.hasResourceProperties('AWS::Logs::SubscriptionFilter', {
       FilterPattern: FILTER_PATTERNS.TERMINAL_ORDER_STATE,
     })
     const filters = Object.values(template.findResources('AWS::Logs::SubscriptionFilter'))
-    expect(filters.filter((f) => f.Properties.FilterPattern === FILTER_PATTERNS.ORDER_POSTED)).toHaveLength(2)
     // Same-account delivery: filters target the stream ARN directly, not a Logs Destination.
     for (const filter of filters) {
       const [logicalId, attr] = filter.Properties.DestinationArn['Fn::GetAtt']

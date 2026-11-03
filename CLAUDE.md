@@ -53,26 +53,26 @@ For tests:
 
 ## Analytics Feed (Data Eng)
 
-`bin/stacks/analytics-stack.ts` delivers two log-derived S3 feeds that Data Eng's `data-eng-workflows`
+`bin/stacks/analytics-stack.ts` delivers two S3 feeds that Data Eng's `data-eng-workflows`
 (`lib/spaces/uniswap_x`) loads hourly into BigQuery `uniswap_x.posted_orders` / `archived_orders`:
 
-- `uniswapx-service-<stage>-analytics-posted-orders` — `AnalyticsService.postedOrderRecord`. The post Lambdas
-  put it directly on the `GoudaService-<stage>-PostedOrdersDirect` stream (`lib/services/posted-order-analytics.ts`,
-  awaited before the post returns: an un-awaited put is frozen with the Lambda and lost). Only when that put fails do
-  they log the old `{ $.eventType = "OrderPosted" }` line, which the subscription filter on the post-order and
-  post-limit-order log groups still forwards. Both paths write `JSON.stringify(record)`; the direct one adds a
-  newline. The record's keys and key order are the file's bytes, so keep them as they are.
+- `uniswapx-service-<stage>-analytics-posted-orders` — `AnalyticsService.postedOrderRecord`, which the post Lambdas
+  put directly on the `GoudaService-<stage>-PostedOrdersDirect` stream (`lib/services/posted-order-analytics.ts`,
+  awaited before the post returns: an un-awaited put is frozen with the Lambda and lost). Each record is
+  `JSON.stringify(record)` plus a newline; a failed put is dropped and counted (`PostedOrderAnalyticsDropped`). The
+  record's keys and key order are the file's bytes, so keep them as they are.
 - `uniswapx-service-<stage>-analytics-fills` — `orderInfo` of `logFillInfo` / `logCancelled` lines
   (`{ $.orderInfo.orderStatus = "filled" || "cancelled" }` on the check-order-status log group).
 
-Same-account subscription filters → Firehose (5 MB / 300 s, uncompressed, default `YYYY/MM/DD/HH/` prefix) →
-`lib/handlers/analytics-firehose-processor` (unwraps the CloudWatch envelope) → S3. Only prod is read; the
+Both streams buffer 5 MB / 300 s, uncompressed, under the default `YYYY/MM/DD/HH/` prefix. The fills feed is
+a same-account subscription filter → Firehose → `lib/handlers/analytics-firehose-processor` (unwraps the
+CloudWatch envelope) → S3. Only prod is read; the
 loader is IAM user `bq-load-sa` (acct 867401673276), granted by bucket policy. The emitted record is the
 schema of record: adding a column means emitting it here and adding a field to the Data Eng load YAML.
 Renaming or removing a field breaks Dataform's `orders*` models. Do not override the S3 prefix: the loader lists
-objects by hour under it. This is the only subscription filter on each of the three log groups; the
-parameterization API no longer receives these logs, so the nested `body` / `orderInfo` shape is now constrained
-only by the processor and the Data Eng schema.
+objects by hour under it. The check-order-status log group has only this subscription filter, and the post
+log groups have none; the parameterization API no longer receives these logs, so the nested `orderInfo` shape is
+constrained only by the processor and the Data Eng schema.
 
 ## Cross-Account IAM Roles (backend monorepo, ECO-861)
 

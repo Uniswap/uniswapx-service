@@ -32,7 +32,10 @@ export class AnalyticsService implements AnalyticsServiceInterface {
   }
 
   public logOrderPosted(order: UniswapXOrderEntity, orderType: OrderType) {
-    this.logPostedOrderRecord(this.postedOrderRecord(order, orderType))
+    this.logger.info('Analytics Message', {
+      eventType: ANALYTICS_EVENTS.ORDER_POSTED,
+      body: this.postedOrderRecord(order, orderType),
+    })
   }
 
   /**
@@ -86,14 +89,6 @@ export class AnalyticsService implements AnalyticsServiceInterface {
         outputEndAmount: userOutput.endAmount,
       })
     }
-  }
-
-  // The log line the posted-orders subscription filter forwards to Firehose.
-  public logPostedOrderRecord(record: object) {
-    this.logger.info('Analytics Message', {
-      eventType: ANALYTICS_EVENTS.ORDER_POSTED,
-      body: record,
-    })
   }
 
   public logCancelled(orderHash: string, orderType: OrderType, quoteId?: string) {

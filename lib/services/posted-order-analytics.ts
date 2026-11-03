@@ -13,7 +13,7 @@ export interface PostedOrderAnalytics {
   send(ctx: PostContext, order: UniswapXOrderEntity, orderType: OrderType): Promise<void>
 }
 
-/** The record is its log line, which the subscription filter delivers. The local stack's sink. */
+/** The record is a log line. The local stack's sink: it has no delivery stream. */
 export class LogLinePostedOrderAnalytics implements PostedOrderAnalytics {
   constructor(private readonly records: AnalyticsService) {}
 
@@ -24,12 +24,11 @@ export class LogLinePostedOrderAnalytics implements PostedOrderAnalytics {
 
 /**
  * Puts the record straight on the posted-orders delivery stream: `JSON.stringify(record)` plus a
- * newline, the bytes the log path's processor writes for the same record (it never ended a record
- * with a newline, so its files glued some records `}{`; the loader parses both).
+ * newline, the bytes the old log path's processor wrote for the same record (it never ended a
+ * record with a newline, so its files glued some records `}{`; the loader parses both).
  *
- * A put that fails is written as the old log line instead, which the subscription filter still
- * carries to the same bucket. A put that timed out may also have landed; the loader dedupes on
- * quoteId and orderHash within the hour, so that costs at most a duplicate it drops.
+ * Best-effort, as in the monorepo's ETLLogger: a record whose put fails is dropped and counted,
+ * never re-sent, so a put that did reach Firehose can't produce a second copy.
  */
 export class FirehosePostedOrderAnalytics implements PostedOrderAnalytics {
   constructor(
@@ -49,15 +48,14 @@ export class FirehosePostedOrderAnalytics implements PostedOrderAnalytics {
     try {
       await this.writer.putRecord(this.streamName, Buffer.from(JSON.stringify(record) + '\n'))
       ctx.metrics.putMetric('PostedOrderAnalyticsSent', 1, Unit.Count)
-      // No eventType, so the subscription filter skips it; the dashboard's Orders Posted table reads it.
+      // The dashboard's Orders Posted table reads this line.
       ctx.logger.info('Sent posted order analytics record', { body: record })
     } catch (err) {
-      ctx.metrics.putMetric('PostedOrderAnalyticsFallback', 1, Unit.Count)
-      ctx.logger.warn('Posted order analytics put failed; writing the log line instead', {
+      ctx.metrics.putMetric('PostedOrderAnalyticsDropped', 1, Unit.Count)
+      ctx.logger.warn('Posted order analytics put failed; dropping the record', {
         orderHash: order.orderHash,
         err,
       })
-      this.records.logPostedOrderRecord(record)
     }
   }
 }

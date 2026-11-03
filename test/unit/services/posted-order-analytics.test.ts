@@ -98,7 +98,7 @@ const ORDERS: [string, UniswapXOrderEntity, OrderType][] = [
   ['Priority', PRIORITY, OrderType.Priority],
 ]
 
-// The production logger, its stdout captured: the lines the subscription filter would see.
+// The production logger, its stdout captured.
 function capturedLogger(): { logger: Logger; lines: string[]; stop: () => void } {
   const lines: string[] = []
   const spy = jest.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
@@ -110,7 +110,7 @@ function capturedLogger(): { logger: Logger; lines: string[]; stop: () => void }
 
 const records = (logger: Logger) => new AnalyticsService(logger, () => '1788886866', getAddress)
 
-// What the log path writes to S3 for these lines: the deployed processor's output for one batch.
+// What the old log path wrote to S3 for these lines: the processor's output for one batch.
 function processed(lines: string[]): string {
   const payload = {
     messageType: 'DATA_MESSAGE',
@@ -138,7 +138,7 @@ class RecordingWriter implements FirehoseRecordWriter {
 }
 
 describe('FirehosePostedOrderAnalytics', () => {
-  it.each(ORDERS)('puts the bytes the log path delivers for a %s order, plus a newline', async (_, order, type) => {
+  it.each(ORDERS)('puts the bytes the old log path delivered for a %s order, plus a newline', async (_, order, type) => {
     const { logger, lines, stop } = capturedLogger()
     records(logger).logOrderPosted(order, type)
     const writer = new RecordingWriter()
@@ -150,7 +150,7 @@ describe('FirehosePostedOrderAnalytics', () => {
     expect(writer.puts).toEqual([{ streamName: STREAM, data: processed(lines) + '\n' }])
   })
 
-  it('counts the record and logs it for the dashboard without the eventType the filter forwards', async () => {
+  it('counts the record and logs it for the dashboard', async () => {
     const ctx = context()
     const writer = new RecordingWriter()
     const { logger, lines, stop } = capturedLogger()
@@ -163,12 +163,10 @@ describe('FirehosePostedOrderAnalytics', () => {
     expect(ctx.logger.info).toHaveBeenCalledWith('Sent posted order analytics record', {
       body: JSON.parse(writer.puts[0].data),
     })
-    expect(JSON.stringify(ctx.logger.info.mock.calls)).not.toContain('eventType')
   })
 
-  it('writes the old log line instead when the put fails, and resolves', async () => {
+  it('drops and counts the record when the put fails, and resolves', async () => {
     const { logger, lines, stop } = capturedLogger()
-    records(logger).logOrderPosted(PRIORITY, OrderType.Priority)
     const writer = new RecordingWriter()
     writer.failWith = new Error('ResourceNotFoundException')
     const ctx = context()
@@ -176,11 +174,9 @@ describe('FirehosePostedOrderAnalytics', () => {
     await new FirehosePostedOrderAnalytics(records(logger), STREAM, writer).send(ctx, PRIORITY, OrderType.Priority)
 
     stop()
-    const [logPath, fallback] = lines.map((line) => JSON.parse(line))
-    expect(fallback).toEqual({ ...logPath, timestamp: fallback.timestamp })
-    expect(processed([lines[1]])).toEqual(processed([lines[0]]))
-    expect(ctx.metrics.calls.map(([name]) => name)).toEqual(['PostedOrderAnalyticsFallback'])
-    expect(ctx.logger.warn).toHaveBeenCalledWith('Posted order analytics put failed; writing the log line instead', {
+    expect(lines).toEqual([])
+    expect(ctx.metrics.calls.map(([name]) => name)).toEqual(['PostedOrderAnalyticsDropped'])
+    expect(ctx.logger.warn).toHaveBeenCalledWith('Posted order analytics put failed; dropping the record', {
       orderHash: PRIORITY.orderHash,
       err: writer.failWith,
     })
@@ -202,7 +198,7 @@ describe('FirehosePostedOrderAnalytics', () => {
 })
 
 describe('LogLinePostedOrderAnalytics', () => {
-  it('writes the record as the log line the subscription filter forwards', async () => {
+  it('writes the record as the old log line', async () => {
     const { logger, lines, stop } = capturedLogger()
 
     await new LogLinePostedOrderAnalytics(records(logger)).send(context(), DUTCH_V3, OrderType.Dutch_V3)

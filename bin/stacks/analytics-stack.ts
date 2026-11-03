@@ -22,25 +22,22 @@ export function analyticsBucketName(stage: STAGE, feed: 'posted-orders' | 'fills
 }
 
 // The post Lambdas put posted-order records straight onto this stream. Its name is fixed so the
-// Lambda stack can name and grant it without a reference to this stack, which already depends on
-// the Lambdas' log groups.
+// Lambda stack can name and grant it without a reference to this stack, which depends on the
+// check-order-status Lambda's log group.
 export function postedOrdersDirectStreamName(stage: STAGE): string {
   return `${SERVICE_NAME}-${stage}-PostedOrdersDirect`
 }
 
 export interface AnalyticsStackProps extends cdk.NestedStackProps {
   stage: STAGE
-  postOrderLambda: aws_lambda.Function
-  postLimitOrderLambda: aws_lambda.Function
   checkStatusFunction: aws_lambda.Function
 }
 
 /**
- * S3 feed of posted orders and terminal order states for Data Eng. Same-account subscription
- * filters on the producing Lambdas' log groups deliver matching lines through Firehose, where a
- * processor unwraps the CloudWatch envelope down to the analytics record, into two buckets.
- * The post Lambdas also write posted-order records directly, through a second stream into the
- * same bucket; their log lines now reach the filter only when a direct put fails.
+ * S3 feeds of posted orders and terminal order states for Data Eng, one bucket each. The post
+ * Lambdas put posted-order records straight onto a stream. Terminal states still come from logs:
+ * a same-account subscription filter on the check-order-status log group delivers matching lines
+ * through Firehose, where a processor unwraps the CloudWatch envelope down to the record.
  */
 export class AnalyticsStack extends cdk.NestedStack {
   public readonly postedOrdersBucket: aws_s3.Bucket
@@ -48,7 +45,7 @@ export class AnalyticsStack extends cdk.NestedStack {
 
   constructor(scope: Construct, name: string, props: AnalyticsStackProps) {
     super(scope, name, props)
-    const { stage, postOrderLambda, postLimitOrderLambda, checkStatusFunction } = props
+    const { stage, checkStatusFunction } = props
 
     this.postedOrdersBucket = this.createBucket('PostedOrdersBucket', stage, 'posted-orders')
     this.fillsBucket = this.createBucket('FillsBucket', stage, 'fills')
@@ -70,7 +67,6 @@ export class AnalyticsStack extends cdk.NestedStack {
       logRetention: logRetentionDays(stage),
     })
 
-    const postedOrdersStream = this.createStream('PostedOrdersStream', this.postedOrdersBucket, processor, stage)
     const fillsStream = this.createStream('FillsStream', this.fillsBucket, processor, stage)
     this.createDirectStream(
       'PostedOrdersDirectStream',
@@ -82,33 +78,17 @@ export class AnalyticsStack extends cdk.NestedStack {
     const subscriptionRole = new aws_iam.Role(this, 'LogsToFirehoseRole', {
       assumedBy: new aws_iam.ServicePrincipal('logs.amazonaws.com'),
     })
-    const grants = [postedOrdersStream.grantPutRecords(subscriptionRole), fillsStream.grantPutRecords(subscriptionRole)]
+    const grant = fillsStream.grantPutRecords(subscriptionRole)
 
-    const filters = [
-      this.subscribe(
-        'PostedOrdersFeed',
-        postOrderLambda,
-        postedOrdersStream,
-        FILTER_PATTERNS.ORDER_POSTED,
-        subscriptionRole
-      ),
-      this.subscribe(
-        'PostedLimitOrdersFeed',
-        postLimitOrderLambda,
-        postedOrdersStream,
-        FILTER_PATTERNS.ORDER_POSTED,
-        subscriptionRole
-      ),
-      this.subscribe(
-        'TerminalStateFeed',
-        checkStatusFunction,
-        fillsStream,
-        FILTER_PATTERNS.TERMINAL_ORDER_STATE,
-        subscriptionRole
-      ),
-    ]
+    const filter = this.subscribe(
+      'TerminalStateFeed',
+      checkStatusFunction,
+      fillsStream,
+      FILTER_PATTERNS.TERMINAL_ORDER_STATE,
+      subscriptionRole
+    )
     // CloudWatch validates the role can write to the stream when the filter is created.
-    grants.forEach((grant) => filters.forEach((filter) => grant.applyBefore(filter)))
+    grant.applyBefore(filter)
   }
 
   private createBucket(id: string, stage: STAGE, feed: 'posted-orders' | 'fills'): aws_s3.Bucket {
@@ -150,7 +130,7 @@ export class AnalyticsStack extends cdk.NestedStack {
   }
 
   // Producers write records that are already in their loaded form, so there is no processor.
-  // Buffering and layout match createStream's, so both streams fill the same hourly folders.
+  // Buffering and layout match createStream's.
   private createDirectStream(
     id: string,
     deliveryStreamName: string,

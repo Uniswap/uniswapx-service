@@ -83,7 +83,6 @@ export class APIStack extends cdk.Stack {
       postOrderLambdaAlias,
       postOrderLambda,
       postLimitOrderLambdaAlias,
-      postLimitOrderLambda,
       getLimitOrdersLambdaAlias,
       getDocsLambdaAlias,
       getDocsUILambdaAlias,
@@ -105,8 +104,6 @@ export class APIStack extends cdk.Stack {
 
     new AnalyticsStack(this, `${SERVICE_NAME}AnalyticsStack`, {
       stage: stage as STAGE,
-      postOrderLambda,
-      postLimitOrderLambda,
       checkStatusFunction,
     })
 
