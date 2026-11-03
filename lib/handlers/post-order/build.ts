@@ -1,4 +1,5 @@
 import { OrderValidator as OnChainOrderValidator } from '@uniswap/uniswapx-sdk'
+import { ChainOwners } from '../../chain-owners/owners'
 import { UniswapXOrderEntity } from '../../entities'
 import { PriorityCosigner } from '../../models/PriorityOrder'
 import { WebhookProvider } from '../../providers/base'
@@ -22,6 +23,8 @@ export type PostOrderDeps = {
   repository: BaseOrdersRepository<UniswapXOrderEntity>
   analytics: PostedOrderAnalytics
   providerMap: ProviderMap
+  // Shared with startTracking, so a post reads the owner file once.
+  chainOwners: ChainOwners
   startTracking: StartTracking
   createPriorityCosigner: () => PriorityCosigner
   // Epoch milliseconds.

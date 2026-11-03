@@ -82,6 +82,7 @@ function postPathFakes<R extends OrdersRepository>(
   const analytics = overrides.analytics ?? new RecordingAnalytics()
   const cosigner = new FakeCosigner()
   const tracking = new RecordingStartTracking()
+  const chainOwners = overrides.chainOwners ?? allLegacy()
 
   return {
     policy: { ...policy, getMaxOpenOrders: overrides.getMaxOpenOrders ?? policy.getMaxOpenOrders },
@@ -91,12 +92,9 @@ function postPathFakes<R extends OrdersRepository>(
       repository,
       analytics,
       providerMap: overrides.providerMap ?? MOCK_PROVIDER_MAP,
+      chainOwners,
       // The real start-tracking code over a recording Step Functions client; ARNs from setup-env.
-      startTracking: new SfnStartTracking(
-        overrides.startExecutionClient ?? tracking,
-        getStateMachineArn,
-        overrides.chainOwners ?? allLegacy()
-      ),
+      startTracking: new SfnStartTracking(overrides.startExecutionClient ?? tracking, getStateMachineArn, chainOwners),
       createPriorityCosigner: () => cosigner,
       // Follows a frozen clock (fakes/clock.ts).
       now: () => Date.now(),

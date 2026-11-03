@@ -58,6 +58,11 @@ export function parseChainOwners(raw: string): ChainOwnersFile {
   return value as ChainOwnersFile
 }
 
+/** Legacy accepts a chain's posts only while the file names it as the posting owner. */
+export function legacyPosts(owner: ChainOwner): boolean {
+  return owner.posting === 'legacy'
+}
+
 /** Legacy writes a chain's statuses only while the file names it as the tracking owner. */
 export function legacyTracks(owner: ChainOwner): boolean {
   return owner.tracking === 'legacy'

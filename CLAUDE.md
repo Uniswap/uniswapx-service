@@ -107,11 +107,14 @@ account says who owns each chain: `s3://uniswapx-chain-owners-<account>/chain-ow
 { "chains": { "1": { "posting": "legacy", "tracking": "legacy" }, "8453": { "posting": "uniswapx", "tracking": "draining" } } }
 ```
 
-- `posting`: `legacy` | `uniswapx`. `tracking`: `legacy` | `draining` | `phase1`. Legacy writes a chain's statuses only
-  while `tracking` is `legacy`; nobody writes them while it is `draining`.
+- `posting`: `legacy` | `uniswapx`. `tracking`: `legacy` | `draining` | `phase1`. Legacy stores a chain's posts
+  only while `posting` is `legacy`: on a `uniswapx` chain, both post routes answer a valid order 400
+  `INVALID_ORDER` before writing its order or Nonces row (`PostOrderPostingHandedOff`). Legacy writes a chain's
+  statuses only while `tracking` is `legacy`; nobody writes them while it is `draining`.
 - Legacy reads it before every tracker poll (a run on a non-legacy chain ends at once, via the state machine's
-  `trackingHandedOff` succeed state, with no restart, analytics or write), before each reaper write, and before
-  starting tracking for a new post. Each process reuses a read for 30 s, so a flip takes up to 30 s to land.
+  `trackingHandedOff` succeed state, with no restart, analytics or write), before each reaper write, and on every
+  post (one read, begun alongside validation, decides both posting and starting the tracker). Each process
+  reuses a read for 30 s, so a flip takes up to 30 s to land.
 - A chain missing from the file is legacy / legacy. A failed read or an invalid file (one bad entry invalidates
   the whole file) emits `ChainOwnersUnreadable` (SEV3 alarm after two 5-minute periods in a row); the reader keeps
   the last file it read successfully, and only a process that has never read one treats every chain as legacy /

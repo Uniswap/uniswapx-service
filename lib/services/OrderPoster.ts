@@ -10,10 +10,12 @@ import {
 } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
 import { BigNumber, ethers } from 'ethers'
+import { ChainOwner, ChainOwners, legacyPosts } from '../chain-owners/owners'
 import { toOrderEntity } from '../core/orders/storedRow'
 import { UniswapXOrderEntity } from '../entities'
 import { InvalidTokenInAddress } from '../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
+import { PostingHandedOffError } from '../errors/PostingHandedOffError'
 import { TooManyOpenOrdersError } from '../errors/TooManyOpenOrdersError'
 import { RequestLogger } from '../handlers/base/request-context'
 import { OnChainValidatorMap } from '../handlers/OnChainValidatorMap'
@@ -58,6 +60,8 @@ export type OrderPosterDeps = {
   getMaxOpenOrders: (offerer: string) => number
   analytics: PostedOrderAnalytics
   providerMap: ProviderMap
+  // The reader startTracking was built with, so the post and the tracker start share one read.
+  chainOwners: ChainOwners
   startTracking: StartTracking
   // Called once per priority order, so each gets a new signer (uniswapx-parameterization-api#358).
   createPriorityCosigner: () => PriorityCosigner
@@ -75,22 +79,25 @@ export class OrderPoster {
     ctx: PostContext,
     order: LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order
   ): Promise<string> {
-    // Read what starting the tracker needs (the chain's owner, from S3) alongside validation.
-    // Read after the order was stored, it put a fresh S3 connection in series with every post.
-    const trackingPrepared = Promise.resolve()
-      .then(() => this.deps.startTracking.prepare(order.chainId))
-      .catch(() => undefined)
+    // Read the chain's owners (from S3) alongside validation. The post needs the posting owner
+    // before it stores the order, and the tracker start reuses this read (the reader shares an
+    // in-flight read and keeps a read for its TTL). Read after the order was stored, it put a
+    // fresh S3 connection in series with every post.
+    const ownerRead = Promise.resolve().then(() => this.deps.chainOwners.ownerOf(order.chainId))
+    // If validation throws first, keep the read from surfacing as an unhandled rejection.
+    ownerRead.catch(() => undefined)
     try {
-      return await this.postOrder(ctx, order)
+      return await this.postOrder(ctx, order, ownerRead)
     } finally {
       // A rejected post can return before the read does; on Lambda it would be frozen in flight.
-      await trackingPrepared
+      await ownerRead.catch(() => undefined)
     }
   }
 
   private async postOrder(
     ctx: PostContext,
-    order: LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order
+    order: LimitOrder | DutchV2Order | PriorityOrder | DutchV3Order,
+    ownerRead: Promise<ChainOwner>
   ): Promise<string> {
     // Start the open-order count alongside validation; both must pass before the
     // order is accepted but neither depends on the other. All order entities
@@ -129,6 +136,17 @@ export class OrderPoster {
       orderEntity = toOrderEntity(cosignedOrder)
     } else {
       throw new Error('unsupported OrderType')
+    }
+
+    // Checked before the write: on a chain uniswapx posts, it writes the chain's Nonces rows, so an
+    // order stored here too would race those writes.
+    if (!legacyPosts(await ownerRead)) {
+      ctx.logger.info('Rejected post: legacy no longer posts this chain', {
+        orderHash: orderEntity.orderHash,
+        chainId: order.chainId,
+      })
+      ctx.metrics.putMetric('PostOrderPostingHandedOff', 1, Unit.Count)
+      throw new PostingHandedOffError(order.chainId)
     }
 
     const canPlaceNewOrder = await canPlaceNewOrderPromise

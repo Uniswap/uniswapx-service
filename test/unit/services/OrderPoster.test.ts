@@ -11,8 +11,9 @@ import {
 import { Unit } from 'aws-embedded-metrics'
 import { BigNumber, constants } from 'ethers'
 import { mock } from 'jest-mock-extended'
-import { ChainOwner, ChainOwners, LEGACY_OWNER } from '../../../lib/chain-owners/owners'
+import { ChainOwner, ChainOwners, GetObjectClient, LEGACY_OWNER, S3ChainOwners } from '../../../lib/chain-owners/owners'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
+import { PostingHandedOffError } from '../../../lib/errors/PostingHandedOffError'
 import { TooManyOpenOrdersError } from '../../../lib/errors/TooManyOpenOrdersError'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../../../lib/handlers/constants'
 import { OnChainValidatorMap } from '../../../lib/handlers/OnChainValidatorMap'
@@ -214,14 +215,100 @@ describe('OrderPoster', () => {
     })
   })
 
-  test('createOrder still starts tracking on a chain uniswapx posts but legacy tracks', async () => {
-    const chainOwners = new FixedChainOwners({ 1: { posting: 'uniswapx', tracking: 'legacy' } })
-    const { service, tracking, metrics } = makePostOrderService({ getMaxOpenOrders: () => 10, chainOwners })
+  describe('on a chain uniswapx posts', () => {
+    test.each(['legacy', 'draining', 'phase1'] as const)(
+      'createOrder rejects a valid order before storing it, writing nothing, when tracking is %s',
+      async (tracking) => {
+        const logger = mock<Logger>()
+        const chainOwners = new FixedChainOwners({ 1: { posting: 'uniswapx', tracking } })
+        const {
+          service,
+          repository,
+          analytics,
+          tracking: sfn,
+          metrics,
+        } = makePostOrderService({ logger, getMaxOpenOrders: () => 10, chainOwners })
+        const order = new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1)
 
-    await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+        await expect(service.createOrder(order)).rejects.toEqual(new PostingHandedOffError(1))
 
-    expect(tracking.calls).toHaveLength(1)
-    expect(metrics.calls).toContainEqual(['OrderTrackerStarted', 1, Unit.Count])
+        expect(chainOwners.reads).toEqual([1])
+        expect(repository.puts).toHaveLength(0)
+        expect(analytics.posted).toHaveLength(0)
+        expect(sfn.calls).toHaveLength(0)
+        expect(logger.info).toHaveBeenCalledWith('Rejected post: legacy no longer posts this chain', {
+          orderHash: order.inner.hash(),
+          chainId: 1,
+        })
+        expect(metrics.calls).toEqual([['PostOrderPostingHandedOff', 1, Unit.Count]])
+      }
+    )
+
+    test('createOrder still answers a validation failure first', async () => {
+      const chainOwners = new FixedChainOwners({ 1: { posting: 'uniswapx' } })
+      const { service, orderValidator, metrics } = makePostOrderService({ getMaxOpenOrders: () => 10, chainOwners })
+      orderValidator.result = { valid: false, errorString: 'bad order' }
+
+      await expect(
+        service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+      ).rejects.toBeInstanceOf(OrderValidationFailedError)
+      expect(metrics.calls).not.toContainEqual(['PostOrderPostingHandedOff', 1, Unit.Count])
+    })
+
+    test('createOrder rejects the order even when the swapper is over the open-order limit', async () => {
+      const chainOwners = new FixedChainOwners({ 1: { posting: 'uniswapx' } })
+      const { service, repository } = makePostOrderService({ getMaxOpenOrders: () => 10, chainOwners })
+      repository.openOrderCount = 11
+
+      await expect(
+        service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+      ).rejects.toBeInstanceOf(PostingHandedOffError)
+      expect(repository.puts).toHaveLength(0)
+    })
+
+    test('createOrder accepts posts on the chains legacy still posts', async () => {
+      const chainOwners = new FixedChainOwners({ 8453: { posting: 'uniswapx', tracking: 'phase1' } })
+      const { service, repository, tracking } = makePostOrderService({ getMaxOpenOrders: () => 10, chainOwners })
+
+      await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+      expect(repository.puts).toHaveLength(1)
+      expect(tracking.calls).toHaveLength(1)
+    })
+  })
+
+  describe('reading the owner file from S3', () => {
+    // Counts GetObject calls, each answered with an all-legacy file after `delayMs`.
+    class CountingS3 implements GetObjectClient {
+      public requests = 0
+
+      constructor(private readonly delayMs: number) {}
+
+      async send() {
+        this.requests++
+        await new Promise((resolve) => setTimeout(resolve, this.delayMs))
+        const body = JSON.stringify({ chains: { '1': { posting: 'legacy', tracking: 'legacy' } } })
+        return { Body: { transformToString: async () => body } }
+      }
+    }
+
+    // The posting check and the tracker start both decide from the post's one read.
+    test.each([
+      ['outlasts validation', 20],
+      ['answers first', 0],
+    ])('an accepted post makes one S3 read when the read %s', async (_, delayMs) => {
+      const s3 = new CountingS3(delayMs)
+      const { service, repository, tracking } = makePostOrderService({
+        getMaxOpenOrders: () => 10,
+        chainOwners: new S3ChainOwners(s3, 'bucket'),
+      })
+
+      await service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), '0x00', 1))
+
+      expect(repository.puts).toHaveLength(1)
+      expect(tracking.calls).toHaveLength(1)
+      expect(s3.requests).toBe(1)
+    })
   })
 
   test('createOrder counts a tracker that already exists as a re-post, not a post-persist failure', async () => {
@@ -364,6 +451,7 @@ describe('OrderPoster', () => {
 
   test('createOrder still starts tracking when the exclusive-filler notifier throws before returning a promise', async () => {
     const { orderValidator, onChainValidator, repository, analytics, cosigner, tracking } = makePostOrderService()
+    const chainOwners = allLegacy()
     const poster = new OrderPoster({
       orderValidator,
       onChainValidatorMap: new OnChainValidatorMap([], () => onChainValidator),
@@ -371,7 +459,8 @@ describe('OrderPoster', () => {
       getMaxOpenOrders: () => 10,
       analytics,
       providerMap: { get: () => mock<StaticJsonRpcProvider>() },
-      startTracking: new SfnStartTracking(tracking, getStateMachineArn, allLegacy()),
+      chainOwners,
+      startTracking: new SfnStartTracking(tracking, getStateMachineArn, chainOwners),
       createPriorityCosigner: () => cosigner,
       now: () => Date.now(),
       notifyExclusiveFiller: () => {
