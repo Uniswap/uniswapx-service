@@ -30,6 +30,7 @@ import { PostRoutePolicy } from './policy'
 export function buildPostOrderLambda(policy: PostRoutePolicy): PostOrderHandler {
   const providerMap = new LazyProviderMap()
   const now = () => Date.now()
+  const chainOwners = S3ChainOwners.fromEnv()
   return buildPostOrderHandler(policy, {
     orderValidator: new OffChainUniswapXOrderValidator({
       getCurrentTime: () => now() / 1000,
@@ -44,7 +45,8 @@ export function buildPostOrderLambda(policy: PostRoutePolicy): PostOrderHandler 
     repository: policy.createRepository(new DynamoDB.DocumentClient()),
     analytics: postedOrderAnalyticsFromEnv(),
     providerMap,
-    startTracking: new SfnStartTracking(sharedStartExecutionClient, getStateMachineArn, S3ChainOwners.fromEnv()),
+    chainOwners,
+    startTracking: new SfnStartTracking(sharedStartExecutionClient, getStateMachineArn, chainOwners),
     createPriorityCosigner,
     now,
     webhookProvider: policy.notifyExclusiveFiller ? webhookProviderForStage() : undefined,

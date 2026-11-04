@@ -3,6 +3,7 @@ import Joi from 'joi'
 
 import { InvalidTokenInAddress } from '../../errors/InvalidTokenInAddress'
 import { OrderValidationFailedError } from '../../errors/OrderValidationFailedError'
+import { PostingHandedOffError } from '../../errors/PostingHandedOffError'
 import { TooManyOpenOrdersError } from '../../errors/TooManyOpenOrdersError'
 import { HttpStatusCode } from '../../HttpStatusCode'
 import { OrderPoster } from '../../services/OrderPoster'
@@ -82,6 +83,15 @@ export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderReques
       }
     } catch (err) {
       if (err instanceof OrderValidationFailedError) {
+        return {
+          statusCode: HttpStatusCode.BadRequest,
+          errorCode: ErrorCode.InvalidOrder,
+          detail: err.message,
+        }
+      }
+
+      // Answered like a wrong-route post: the order may be fine, but legacy no longer posts its chain.
+      if (err instanceof PostingHandedOffError) {
         return {
           statusCode: HttpStatusCode.BadRequest,
           errorCode: ErrorCode.InvalidOrder,

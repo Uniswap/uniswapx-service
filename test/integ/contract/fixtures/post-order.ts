@@ -963,6 +963,55 @@ export const PostRejections = {
   },
 }
 
+// New (D6): a chain whose posting owner in the chain owner file is uniswapx. The order passes
+// validation but is not stored, so legacy writes no order or Nonces row on that chain.
+function postingHandedOff(chainId: number) {
+  return {
+    statusCode: 400,
+    body: {
+      detail: `Orders on chainId ${chainId} are no longer accepted by this service`,
+      errorCode: 'INVALID_ORDER',
+      id: 'testRequest',
+    },
+  }
+}
+const POSTING_HANDED_OFF: MetricCall[] = [['PostOrderPostingHandedOff', 1, 'Count']]
+
+export const PostingHandedOffRejections = {
+  Dutch_V2: {
+    route: DUTCH_ROUTE,
+    request: body(Orders.dutchV2, 'Dutch_V2'),
+    expected: {
+      response: postingHandedOff(1),
+      metrics: [...requestCounters(1, '4XX'), ...MAINNET_V2_STALENESS, ...POSTING_HANDED_OFF],
+    },
+  },
+  Dutch_V3: {
+    route: DUTCH_ROUTE,
+    request: body(Orders.dutchV3, 'Dutch_V3'),
+    expected: {
+      response: postingHandedOff(42161),
+      metrics: [...requestCounters(42161, '4XX'), ...POSTING_HANDED_OFF],
+    },
+  },
+  Priority: {
+    route: DUTCH_ROUTE,
+    request: body(Orders.priority, 'Priority'),
+    expected: {
+      response: postingHandedOff(8453),
+      metrics: [...requestCounters(8453, '4XX'), ...POSTING_HANDED_OFF],
+    },
+  },
+  Limit: {
+    route: LIMIT_ROUTE,
+    request: body(Orders.limit, 'Limit'),
+    expected: {
+      response: postingHandedOff(1),
+      metrics: [...requestCounters(1, '4XX'), ...POSTING_HANDED_OFF],
+    },
+  },
+}
+
 export const OpenOrderLimit = {
   request: body(Orders.openOrderLimit, 'Dutch_V2'),
   atLimit: {

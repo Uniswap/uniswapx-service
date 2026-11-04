@@ -1,6 +1,7 @@
 import { Logger } from '@aws-lambda-powertools/logger'
 import { getAddress } from '@ethersproject/address'
 import { OrderValidation } from '@uniswap/uniswapx-sdk'
+import { ChainOwners } from '../../../lib/chain-owners/owners'
 import { ORDER_STATUS } from '../../../lib/entities'
 import { DUTCH_AUCTION_ORDER_ROUTE, LIMIT_ORDER_ROUTE } from '../../../lib/handlers/post-order/routes'
 import { DutchOrdersRepository } from '../../../lib/repositories/dutch-orders-repository'
@@ -10,6 +11,7 @@ import { AnalyticsService } from '../../../lib/services/analytics-service'
 import { setGlobalMetrics } from '../../../lib/util/metrics'
 import { currentTimestampInSeconds } from '../../../lib/util/time'
 import { RecordingAnalytics } from '../../fakes/analytics'
+import { FixedChainOwners } from '../../fakes/chain-owners'
 import { freezeClock, restoreClock } from '../../fakes/clock'
 import { nowSeconds, TEST_STORE_CONTEXT } from '../../fakes/orders-repository'
 import { makePostOrderHandler, PostOrderHandlerHarness } from '../../unit/builders/post-path'
@@ -21,6 +23,7 @@ import {
   API_GATEWAY_HEADERS,
   MetricCall,
   OpenOrderLimit,
+  PostingHandedOffRejections,
   PostRejections,
   RepostMetrics,
 } from './fixtures/post-order'
@@ -64,17 +67,20 @@ async function deleteSuiteRows(): Promise<void> {
 }
 
 // The Lambda serving `route` as deployed, on DynamoDB Local. Both get a webhook provider; only
-// the Dutch route's policy sends the immediate exclusive-filler notice.
-function postLambda(route: string, webhookProvider: RecordingWebhookProvider): Lambda {
+// the Dutch route's policy sends the immediate exclusive-filler notice. Every chain is on legacy
+// unless `chainOwners` says otherwise.
+function postLambda(route: string, webhookProvider: RecordingWebhookProvider, chainOwners?: ChainOwners): Lambda {
   if (route === LIMIT_ORDER_ROUTE.path) {
     return makePostOrderHandler(LIMIT_ORDER_ROUTE, {
       repository: LimitOrdersRepository.create(documentClient),
       webhookProvider,
+      chainOwners,
     })
   }
   return makePostOrderHandler(DUTCH_AUCTION_ORDER_ROUTE, {
     repository: DutchOrdersRepository.create(documentClient),
     webhookProvider,
+    chainOwners,
   })
 }
 
@@ -269,6 +275,27 @@ describe('POST order contract', () => {
       expect(await leftoverKeys(TABLE_NAMES.Orders, ORDER_KEYS)).toEqual([])
       expect(await leftoverKeys(TABLE_NAMES.LimitOrders, ORDER_KEYS)).toEqual([])
     })
+  })
+
+  describe('on a chain uniswapx posts', () => {
+    it.each(Object.entries(PostingHandedOffRejections))(
+      'rejects a valid %s order and writes or sends nothing',
+      async (_name, { route, request, expected }) => {
+        const chainOwners = new FixedChainOwners({ [request.chainId]: { posting: 'uniswapx' } })
+        const lambda = postLambda(route, webhookProvider, chainOwners)
+
+        const response = await lambda.handler.handler(postEvent(request), LAMBDA_CONTEXT)
+        await settle()
+
+        expectContract({ response: httpResult(response), metrics: scopes[0].sorted() }, expected)
+        expect(await leftoverKeys(TABLE_NAMES.Orders, ORDER_KEYS)).toEqual([])
+        expect(await leftoverKeys(TABLE_NAMES.LimitOrders, ORDER_KEYS)).toEqual([])
+        expect(await leftoverKeys(TABLE_NAMES.Nonces, NONCE_KEYS)).toEqual([])
+        expect(lambda.tracking.calls).toEqual([])
+        expect(lambda.analytics.posted).toEqual([])
+        expect(webhookProvider.notices).toEqual([])
+      }
+    )
   })
 
   describe('open-order limit', () => {
