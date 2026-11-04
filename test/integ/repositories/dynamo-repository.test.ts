@@ -188,7 +188,7 @@ describe.each(TABLES)('$tableName store', ({ tableName, create, entity, scope, r
       expect(queryResult.orders).toEqual([expect.objectContaining(order3)])
     })
 
-    it('should return no orders for chainId and orderStatus', async () => {
+    it('should return no orders for chainId, orderStatus, and filler', async () => {
       const orders = await ordersRepository.getOrders(10, {
         chainId: CHAIN_B,
         orderStatus: ORDER_STATUS.OPEN,
