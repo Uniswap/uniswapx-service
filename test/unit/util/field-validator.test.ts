@@ -232,14 +232,14 @@ describe('Testing each field on the FieldValidator class.', () => {
       expect(FieldValidator.isValidCursor().validate(cursor)).toEqual({ value: cursor })
     })
 
-    it('should invalidate field.', async () => {
+    it('should invalidate a non-base64 cursor.', async () => {
       const invalidCursor = '0xnot_a_valid_order_$$$$'
       const validatedField = FieldValidator.isValidCursor().validate(invalidCursor)
       expect(validatedField.error).toBeTruthy()
       expect(validatedField.error?.details[0].message).toEqual('"value" must be a valid base64 string')
     })
 
-    it('should invalidate field.', async () => {
+    it('should invalidate a cursor over 500 characters.', async () => {
       const maxLengthCursor = `jfkasdjfkdsajfdjsafjdsjfkljsddkfjdhsajkgfhdgjkdfshgkfhdjkghjkfdhgjkh
         hsdfjhgjkfdshgjksdfjkgfdjkshgjkhsdfjkghfdjkghjkfdshgjklhdfsjkghkjfdshg
         hsdfjhgjkfdshgjksdfjkgfdjkshgjkhsdfjkghfdjkghjkfdshgjklhdfsjkghkjfdshg

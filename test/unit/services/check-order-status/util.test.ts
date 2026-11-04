@@ -15,12 +15,12 @@ import {
 import { ChainId, SUPPORTED_CHAINS } from '../../../../lib/util/chain'
 
 describe('calculateDutchRetryWaitSeconds', () => {
-  it('should do exponential backoff when retry count > 300', async () => {
+  it('should start exponential backoff when retry count passes 300', async () => {
     const response = calculateDutchRetryWaitSeconds(1, 301)
     expect(response).toEqual(13)
   })
 
-  it('should do exponential backoff when retry count > 300', async () => {
+  it('should keep growing exponential backoff as retry count rises past 300', async () => {
     const response = calculateDutchRetryWaitSeconds(1, 350)
     expect(response).toEqual(138)
   })
