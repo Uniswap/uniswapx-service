@@ -1,4 +1,4 @@
-import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
+import { getAverageBlockTimeSecs } from './block-time'
 import { ChainId } from './chain'
 
 export const WEBHOOK_CONFIG_BUCKET = 'order-webhook-notification-config'

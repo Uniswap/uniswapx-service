@@ -1,4 +1,4 @@
-import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
+import { getAverageBlockTimeSecs } from '../../util/block-time'
 import {
   CosignedPriorityOrder,
   CosignedV2DutchOrder,
@@ -230,7 +230,8 @@ export function getDutchSettledAmounts(
   return settledAmounts
 }
 
-// Re-exports the sdk-core per-chain block time so callers and the
+// Re-exports the per-chain block time (sdk-core's table plus the overrides in
+// lib/util/block-time.ts) so callers and the
 // `calculateDutchRetryWaitSeconds` floor stay correct as chain cadence
 // changes. Sub-second values are intentional for accurate block-number
 // arithmetic in `timestampToBlockNumber`.
