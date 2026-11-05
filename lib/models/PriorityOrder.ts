@@ -1,10 +1,10 @@
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
-import { getAverageBlockTimeSecs } from '@uniswap/sdk-core'
 import { KmsSigner } from '@uniswap/signer'
 import { OrderType, CosignedPriorityOrder as SDKPriorityOrder } from '@uniswap/uniswapx-sdk'
 import { BigNumber } from 'ethers'
 import { OrderValidationFailedError } from '../errors/OrderValidationFailedError'
 import { PRIORITY_ORDER_TARGET_BLOCK_BUFFER } from '../handlers/constants'
+import { getAverageBlockTimeSecs } from '../util/block-time'
 import { ChainId } from '../util/chain'
 import { Order } from './Order'
 
