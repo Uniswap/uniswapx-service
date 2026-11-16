@@ -38,16 +38,9 @@ import { StartTracking } from './start-tracking'
 // From a string: BigNumber.from(Number.MAX_SAFE_INTEGER) itself throws overflow.
 const MAX_SAFE_BLOCK = BigNumber.from(Number.MAX_SAFE_INTEGER.toString())
 
-// The order quoter's answer for one order. `validationErrorData` (the raw revert data) is set only by
-// SDK versions that report it; '0x' there means the quote reverted without data.
-interface OnChainQuoteResult {
-  validation: OrderValidation
-  validationErrorData?: unknown
-}
-
 // The 4-byte error selector at the head of raw revert data, lowercased; undefined if there is none.
-function revertSelector(revertData: unknown): string | undefined {
-  if (typeof revertData !== 'string' || !/^0x[0-9a-fA-F]{8}/.test(revertData)) {
+function revertSelector(revertData: string | undefined): string | undefined {
+  if (revertData === undefined || !/^0x[0-9a-fA-F]{8}/.test(revertData)) {
     return undefined
   }
   return revertData.slice(0, 10).toLowerCase()
@@ -324,8 +317,9 @@ export class OrderPoster {
       }
     } else {
       const onChainValidator = this.deps.onChainValidatorMap.get(chainId)
-      // quote() rather than validate(): the same simulation, but its result can carry the revert data.
-      const quoteResult: OnChainQuoteResult = await onChainValidator.quote({ order: order, signature: signature })
+      // quote() rather than validate(): the same simulation, but its result carries the revert data
+      // (`validationErrorData`, set only when the quote reverted; '0x' means it reverted without data).
+      const quoteResult = await onChainValidator.quote({ order: order, signature: signature })
       const onChainValidationResult = quoteResult.validation
       // Still considered valid
       if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet)

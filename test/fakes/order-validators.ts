@@ -29,7 +29,7 @@ export class FakeOffChainValidator extends OffChainUniswapXOrderValidator {
 const UNREACHABLE_RPC_URL = 'http://127.0.0.1:1'
 
 // The order quoter's onchain simulation, answering `result` for every order on every chain. Given
-// `revertData`, the answer carries it as an SDK that reports raw revert data would.
+// `revertData`, the answer carries it as `validationErrorData`, as the SDK reports a reverted quote.
 export class FakeOnChainValidator extends OrderValidator {
   public readonly calls: SignedUniswapXOrder[] = []
   public result: OrderValidation = OrderValidation.OK
