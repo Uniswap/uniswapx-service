@@ -31,6 +31,7 @@ import { IMetrics } from '../util/metrics'
 import { OffChainUniswapXOrderValidator } from '../util/OffChainUniswapXOrderValidator'
 import { OrderSignatureValidator } from '../util/OrderSignatureValidator'
 import { Permit2Validator } from '../util/Permit2Validator'
+import { isSignatureRejection, SwapperSignatureProbe, SwapperSignatureProbeResult } from '../util/SwapperSignatureProbe'
 import { PostedOrderAnalytics } from './posted-order-analytics'
 import { StartTracking } from './start-tracking'
 
@@ -38,7 +39,7 @@ import { StartTracking } from './start-tracking'
 const MAX_SAFE_BLOCK = BigNumber.from(Number.MAX_SAFE_INTEGER.toString())
 
 // The order quoter's answer for one order. `validationErrorData` (the raw revert data) is set only by
-// SDK versions that report it.
+// SDK versions that report it; '0x' there means the quote reverted without data.
 interface OnChainQuoteResult {
   validation: OrderValidation
   validationErrorData?: unknown
@@ -51,6 +52,8 @@ function revertSelector(revertData: unknown): string | undefined {
   }
   return revertData.slice(0, 10).toLowerCase()
 }
+
+const EMPTY_REVERT_DATA = '0x'
 
 // The request a post runs for: its logs and metrics go to that request's own logger and metrics.
 export type PostContext = {
@@ -75,6 +78,8 @@ export type OrderPosterDeps = {
   getMaxOpenOrders: (offerer: string) => number
   analytics: PostedOrderAnalytics
   providerMap: ProviderMap
+  // Asked only when the order quoter reverted without data, to tell a refused contract signature apart.
+  swapperSignatureProbe: SwapperSignatureProbe
   // The reader startTracking was built with, so the post and the tracker start share one read.
   chainOwners: ChainOwners
   startTracking: StartTracking
@@ -328,14 +333,26 @@ export class OrderPoster {
 
       if (onChainValidationResult === OrderValidation.UnknownError) {
         const selector = revertSelector(quoteResult.validationErrorData)
-        // An error the SDK does not map: the selector is the only lead on the real reason.
+        // Permit2 reverts without data when a swapper with code answers isValidSignature with
+        // nothing (an EIP-7702 delegate without it, say), so ask the swapper directly.
+        const probe: SwapperSignatureProbeResult =
+          quoteResult.validationErrorData === EMPTY_REVERT_DATA
+            ? await this.deps.swapperSignatureProbe.probe(chainId, order, signature)
+            : { erc1271Result: 'not_checked' }
+        // An error the SDK does not map: the selector and the probe are the only leads on the real reason.
         ctx.logger.warn('onchain validation failed: UnknownError', {
           chainId,
           orderHash: order.hash(),
           swapper: order.info.swapper,
           orderType,
           revertSelector: selector,
+          swapperHasCode: probe.swapperHasCode,
+          delegate: probe.delegate,
+          erc1271Result: probe.erc1271Result,
         })
+        if (isSignatureRejection(probe.erc1271Result)) {
+          throw new OrderValidationFailedError('Onchain validation failed: InvalidSignature')
+        }
         throw new OrderValidationFailedError(
           `Onchain validation failed: UnknownError${selector ? ` (revert ${selector})` : ''}`
         )

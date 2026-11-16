@@ -3,9 +3,15 @@ import { ethers } from 'ethers'
 
 // ERC-1271: isValidSignature(bytes32,bytes) returns its own selector for a valid signature.
 export const ERC1271_MAGIC_VALUE = '0x1626ba7e'
-const ERC1271_INTERFACE = new ethers.utils.Interface([
+export const ERC1271_INTERFACE = new ethers.utils.Interface([
   'function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4 magicValue)',
 ])
+
+// Whether an isValidSignature reply is the magic value: an ABI-encoded bytes4 is left-aligned in one
+// 32-byte word; any other reply is a rejection.
+export function isErc1271MagicValue(result: string): boolean {
+  return ethers.utils.hexDataLength(result) >= 32 && ethers.utils.hexDataSlice(result, 0, 4) === ERC1271_MAGIC_VALUE
+}
 
 export type SignatureCheckProvider = Pick<ethers.providers.Provider, 'getCode' | 'call'>
 
@@ -47,8 +53,7 @@ export class OrderSignatureValidator {
         to: swapper,
         data: ERC1271_INTERFACE.encodeFunctionData('isValidSignature', [digest, signature]),
       })
-      // an ABI-encoded bytes4 is left-aligned in one 32-byte word; any other reply is a rejection
-      return ethers.utils.hexDataLength(result) >= 32 && ethers.utils.hexDataSlice(result, 0, 4) === ERC1271_MAGIC_VALUE
+      return isErc1271MagicValue(result)
     } catch (err) {
       // A revert is the contract rejecting the signature; anything else is the RPC failing to
       // answer.

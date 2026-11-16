@@ -15,6 +15,7 @@ import { BaseOrdersRepository } from '../../../lib/repositories/base'
 import { OrderPoster, PostContext } from '../../../lib/services/OrderPoster'
 import { SfnStartTracking } from '../../../lib/services/start-tracking'
 import { getStateMachineArn } from '../../../lib/util/stateMachineArn'
+import { RpcSwapperSignatureProbe, SwapperSignatureProbe } from '../../../lib/util/SwapperSignatureProbe'
 import { RecordingAnalytics } from '../../fakes/analytics'
 import { allLegacy } from '../../fakes/chain-owners'
 import { FakeCosigner } from '../../fakes/cosigner'
@@ -35,6 +36,8 @@ export type PostOrderServiceOverrides<R extends OrdersRepository = FakeOrdersRep
   logger?: Logger
   getMaxOpenOrders?: (offerer: string) => number
   providerMap?: ProviderMap
+  // The real probe over providerMap unless overridden.
+  swapperSignatureProbe?: SwapperSignatureProbe
   webhookProvider?: WebhookProvider
   // A real Step Functions client in place of the recording one.
   startExecutionClient?: StartExecutionClient
@@ -83,6 +86,7 @@ function postPathFakes<R extends OrdersRepository>(
   const cosigner = new FakeCosigner()
   const tracking = new RecordingStartTracking()
   const chainOwners = overrides.chainOwners ?? allLegacy()
+  const providerMap = overrides.providerMap ?? MOCK_PROVIDER_MAP
 
   return {
     policy: { ...policy, getMaxOpenOrders: overrides.getMaxOpenOrders ?? policy.getMaxOpenOrders },
@@ -91,7 +95,8 @@ function postPathFakes<R extends OrdersRepository>(
       onChainValidatorMap: new OnChainValidatorMap<OrderValidator>([], () => onChainValidator),
       repository,
       analytics,
-      providerMap: overrides.providerMap ?? MOCK_PROVIDER_MAP,
+      providerMap,
+      swapperSignatureProbe: overrides.swapperSignatureProbe ?? new RpcSwapperSignatureProbe(providerMap),
       chainOwners,
       // The real start-tracking code over a recording Step Functions client; ARNs from setup-env.
       startTracking: new SfnStartTracking(overrides.startExecutionClient ?? tracking, getStateMachineArn, chainOwners),

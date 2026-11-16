@@ -29,6 +29,7 @@ import { SfnStartTracking } from '../../../lib/services/start-tracking'
 import { ChainId } from '../../../lib/util/chain'
 import { Permit2Validator } from '../../../lib/util/Permit2Validator'
 import { getStateMachineArn } from '../../../lib/util/stateMachineArn'
+import { RpcSwapperSignatureProbe } from '../../../lib/util/SwapperSignatureProbe'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { SDKDutchOrderV3Factory } from '../../factories/SDKDutchOrderV3Factory'
@@ -460,6 +461,7 @@ describe('OrderPoster', () => {
       getMaxOpenOrders: () => 10,
       analytics,
       providerMap: { get: () => mock<StaticJsonRpcProvider>() },
+      swapperSignatureProbe: new RpcSwapperSignatureProbe({ get: () => mock<StaticJsonRpcProvider>() }),
       chainOwners,
       startTracking: new SfnStartTracking(tracking, getStateMachineArn, chainOwners),
       createPriorityCosigner: () => cosigner,
@@ -743,6 +745,9 @@ describe('OrderPoster', () => {
         swapper: inner.info.swapper,
         orderType: OrderType.Dutch_V2,
         revertSelector: undefined,
+        swapperHasCode: undefined,
+        delegate: undefined,
+        erc1271Result: 'not_checked',
       })
       expect(repository.puts).toEqual([])
     })

@@ -8,6 +8,7 @@ import { ExclusiveFillerNotifier, OrderPoster } from '../../services/OrderPoster
 import { PostedOrderAnalytics } from '../../services/posted-order-analytics'
 import { StartTracking } from '../../services/start-tracking'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
+import { SwapperSignatureProbe } from '../../util/SwapperSignatureProbe'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { sendImmediateExclusiveFillerNotification } from '../order-notification/handler'
 import type { ProviderMap } from '../shared'
@@ -23,6 +24,7 @@ export type PostOrderDeps = {
   repository: BaseOrdersRepository<UniswapXOrderEntity>
   analytics: PostedOrderAnalytics
   providerMap: ProviderMap
+  swapperSignatureProbe: SwapperSignatureProbe
   // Shared with startTracking, so a post reads the owner file once.
   chainOwners: ChainOwners
   startTracking: StartTracking

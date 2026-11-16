@@ -51,6 +51,11 @@ export const RPC_PROVIDER_TIMEOUT_MS = 5_000
 // so a degraded RPC costs at most 1s of added latency per request.
 export const ONCHAIN_NONCE_CHECK_TIMEOUT_MS = 1_000
 
+// Total budget for the post path's ERC-1271 probe of a swapper (eth_getCode, then
+// eth_call isValidSignature), which runs only when the order quoter reverted without data.
+// On timeout the post keeps its UnknownError answer.
+export const SWAPPER_SIGNATURE_PROBE_TIMEOUT_MS = 2_000
+
 export const RPC_HEADERS: { [key: string]: string } = {
   'x-uni-service-id': 'x_order_service',
   // Authenticate RPC requests against internal providers. The value is provided
