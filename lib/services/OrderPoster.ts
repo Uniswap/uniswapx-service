@@ -37,6 +37,21 @@ import { StartTracking } from './start-tracking'
 // From a string: BigNumber.from(Number.MAX_SAFE_INTEGER) itself throws overflow.
 const MAX_SAFE_BLOCK = BigNumber.from(Number.MAX_SAFE_INTEGER.toString())
 
+// The order quoter's answer for one order. `validationErrorData` (the raw revert data) is set only by
+// SDK versions that report it.
+interface OnChainQuoteResult {
+  validation: OrderValidation
+  validationErrorData?: unknown
+}
+
+// The 4-byte error selector at the head of raw revert data, lowercased; undefined if there is none.
+function revertSelector(revertData: unknown): string | undefined {
+  if (typeof revertData !== 'string' || !/^0x[0-9a-fA-F]{8}/.test(revertData)) {
+    return undefined
+  }
+  return revertData.slice(0, 10).toLowerCase()
+}
+
 // The request a post runs for: its logs and metrics go to that request's own logger and metrics.
 export type PostContext = {
   logger: RequestLogger
@@ -109,7 +124,7 @@ export class OrderPoster {
 
     let orderEntity: UniswapXOrderEntity
     if (order instanceof LimitOrder || order instanceof DutchV2Order || order instanceof DutchV3Order) {
-      await this.validateOrder(ctx, order.inner, order.signature, order.chainId)
+      await this.validateOrder(ctx, order.inner, order.signature, order.chainId, order.orderType)
       orderEntity = toOrderEntity(order)
     } else if (order instanceof PriorityOrder) {
       // None of the off-chain checks read the cosigner data or cosignature (nor does the order
@@ -132,7 +147,13 @@ export class OrderPoster {
         auctionTargetBlock: cosignedOrder.inner.info.cosignerData.auctionTargetBlock.toString(),
       })
       // The order quoter checks the cosignature, so this half waits for it.
-      await this.validateOnChain(ctx, cosignedOrder.inner, cosignedOrder.signature, cosignedOrder.chainId)
+      await this.validateOnChain(
+        ctx,
+        cosignedOrder.inner,
+        cosignedOrder.signature,
+        cosignedOrder.chainId,
+        cosignedOrder.orderType
+      )
       orderEntity = toOrderEntity(cosignedOrder)
     } else {
       throw new Error('unsupported OrderType')
@@ -222,10 +243,11 @@ export class OrderPoster {
     ctx: PostContext,
     order: DutchOrder | CosignedV2DutchOrder | CosignedV3DutchOrder,
     signature: string,
-    chainId: number
+    chainId: number,
+    orderType: OrderType
   ): Promise<void> {
     this.validateOffChain(ctx, order, chainId)
-    await this.validateOnChain(ctx, order, signature, chainId)
+    await this.validateOnChain(ctx, order, signature, chainId, orderType)
   }
 
   private validateOffChain(
@@ -252,7 +274,8 @@ export class OrderPoster {
     ctx: PostContext,
     order: DutchOrder | CosignedV2DutchOrder | CosignedPriorityOrder | CosignedV3DutchOrder,
     signature: string,
-    chainId: number
+    chainId: number,
+    orderType: OrderType
   ): Promise<void> {
     const token = order.info.input.token
 
@@ -296,10 +319,27 @@ export class OrderPoster {
       }
     } else {
       const onChainValidator = this.deps.onChainValidatorMap.get(chainId)
-      const onChainValidationResult = await onChainValidator.validate({ order: order, signature: signature })
+      // quote() rather than validate(): the same simulation, but its result can carry the revert data.
+      const quoteResult: OnChainQuoteResult = await onChainValidator.quote({ order: order, signature: signature })
+      const onChainValidationResult = quoteResult.validation
       // Still considered valid
       if (order instanceof CosignedPriorityOrder && onChainValidationResult == OrderValidation.OrderNotFillableYet)
         return
+
+      if (onChainValidationResult === OrderValidation.UnknownError) {
+        const selector = revertSelector(quoteResult.validationErrorData)
+        // An error the SDK does not map: the selector is the only lead on the real reason.
+        ctx.logger.warn('onchain validation failed: UnknownError', {
+          chainId,
+          orderHash: order.hash(),
+          swapper: order.info.swapper,
+          orderType,
+          revertSelector: selector,
+        })
+        throw new OrderValidationFailedError(
+          `Onchain validation failed: UnknownError${selector ? ` (revert ${selector})` : ''}`
+        )
+      }
 
       if (onChainValidationResult !== OrderValidation.OK) {
         const failureReason = OrderValidation[onChainValidationResult]

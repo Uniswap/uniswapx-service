@@ -1,5 +1,8 @@
+import { Logger } from '@aws-lambda-powertools/logger'
 import { OrderType, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { APIGatewayProxyEvent } from 'aws-lambda'
+import { utils } from 'ethers'
+import { mock } from 'jest-mock-extended'
 import { toOrderEntity } from '../../../../lib/core/orders/storedRow'
 import { UniswapXOrderEntity } from '../../../../lib/entities'
 import { ErrorCode } from '../../../../lib/handlers/base'
@@ -34,6 +37,8 @@ type RouteCase = {
   suite: string
   route: PostOrderRoute
   maxOpenOrders: number
+  // The order type the route's posts parse to.
+  orderType: OrderType
   post: (swapper?: string) => RoutePost
 }
 
@@ -42,6 +47,7 @@ const ROUTES: RouteCase[] = [
     suite: 'Testing post order handler.',
     route: DUTCH_AUCTION_ORDER_ROUTE,
     maxOpenOrders: DEFAULT_MAX_OPEN_ORDERS,
+    orderType: OrderType.Dutch_V2,
     post: (swapper) => {
       const order = new DutchV2Order(
         SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET, swapper ? { swapper } : {}),
@@ -67,6 +73,7 @@ const ROUTES: RouteCase[] = [
     suite: 'Testing post limit order handler.',
     route: LIMIT_ORDER_ROUTE,
     maxOpenOrders: DEFAULT_MAX_OPEN_LIMIT_ORDERS,
+    orderType: OrderType.Limit,
     post: (swapper) => {
       const order = SDKDutchOrderFactory.buildLimitOrder(ChainId.MAINNET, swapper ? { swapper } : {})
       return {
@@ -80,7 +87,7 @@ const ROUTES: RouteCase[] = [
 
 const HIGH_LIST_SWAPPER = HIGH_MAX_OPEN_ORDERS_SWAPPERS[0]
 
-describe.each(ROUTES)('$suite', ({ route, maxOpenOrders, post }) => {
+describe.each(ROUTES)('$suite', ({ route, maxOpenOrders, orderType, post }) => {
   let harness: PostOrderHandlerHarness
   const handle = (event: APIGatewayProxyEvent) => harness.handler.handler(event, EVENT_CONTEXT)
 
@@ -226,6 +233,46 @@ describe.each(ROUTES)('$suite', ({ route, maxOpenOrders, post }) => {
           'Content-Type': 'application/json',
         },
       })
+    })
+
+    it('an unknown on-chain error is logged on the request logger and answered 400 with its revert selector', async () => {
+      const children: { options: unknown; logger: ReturnType<typeof mock<Logger>> }[] = []
+      const createChild = jest.spyOn(log, 'createChild').mockImplementation((options) => {
+        const logger = mock<Logger>()
+        children.push({ options, logger })
+        return logger
+      })
+      try {
+        harness.onChainValidator.result = OrderValidation.UnknownError
+        // Permit2's InvalidContractSignature() revert data.
+        harness.onChainValidator.revertData = utils.id('InvalidContractSignature()').slice(0, 10)
+        const { request, entity } = post()
+
+        const postOrderResponse = await handle(request)
+
+        expect(postOrderResponse.statusCode).toBe(HttpStatusCode.BadRequest)
+        expect(JSON.parse(postOrderResponse.body)).toEqual({
+          detail: 'Onchain validation failed: UnknownError (revert 0xb0669cbc)',
+          errorCode: ErrorCode.InvalidOrder,
+          id: 'testRequest',
+        })
+        // The request's own logger: every line it writes carries the Lambda request id.
+        const requestLoggers = children.filter(
+          ({ options }) =>
+            JSON.stringify(options) === JSON.stringify({ persistentLogAttributes: { requestId: 'testRequest' } })
+        )
+        expect(requestLoggers).toHaveLength(1)
+        expect(requestLoggers[0].logger.warn).toHaveBeenCalledWith('onchain validation failed: UnknownError', {
+          chainId: entity.chainId,
+          orderHash: entity.orderHash,
+          swapper: expect.stringMatching(new RegExp(`^${entity.offerer}$`, 'i')),
+          orderType,
+          revertSelector: '0xb0669cbc',
+        })
+        expect(harness.repository.puts).toEqual([])
+      } finally {
+        createChild.mockRestore()
+      }
     })
 
     it('on-chain validation failed; throws 400', async () => {

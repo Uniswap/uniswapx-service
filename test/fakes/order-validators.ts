@@ -1,5 +1,5 @@
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
-import { OrderValidation, OrderValidator, SignedUniswapXOrder } from '@uniswap/uniswapx-sdk'
+import { OrderValidation, OrderValidator, SignedUniswapXOrder, UniswapXOrderQuote } from '@uniswap/uniswapx-sdk'
 import { ChainId } from '../../lib/util/chain'
 import {
   OffChainOrderValidatorConfig,
@@ -25,20 +25,26 @@ export class FakeOffChainValidator extends OffChainUniswapXOrderValidator {
   }
 }
 
-// Never dialled: the SDK quoter needs a provider to construct, and validate() is overridden.
+// Never dialled: the SDK quoter needs a provider to construct, and quote() is overridden.
 const UNREACHABLE_RPC_URL = 'http://127.0.0.1:1'
 
-// The order quoter's onchain simulation, answering `result` for every order on every chain.
+// The order quoter's onchain simulation, answering `result` for every order on every chain. Given
+// `revertData`, the answer carries it as an SDK that reports raw revert data would.
 export class FakeOnChainValidator extends OrderValidator {
   public readonly calls: SignedUniswapXOrder[] = []
   public result: OrderValidation = OrderValidation.OK
+  public revertData?: string
 
   constructor() {
     super(new StaticJsonRpcProvider(UNREACHABLE_RPC_URL, ChainId.MAINNET), ChainId.MAINNET)
   }
 
-  override async validate(order: SignedUniswapXOrder): Promise<OrderValidation> {
+  override async quote(order: SignedUniswapXOrder): Promise<UniswapXOrderQuote> {
     this.calls.push(order)
-    return this.result
+    return {
+      validation: this.result,
+      quote: undefined,
+      ...(this.revertData !== undefined && { validationErrorData: this.revertData }),
+    }
   }
 }

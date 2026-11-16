@@ -7,9 +7,10 @@ import {
   OrderValidation,
   PermissionedTokenValidator,
   CosignedPriorityOrder as SDKPriorityOrder,
+  UniswapXOrderQuote,
 } from '@uniswap/uniswapx-sdk'
 import { Unit } from 'aws-embedded-metrics'
-import { BigNumber, constants } from 'ethers'
+import { BigNumber, constants, utils } from 'ethers'
 import { mock } from 'jest-mock-extended'
 import { ChainOwner, ChainOwners, GetObjectClient, LEGACY_OWNER, S3ChainOwners } from '../../../lib/chain-owners/owners'
 import { OrderValidationFailedError } from '../../../lib/errors/OrderValidationFailedError'
@@ -40,7 +41,7 @@ import { FakeOffChainValidator, FakeOnChainValidator } from '../../fakes/order-v
 import { TEST_STORE_CONTEXT } from '../../fakes/orders-repository'
 import { SilentServer, silentServerClientOptions } from '../../fakes/silent-server'
 import { makePostOrderService } from '../builders/post-path'
-import { TestWallets, Tokens, ZERO_SIGNATURE } from '../fixtures'
+import { SIGNATURE, TestWallets, Tokens, ZERO_SIGNATURE } from '../fixtures'
 
 // Start tracking rebuilds the state machine ARN from the env set below (see
 // lib/util/stateMachineArn.ts).
@@ -159,8 +160,8 @@ describe('OrderPoster', () => {
 
     class GatedOnChainValidator extends FakeOnChainValidator {
       public readonly gate = gate()
-      override async validate(...args: Parameters<FakeOnChainValidator['validate']>): Promise<OrderValidation> {
-        const result = super.validate(...args)
+      override async quote(...args: Parameters<FakeOnChainValidator['quote']>): Promise<UniswapXOrderQuote> {
+        const result = super.quote(...args)
         await this.gate.opened
         return result
       }
@@ -712,6 +713,123 @@ describe('OrderPoster', () => {
         (onChainValidator.calls[0].order as SDKPriorityOrder).info.cosignerData.auctionTargetBlock.toNumber()
       ).toBe(30_000_000 + MAINNET_TARGET_BLOCK_BUFFER)
       expect(repository.puts).toEqual([])
+    })
+  })
+
+  describe('an order the order quoter rejects with an error the SDK does not map', () => {
+    const UNKNOWN_ERROR_LOG = 'onchain validation failed: UnknownError'
+    // Permit2's InvalidContractSignature() revert, as the quoter returns it when a smart wallet's
+    // ERC-1271 isValidSignature rejects the signature. The expected selectors below are literals.
+    const INVALID_CONTRACT_SIGNATURE_REVERT = utils.id('InvalidContractSignature()').slice(0, 10)
+
+    // The quoter answers as soon as it is called, so its revert data is set before the post.
+    const postDutchV2 = (revertData?: string) => {
+      const harness = makePostOrderService({ getMaxOpenOrders: () => 10 })
+      harness.onChainValidator.result = OrderValidation.UnknownError
+      harness.onChainValidator.revertData = revertData
+      const inner = SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET)
+      const created = harness.service.createOrder(new DutchV2Order(inner, SIGNATURE, ChainId.MAINNET))
+      return { ...harness, inner, created }
+    }
+
+    test('logs who posted what, and rejects with the unchanged message, when the SDK reports no revert data', async () => {
+      const { logger, repository, inner, created } = postDutchV2()
+
+      await expect(created).rejects.toThrow(new OrderValidationFailedError('Onchain validation failed: UnknownError'))
+
+      expect(logger.warn).toHaveBeenCalledWith(UNKNOWN_ERROR_LOG, {
+        chainId: ChainId.MAINNET,
+        orderHash: inner.hash(),
+        swapper: inner.info.swapper,
+        orderType: OrderType.Dutch_V2,
+        revertSelector: undefined,
+      })
+      expect(repository.puts).toEqual([])
+    })
+
+    test('logs the revert selector and appends it to the message when the SDK reports revert data', async () => {
+      const { logger, created } = postDutchV2(INVALID_CONTRACT_SIGNATURE_REVERT)
+
+      await expect(created).rejects.toThrow(
+        new OrderValidationFailedError('Onchain validation failed: UnknownError (revert 0xb0669cbc)')
+      )
+      expect(logger.warn).toHaveBeenCalledWith(
+        UNKNOWN_ERROR_LOG,
+        expect.objectContaining({ revertSelector: '0xb0669cbc' })
+      )
+    })
+
+    test('logs only the selector of revert data that carries arguments, lowercased', async () => {
+      const { logger, created } = postDutchV2(`0xDEADBEEF${'00'.repeat(31)}01`)
+
+      await expect(created).rejects.toThrow('Onchain validation failed: UnknownError (revert 0xdeadbeef)')
+      expect(logger.warn).toHaveBeenCalledWith(
+        UNKNOWN_ERROR_LOG,
+        expect.objectContaining({ revertSelector: '0xdeadbeef' })
+      )
+    })
+
+    test.each([['0x'], ['0x1234'], ['not hex at all']])(
+      'logs no selector for revert data too short or malformed to hold one (%s)',
+      async (revertData) => {
+        const { logger, created } = postDutchV2(revertData)
+
+        await expect(created).rejects.toThrow(new OrderValidationFailedError('Onchain validation failed: UnknownError'))
+        expect(logger.warn).toHaveBeenCalledWith(
+          UNKNOWN_ERROR_LOG,
+          expect.objectContaining({ revertSelector: undefined })
+        )
+      }
+    )
+
+    test('never logs the signature or the encoded order', async () => {
+      const { logger, inner, created } = postDutchV2(INVALID_CONTRACT_SIGNATURE_REVERT)
+
+      await expect(created).rejects.toBeInstanceOf(OrderValidationFailedError)
+      const logged = JSON.stringify(jest.mocked(logger.warn).mock.calls)
+      expect(logged).toContain(UNKNOWN_ERROR_LOG)
+      expect(logged).not.toContain(SIGNATURE.slice(2))
+      expect(logged).not.toContain(inner.serialize().slice(2))
+    })
+
+    test('logs the order type of the order posted', async () => {
+      const { service, onChainValidator, logger } = makePostOrderService({ getMaxOpenOrders: () => 10 })
+      onChainValidator.result = OrderValidation.UnknownError
+
+      await expect(
+        service.createOrder(new LimitOrder(SDKDutchOrderFactory.buildLimitOrder(), SIGNATURE, ChainId.MAINNET))
+      ).rejects.toBeInstanceOf(OrderValidationFailedError)
+      expect(logger.warn).toHaveBeenCalledWith(
+        UNKNOWN_ERROR_LOG,
+        expect.objectContaining({ orderType: OrderType.Limit })
+      )
+    })
+
+    test.each([OrderValidation.ValidationFailed, OrderValidation.InvalidSignature, OrderValidation.Expired])(
+      'a mapped rejection (%s) keeps its message and does not take the unknown-error path',
+      async (validation) => {
+        const { service, onChainValidator, logger } = makePostOrderService({ getMaxOpenOrders: () => 10 })
+        onChainValidator.result = validation
+        onChainValidator.revertData = INVALID_CONTRACT_SIGNATURE_REVERT
+
+        await expect(
+          service.createOrder(
+            new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET), SIGNATURE, ChainId.MAINNET)
+          )
+        ).rejects.toThrow(new OrderValidationFailedError(`Onchain validation failed: ${OrderValidation[validation]}`))
+        expect(logger.warn).not.toHaveBeenCalledWith(UNKNOWN_ERROR_LOG, expect.anything())
+      }
+    )
+
+    test('an accepted order does not take the unknown-error path', async () => {
+      const { service, logger, repository } = makePostOrderService({ getMaxOpenOrders: () => 10 })
+
+      await service.createOrder(
+        new DutchV2Order(SDKDutchOrderV2Factory.buildDutchV2Order(ChainId.MAINNET), SIGNATURE, ChainId.MAINNET)
+      )
+
+      expect(repository.puts).toHaveLength(1)
+      expect(logger.warn).not.toHaveBeenCalledWith(UNKNOWN_ERROR_LOG, expect.anything())
     })
   })
 
