@@ -18,6 +18,7 @@ import { cosignersFromEnv } from '../../util/cosigners'
 import { OffChainUniswapXOrderValidator } from '../../util/OffChainUniswapXOrderValidator'
 import { STAGE } from '../../util/stage'
 import { getStateMachineArn } from '../../util/stateMachineArn'
+import { RpcSwapperSignatureProbe } from '../../util/SwapperSignatureProbe'
 import { OnChainValidatorMap } from '../OnChainValidatorMap'
 import { LazyProviderMap } from '../shared'
 import { sharedFirehoseRecordWriter } from '../shared/firehose'
@@ -45,6 +46,7 @@ export function buildPostOrderLambda(policy: PostRoutePolicy): PostOrderHandler 
     repository: policy.createRepository(new DynamoDB.DocumentClient()),
     analytics: postedOrderAnalyticsFromEnv(),
     providerMap,
+    swapperSignatureProbe: new RpcSwapperSignatureProbe(providerMap),
     chainOwners,
     startTracking: new SfnStartTracking(sharedStartExecutionClient, getStateMachineArn, chainOwners),
     createPriorityCosigner,
