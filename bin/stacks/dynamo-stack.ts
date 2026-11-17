@@ -93,6 +93,7 @@ export class DynamoStack extends cdk.NestedStack {
     this.alarmsPerTable(this.ordersTable, 'Orders', tableCapacityConfig.order, notifier)
     this.alarmsPerTable(this.limitOrdersTable, 'LimitOrders', tableCapacityConfig.limitOrder, notifier)
     this.hotIndexAlarms(this.ordersTable, 'Orders', notifier)
+    this.hotIndexAlarms(this.limitOrdersTable, 'LimitOrders', notifier)
 
     // UserErrors has no table dimension: it counts 4xx errors across every table in the account and
     // region, so one alarm covers all three tables. Per-table copies were identical and posted the
@@ -205,6 +206,11 @@ export class DynamoStack extends cdk.NestedStack {
    * Aug 31 and Sep 2 outages, which the Get Orders throttle alarm already pages on, so these are
    * SEV3. chainId-createdAt-all is left out: it has throttled most days since Sep 7 and would sit
    * in ALARM for hundreds of hours at any threshold that still catches an outage.
+   *
+   * LimitOrders gets the same alarms because limit-order fillers poll the same two indexes there,
+   * and the live set they page through grows with every chain that takes limit orders. Its
+   * chainId_orderStatus index logged one throttle event in the 30 days to Nov 17, so the Orders
+   * thresholds leave it quiet today.
    */
   private hotIndexAlarms(table: aws_dynamo.Table, name: string, notifier: AlarmNotifier): void {
     const hotIndexes = [gsiName(TABLE_KEY.CHAIN_ID_ORDER_STATUS), gsiName(TABLE_KEY.ORDER_STATUS)]

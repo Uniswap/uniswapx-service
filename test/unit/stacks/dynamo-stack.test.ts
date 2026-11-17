@@ -108,6 +108,8 @@ describe('DynamoStack alarms', () => {
     const { alarms } = build()
     expect(alarms.map((a) => a.Properties.AlarmName).sort()).toEqual([
       'GoudaService-SEV3-DynamoDB-UserErrorsAlarm',
+      'GoudaService-SEV3-LimitOrders-GSI-chainId_orderStatus-createdAt-all-ReadThrottles',
+      'GoudaService-SEV3-LimitOrders-GSI-orderStatus-createdAt-all-ReadThrottles',
       'GoudaService-SEV3-LimitOrders-ReadThrottlesAlarm',
       'GoudaService-SEV3-LimitOrders-SystemErrorsAlarm',
       'GoudaService-SEV3-LimitOrders-WriteThrottlesAlarm',
@@ -170,14 +172,19 @@ describe('DynamoStack alarms', () => {
     }
   })
 
-  it('alarms on sustained read throttles for the hot status GSIs of the Orders table', () => {
+  it('alarms on sustained read throttles for the hot status GSIs of both order tables', () => {
     const { alarms } = build()
     const gsiAlarms = byName(alarms, 'GSI-')
-    const indexes = gsiAlarms
-      .map((a) => a.Properties.Dimensions?.find((d) => d.Name === 'GlobalSecondaryIndexName')?.Value)
-      .sort()
+    expect(gsiAlarms).toHaveLength(4)
+    const indexesOf = (table: string) =>
+      gsiAlarms
+        .filter((a) => JSON.stringify(a.Properties.AlarmName).includes(`-${table}-GSI-`))
+        .map((a) => a.Properties.Dimensions?.find((d) => d.Name === 'GlobalSecondaryIndexName')?.Value)
+        .sort()
     // chainId-createdAt-all throttles most days and is deliberately not alarmed.
-    expect(indexes).toEqual(['chainId_orderStatus-createdAt-all', 'orderStatus-createdAt-all'])
+    for (const table of ['Orders', 'LimitOrders']) {
+      expect(indexesOf(table)).toEqual(['chainId_orderStatus-createdAt-all', 'orderStatus-createdAt-all'])
+    }
     for (const alarm of gsiAlarms) {
       expect(alarm.Properties).toMatchObject({
         MetricName: 'ReadThrottleEvents',
