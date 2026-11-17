@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import { Template } from 'aws-cdk-lib/assertions'
+import { PROD_TABLE_CAPACITY } from '../../../bin/config'
 import { DynamoStack, TableCapacityConfig } from '../../../bin/stacks/dynamo-stack'
 
 const CHATBOT = 'arn:aws:sns:us-east-2:111111111111:SlackChatbotTopic'
@@ -77,6 +78,30 @@ describe('DynamoStack tables', () => {
 
   it('gives Nonces no GSIs', () => {
     expect(tables()['Nonces'].GlobalSecondaryIndexes).toBeUndefined()
+  })
+
+  it('runs every prod table on demand, with no provisioned capacity or capacity alarms', () => {
+    const app = new cdk.App()
+    const parent = new cdk.Stack(app, 'TestParent', { env: { account: '111111111111', region: 'us-east-2' } })
+    const template = Template.fromStack(
+      new DynamoStack(parent, 'TestDynamo', { tableCapacityConfig: PROD_TABLE_CAPACITY })
+    )
+    const prodTables = Object.values(template.findResources('AWS::DynamoDB::Table'))
+    expect(prodTables.map((t) => t.Properties.TableName).sort()).toEqual(['LimitOrders', 'Nonces', 'Orders'])
+    for (const table of prodTables) {
+      expect(table.Properties.BillingMode).toEqual('PAY_PER_REQUEST')
+      expect(table.Properties.ProvisionedThroughput).toBeUndefined()
+    }
+    const alarmNames = Object.values(template.findResources('AWS::CloudWatch::Alarm')).map((a) =>
+      JSON.stringify(a.Properties.AlarmName)
+    )
+    expect(alarmNames.filter((name) => name.includes('CapacityAlarm'))).toEqual([])
+    // The throttle alarms are what watch an on-demand table.
+    expect(alarmNames.filter((name) => name.includes('Nonces-')).sort()).toEqual([
+      '"GoudaService-SEV3-Nonces-ReadThrottlesAlarm"',
+      '"GoudaService-SEV3-Nonces-SystemErrorsAlarm"',
+      '"GoudaService-SEV3-Nonces-WriteThrottlesAlarm"',
+    ])
   })
 })
 
