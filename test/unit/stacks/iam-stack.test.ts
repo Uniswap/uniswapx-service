@@ -8,9 +8,12 @@ import {
   IamStack,
   ORDERS_WRITE_ACTIONS,
   OWNER_FILE_READ_ACTIONS,
+  POSTED_ORDERS_PUT_ACTIONS,
   SHADOW_READ_ACTIONS,
   START_TRACKING_ACTIONS,
   STREAM_READ_ACTIONS,
+  WEBHOOK_LIST_READ_ACTIONS,
+  webhookListLocation,
 } from '../../../bin/stacks/iam-stack'
 import { STAGE } from '../../../lib/util/stage'
 
@@ -43,6 +46,7 @@ function buildTemplate(stage: STAGE): Template {
 }
 
 type Statement = {
+  Sid?: string
   Effect: string
   Action: string | string[]
   Resource: unknown
@@ -81,6 +85,22 @@ function expectOwnerFileOnly(statement: Statement) {
   expect(rendered).toContain('/chain-owners.json')
   // Only a bucket this account owns: a squatted bucket with the derived name is never read.
   expect(statement.Condition).toEqual({ StringEquals: { 's3:ResourceAccount': { Ref: 'AWS::AccountId' } } })
+}
+
+// The write role has two s3:GetObject statements; the webhook list's carries a Sid, the owner file's doesn't.
+const WEBHOOK_LIST_SID = 'ReadWebhookList'
+
+function ownerFileStatement(statements: Statement[]): Statement {
+  return withAction(
+    statements.filter((s) => s.Sid !== WEBHOOK_LIST_SID),
+    's3:GetObject'
+  )
+}
+
+function webhookListStatement(statements: Statement[]): Statement {
+  const matching = statements.filter((s) => s.Sid === WEBHOOK_LIST_SID)
+  expect(matching).toHaveLength(1)
+  return matching[0]
 }
 
 describe('IamStack', () => {
@@ -149,18 +169,71 @@ describe('IamStack', () => {
     expectOwnerFileOnly(withAction(statements, 's3:GetObject'))
   })
 
-  it('orders-write: conditional writes on the three tables, starting a tracking run, and the owner file', () => {
+  it('orders-write: conditional writes on the three tables, starting a tracking run, the owner file, the webhook list and the posted-orders stream', () => {
     const statements = statementsOf(prod, /OrdersWrite/)
-    expect(statements).toHaveLength(3)
+    expect(statements).toHaveLength(5)
     expect(actionsOf(statements)).toEqual(
-      [...ORDERS_WRITE_ACTIONS, ...START_TRACKING_ACTIONS, ...OWNER_FILE_READ_ACTIONS].sort()
+      [
+        ...ORDERS_WRITE_ACTIONS,
+        ...START_TRACKING_ACTIONS,
+        ...OWNER_FILE_READ_ACTIONS,
+        ...WEBHOOK_LIST_READ_ACTIONS,
+        ...POSTED_ORDERS_PUT_ACTIONS,
+      ].sort()
     )
     const tableStmt = withAction(statements, 'dynamodb:PutItem')
     expect(resourcesOf(tableStmt)).toHaveLength(5)
     expect(JSON.stringify(tableStmt.Resource)).toContain('Nonces')
     // Exactly the tracking state machines, never a wildcard.
     expect(withAction(statements, 'states:StartExecution').Resource).toEqual(STATE_MACHINE_ARNS)
-    expectOwnerFileOnly(withAction(statements, 's3:GetObject'))
+    expectOwnerFileOnly(ownerFileStatement(statements))
+  })
+
+  it('orders-write reads only the webhook list object of its own stage, in a bucket this account owns', () => {
+    // The object the stage's post and notification Lambdas read (post-order/lambda.ts, order-notification/injector.ts).
+    expect(webhookListLocation(STAGE.PROD)).toEqual({
+      bucket: 'order-webhook-notification-config-prod-1',
+      key: 'production.json',
+    })
+    expect(webhookListLocation(STAGE.BETA)).toEqual({
+      bucket: 'order-webhook-notification-config-beta-1',
+      key: 'beta.json',
+    })
+    const cases: [Template, string][] = [
+      [prod, 'arn:aws:s3:::order-webhook-notification-config-prod-1/production.json'],
+      [buildTemplate(STAGE.BETA), 'arn:aws:s3:::order-webhook-notification-config-beta-1/beta.json'],
+    ]
+    for (const [template, arn] of cases) {
+      const statement = webhookListStatement(statementsOf(template, /OrdersWrite/))
+      expect(statement.Action).toEqual('s3:GetObject')
+      // One object, never the bucket or a prefix: each bucket also holds the other stage's list.
+      expect(statement.Resource).toEqual(arn)
+      expect(statement.Condition).toEqual({ StringEquals: { 's3:ResourceAccount': { Ref: 'AWS::AccountId' } } })
+    }
+  })
+
+  it('orders-write puts records only on the posted-orders stream of its own stage', () => {
+    const cases: [Template, string][] = [
+      [prod, 'GoudaService-prod-PostedOrdersDirect'],
+      [buildTemplate(STAGE.BETA), 'GoudaService-beta-PostedOrdersDirect'],
+    ]
+    for (const [template, streamName] of cases) {
+      const statement = withAction(statementsOf(template, /OrdersWrite/), 'firehose:PutRecordBatch')
+      expect(statement.Action).toEqual([...POSTED_ORDERS_PUT_ACTIONS])
+      const resources = resourcesOf(statement)
+      expect(resources).toHaveLength(1)
+      // This account's stream: the ARN renders as a join on the deploying account and region.
+      const rendered = JSON.stringify(resources[0])
+      expect(rendered).toContain(':firehose:')
+      expect(rendered).toContain('AWS::AccountId')
+      expect(rendered).toContain(`:deliverystream/${streamName}"`)
+    }
+  })
+
+  it('shadow-read gets neither the webhook list nor the posted-orders stream', () => {
+    const rendered = JSON.stringify(statementsOf(prod, /ShadowRead/))
+    expect(rendered).not.toContain('order-webhook-notification-config')
+    expect(rendered).not.toContain('firehose')
   })
 
   it('reaches Nonces by its own table ARN only, with no index or stream', () => {
@@ -174,13 +247,14 @@ describe('IamStack', () => {
     }
   })
 
-  it('grants no Step Functions action but StartExecution and no S3 action but GetObject', () => {
+  it('grants no Step Functions action but StartExecution, no S3 action but GetObject and no Firehose action but puts', () => {
     const all = Object.values(prod.findResources('AWS::IAM::Policy')).flatMap(
       (p) => p.Properties.PolicyDocument.Statement as Statement[]
     )
     const actions = actionsOf(all)
     expect(actions.filter((a) => a.startsWith('states:'))).toEqual(['states:StartExecution'])
     expect(new Set(actions.filter((a) => a.startsWith('s3:')))).toEqual(new Set(['s3:GetObject']))
+    expect(actions.filter((a) => a.startsWith('firehose:'))).toEqual(['firehose:PutRecord', 'firehose:PutRecordBatch'])
     for (const action of actions) {
       expect(action).not.toContain('*')
     }
