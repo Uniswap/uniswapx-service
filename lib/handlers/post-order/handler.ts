@@ -14,6 +14,7 @@ import {
   ApiRInj,
   ErrorCode,
   ErrorResponse,
+  INTERNAL_ERROR_DETAIL,
   RequestMetricsConfig,
   Response,
 } from '../base'
@@ -113,10 +114,13 @@ export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderReques
         }
       }
 
+      // The error's own text goes to the log, cut down, and not to the caller: an RPC provider's
+      // error message carries the RPC URL and the request it sent.
+      log.error({ error: loggableError(err) }, 'Unexpected error posting order')
       return {
         statusCode: HttpStatusCode.InternalServerError,
         errorCode: ErrorCode.InternalError,
-        ...(err instanceof Error && { detail: err.message }),
+        detail: INTERNAL_ERROR_DETAIL,
       }
     }
   }
@@ -135,5 +139,30 @@ export class PostOrderHandler extends APIGLambdaHandler<ApiRInj, PostOrderReques
 
   protected requestMetricsConfig(): RequestMetricsConfig {
     return { prefix: 'PostOrder', chainIdFrom: 'body' }
+  }
+}
+
+type LoggableError = { name?: string; code?: unknown; message: string; stack?: string; cause?: LoggableError }
+
+// How deep to follow an error's `error` causes; ethers nests two or three.
+const MAX_LOGGED_CAUSES = 3
+
+/**
+ * What of an unexpected error is safe to log. An RPC provider's error puts the RPC URL and the
+ * request body in its message (on this path the body can hold the order's signature) and keeps
+ * the same text without them as `reason`, so that is what is logged for one, with no stack: the
+ * stack starts with the message. Its `error` cause is described the same way.
+ */
+function loggableError(err: unknown, depth = 0): LoggableError {
+  if (!(err instanceof Error)) {
+    return { message: String(err) }
+  }
+  const reason: unknown = Reflect.get(err, 'reason')
+  const cause: unknown = Reflect.get(err, 'error')
+  return {
+    name: err.name,
+    code: Reflect.get(err, 'code'),
+    ...(typeof reason === 'string' ? { message: reason } : { message: err.message, stack: err.stack }),
+    ...(cause instanceof Error && depth < MAX_LOGGED_CAUSES && { cause: loggableError(cause, depth + 1) }),
   }
 }
