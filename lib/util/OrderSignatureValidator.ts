@@ -13,7 +13,7 @@ export function isErc1271MagicValue(result: string): boolean {
   return ethers.utils.hexDataLength(result) >= 32 && ethers.utils.hexDataSlice(result, 0, 4) === ERC1271_MAGIC_VALUE
 }
 
-export type SignatureCheckProvider = Pick<ethers.providers.Provider, 'getCode' | 'call'>
+export type SignatureCheckProvider = Pick<ethers.providers.JsonRpcProvider, 'getCode' | 'send'>
 
 /**
  * Authenticates an order offchain the way the reactor and Permit2 do onchain, for orders the
@@ -27,8 +27,11 @@ export type SignatureCheckProvider = Pick<ethers.providers.Provider, 'getCode' |
  *   the order's cosigner. Whether that cosigner is the expected one is the offchain
  *   validator's check.
  *
- * A provider failure while asking a contract wallet propagates: it is not an answer about the
- * signature, and the caller treats it like any other RPC failure.
+ * Asking a contract wallet ends one of three ways. It returns, and the reply is judged. It
+ * reverts, which is a refusal, whatever data the revert carries: Permit2 reverts with it
+ * onchain. Or the node never gives an answer (a timeout, an HTTP error, a rate limit, an
+ * internal error), which says nothing about the signature: that failure propagates, and the
+ * caller treats it like any other RPC failure.
  */
 export class OrderSignatureValidator {
   constructor(private readonly provider: SignatureCheckProvider) {}
@@ -48,26 +51,48 @@ export class OrderSignatureValidator {
     }
     const { domain, types, values } = order.permitData()
     const digest = ethers.utils._TypedDataEncoder.hash(domain, types, values)
+    const data = ERC1271_INTERFACE.encodeFunctionData('isValidSignature', [digest, signature])
+    let result: unknown
     try {
-      const result = await this.provider.call({
-        to: swapper,
-        data: ERC1271_INTERFACE.encodeFunctionData('isValidSignature', [digest, signature]),
-      })
-      return isErc1271MagicValue(result)
+      // The raw eth_call, not provider.call: that one hands a revert's data back as the call's
+      // result and gives every failure the code of a revert, so the three outcomes look alike.
+      result = await this.provider.send('eth_call', [{ to: swapper, data }, 'latest'])
     } catch (err) {
-      // A revert is the contract rejecting the signature; anything else is the RPC failing to
-      // answer.
-      if (isRevert(err)) {
+      if (isNodeRevert(err)) {
         return false
       }
       throw err
     }
+    if (typeof result !== 'string') {
+      throw new Error('eth_call returned no data for isValidSignature')
+    }
+    return isErc1271MagicValue(result)
   }
 }
 
-function isRevert(err: unknown): boolean {
-  const code = typeof err === 'object' && err !== null && 'code' in err ? Reflect.get(err, 'code') : undefined
-  return code === ethers.errors.CALL_EXCEPTION
+// How deep to follow an error's `error` causes; ethers nests two or three.
+const MAX_CAUSE_DEPTH = 5
+
+/**
+ * Whether an error from the provider is the node itself saying the call reverted: a JSON-RPC
+ * error (numeric code) whose message says so, found on the error or among its `error` causes,
+ * where ethers puts it. A timeout, a network error, an HTTP error and any other JSON-RPC error
+ * (a rate limit, say) are not reverts.
+ */
+export function isNodeRevert(err: unknown): boolean {
+  let cause = err
+  for (let depth = 0; depth <= MAX_CAUSE_DEPTH && cause !== undefined; depth++) {
+    const message = field(cause, 'message')
+    if (typeof field(cause, 'code') === 'number' && typeof message === 'string' && /revert/i.test(message)) {
+      return true
+    }
+    cause = field(cause, 'error')
+  }
+  return false
+}
+
+function field(value: unknown, key: string): unknown {
+  return typeof value === 'object' && value !== null ? Reflect.get(value, key) : undefined
 }
 
 /**

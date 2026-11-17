@@ -11,12 +11,15 @@ import Joi from 'joi'
 import { setGlobalMetrics } from '../../util/metrics'
 import { ErrorCode } from './ErrorCode'
 import { buildRequestContext, emitRequestMetrics, RequestContext, RequestMetricsConfig } from './request-context'
+// All a 500 says about its cause. The error's own text is for the logs.
+export const INTERNAL_ERROR_DETAIL = 'Unexpected error'
+
 export const INTERNAL_ERROR = (id?: string) => {
   return {
     statusCode: 500,
     body: JSON.stringify({
       errorCode: ErrorCode.InternalError,
-      detail: 'Unexpected error',
+      detail: INTERNAL_ERROR_DETAIL,
       id,
     }),
   }
@@ -114,8 +117,12 @@ export abstract class APIGLambdaHandler<RInj extends ApiRInj, ReqBody, ReqQueryP
         let log: Logger = bunyan.createLogger({
           name: this.handlerName,
           serializers: bunyan.stdSerializers,
-          level: process.env.NODE_ENV == 'test' ? bunyan.FATAL + 1 :
-            process.env.NODE_ENV == 'debug' ? bunyan.DEBUG : bunyan.INFO,
+          level:
+            process.env.NODE_ENV == 'test'
+              ? bunyan.FATAL + 1
+              : process.env.NODE_ENV == 'debug'
+              ? bunyan.DEBUG
+              : bunyan.INFO,
           requestId: context.awsRequestId,
         })
 
@@ -238,11 +245,7 @@ export abstract class APIGLambdaHandler<RInj extends ApiRInj, ReqBody, ReqQueryP
    * The handler's own per-request values, from the validated request, on top of the request's id
    * and logger. Runs after validation; a throw here is a 500.
    */
-  protected abstract buildRequestInjected(
-    base: ApiRInj,
-    requestBody: ReqBody,
-    requestQueryParams: ReqQueryParams
-  ): RInj
+  protected abstract buildRequestInjected(base: ApiRInj, requestBody: ReqBody, requestQueryParams: ReqQueryParams): RInj
 
   protected abstract requestBodySchema(): Joi.ObjectSchema | null
   protected abstract requestQueryParamsSchema(): Joi.ObjectSchema | null

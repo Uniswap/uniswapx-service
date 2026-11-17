@@ -9,34 +9,26 @@ import { ChainId } from '../../../lib/util/chain'
 import { SDKDutchOrderFactory } from '../../factories/SDKDutchOrderV1Factory'
 import { SDKDutchOrderV2Factory } from '../../factories/SDKDutchOrderV2Factory'
 import { cosignOrder, signOrder } from '../../factories/SignedOrderFactory'
+import { FakeJsonRpcNode, REVERT_WITHOUT_DATA, RpcAnswer } from '../../fakes/json-rpc-node'
 import { TestWallets, Tokens, ZERO_SIGNATURE } from '../fixtures'
 
 const SOME_CONTRACT_CODE = '0x6080604052'
-const ethersError = (message: string, code: ethers.errors) => new ethers.utils.Logger('test').makeError(message, code)
 
-type CallRequest = Parameters<ethers.providers.Provider['call']>[0]
-
-class FakeProvider implements SignatureCheckProvider {
+// An account without code: the swapper check ecrecovers and asks nothing else.
+class EoaProvider implements SignatureCheckProvider {
   public readonly codeLookups: string[] = []
-  public readonly calls: CallRequest[] = []
-
-  constructor(private readonly code: string, private readonly callResult: string | Error = '0x') {}
 
   async getCode(address: string): Promise<string> {
     this.codeLookups.push(address)
-    return this.code
+    return '0x'
   }
 
-  async call(transaction: CallRequest): Promise<string> {
-    this.calls.push(transaction)
-    if (this.callResult instanceof Error) {
-      throw this.callResult
-    }
-    return this.callResult
+  async send(method: string): Promise<never> {
+    throw new Error(`unexpected ${method}`)
   }
 }
 
-const eoaProvider = () => new FakeProvider('0x')
+const eoaProvider = () => new EoaProvider()
 const encodeMagic = (value: string) => ethers.utils.defaultAbiCoder.encode(['bytes4'], [value])
 // the same r and s with v rewritten: ecrecover onchain yields address(0) for v outside 27/28
 const withV = (signature: string, v: number) =>
@@ -107,50 +99,86 @@ describe('OrderSignatureValidator', () => {
     })
   })
 
+  // A real provider against a local node, so results, reverts and failures reach the validator
+  // as they do in production.
   describe('contract-wallet swapper (ERC-1271)', () => {
-    it('asks the swapper contract about the Permit2 digest and accepts the magic value', async () => {
-      const provider = new FakeProvider(SOME_CONTRACT_CODE, encodeMagic(ERC1271_MAGIC_VALUE))
-      await expect(new OrderSignatureValidator(provider).validate(order, ZERO_SIGNATURE)).resolves.toBe(
-        OrderValidation.OK
-      )
+    let node: FakeJsonRpcNode
 
-      expect(provider.codeLookups).toEqual([swapper.address])
-      expect(provider.calls).toHaveLength(1)
-      expect(provider.calls[0].to).toEqual(swapper.address)
+    beforeEach(async () => {
+      node = new FakeJsonRpcNode(ChainId.MAINNET)
+      await node.start()
+      node.getCode = { result: SOME_CONTRACT_CODE }
+    })
+
+    afterEach(async () => {
+      await node.stop()
+    })
+
+    const validate = (swapperSignature: string) =>
+      new OrderSignatureValidator(node.provider()).validate(order, swapperSignature)
+
+    it('asks the swapper contract about the Permit2 digest and accepts the magic value', async () => {
+      node.ethCall = { result: encodeMagic(ERC1271_MAGIC_VALUE) }
+      await expect(validate(ZERO_SIGNATURE)).resolves.toBe(OrderValidation.OK)
+
+      expect(node.methods).toEqual(['eth_getCode', 'eth_call'])
+      expect(node.ethCalls).toHaveLength(1)
+      expect(node.ethCalls[0].to).toEqual(swapper.address)
+      expect(node.ethCalls[0].from).toBeUndefined()
       const erc1271 = new ethers.utils.Interface(['function isValidSignature(bytes32, bytes) view returns (bytes4)'])
-      const [digest, passedSignature] = erc1271.decodeFunctionData('isValidSignature', String(provider.calls[0].data))
+      const [digest, passedSignature] = erc1271.decodeFunctionData('isValidSignature', String(node.ethCalls[0].data))
       expect(passedSignature).toEqual(ZERO_SIGNATURE)
       // the digest is the one the swapper's EOA signature is over, i.e. what Permit2 hashes onchain
       expect(ethers.utils.recoverAddress(digest, signature)).toEqual(swapper.address)
     })
 
     it('rejects any other return value', async () => {
-      const provider = new FakeProvider(SOME_CONTRACT_CODE, encodeMagic('0xffffffff'))
-      await expect(new OrderSignatureValidator(provider).validate(order, signature)).resolves.toBe(
-        OrderValidation.InvalidSignature
-      )
+      node.ethCall = { result: encodeMagic('0xffffffff') }
+      await expect(validate(signature)).resolves.toBe(OrderValidation.InvalidSignature)
     })
 
     it('rejects when the contract reverts', async () => {
-      const provider = new FakeProvider(
-        SOME_CONTRACT_CODE,
-        ethersError('execution reverted', ethers.errors.CALL_EXCEPTION)
-      )
-      await expect(new OrderSignatureValidator(provider).validate(order, signature)).resolves.toBe(
-        OrderValidation.InvalidSignature
-      )
+      node.ethCall = REVERT_WITHOUT_DATA
+      await expect(validate(signature)).resolves.toBe(OrderValidation.InvalidSignature)
+    })
+
+    it('rejects a revert whatever data it carries, the magic value included', async () => {
+      for (const data of [encodeMagic(ERC1271_MAGIC_VALUE), encodeMagic('0xffffffff'), '0x']) {
+        node.ethCall = { error: { code: 3, message: 'execution reverted', data } }
+        await expect(validate(signature)).resolves.toBe(OrderValidation.InvalidSignature)
+      }
     })
 
     it('does not fall back to ecrecover for an account with code', async () => {
-      const provider = new FakeProvider(SOME_CONTRACT_CODE, '0x')
-      await expect(new OrderSignatureValidator(provider).validate(order, signature)).resolves.toBe(
-        OrderValidation.InvalidSignature
-      )
+      node.ethCall = { result: '0x' }
+      await expect(validate(signature)).resolves.toBe(OrderValidation.InvalidSignature)
     })
 
-    it('propagates an RPC failure instead of reporting the signature invalid', async () => {
-      const provider = new FakeProvider(SOME_CONTRACT_CODE, ethersError('timeout', ethers.errors.TIMEOUT))
-      await expect(new OrderSignatureValidator(provider).validate(order, signature)).rejects.toThrow('timeout')
+    it.each<[string, RpcAnswer]>([
+      ['a rate limit', { error: { code: -32005, message: 'rate limited' } }],
+      ['an internal error', { error: { code: -32603, message: 'internal error' } }],
+      ['an HTTP error', { httpStatus: 502 }],
+    ])('propagates an RPC failure instead of reporting the signature invalid: %s', async (_name, failure) => {
+      node.ethCall = failure
+      await expect(validate(signature)).rejects.toMatchObject({ code: ethers.errors.SERVER_ERROR })
+      expect(node.methods).toEqual(['eth_getCode', 'eth_call'])
+    })
+
+    it('propagates a call the node never answers', async () => {
+      node.ethCall = 'hang'
+      const provider = new ethers.providers.StaticJsonRpcProvider(
+        { url: node.provider().connection.url, timeout: 50 },
+        ChainId.MAINNET
+      )
+      await expect(new OrderSignatureValidator(provider).validate(order, signature)).rejects.toMatchObject({
+        code: ethers.errors.TIMEOUT,
+      })
+    })
+
+    it('propagates a failed code lookup', async () => {
+      node.getCode = { httpStatus: 502 }
+      await expect(validate(signature)).rejects.toMatchObject({ code: ethers.errors.SERVER_ERROR })
+      expect(node.methods).toEqual(['eth_getCode'])
     })
   })
 

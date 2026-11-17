@@ -205,7 +205,7 @@ describe.each(ROUTES)('$suite', ({ route, maxOpenOrders, orderType, post }) => {
       const postOrderResponse = await handle(request)
       expect(harness.repository.puts).toEqual([entity])
       expect(postOrderResponse).toEqual({
-        body: JSON.stringify({ detail: 'database unavailable', errorCode: ErrorCode.InternalError, id: 'testRequest' }),
+        body: JSON.stringify({ detail: 'Unexpected error', errorCode: ErrorCode.InternalError, id: 'testRequest' }),
         statusCode: HttpStatusCode.InternalServerError,
         headers: {
           'Access-Control-Allow-Credentials': true,

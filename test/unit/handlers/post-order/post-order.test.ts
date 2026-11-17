@@ -1,7 +1,7 @@
 import { CosignedV2DutchOrder, OrderType, OrderValidation, PermissionedTokenValidator } from '@uniswap/uniswapx-sdk'
 import { APIGatewayProxyEvent } from 'aws-lambda'
 import bunyan from 'bunyan'
-import { BigNumber } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import { toOrderEntity } from '../../../../lib/core/orders/storedRow'
 import { ErrorCode } from '../../../../lib/handlers/base'
 import { AVERAGE_BLOCK_TIME } from '../../../../lib/handlers/check-order-status/util'
@@ -373,6 +373,50 @@ describe('Testing post order handler.', () => {
         expect(loggedSignature()).toBe(false)
       }
     )
+
+    it('answers an unexpected error with a fixed 500 and logs it without the RPC URL or the request', async () => {
+      // What ethers throws when the node answers a request with a JSON-RPC error.
+      const providerError = new ethers.utils.Logger('test').makeError(
+        'processing response error',
+        ethers.errors.SERVER_ERROR,
+        {
+          error: Object.assign(new Error('rate limited'), { code: -32005 }),
+          requestBody: `{"method":"eth_call","params":[{"data":"${signature}"}]}`,
+          url: 'https://rpc.example/secret-key',
+        }
+      )
+      jest.spyOn(harness.onChainValidator, 'quote').mockRejectedValue(providerError)
+
+      const response = await handle(
+        PostOrderRequestFactory.request({
+          encodedOrder: buildV2Order().inner.serialize(),
+          orderType: OrderType.Dutch_V2,
+          signature,
+        })
+      )
+
+      expect(response.statusCode).toEqual(HttpStatusCode.InternalServerError)
+      expect(JSON.parse(response.body)).toEqual({
+        detail: 'Unexpected error',
+        errorCode: ErrorCode.InternalError,
+        id: 'testRequest',
+      })
+      expect(error.mock.calls).toEqual([
+        [
+          {
+            error: {
+              name: 'Error',
+              code: ethers.errors.SERVER_ERROR,
+              message: 'processing response error',
+              cause: { name: 'Error', code: -32005, message: 'rate limited', stack: expect.any(String) },
+            },
+          },
+          'Unexpected error posting order',
+        ],
+      ])
+      expect(JSON.stringify(error.mock.calls)).not.toContain('secret-key')
+      expect(loggedSignature()).toBe(false)
+    })
 
     it('logs a body that fails validation without the signature', async () => {
       const response = await handle(PostOrderRequestFactory.request({ chainId: 999, signature }))
