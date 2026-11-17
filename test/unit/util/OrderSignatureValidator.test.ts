@@ -2,6 +2,7 @@ import { CosignedV2DutchOrder, OrderValidation } from '@uniswap/uniswapx-sdk'
 import { ethers } from 'ethers'
 import {
   ERC1271_MAGIC_VALUE,
+  isNodeRevert,
   OrderSignatureValidator,
   SignatureCheckProvider,
 } from '../../../lib/util/OrderSignatureValidator'
@@ -173,6 +174,20 @@ describe('OrderSignatureValidator', () => {
       await expect(new OrderSignatureValidator(provider).validate(order, signature)).rejects.toMatchObject({
         code: ethers.errors.TIMEOUT,
       })
+    })
+
+    // ethers' own wording for a call it got no result for says "reverted" as well. It is ethers',
+    // not the node's, so on its own it is not a revert.
+    it("does not take ethers' own 'reverted' wording for the node's", () => {
+      const logger = new ethers.utils.Logger('test')
+      const callException = (cause: Error) =>
+        logger.makeError(
+          'missing revert data in call exception; Transaction reverted without a reason string',
+          ethers.errors.CALL_EXCEPTION,
+          { error: cause }
+        )
+      expect(isNodeRevert(callException(logger.makeError('timeout', ethers.errors.TIMEOUT)))).toBe(false)
+      expect(isNodeRevert(callException(Object.assign(new Error('execution reverted'), { code: -32000 })))).toBe(true)
     })
 
     it('propagates a failed code lookup', async () => {
