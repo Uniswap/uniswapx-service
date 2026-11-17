@@ -2,8 +2,13 @@ import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
 import { AddressInfo, Socket } from 'net'
 
-// How the node answers one request: a result, a JSON-RPC error, or never.
-export type RpcAnswer = { result: string } | { error: { code: number; message: string; data?: string } } | 'hang'
+// How the node answers one request: a result, a JSON-RPC error, a bare HTTP status as a proxy in
+// front of it sends when it fails, or never.
+export type RpcAnswer =
+  | { result: string }
+  | { error: { code: number; message: string; data?: string } }
+  | { httpStatus: number }
+  | 'hang'
 
 export type EthCallRequest = { from?: string; to?: string; data?: string }
 
@@ -49,6 +54,10 @@ export class FakeJsonRpcNode {
       const { id, method, params } = JSON.parse(body)
       const answer = this.answerFor(method, params)
       if (answer === 'hang') {
+        return
+      }
+      if ('httpStatus' in answer) {
+        res.writeHead(answer.httpStatus).end()
         return
       }
       res.writeHead(200, { 'Content-Type': 'application/json' })

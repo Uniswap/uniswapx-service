@@ -3,7 +3,7 @@ import { CosignedPriorityOrder, CosignedV2DutchOrder, CosignedV3DutchOrder, Dutc
 import { ethers } from 'ethers'
 import { ProviderMap } from '../handlers/shared'
 import { SWAPPER_SIGNATURE_PROBE_TIMEOUT_MS } from './constants'
-import { ERC1271_INTERFACE, isErc1271MagicValue } from './OrderSignatureValidator'
+import { ERC1271_INTERFACE, isErc1271MagicValue, isNodeRevert } from './OrderSignatureValidator'
 
 /**
  * What the swapper answered isValidSignature(digest, signature) with:
@@ -110,30 +110,13 @@ export class RpcSwapperSignatureProbe implements SwapperSignatureProbe {
   }
 }
 
-// How deep to follow an error's `error` causes; ethers nests two or three.
-const MAX_CAUSE_DEPTH = 5
-
 /**
- * ethers v5 throws CALL_EXCEPTION from eth_call whenever it finds no revert data, which covers
- * transport failures too: a timeout, a network error or a JSON-RPC error such as a rate limit is
- * wrapped as its `error` cause. Only a cause the node itself sent as a JSON-RPC error (numeric
- * code) saying the call reverted makes it a revert.
+ * ethers v5 throws CALL_EXCEPTION from provider.call whenever it finds no revert data, which
+ * covers transport failures too: a timeout, a network error or a JSON-RPC error such as a rate
+ * limit is wrapped as its `error` cause. Only a cause the node itself sent saying the call
+ * reverted makes it a revert.
  */
 function isRevertWithoutData(err: unknown): boolean {
-  if (field(err, 'code') !== ethers.errors.CALL_EXCEPTION) {
-    return false
-  }
-  let cause = field(err, 'error')
-  for (let depth = 0; depth < MAX_CAUSE_DEPTH && cause !== undefined; depth++) {
-    const message = field(cause, 'message')
-    if (typeof field(cause, 'code') === 'number' && typeof message === 'string' && /revert/i.test(message)) {
-      return true
-    }
-    cause = field(cause, 'error')
-  }
-  return false
-}
-
-function field(value: unknown, key: string): unknown {
-  return typeof value === 'object' && value !== null ? Reflect.get(value, key) : undefined
+  const code = typeof err === 'object' && err !== null ? Reflect.get(err, 'code') : undefined
+  return code === ethers.errors.CALL_EXCEPTION && isNodeRevert(err)
 }
