@@ -121,6 +121,39 @@ describe('LambdaStack', () => {
     })
   })
 
+  it.each([
+    ['GoudaService-SEV3-OrderNotificationDlq', 'orderNotificationDlq'],
+    ['GoudaService-SEV3-LimitOrderNotificationDlq', 'limitOrderNotificationDlq'],
+  ])('sends %s to Slack on the first record that lands in its queue', (alarmName, queueIdPrefix) => {
+    const template = buildTemplate(STAGE.PROD)
+    const alarm = Object.values(
+      template.findResources('AWS::CloudWatch::Alarm', { Properties: { AlarmName: alarmName } })
+    )
+    expect(alarm).toHaveLength(1)
+    expect(alarm[0].Properties).toMatchObject({
+      Namespace: 'AWS/SQS',
+      MetricName: 'NumberOfMessagesSent',
+      Statistic: 'Sum',
+      Period: 300,
+      Threshold: 1,
+      EvaluationPeriods: 1,
+      ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+      // An idle queue publishes no metrics; that is the healthy state.
+      TreatMissingData: 'notBreaching',
+      AlarmActions: [CHATBOT_ARN],
+    })
+    expect(alarm[0].Properties.OKActions).toBeUndefined()
+    // Each alarm watches its own queue, the one its table's stream fails into.
+    const queueId = alarm[0].Properties.Dimensions[0].Value['Fn::GetAtt'][0] as string
+    expect(alarm[0].Properties.Dimensions[0].Name).toEqual('QueueName')
+    expect(queueId.startsWith(queueIdPrefix)).toBe(true)
+    const mappings = Object.values(template.findResources('AWS::Lambda::EventSourceMapping'))
+    const mapping = mappings.find((m) => JSON.stringify(m.Properties.DestinationConfig).includes(queueId))
+    const source = JSON.stringify(mapping?.Properties.EventSourceArn)
+    expect(source).toContain('OrdersTable')
+    expect(source.includes('LimitOrdersTable')).toBe(queueIdPrefix.startsWith('limit'))
+  })
+
   describe('chain owner file', () => {
     const beta = buildTemplate(STAGE.BETA)
     const bucketRef = () => {

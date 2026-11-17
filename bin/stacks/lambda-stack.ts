@@ -216,7 +216,6 @@ export class LambdaStack extends cdk.NestedStack {
       parallelizationFactor: 10,
     }
 
-    // TODO: add alarms on the size of this dead letter queue
     const orderNotificationDlq = new Queue(this, 'orderNotificationDlq')
     const limitOrderNotificationDlq = new Queue(this, 'limitOrderNotificationDlq')
 
@@ -693,6 +692,32 @@ export class LambdaStack extends cdk.NestedStack {
       comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
     })
     notifier.notify(sev3ChainOwnersUnreadable)
+
+    // A record lands in a notification DLQ when the handler throws on it before or while sending:
+    // the stream row doesn't parse into an order (an order type or reactor the SDK doesn't know, for
+    // one), or the webhook list can't be read. The event sources don't retry, so that order
+    // change's webhooks were never sent and nothing else says so. Both queues took no messages in
+    // the two weeks to Nov 17, so one message is worth a look.
+    //
+    // Messages sent, not queue depth: a message sits in the queue for four days, so a depth alarm
+    // would stay in ALARM that long after one failure and say nothing about the next.
+    const notificationDlqs: [string, Queue, string][] = [
+      ['OrderNotificationDlq', orderNotificationDlq, 'Orders'],
+      ['LimitOrderNotificationDlq', limitOrderNotificationDlq, 'LimitOrders'],
+    ]
+    for (const [name, queue, table] of notificationDlqs) {
+      const sev3NotificationDlq = new Alarm(this, `${SERVICE_NAME}-SEV3-${name}`, {
+        alarmName: `${SERVICE_NAME}-SEV3-${name}`,
+        alarmDescription: `The order notification Lambda failed on a ${table} stream record, so that order change's webhooks were not sent. The record's stream position is in the ${name} queue; the error is in the Lambda's logs as "Unexpected failure in handler."`,
+        metric: queue.metricNumberOfMessagesSent({ statistic: 'sum', period: Duration.minutes(5) }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        // SQS stops publishing a queue's metrics once it has been idle for six hours.
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      })
+      notifier.notify(sev3NotificationDlq)
+    }
 
     // Heartbeat: no order tracker has started on any chain for an hour. The step function alarms
     // are failure-rate alarms with missing data ignored, so they stay OK when nothing starts at all,
