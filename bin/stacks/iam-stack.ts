@@ -3,7 +3,9 @@ import * as aws_dynamo from 'aws-cdk-lib/aws-dynamodb'
 import * as aws_iam from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
 import { CHAIN_OWNERS_KEY, chainOwnersBucketName } from '../../lib/chain-owners/location'
+import { BETA_WEBHOOK_CONFIG_KEY, PRODUCTION_WEBHOOK_CONFIG_KEY, WEBHOOK_CONFIG_BUCKET } from '../../lib/util/constants'
 import { STAGE } from '../../lib/util/stage'
+import { postedOrdersDirectStreamName } from './analytics-stack'
 
 /**
  * Backend monorepo accounts allowed to assume the cross-account roles, per gouda stage.
@@ -72,6 +74,28 @@ export const START_TRACKING_ACTIONS = ['states:StartExecution'] as const
 // write a status. Read only: the file is edited by hand, never by either service.
 export const OWNER_FILE_READ_ACTIONS = ['s3:GetObject'] as const
 
+// The ported post path sends legacy's immediate notice to an order's exclusive filler, so it reads
+// the same webhook list legacy's post Lambda reads. Read only, and the write role only: the list
+// carries the fillers' endpoints and their auth headers, and nothing reads it before a post.
+export const WEBHOOK_LIST_READ_ACTIONS = ['s3:GetObject'] as const
+
+// The ported post path puts each posted order's analytics record on the stream legacy's post
+// Lambdas put to (analytics-stack.ts). Firehose has no resource policies, so a cross-account write
+// needs a role in this account. The backend's analytics writer sends batches, hence both actions.
+export const POSTED_ORDERS_PUT_ACTIONS = ['firehose:PutRecord', 'firehose:PutRecordBatch'] as const
+
+/**
+ * The webhook list object a stage's post and notification Lambdas read (post-order/lambda.ts and
+ * order-notification/injector.ts build the same bucket and key). The bucket was made by hand, one
+ * per stage in that stage's account, so there is no construct to reference.
+ */
+export function webhookListLocation(stage: STAGE): { bucket: string; key: string } {
+  return {
+    bucket: `${WEBHOOK_CONFIG_BUCKET}-${stage}-1`,
+    key: stage === STAGE.BETA ? BETA_WEBHOOK_CONFIG_KEY : PRODUCTION_WEBHOOK_CONFIG_KEY,
+  }
+}
+
 export interface IamStackProps extends cdk.NestedStackProps {
   stage: STAGE
   ordersTable: aws_dynamo.ITable
@@ -84,12 +108,14 @@ export interface IamStackProps extends cdk.NestedStackProps {
 /**
  * Cross-account IAM roles for the UniswapX service being built in the backend monorepo
  * (ECO-861). Created for beta and prod only (see BACKEND_ACCOUNTS). Two roles, scoped to the
- * order service's three tables, its tracking state machines and the chain owner file:
+ * order service's three tables, its tracking state machines, the chain owner file, and for the
+ * write role the two other things a post touches (the webhook list and the posted-orders stream):
  *
  * - `uniswapx-shadow-read-<stage>`: read Orders, LimitOrders (with indexes and streams) and
  *   Nonces, and the owner file
  * - `uniswapx-orders-write-<stage>`: conditional writes to the three tables + the reads needed to
- *   make them, starting a tracking run, and the owner file
+ *   make them, starting a tracking run, the owner file, reading the webhook list, and putting
+ *   posted-order analytics records
  *
  * This arrangement is transitional: it exists so posting and status tracking can move to the
  * monorepo one chain at a time before the tables do. It goes away with the DynamoDB migration.
@@ -141,10 +167,26 @@ export class IamStack extends cdk.NestedStack {
       readOwnerFile(),
     ])
 
+    const webhookList = webhookListLocation(stage)
+    const postedOrdersStreamArn = cdk.Stack.of(this).formatArn({
+      service: 'firehose',
+      resource: 'deliverystream',
+      // Named, not referenced, as the post Lambdas' own grant is (lambda-stack.ts).
+      resourceName: postedOrdersDirectStreamName(stage),
+    })
+
     this.ordersWriteRole = this.createRole('OrdersWrite', stage, 'orders-write', accounts, [
       new aws_iam.PolicyStatement({ actions: [...ORDERS_WRITE_ACTIONS], resources: tableArns }),
       new aws_iam.PolicyStatement({ actions: [...START_TRACKING_ACTIONS], resources: trackingStateMachineArns }),
       readOwnerFile(),
+      new aws_iam.PolicyStatement({
+        sid: 'ReadWebhookList',
+        actions: [...WEBHOOK_LIST_READ_ACTIONS],
+        resources: [`arn:aws:s3:::${webhookList.bucket}/${webhookList.key}`],
+        // The bucket isn't created here, so pin the read to a bucket this account owns.
+        conditions: { StringEquals: { 's3:ResourceAccount': account } },
+      }),
+      new aws_iam.PolicyStatement({ actions: [...POSTED_ORDERS_PUT_ACTIONS], resources: [postedOrdersStreamArn] }),
     ])
 
     new cdk.CfnOutput(this, 'ShadowReadRoleArn', { value: this.shadowReadRole.roleArn })
